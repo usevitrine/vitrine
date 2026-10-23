@@ -5428,9 +5428,19 @@ test('details: pick several tags, then search all of them, any of them, add them
     await page.getByRole('button', { name: 'Details', exact: true }).click();
     return page.getByRole('region', { name: 'Tags' });
   };
+  // Pressing and holding a tag starts picking with it; taps pick more.
+  const hold = async (tag: ReturnType<typeof page.getByRole>) => {
+    await tag.waitFor();
+    await page.waitForTimeout(500); // (the panel settled: its tags loaded and drawn)
+    const b = (await tag.boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(650);
+    await page.mouse.up();
+  };
   const pick = async (tags: ReturnType<typeof page.getByRole>) => {
-    await tags.getByRole('button', { name: 'Pick several tags' }).click();
-    await tags.getByRole('button', { name: 'blue_sky', exact: true }).click();
+    await hold(tags.getByRole('button', { name: 'blue_sky', exact: true }));
+    await expect(page.getByRole('menu')).toHaveCount(0); // (the hold isn't also a tap: no tag menu)
     await tags.getByRole('button', { name: 'landscape', exact: true }).click();
     await expect(tags.getByText('2 picked')).toBeVisible();
     await expect(tags.getByRole('button', { name: 'blue_sky', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -5440,8 +5450,16 @@ test('details: pick several tags, then search all of them, any of them, add them
     await tags.getByRole('button', { name: 'Use the picked tags' }).click();
     await page.getByRole('menuitem', { name: item }).click();
   };
-  // The bar's × ends picking (the tags open their menus again).
+  // The bar's × ends picking (the tags open their menus again); so does unpicking the last one; a right-click starts it too.
   let tags = await openPanel('blue_sky');
+  await pick(tags);
+  await tags.getByRole('button', { name: 'landscape', exact: true }).click();
+  await tags.getByRole('button', { name: 'blue_sky', exact: true }).click();
+  await expect(tags.getByRole('toolbar', { name: 'Picked tags' })).toHaveCount(0);
+  await tags.getByRole('button', { name: 'landscape', exact: true }).click({ button: 'right' });
+  await expect(tags.getByText('1 picked')).toBeVisible();
+  await tags.getByRole('button', { name: 'Stop picking' }).click();
+  await expect(tags.getByRole('toolbar', { name: 'Picked tags' })).toHaveCount(0);
   await pick(tags);
   await tags.getByRole('button', { name: 'Stop picking' }).click();
   await expect(tags.getByRole('toolbar', { name: 'Picked tags' })).toHaveCount(0);

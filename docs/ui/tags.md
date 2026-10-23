@@ -57,7 +57,11 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   **Since 2026-10-23** (the user: the little dialogue "feels inconsistent with the rest of the site"): the bar is one
   row like the selection bar - "N picked", a **Use** button (`ActionMenu`: the usual menu, a sheet on phones - Search
   all of them, Search any of them, Add them to the search, Download all of them, Download any of them, Add them to the
-  blacklist) and × - instead of the grey box of button grids.
+  blacklist) and × - instead of the grey box of button grids. **Picking starts by pressing and holding a tag** (450
+  ms, a tick where the phone can; right-click with a mouse, the context-menu key on a keyboard - `lib/longPress`), the
+  user: "instead of the multi select button ... press and hold on a tag": the header's pick button is gone; the held
+  tag is the first picked, taps pick more, unpicking the last one ends picking (as does ×). The hold isn't also a tap
+  (no tag menu), and the phone's own long-press menu stays away.
 - **The download blacklist from the details (2026-10-23, the user: "quickly add tags to the blacklist in the details
   panel")**: a tag's menu has Add to blacklist (Remove from blacklist when it's on it); picked tags have Add them to
   the blacklist. A toast says so ("x won't be downloaded any more") with Undo; the list is read the first time a menu

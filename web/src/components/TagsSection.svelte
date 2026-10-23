@@ -2,7 +2,8 @@
   // The Tags section of the details panels (a library file's, a comic's): tags
   // grouped by namespace; a tap opens the tag's menu (search with it, exclude
   // it, download it, blacklist it, move it to another namespace, copy, remove); several can
-  // be picked at once and searched, downloaded or blacklisted together (the usual menu); the pencil edits
+  // be picked at once - press and hold one (right-click with a mouse) - and searched, downloaded or blacklisted
+  // together (the usual menu); the pencil edits
   // them (nothing is saved until the check), the arrows read them again from
   // the site. The panel loads the tags and says how to change them.
   import { onDestroy, untrack } from 'svelte';
@@ -11,6 +12,7 @@
   import { format, parse } from '../lib/query';
   import { toasts } from '../lib/toast.svelte';
   import { copyText } from '../lib/clipboard';
+  import { longPress } from '../lib/longPress';
   import { useScope } from '../lib/scope.svelte';
   import TagInput from './TagInput.svelte';
   import TagMenu from './TagMenu.svelte';
@@ -168,13 +170,22 @@
     onsearch(format(chips));
   }
 
-  // ---- Several tags at once: picked (a mode in the header), then searched for
+  // ---- Several tags at once: picked (pressing and holding one starts it), then searched for
   // all together, any of them (an OR group), added to the search, or downloaded
   // (the form writes each the site's way).
   let selecting = $state(false);
   let chosen = $state<string[]>([]);
   function toggleChosen(tag: string) {
     chosen = chosen.includes(tag) ? chosen.filter((x) => x !== tag) : [...chosen, tag];
+    if (!chosen.length) endSelecting(); // (the last one unpicked: done)
+  }
+  /** A tag held: picking starts with it (the user: "instead of the multi select button ... press and hold on a tag"). */
+  function holdTag(tag: string) {
+    if (editing) return;
+    if (selecting) return toggleChosen(tag);
+    picked = null;
+    selecting = true;
+    chosen = [tag];
   }
   function endSelecting() {
     selecting = false;
@@ -275,15 +286,6 @@
     {#if editing}
       <button class="icon head-btn save" onclick={() => saveEdits()} aria-label={t('details.saveTags')} title={changed ? t('details.saveChanges') : t('saved.done')}><Icon name="check" size={18} /></button>
     {:else}
-      {#if tags.length > 1}
-        <button
-          class="icon head-btn"
-          class:on={selecting}
-          aria-pressed={selecting}
-          onclick={() => (selecting ? endSelecting() : ((selecting = true), (picked = null)))}
-          aria-label={t('details.pick')}
-          title={selecting ? t('details.donePicking') : t('details.pickTitle')} transition:pop><Icon name="checks" size={18} /></button>
-      {/if}
       {#if !selecting && save}
         <button class="icon head-btn" onclick={startEditing} aria-label={t('details.editTags')} title={t('details.editTitle')} transition:pop><Icon name="pencil" size={17} /></button>
       {/if}
@@ -313,6 +315,7 @@
               aria-haspopup={selecting ? undefined : 'menu'}
               aria-expanded={selecting ? undefined : picked?.tag === tg.tag}
               aria-pressed={selecting ? chosen.includes(tg.tag) : undefined}
+              {@attach longPress(() => holdTag(tg.tag))}
               onclick={(e) => {
                 if (selecting) return toggleChosen(tg.tag);
                 // Desktop shortcuts: Ctrl/Cmd-click adds to the search, Alt-click excludes.
@@ -415,10 +418,6 @@
   }
   .head-btn.spinning :global(svg) {
     animation: spin 0.9s linear infinite;
-  }
-  .head-btn.on {
-    color: var(--mauve);
-    background: color-mix(in srgb, var(--mauve) 14%, transparent);
   }
   .pending {
     margin: 0;
@@ -525,6 +524,9 @@
     border-radius: 0;
   }
   .name {
+    -webkit-touch-callout: none; /* (held: picking, not the phone's own menu) */
+    -webkit-user-select: none;
+    user-select: none;
     min-width: 0;
     padding: 4px 4px 4px 12px;
     text-align: left;
