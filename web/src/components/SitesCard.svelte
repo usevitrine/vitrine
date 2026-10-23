@@ -419,7 +419,7 @@
       ><Icon name={adding ? 'close' : 'plus'} size={16} /> {adding ? t('sites.close') : t('sites.add')}</button>
   {/if}
   {#if adding}
-    <div class="adding" role="region" aria-label={t('sites.addRegion')} transition:slide={{ duration: ms(260), easing: cubicOut }}>
+    <div class="adding" role="region" aria-label={t('sites.addRegion')} transition:appear={{ duration: 260 }}>
       {#snippet adultSwitch()}
         <label class="chip adult" class:on={showAdult}>
           <input type="checkbox" bind:checked={showAdult} />
@@ -584,7 +584,7 @@
         </label>
       {/each}
       {#if loginTest}
-        <p class="result" class:ok={loginTest.ok} role="status" transition:slide={{ duration: ms(180), easing: cubicOut }}>
+        <p class="result" class:ok={loginTest.ok} role="status" transition:appear={{ duration: 180 }}>
           <Icon name={loginTest.ok ? 'check' : 'close'} size={16} />
           <span>{loginTest.message}{#if loginTest.detail}<span class="detail">{loginTest.detail}</span>{/if}</span>
         </p>

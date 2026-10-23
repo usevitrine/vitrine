@@ -2020,6 +2020,7 @@ test('details: a very long tag wraps inside the panel', async ({ page }, info) =
   expect(p!.x + p!.width).toBeLessThanOrEqual(b!.x + b!.width + 0.5);
   expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   await panel.getByRole('button', { name: 'Edit tags' }).click(); // the × shows while editing
+  await pill.scrollIntoViewIfNeeded(); // (phones: the sheet may hold the tags below what shows)
   await expect(pill.getByRole('button', { name: 'Remove ' + long })).toBeInViewport();
   expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   await panel.getByRole('button', { name: 'Save tags' }).click(); // nothing changed: just done

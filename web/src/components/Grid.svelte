@@ -218,7 +218,8 @@
     const top = Math.min(Math.max(cy - h / 2, M + inset), M + inset + H - h);
     restAt = { x, y };
     // From the grid's box into the list's (where the tile is placed).
-    const h0 = { i, id: f.id, x: p.x + left - tileLeft, y: p.y + top - tileTop, w, h, lead };
+    // (whole pixels, as the tiles: no snap as it lifts off or lands)
+    const h0 = { i, id: f.id, x: Math.round(p.x + left - tileLeft), y: Math.round(p.y + top - tileTop), w: Math.round(w), h: Math.round(h), lead };
     hover = h0;
     clearTimeout(openTimer);
     openTimer = window.setTimeout(() => {
@@ -340,10 +341,18 @@
   let shownFrom = $derived(layout ? (slots[0] ?? 0) : firstRow * cols - lead);
   let shownTo = $derived(layout ? (slots.length ? slots[slots.length - 1] + 1 : 0) : lastRow * cols - lead);
 
-  /** Where a slot's tile goes in the list. */
+  /** Where a slot's tile goes in the list - on whole pixels: the columns' width is the grid's divided up (237.33...
+   *  px), and a tile between pixels was snapped onto them the moment it zoomed (becoming a layer of its own): it
+   *  jumped up and to the left before growing (the user, more than once). Its edges are rounded, not its size, so the
+   *  gaps still add up and the last column still meets the edge. */
   function place(c: number): { x: number; y: number; w: number; h: number } {
-    if (layout && c < layout.y.length) return { x: side + layout.x[c], y: layout.y[c], w: layout.w[c], h: layout.h[c] };
-    return { x: side + (c % cols) * (size + GAP), y: Math.floor(c / cols) * rowH, w: size, h: size };
+    const r =
+      layout && c < layout.y.length
+        ? { x: side + layout.x[c], y: layout.y[c], w: layout.w[c], h: layout.h[c] }
+        : { x: side + (c % cols) * (size + GAP), y: Math.floor(c / cols) * rowH, w: size, h: size };
+    const x = Math.round(r.x);
+    const y = Math.round(r.y);
+    return { x, y, w: Math.round(r.x + r.w) - x, h: Math.round(r.y + r.h) - y };
   }
 
   // Masonry turned on: the search again, with the shapes (the tiles slide to their new places).

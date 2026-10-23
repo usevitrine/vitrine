@@ -3,7 +3,7 @@
   import { settingsSections, tagSections } from './lib/settingsSections';
   import { live } from './lib/live.svelte';
   import { onMount, untrack } from 'svelte';
-  import { fade, slide } from 'svelte/transition';
+  import { fade } from 'svelte/transition';
   import { reveal, pop, glide } from './lib/motion';
   import { api, setLoggedOutHandler, type Session, toPlainSignIn } from './lib/api';
   import { router, type Screen } from './lib/router.svelte';
@@ -339,7 +339,7 @@
             {/if}
           </div>
           {#if open}
-            <div class="subs" transition:slide|local={{ duration: 160 }}>
+            <div class="subs" transition:reveal={{ duration: 180 }}>
               {#each (tab.subs ?? []).filter((s) => (s.screen ?? tab.screen) !== (settings.mediaOff ? 'library' : '') && !(settings.comicsOff && (s.screen === 'comics' || s.screen === 'browse'))) as s (s.label)}
                 <!-- (a sub-entry may be another screen's page: Comics > Browse, Trash > Comics) -->
                 {@const own = s.screen}

@@ -140,18 +140,6 @@
       <dt>{t('details.dimensions')}</dt>
       <dd>{num(file.width)} × {num(file.height)}</dd>
     </div>
-    {#if file.duration_ms}
-      <div transition:reveal>
-        <dt>{t('filter.duration.label')}</dt>
-        <dd>{formatDuration(file.duration_ms)}{#if file.mime.startsWith('video/')}<span class="muted">{' · '}{file.has_audio ? t('details.sound') : t('details.silent')}</span>{/if}</dd>
-      </div>
-    {/if}
-    {#if file.posted_at}
-      <div transition:reveal>
-        <dt>{t('filter.uploaded.label')}</dt>
-        <dd title={fullDate(file.posted_at)}>{when(file.posted_at)}</dd>
-      </div>
-    {/if}
     <div>
       <dt>{t('filter.imported.label')}</dt>
       <dd title={fullDate(file.imported_at)}>{when(file.imported_at)}</dd>
@@ -164,19 +152,38 @@
         <button class="icon copy-id" aria-label={t('details.copyId')} title={t('tagMenu.copy')} onclick={() => copy(String(file.id), t('details.what.id'))}><Icon name="copy" size={15} /></button>
       </dd>
     </div>
-    {#if settings.came && file.came}
-      <div class="came-row wide" transition:reveal>
-        <dt>{t('rankings.title')}</dt>
-        <dd class="came-dd">
-          <span>{t('details.came.times', { n: file.came })}</span>
-          <span class="came-acts">
-            <button class="icon" aria-label={t('details.came.removeOne')} title={t('details.came.removeOne')} onclick={() => removeCame(false)}><Icon name="minus" size={16} /></button>
-            <button class="icon" aria-label={t('details.came.resetButton')} title={t('details.came.resetButton')} onclick={() => removeCame(true)}><Icon name="undo" size={16} /></button>
-          </span>
-        </dd>
-      </div>
-    {/if}
   </dl>
+
+  <!-- The facts only some files have, in a card of their own: the first card's facts always fill it the same way
+       (a fact coming or going there moved every one after it to the other column - it jumped). -->
+  {#if file.duration_ms || file.posted_at || (settings.came && file.came)}
+    <dl class="facts" transition:reveal>
+      {#if file.duration_ms}
+        <div transition:reveal>
+          <dt>{t('filter.duration.label')}</dt>
+          <dd>{formatDuration(file.duration_ms)}{#if file.mime.startsWith('video/')}<span class="muted">{' · '}{file.has_audio ? t('details.sound') : t('details.silent')}</span>{/if}</dd>
+        </div>
+      {/if}
+      {#if file.posted_at}
+        <div transition:reveal>
+          <dt>{t('filter.uploaded.label')}</dt>
+          <dd title={fullDate(file.posted_at)}>{when(file.posted_at)}</dd>
+        </div>
+      {/if}
+      {#if settings.came && file.came}
+        <div class="came-row wide" transition:reveal>
+          <dt>{t('rankings.title')}</dt>
+          <dd class="came-dd">
+            <span>{t('details.came.times', { n: file.came })}</span>
+            <span class="came-acts">
+              <button class="icon" aria-label={t('details.came.removeOne')} title={t('details.came.removeOne')} onclick={() => removeCame(false)}><Icon name="minus" size={16} /></button>
+              <button class="icon" aria-label={t('details.came.resetButton')} title={t('details.came.resetButton')} onclick={() => removeCame(true)}><Icon name="undo" size={16} /></button>
+            </span>
+          </dd>
+        </div>
+      {/if}
+    </dl>
+  {/if}
 
   {#if posts.length || downloadedBy.length}
     <section aria-label={t('details.from')} transition:reveal>

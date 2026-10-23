@@ -28,6 +28,15 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   (or keeps) its full width at once and what's beside it jumps; `nudge` slides its width open and shut as it grows
   and fades, so neighbors glide (a gap of its own goes in a slot that slides with it, as New download's Back). `pop`
   stays for what floats (badges on tiles, dots on buttons, spinners).
+- **A gap goes with what slides shut (2026-10-23, the user: the Sources header "jumps" as it goes - "make sure none of
+  these animation issues are anywhere else")**: reveal and nudge slide the gap beside the element away too (a negative
+  margin as it closes) - else the height closed but the gap went at once at the end. A flex box takes a negative
+  margin back; a grid doesn't (a track never goes below 0), so a single-column grid lays out as the same flex column
+  while something in it moves (its alignment carried over). Measured: the details' Tags glide 166 px with no step at
+  the end. The details' facts: the ones every file has in one card (fixed layout), the ones only some have (duration,
+  uploaded, came) in a second card that slides as a whole - in one two-column grid a fact coming or going moved all
+  the ones after it to the other column. Grid tiles sit on whole pixels (their edges rounded): one between pixels was
+  snapped onto them as its hover zoom began - a jump up and left (the user).
 - **Content that follows something else (the details as the viewer moves on)** isn't emptied while the next one
   loads: the old stays until the new arrives, then rows that match stay put and the others slide (`FilePanel`,
   `ComicPanel`: stale meanwhile - not pressable - and cleared after 250 ms if the answer is slow).
