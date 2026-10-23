@@ -17,3 +17,15 @@ services:
     restart: unless-stopped
     # Optional: send downloads through a VPN container instead, e.g. gluetun:
     #   network_mode: "service:gluetun"   (and publish 8080 on the gluetun service)
+
+  # Optional: FlareSolverr, for sites that show Cloudflare's "Checking your browser" page. In Vitrine set
+  # Settings > Sites > Cloudflare to http://flaresolverr:8191 (Test says whether it answers). It needs no port
+  # published: Vitrine reaches it on this compose file's network. Remove this service if no site needs it.
+  # (On a VPN, put it behind the same VPN as Vitrine - Cloudflare must see both coming from the same address -
+  # and use http://localhost:8191 instead.)
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=info
+    restart: unless-stopped
