@@ -16,7 +16,6 @@
   import SiteIcon from './SiteIcon.svelte';
   import { t, num } from '../lib/i18n.svelte';
   import { when, shortDate, fullDate, host } from '../lib/when';
-  import Stack from './Stack.svelte';
 
   let { file, onsearch }: { file: FileInfo; onsearch: (q: string) => void } = $props();
 
@@ -106,6 +105,9 @@
     return [...list].sort((a, b) => order.indexOf(host(a.url)) - order.indexOf(host(b.url)));
   });
   let sourcesOpen = $state(false);
+  // The first few shown, the rest a tap away (in the same rows as "Where it's from" - the user: its look and motion).
+  const FEW_SOURCES = 3;
+  const shownSources = $derived(sourcesOpen ? sources : sources.slice(0, FEW_SOURCES));
   /** A link's path, short ("/video/123/some-title"), for under its site. */
   const path = (u: string) => {
     try {
@@ -218,17 +220,24 @@
       <div class="head">
         <h3>{t('details.sources')}</h3>
       </div>
-      <!-- A stack like the Downloads page's: the first in front, the rest peeking out behind it (they fan out). -->
-      <Stack items={sources} key={(l) => l.url} bind:open={sourcesOpen} label={t('details.sourcesWhat')}>
-        {#snippet card(l: FileLink)}
-          <div class="row">
+      <ul class="rows">
+        {#each shownSources as l (l.url)}
+          <li class="row" animate:moved transition:reveal>
             <SiteIcon host={host(l.url)} />
             <span class="what"><span class="q">{host(l.url)}</span><span class="sub path" title={l.url}>{path(l.url)}</span></span>
             <a class="icon act" href={l.url} target="_blank" rel="noreferrer noopener" aria-label={t('details.openSource')} title={t('details.open')}><Icon name="external" size={17} /></a>
             <button class="icon act" aria-label={t('details.copySource')} title={t('details.copyLink')} onclick={() => copy(l.url, t('details.what.source'))}><Icon name="copy" size={17} /></button>
-          </div>
-        {/snippet}
-      </Stack>
+          </li>
+        {/each}
+        {#if sources.length > FEW_SOURCES}
+          <li transition:reveal>
+            <button class="row more" aria-expanded={sourcesOpen} onclick={() => (sourcesOpen = !sourcesOpen)}>
+              <span class="ic"><Icon name={sourcesOpen ? 'up' : 'more'} size={17} /></span>
+              <span class="what"><span class="q">{sourcesOpen ? t('details.fewerSources') : t('details.moreSources', { n: sources.length - FEW_SOURCES })}</span></span>
+            </button>
+          </li>
+        {/if}
+      </ul>
     </section>
   {/if}
 

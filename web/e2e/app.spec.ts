@@ -3187,7 +3187,7 @@ test('settings: FlareSolverr address - saved and checked, a clear error when it 
   expect((await page.evaluate(() => fetch('/api/flaresolverr').then((r) => r.json()))).url).toBe('');
 });
 
-test('details: many sources - their own section, one shown, the rest folded (grouped by site)', async ({ page }) => {
+test('details: many sources - their own section, the first few shown, the rest folded (grouped by site)', async ({ page }) => {
   await page.route('**/api/files/*/tags', async (route) => {
     const res = await route.fetch();
     const body = await res.json();
@@ -3205,19 +3205,19 @@ test('details: many sources - their own section, one shown, the rest folded (gro
   await page.getByRole('button', { name: 'Details' }).click();
   await expect(page.getByRole('region', { name: "Where it's from" }).getByRole('link', { name: 'Open the source' })).toHaveCount(0);
   const srcs = page.getByRole('region', { name: 'Sources' });
-  // Stacked: the first in front (the others behind it, hidden from the reader), "+3" unfolds them.
-  const front = srcs.locator('.item:not(.behind) .row');
-  await expect(front).toHaveCount(1);
-  await expect(front.locator('.q')).toHaveText('a.example.test');
-  await expect(front.locator('.path')).toHaveText('/video/1/some-title');
+  // The same rows as "Where it's from": the first three, then "1 more source" opens the rest (the same site's
+  // links together, in the order they came); Show fewer folds them again.
+  const rows = srcs.locator('li.row');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.first().locator('.q')).toHaveText('a.example.test');
+  await expect(rows.first().locator('.path')).toHaveText('/video/1/some-title');
   if (process.env.SHOTS) await srcs.screenshot({ path: process.env.SHOTS + '/sources-folded-' + test.info().project.name + '.png' });
-  await srcs.getByRole('button', { name: 'Show all 4 (sources)' }).click();
-  // The same site's links together, in the order they came.
-  await expect(srcs.locator('.item:not(.behind) .row .q')).toHaveText(['a.example.test', 'a.example.test', 'b.example.test', 'c.example.test']);
+  await srcs.getByRole('button', { name: '1 more source' }).click();
+  await expect(rows.locator('.q')).toHaveText(['a.example.test', 'a.example.test', 'b.example.test', 'c.example.test']);
   await page.waitForTimeout(500);
   if (process.env.SHOTS) await srcs.screenshot({ path: process.env.SHOTS + '/sources-' + test.info().project.name + '.png' });
-  await page.getByRole('button', { name: 'Show less' }).click();
-  await expect(srcs.locator('.item:not(.behind) .row')).toHaveCount(1);
+  await srcs.getByRole('button', { name: 'Show fewer' }).click();
+  await expect(rows).toHaveCount(3);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 

@@ -189,3 +189,7 @@ lays them out at the original size.
   is open (Grid `hideId`) - a swipe down fades the viewer and shows an empty place for the picture to shrink into
   (its thumbnail used to sit there already) - nor while it flies back on closing (`closingId`, until it lands). The
   comic reader does the same (its comic's tile hidden while it's open and as its cover lands).
+- **The details' Sources (2026-10-23)**: the same rows as "Where it's from" (lib/details.css `.rows`: one card, a
+  line between rows, the same background), grouped by site in the order they came; the first three shown, then
+  "N more sources" slides the rest open (Show fewer folds them). It was a Stack (stacked cards) before - its own
+  frame and background, and it measured itself only after appearing, so it didn't slide in with the panel (the user).

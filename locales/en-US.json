@@ -2010,7 +2010,6 @@
     "openSource": "Open the source",
     "copySource": "Copy the source link",
     "sources": "Sources",
-    "sourcesWhat": "sources",
     "subOn": "Subscription on {site}, {date}",
     "downloadOn": "Download on {site}, {date}",
     "openSubNamed": "Open the subscription {name}",
@@ -2049,7 +2048,12 @@
     },
     "unblacklisted": "{tag} can be downloaded again",
     "onBlacklist": "on the download blacklist ({entry})",
-    "tagOnBlacklist": "{tag}, on the download blacklist"
+    "tagOnBlacklist": "{tag}, on the download blacklist",
+    "moreSources": {
+      "one": "{n} more source",
+      "other": "{n} more sources"
+    },
+    "fewerSources": "Show fewer"
   },
   "viewer": {
     "countedFirst": "Counted · the first time for this one",
