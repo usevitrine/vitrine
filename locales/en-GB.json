@@ -1,0 +1,88 @@
+{
+  "_name": "English (UK)",
+  "filter": {
+    "favorite": {
+      "label": "Favourite"
+    },
+    "not_favorite": {
+      "label": "Not a favourite"
+    }
+  },
+  "sort": {
+    "favorite": {
+      "label": "Favourited"
+    }
+  },
+  "describe": {
+    "favorite": "favourite"
+  },
+  "fileMenu": {
+    "favorite": "Add to favourites",
+    "unfavorite": "Remove from favourites"
+  },
+  "notify": {
+    "removed": "{name} won't get notifications any more"
+  },
+  "backups": {
+    "restoreCanceled": "Restore cancelled: the library stays as it is"
+  },
+  "favorites": {
+    "added": "Added to favourites",
+    "removed": "Removed from favourites",
+    "addedN": {
+      "one": "Added {n} file to favourites",
+      "other": "Added {n} files to favourites"
+    },
+    "removedN": {
+      "one": "Removed {n} file from favourites",
+      "other": "Removed {n} files from favourites"
+    }
+  },
+  "selection": {
+    "short": {
+      "favorite": "Favourite",
+      "unfavorite": "Unfavourite"
+    },
+    "favorite": "Add selected to favourites",
+    "unfavorite": "Remove selected from favourites"
+  },
+  "stats": {
+    "favorites": "Favourites"
+  },
+  "settings": {
+    "favoritesSort": "Favourites sort"
+  },
+  "library": {
+    "favSearch": "Favourites tag search",
+    "noFavorites": "No favourites yet. Tap the heart on a file to add it."
+  },
+  "menu": {
+    "favorites": "Favourites"
+  },
+  "chipLabel": {
+    "notFavorite": "not a favourite"
+  },
+  "dupes": {
+    "variant": "The colours differ: maybe a variant rather than a copy."
+  },
+  "viewer": {
+    "favoriteKey": "Add to favourites (L)",
+    "unfavoriteKey": "Remove from favourites (L)"
+  },
+  "downloads": {
+    "favGoneBody": "No longer in your favourites on {site}. You can still undo it.",
+    "favGone": "{n} no longer in your favourites",
+    "myFavorites": "My favourites",
+    "myFavoritesTitle": "My favourites (fav:me)",
+    "addToFavs": "Add to my favourites"
+  },
+  "comics": {
+    "favSearch": "Search favourites",
+    "noFavorites": "No favourite comics yet. Add one from its menu, or select some and tap the heart."
+  },
+  "noticeKinds": {
+    "kinds": {
+      "favorites": "Favourites added or removed"
+    }
+  }
+}

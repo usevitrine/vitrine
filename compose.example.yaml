@@ -1,0 +1,19 @@
+# Example Docker Compose file for Vitrine. Copy it, adjust the paths, then:
+#   docker compose up -d
+# Open http://<host>:8080 and create your account (do this before exposing
+# Vitrine to the internet - the first visitor creates the account).
+services:
+  vitrine:
+    image: ghcr.io/usevitrine/vitrine:latest
+    container_name: vitrine
+    user: "1000:1000"          # owner of the folders below
+    ports:
+      - 8080:8080
+    environment:
+      - VITRINE_FILES_DIR=/files   # originals on big storage (omit to keep them in /data/files)
+    volumes:
+      - ./data:/data               # databases, thumbnails, plugins, secrets.toml - fast storage (SSD)
+      - ./files:/files             # original files - can be a big HDD
+    restart: unless-stopped
+    # Optional: send downloads through a VPN container instead, e.g. gluetun:
+    #   network_mode: "service:gluetun"   (and publish 8080 on the gluetun service)

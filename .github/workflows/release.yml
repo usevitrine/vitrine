@@ -1,0 +1,100 @@
+name: Release
+
+# A version tag (v1.2.3) builds the release: the program for every platform (with the web app built in), the
+# Docker image (amd64 + arm64) at ghcr.io/usevitrine/vitrine, and a GitHub release with the archives and checksums.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # the release
+  packages: write # the image
+
+jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Web app
+        working-directory: web
+        run: npm ci && npm run build
+      - name: Programs
+        env:
+          CGO_ENABLED: "0"
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64 darwin/amd64 darwin/arm64; do
+            os="${target%/*}"; arch="${target#*/}"
+            name="vitrine_${VERSION#v}_${os}_${arch}"
+            mkdir -p "build/$name"
+            exe=vitrine; [ "$os" = windows ] && exe=vitrine.exe
+            GOOS="$os" GOARCH="$arch" go build -trimpath -buildvcs=false -ldflags "-s -w -X main.version=$VERSION" -o "build/$name/$exe" ./cmd/vitrine
+            cp LICENSE README.md config.example.toml "build/$name/"
+            if [ "$os" = windows ]; then (cd build && zip -qr "../dist/$name.zip" "$name"); else tar -C build -czf "dist/$name.tar.gz" "$name"; fi
+          done
+          (cd dist && sha256sum * > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/usevitrine/vitrine
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=Vitrine
+            org.opencontainers.image.description=A fast, self-hosted media library with a built-in downloader and its own web app
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    needs: [binaries, image]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Vitrine ${TAG#v}" --generate-notes \
+            --notes "Docker: \`docker pull ghcr.io/usevitrine/vitrine:${TAG#v}\` (see compose.example.yaml). Programs for Linux, Windows and macOS below; SHA256SUMS to check them."

@@ -1,0 +1,55 @@
+# Vitrine configuration example.
+#
+# Vitrine looks for its config file in your OS's config directory:
+#   Linux:   ~/.config/vitrine/config.toml
+#   macOS:   ~/Library/Application Support/vitrine/config.toml
+#   Windows: %AppData%\vitrine\config.toml
+# or wherever VITRINE_CONFIG or the -config flag points.
+#
+# Every setting can also be given as an environment variable: VITRINE_ plus the
+# name in capitals, e.g. VITRINE_DATA_DIR. Environment variables win over this
+# file; command-line flags win over both.
+
+# Databases, thumbnails and video previews. Put this on fast storage (SSD).
+# Default: ~/.local/share/vitrine (Linux), ~/Library/Application Support/Vitrine
+# (macOS), %LocalAppData%\Vitrine (Windows).
+# data_dir = "/srv/vitrine/data"
+
+# Original files. Can be on big, slower storage (HDD).
+# Default: <data_dir>/files
+# files_dir = "/srv/vitrine/files"
+
+# Address the web server listens on.
+# listen = ":8080"
+
+# External tools. Empty = look them up on PATH. ffmpeg and ffprobe are needed
+# for thumbnails and video details; vipsthumbnail (libvips) is optional but
+# faster and lighter for images, especially huge ones.
+# ffmpeg = "/usr/bin/ffmpeg"
+# ffprobe = "/usr/bin/ffprobe"
+# vipsthumbnail = "/usr/bin/vipsthumbnail"
+
+# Phones view huge images as resized copies (a 100+ megapixel original can
+# crash Safari). They're cached in <data_dir>/renditions, regenerable; this
+# caps the cache, oldest first.
+# renditions_max_gb = 10
+
+# Backups of the library database (Settings > Backups, "vitrine backup"): tags,
+# subscriptions, settings and deletion records - a few MB, gzipped. Another
+# disk than data_dir is safer.
+# Default: <data_dir>/backups
+# backup_dir = "/srv/vitrine/backups"
+
+# The app's language where a browser's own languages have no language file
+# (each browser picks its own otherwise; Settings > Viewing can pick one for
+# every device). A file name from locales/, e.g. "en-GB". Push notifications
+# use it for devices that haven't said their language.
+# Default: en-US
+# language = "en-GB"
+
+# The running server's local socket: the vitrine command talks to it through
+# this file (vitrine status, queue, subs, logs, ...; see docs/cli.md) - no
+# login, only this machine and only users who can open the file. "off" turns
+# it off.
+# Default: <data_dir>/vitrine.sock
+# socket = "/run/vitrine/vitrine.sock"

@@ -1,0 +1,2378 @@
+{
+  "_name": "English (US)",
+  "_group": ",",
+  "push": {
+    "everything": "everything",
+    "on": "{query} on {site}",
+    "andMore": "and {n} more",
+    "newFiles": {
+      "one": "{n} new file",
+      "other": "{n} new files"
+    },
+    "fromOne": "from {what}",
+    "across": {
+      "one": "across {n} subscription: {list}",
+      "other": "across {n} subscriptions: {list}"
+    },
+    "count": "{query} ({count})",
+    "countNew": "{query} ({count} new)",
+    "downloadStopped": "Download stopped",
+    "checkFailed": "Subscription check failed",
+    "downloadsFailed": {
+      "one": "{n} download failed",
+      "other": "{n} downloads failed"
+    },
+    "blacklisted": {
+      "one": "A file got a blacklisted tag",
+      "other": "{n} files got blacklisted tags"
+    },
+    "blacklistedBody": "{tags} - in the library already, from a tag update",
+    "subsReady": {
+      "one": "Subscription ready",
+      "other": "{n} subscriptions ready"
+    },
+    "downloadsDone": {
+      "one": "Download finished",
+      "other": "{n} downloads finished"
+    },
+    "testTitle": "Notifications work",
+    "testBody": "This is how Vitrine tells you about new files.",
+    "device": {
+      "unknown": "a device",
+      "browser": "Browser",
+      "homeScreenApp": "Home-screen app",
+      "label": "{browser} on {device}"
+    },
+    "brave": "{error}. In Brave, turn on \"Use Google services for push messaging\" (brave://settings/privacy), then try again.",
+    "sitePaused": "{site} isn’t answering",
+    "sitePausedBody": "Its downloads wait - Vitrine tries again by itself ({error})",
+    "siteBack": "{site} answers again",
+    "siteBackBody": "Its downloads carry on"
+  },
+  "filter": {
+    "imported": {
+      "label": "Imported",
+      "hint": "Added to the library"
+    },
+    "uploaded": {
+      "label": "Uploaded",
+      "hint": "Posted on its site"
+    },
+    "modified": {
+      "label": "Modified",
+      "hint": "Tags last changed"
+    },
+    "type": {
+      "label": "Type",
+      "videos": "Videos",
+      "images": "Images"
+    },
+    "duration": {
+      "label": "Length"
+    },
+    "size": {
+      "label": "File size"
+    },
+    "width": {
+      "label": "Width"
+    },
+    "height": {
+      "label": "Height"
+    },
+    "has_audio": {
+      "label": "Has audio"
+    },
+    "no_audio": {
+      "label": "No audio"
+    },
+    "favorite": {
+      "label": "Favorite"
+    },
+    "not_favorite": {
+      "label": "Not a favorite"
+    },
+    "tags": {
+      "label": "Number of tags"
+    },
+    "rating": {
+      "label": "Rating",
+      "general": "General",
+      "sensitive": "Sensitive",
+      "questionable": "Questionable",
+      "explicit": "Explicit"
+    },
+    "site": {
+      "label": "Site"
+    },
+    "limit": {
+      "label": "Limit",
+      "hint": "First results only"
+    },
+    "group": {
+      "when": "When",
+      "file": "File",
+      "other": "Other",
+      "comic": "Comic"
+    },
+    "added": {
+      "label": "Added",
+      "hint": "Added to Comics"
+    },
+    "updated": {
+      "label": "Updated",
+      "hint": "Pages or tags last changed"
+    },
+    "pages": {
+      "label": "Number of pages"
+    },
+    "unread": {
+      "label": "Unread"
+    },
+    "reading": {
+      "label": "Reading"
+    },
+    "read": {
+      "label": "Read"
+    },
+    "category": {
+      "label": "Category"
+    },
+    "language": {
+      "label": "Language"
+    },
+    "stars": {
+      "label": "Rating"
+    },
+    "expunged": {
+      "label": "Expunged galleries too"
+    },
+    "torrent": {
+      "label": "Has a torrent"
+    }
+  },
+  "sort": {
+    "imported": {
+      "label": "Imported",
+      "desc": "Newest",
+      "asc": "Oldest"
+    },
+    "uploaded": {
+      "label": "Uploaded",
+      "desc": "Newest",
+      "asc": "Oldest"
+    },
+    "modified": {
+      "label": "Modified",
+      "desc": "Newest",
+      "asc": "Oldest"
+    },
+    "favorite": {
+      "label": "Favorited",
+      "desc": "Newest",
+      "asc": "Oldest"
+    },
+    "came": {
+      "label": "Times came",
+      "desc": "Most",
+      "asc": "Fewest"
+    },
+    "size": {
+      "label": "File size",
+      "desc": "Largest",
+      "asc": "Smallest"
+    },
+    "duration": {
+      "label": "Length",
+      "desc": "Longest",
+      "asc": "Shortest"
+    },
+    "width": {
+      "label": "Width",
+      "desc": "Widest",
+      "asc": "Narrowest"
+    },
+    "height": {
+      "label": "Height",
+      "desc": "Tallest",
+      "asc": "Shortest"
+    },
+    "tags": {
+      "label": "Number of tags",
+      "desc": "Most",
+      "asc": "Fewest"
+    },
+    "deleted": {
+      "label": "Deleted",
+      "desc": "Last deleted first",
+      "asc": "First deleted first"
+    },
+    "random": "Random",
+    "descending": "Descending",
+    "ascending": "Ascending",
+    "newestImported": "Newest imported",
+    "oldestImported": "Oldest imported",
+    "newestUploaded": "Newest uploaded",
+    "oldestUploaded": "Oldest uploaded",
+    "option": "{field} - {way} first",
+    "order": "Sort order",
+    "by": "Sort by",
+    "typed": "Sort: {sort}",
+    "typedAsc": "Sort: {sort} (ascending)",
+    "added": {
+      "label": "Added",
+      "desc": "Newest",
+      "asc": "Oldest"
+    },
+    "updated": {
+      "label": "Updated",
+      "desc": "Newest",
+      "asc": "Oldest"
+    },
+    "read": {
+      "label": "Last read",
+      "desc": "Most recent",
+      "asc": "Least recent"
+    },
+    "title": {
+      "label": "Title",
+      "desc": "Z to A",
+      "asc": "A to Z"
+    },
+    "pages": {
+      "label": "Number of pages",
+      "desc": "Most",
+      "asc": "Fewest"
+    },
+    "newestAdded": "Newest added",
+    "oldestAdded": "Oldest added"
+  },
+  "unit": {
+    "name": {
+      "s": "seconds",
+      "m": "minutes",
+      "h": "hours",
+      "d": "days",
+      "w": "weeks",
+      "mo": "months",
+      "y": "years"
+    },
+    "amount": {
+      "s": {
+        "one": "{n} second",
+        "other": "{n} seconds"
+      },
+      "m": {
+        "one": "{n} minute",
+        "other": "{n} minutes"
+      },
+      "h": {
+        "one": "{n} hour",
+        "other": "{n} hours"
+      },
+      "d": {
+        "one": "{n} day",
+        "other": "{n} days"
+      },
+      "w": {
+        "one": "{n} week",
+        "other": "{n} weeks"
+      },
+      "mo": {
+        "one": "{n} month",
+        "other": "{n} months"
+      },
+      "y": {
+        "one": "{n} year",
+        "other": "{n} years"
+      }
+    },
+    "size": {
+      "B": "{n} B",
+      "KB": "{x} KB",
+      "MB": "{x} MB",
+      "GB": "{x} GB",
+      "TB": "{x} TB"
+    }
+  },
+  "cmp": {
+    "shorter": "Shorter than",
+    "longer": "Longer than",
+    "smaller": "Smaller than",
+    "larger": "Larger than",
+    "fewer": "Fewer than",
+    "more": "More than",
+    "exactly": "Exactly",
+    "atLeast": "At least",
+    "atMost": "At most"
+  },
+  "describe": {
+    "hasAudio": "has audio",
+    "favorite": "favorite",
+    "imported": {
+      "last": "imported in the last {amount}",
+      "ago": "imported over {amount} ago",
+      "since": "imported since {date}",
+      "after": "imported after {date}",
+      "before": "imported before {date}",
+      "until": "imported until {date}",
+      "on": "imported on {date}",
+      "notOn": "imported not on {date}"
+    },
+    "uploaded": {
+      "last": "uploaded in the last {amount}",
+      "ago": "uploaded over {amount} ago",
+      "since": "uploaded since {date}",
+      "after": "uploaded after {date}",
+      "before": "uploaded before {date}",
+      "until": "uploaded until {date}",
+      "on": "uploaded on {date}",
+      "notOn": "uploaded not on {date}"
+    },
+    "modified": {
+      "last": "modified in the last {amount}",
+      "ago": "modified over {amount} ago",
+      "since": "modified since {date}",
+      "after": "modified after {date}",
+      "before": "modified before {date}",
+      "until": "modified until {date}",
+      "on": "modified on {date}",
+      "notOn": "modified not on {date}"
+    },
+    "shorter": "shorter than {x}",
+    "longer": "longer than {x}",
+    "length": "length {op} {x}",
+    "smaller": "smaller than {x}",
+    "larger": "larger than {x}",
+    "size": "size {op} {x}",
+    "width": "width {op} {x}",
+    "height": "height {op} {x}",
+    "fewerTags": {
+      "one": "fewer than {n} tag",
+      "other": "fewer than {n} tags"
+    },
+    "moreTags": {
+      "one": "more than {n} tag",
+      "other": "more than {n} tags"
+    },
+    "tags": {
+      "one": "{op} {n} tag",
+      "other": "{op} {n} tags"
+    },
+    "type": "{types}",
+    "notType": "not {types}",
+    "or": " or ",
+    "rated": "rated {rating}",
+    "notRated": "not {rating}",
+    "added": {
+      "last": "added in the last {amount}",
+      "ago": "added over {amount} ago",
+      "since": "added since {date}",
+      "after": "added after {date}",
+      "before": "added before {date}",
+      "until": "added until {date}",
+      "on": "added on {date}",
+      "notOn": "added not on {date}"
+    },
+    "updated": {
+      "last": "updated in the last {amount}",
+      "ago": "updated over {amount} ago",
+      "since": "updated since {date}",
+      "after": "updated after {date}",
+      "before": "updated before {date}",
+      "until": "updated until {date}",
+      "on": "updated on {date}",
+      "notOn": "updated not on {date}"
+    },
+    "fewerPages": {
+      "one": "fewer than {n} page",
+      "other": "fewer than {n} pages"
+    },
+    "morePages": {
+      "one": "more than {n} page",
+      "other": "more than {n} pages"
+    },
+    "pages": {
+      "one": "{op} {n} page",
+      "other": "{op} {n} pages"
+    },
+    "unread": "unread",
+    "reading": "reading",
+    "read": "read",
+    "stars": "{n}+ stars",
+    "expunged": "expunged too",
+    "torrent": "has a torrent",
+    "foundBy": "found by {name}",
+    "notFoundBy": "not found by {name}",
+    "aSubscription": "a subscription"
+  },
+  "common": {
+    "select": "Select",
+    "deselect": "Deselect",
+    "delete": "Delete",
+    "add": "Add",
+    "undo": "Undo",
+    "restored": "Restored",
+    "deleteN": "Delete {n}",
+    "deletedFiles": {
+      "one": "Deleted {n} file",
+      "other": "Deleted {n} files"
+    },
+    "cancel": "Cancel",
+    "copied": "Copied",
+    "orSep": " or ",
+    "files": {
+      "one": "{n} file",
+      "other": "{n} files"
+    },
+    "posOf": "{pos} of {total}",
+    "back": "Back",
+    "loading": "Loading…",
+    "tags": {
+      "one": "{n} tag",
+      "other": "{n} tags"
+    },
+    "moreFor": "More for {name}",
+    "more": "More",
+    "save": "Save"
+  },
+  "fileMenu": {
+    "view": "View",
+    "details": "Details",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "open": "Open"
+  },
+  "login": {
+    "setupHint": "Create your account. Passwords need 8+ characters.",
+    "name": "Name",
+    "password": "Password",
+    "showPassword": "Show the password",
+    "hidePassword": "Hide the password",
+    "create": "Create account",
+    "logIn": "Log in",
+    "forgot": "Forgot it? Run {command} on the server."
+  },
+  "install": {
+    "open": {
+      "desktop": "Open Vitrine from your apps.",
+      "ios": "Open Vitrine from your Home Screen.",
+      "android": "Open Vitrine from your Home screen."
+    },
+    "lead": {
+      "ios": "Add Vitrine to your Home Screen: it opens full screen like an app, and can send notifications.",
+      "android": "Add Vitrine to your Home screen: it opens full screen like an app.",
+      "desktop": "Install Vitrine as an app: it opens in its own window, with its own icon."
+    },
+    "step": {
+      "iosChromeShare": "Tap <b>Share</b> at the right of the address bar.",
+      "menuThenShare": "Tap the <b>menu</b>, then Share.",
+      "safariShare": "Tap <b>Share</b> in Safari's toolbar.",
+      "addToHomeScreen": "Tap <b>Add to Home Screen</b> (scroll the list if it's hidden).",
+      "menuBottom": "Tap the <b>menu</b> at the bottom.",
+      "samsungAdd": "Tap <b>Add page to</b>, then Home screen.",
+      "menuDots": "Tap the <b>menu</b> (three dots).",
+      "firefoxInstall": "Tap <b>Install</b> (or Add to Home screen).",
+      "operaAdd": "Tap <b>Add to</b>, then Home screen.",
+      "installApp": "Tap <b>Install app</b> (or Add to Home screen).",
+      "safariDock": "In the menu bar: <b>File > Add to Dock</b>.",
+      "edgeMenu": "Open the <b>menu</b> (three dots).",
+      "edgeInstall": "Choose <b>Apps > Install this site as an app</b>.",
+      "chromeIcon": "Click the <b>install icon</b> at the right of the address bar,",
+      "chromeMenu": "or open the menu: <b>Cast, save and share > Install page as app</b>."
+    },
+    "installed": "Vitrine is installed",
+    "installedHere": "Vitrine is installed on this device.",
+    "button": "Install Vitrine",
+    "firefoxDesktop": "Firefox doesn't install sites as apps on computers. Pin the tab, or open Vitrine in Chrome, Edge or Brave to install it."
+  },
+  "blacklist": {
+    "title": "Blacklist",
+    "hint": "Never downloaded. {star} matches anything ({example}).",
+    "addLabel": "Add to the blacklist",
+    "addPlaceholder": "Add tags…",
+    "remove": "Remove {tag} from the blacklist",
+    "empty": "Nothing blacklisted.",
+    "clean": "No files in the library have these tags.",
+    "matches": {
+      "one": "<b>{n}</b> file in the library has blacklisted tags",
+      "other": "<b>{n}</b> files in the library have blacklisted tags"
+    },
+    "show": "Show them",
+    "delete": "Delete them…",
+    "deleteTitle": {
+      "one": "Delete {n} file with blacklisted tags?",
+      "other": "Delete {n} files with blacklisted tags?"
+    },
+    "deleteBody": "They won't download again. You can still undo it.",
+    "common": "Common:"
+  },
+  "settings": {
+    "section": {
+      "library": {
+        "label": "Media",
+        "hint": "Default search and order, new files"
+      },
+      "sites": {
+        "label": "Sites",
+        "hint": "Where downloads come from, logins, plugins"
+      },
+      "rules": {
+        "label": "Download rules",
+        "hint": "Size limits, check depth"
+      },
+      "notifications": {
+        "label": "Notifications",
+        "hint": "New files, finished and failed downloads"
+      },
+      "viewing": {
+        "label": "Viewing",
+        "hint": "Videos, hover previews, grid tiles, language"
+      },
+      "device": {
+        "label": "This device",
+        "hint": "Install as an app, saved thumbnails"
+      },
+      "backups": {
+        "label": "Backups",
+        "hint": "Daily copies of the library database"
+      },
+      "stats": {
+        "label": "Stats",
+        "hint": "Library, downloads, storage, server"
+      },
+      "account": {
+        "label": "Account",
+        "hint": "Log out"
+      }
+    },
+    "title": "Settings",
+    "loggedInAs": "Logged in as {user}",
+    "loggedInAsBold": "Logged in as <b>{user}</b>",
+    "shared": "Shared by all your devices, unless it says \"this device\".",
+    "sortWay": "{way} first",
+    "newOrder": {
+      "label": "New files order",
+      "hint": "For the \"new\" pill's files.",
+      "imported": "Newest first",
+      "importedAsc": "Oldest first (catch up in order)",
+      "uploaded": "Newest uploaded first"
+    },
+    "language": {
+      "title": "Language",
+      "hint": "Every device. Automatic: each browser's language.",
+      "auto": "Automatic: {language}"
+    },
+    "defaultSearch": "Default search",
+    "defaultSearchHint": "When the app opens without one.",
+    "defaultSearchPlaceholder": "Tags or filters",
+    "defaultSort": "Default sort",
+    "favoritesSort": "Favorites sort",
+    "bulkNew": "Bulk downloads count as new",
+    "bulkNewHint": "One-off downloads, first checks and imports. Off: only regular checks.",
+    "tagsInUse": {
+      "one": "{n} tag in use",
+      "other": "{n} tags in use"
+    },
+    "rules": {
+      "video": "Skip videos larger than",
+      "videoLabel": "Skip videos larger than (MB)",
+      "noLimit": "No limit",
+      "image": "Skip images larger than",
+      "imageLabel": "Skip images larger than (megapixels)",
+      "megapixels": "megapixels",
+      "depthLabel": "Check depth (posts)",
+      "posts": "posts",
+      "depthHint": "Catches posts tagged after a check saw them"
+    },
+    "videos": {
+      "title": "Videos",
+      "muted": "Start videos muted",
+      "mutedHint": "Unmuting lasts for that video only.",
+      "came": "\"I came\" button",
+      "cameHint": "Counts in the viewer, with rankings in the menu.",
+      "hover": "Play videos on hover",
+      "hoverHint": "With a mouse: resting on a video plays it."
+    },
+    "grid": {
+      "title": "Grid",
+      "tiles": "Tiles",
+      "squares": "Squares",
+      "masonry": "Rows"
+    },
+    "thisDevice": "This device.",
+    "display": {
+      "title": "Display",
+      "top": "Top spacing",
+      "pt": "{n} pt",
+      "topHint": "Home-screen app: room under the status bar. This device."
+    },
+    "device": {
+      "app": "App",
+      "only": "This device only.",
+      "saved": "Saved on this device",
+      "thumbs": {
+        "one": "{n} thumbnail",
+        "other": "{n} thumbnails"
+      },
+      "inAll": "{size} in all",
+      "nothing": "Nothing yet",
+      "offline": "They show at once, even offline.",
+      "starting": "Saving starts after the next reload of the page.",
+      "notSaving": "Not saving here: the browser doesn't run Vitrine's background helper ({why}). In Brave, check that the site's Shields allow it, or that \"Forget me when I close this site\" is off.",
+      "clear": "Clear",
+      "screen": "Screen details (for troubleshooting)",
+      "homeScreenApp": "home-screen app",
+      "browser": "browser",
+      "refresh": "Refresh"
+    },
+    "trashDays": {
+      "label": "Empty the trash",
+      "hint": "Deleted files stay restorable until then.",
+      "never": "Never",
+      "after": {
+        "one": "After {n} day",
+        "other": "After {n} days"
+      }
+    },
+    "sfw": {
+      "title": "Content",
+      "label": "Safe for work",
+      "hint": "Nothing adult anywhere in the app."
+    },
+    "anonymous": {
+      "label": "Anonymous sign-in page",
+      "hint": "Signed out, a plain page with no name, logo or icon - nothing to look up."
+    },
+    "firstSteps": {
+      "title": "First steps",
+      "hint": "What you'll use, storage, sites, how it looks, the app, notifications, what never to download, a first download - and a short tour.",
+      "again": "Show them again"
+    },
+    "about": {
+      "title": "About",
+      "license": "Free software under the GNU Affero General Public License v3 or later.",
+      "source": "Source code",
+      "thirdParty": "Third-party licenses"
+    }
+  },
+  "tags": {
+    "section": {
+      "rules": {
+        "label": "Tag rules",
+        "hint": "Parents, siblings and the blacklist"
+      },
+      "all": {
+        "label": "All tags",
+        "hint": "Every tag and its count; rename, alias"
+      }
+    },
+    "title": "Tags",
+    "parents": {
+      "title": "Parents",
+      "hint": "Searching a parent finds files with any of its children.",
+      "childLabel": "Child tags",
+      "childPlaceholder": "Child tag(s)",
+      "parent": "Parent tag",
+      "addChildTo": "Add a child to {tag}",
+      "addChildren": "Add children…",
+      "remove": "Remove {tag} from {parent}",
+      "empty": "No parents yet."
+    },
+    "siblings": {
+      "title": "Siblings",
+      "hint": "Searching either finds files with both.",
+      "tag": "Tag",
+      "ideal": "Ideal tag",
+      "remove": "Remove sibling {tag}",
+      "empty": "No siblings yet."
+    }
+  },
+  "sections": {
+    "nav": "{title} sections"
+  },
+  "welcome": {
+    "copyFailed": "Couldn't copy - select the command instead",
+    "running": "Your first download is running - files appear here as they arrive.",
+    "seeProgress": "See progress",
+    "title": "Welcome to Vitrine",
+    "empty": "Your library is empty. Here's how to fill it.",
+    "download": {
+      "title": "Download from a site",
+      "body": "Search a site and bring its posts in. Choose how often to repeat it to subscribe: new posts then arrive by themselves.",
+      "button": "Start a download"
+    },
+    "sites": {
+      "title": "Add more sites",
+      "have": "Vitrine can download from {sites}.",
+      "body": "Install other sites in Settings, under Sites.",
+      "button": "Open Sites"
+    },
+    "import": {
+      "title": "Bring in files you have",
+      "body": "On the computer Vitrine runs on, copy a folder of pictures and videos into the library:",
+      "button": "Copy command"
+    },
+    "homeScreen": "On iPhone and iPad, tap <b>Share</b>, then <b>Add to Home Screen</b>: Vitrine opens full screen, like an app, and can send notifications."
+  },
+  "sitePicker": {
+    "from": "Where the tags came from",
+    "someTags": {
+      "one": "{count} of {n} tag",
+      "other": "{count} of {n} tags"
+    },
+    "others": "Other sites"
+  },
+  "notify": {
+    "status": {
+      "homeScreen": "Home Screen only",
+      "unavailable": "Not available",
+      "blocked": "Blocked",
+      "on": "On",
+      "off": "Off"
+    },
+    "sent": "Sent. It should appear in a few seconds.",
+    "removed": "{name} won't get notifications anymore",
+    "title": "Notifications",
+    "hint": "Even when the app is closed.",
+    "thisDevice": "This device",
+    "homeScreen": "On iPhone and iPad: <b>Share</b> → <b>Add to Home Screen</b>, then turn them on there.",
+    "unsupported": "This browser can't show notifications.",
+    "blocked": "Blocked - allow them in the browser's site settings (iPhone: Settings → Notifications).",
+    "checking": "Checking…",
+    "sending": "Sending…",
+    "test": "Send a test",
+    "turnOff": "Turn off",
+    "turningOn": "Turning on…",
+    "turnOn": "Turn on notifications",
+    "kinds": "Tell me about",
+    "new": {
+      "label": "New files from subscriptions",
+      "hint": "Once an hour, all together."
+    },
+    "done": {
+      "label": "Downloads that finish",
+      "hint": "Also a new subscription's first."
+    },
+    "failed": {
+      "label": "Problems",
+      "hint": "A check fails, or a download gives up."
+    },
+    "blacklisted": "Blacklisted tags in the library",
+    "others": "Other devices",
+    "added": "added {date}",
+    "stop": "Stop notifying {name}",
+    "stopThis": "Stop notifying this device"
+  },
+  "grid": {
+    "fastScroll": "Fast scroll",
+    "deleted": "Deleted",
+    "new": "NEW",
+    "making": "Making the thumbnail"
+  },
+  "tagInput": {
+    "label": "Tag",
+    "mark": "Mark {tag}",
+    "markTitle": "Mark it, then add the marked tags together. Keys: arrows, Space to mark, Enter for all of them, Shift+Enter for any of them",
+    "unmark": "Unmark {tag}"
+  },
+  "when": {
+    "todayAt": "Today at {time}",
+    "yesterdayAt": "Yesterday at {time}",
+    "dayAt": "{date} at {time}"
+  },
+  "backups": {
+    "title": "Backups",
+    "hint": "Tags, subscriptions and settings - not your files.",
+    "done": "Backed up ({size})",
+    "deleteTitle": "Delete the backup from {when}?",
+    "deleted": "Deleted the backup from {when}",
+    "restoreTitle": "Restore the library to {when}?",
+    "restoreBody": "Tags, subscriptions and settings changed since are lost.",
+    "restore": "Restore",
+    "restoreMenu": "Restore…",
+    "restoreFileTitle": "Restore the library from this file?",
+    "restoreFileBody": "Tags, subscriptions and settings changed since it was made are lost.",
+    "restoreCanceled": "Restore canceled: the library stays as it is",
+    "notBack": "Vitrine hasn't come back - start it again yourself (it isn't running under Docker or a service manager)",
+    "keepN": "Keep {n}",
+    "keepLabel": "How many backups to keep",
+    "keep": "Keep",
+    "pending": "<b>A restore is ready.</b> It replaces the library when Vitrine restarts (the current one is kept on the server as meta.db.before-restore).",
+    "restarting": "Restarting…",
+    "restartNow": "Restart now",
+    "cancelRestore": "Cancel restore",
+    "restartHint": "Starts again by itself under Docker or a service manager.",
+    "daily": "Back up every day",
+    "dailyHint": "One a day; the oldest go first.",
+    "making": "Backing up…",
+    "now": "Back up now",
+    "failed": "The last daily backup failed: {error}",
+    "newest": "newest",
+    "more": "More for the backup from {when}",
+    "download": "Download",
+    "empty": "No backups yet.",
+    "fromFile": "Restore from a file…",
+    "file": "Backup file",
+    "savedIn": "Saved in {dir}"
+  },
+  "tagMenu": {
+    "label": "{tag}: search, copy, remove",
+    "namespace": "Namespace",
+    "search": "Search",
+    "removeFromSearch": "Remove from search",
+    "addToSearch": "Add to search",
+    "includeAgain": "Include again",
+    "exclude": "Exclude from search",
+    "newSearch": "New search",
+    "newDownload": "New download",
+    "copy": "Copy",
+    "copyBare": "Copy without namespace",
+    "removeFromFile": "Remove from this file",
+    "removeFromComic": "Remove from this comic"
+  },
+  "tagBrowser": {
+    "all": "All",
+    "renamed": {
+      "one": "Renamed {from} to {to} on {n} file",
+      "other": "Renamed {from} to {to} on {n} files"
+    },
+    "aliased": "{from} now stands for {to}",
+    "hint": "Tap a tag to search; ⋯ to rename or alias it.",
+    "filter": "Filter tags",
+    "mostUsed": "Most used",
+    "az": "A–Z",
+    "order": "Tag order",
+    "searchFor": "Search for {tag}",
+    "rename": "Rename",
+    "renameMenu": "Rename…",
+    "siteTag": "site tag: alias it",
+    "alias": "Alias",
+    "aliasMenu": "Alias…",
+    "aliasHint": "stands for another tag",
+    "renameHint": "New name for <b>{tag}</b> (an existing tag merges).",
+    "aliasFormHint": "<b>{tag}</b> will stand for this tag.",
+    "newName": "New name",
+    "newNameExample": "new_name",
+    "idealExample": "ideal_tag",
+    "more": "Show more ({n} left)",
+    "noMatch": "No tags match.",
+    "none": "No tags yet."
+  },
+  "chip": {
+    "edit": "Edit search chip",
+    "excluded": "Excluded",
+    "anyOf": "Any of these",
+    "alternatives": {
+      "one": "{n} alternative - a file needs one of them",
+      "other": "{n} alternatives - a file needs one of them"
+    },
+    "or": "or",
+    "excludedTap": "Excluded: tap to include",
+    "includedTap": "Included: tap to exclude",
+    "excludedLabel": "Excluded: include it",
+    "includedLabel": "Included: exclude it",
+    "text": "Chip text",
+    "removeAlt": "Remove this alternative",
+    "addAlt": "Add alternative (OR)",
+    "split": "Split into chips"
+  },
+  "namespace": {
+    "general": "General",
+    "creator": "Creator",
+    "series": "Series",
+    "character": "Character",
+    "meta": "Meta",
+    "moved": {
+      "one": "{tag} is {ns} now ({n} file)",
+      "other": "{tag} is {ns} now ({n} files)"
+    }
+  },
+  "favorites": {
+    "added": "Added to favorites",
+    "removed": "Removed from favorites",
+    "addedN": {
+      "one": "Added {n} file to favorites",
+      "other": "Added {n} files to favorites"
+    },
+    "removedN": {
+      "one": "Removed {n} file from favorites",
+      "other": "Removed {n} files from favorites"
+    }
+  },
+  "copy": {
+    "failed": "Could not copy",
+    "copied": "Copied {what}"
+  },
+  "dupes": {
+    "level": {
+      "same": {
+        "label": "Same picture",
+        "meta": "another file of it"
+      },
+      "nearly": {
+        "label": "Nearly identical",
+        "meta": "resized or recompressed"
+      },
+      "very": {
+        "label": "Very similar",
+        "meta": "also small edits"
+      },
+      "similar": {
+        "label": "Similar",
+        "meta": "more pairs, more mistakes"
+      }
+    },
+    "keptBoth": "kept both",
+    "kept": "kept {keep}, deleted {drop}",
+    "fact": {
+      "size": "Size",
+      "file": "File",
+      "added": "Added"
+    },
+    "why": {
+      "bigger": "bigger picture",
+      "longer": "longer",
+      "quality": "better quality",
+      "tags": "more tags",
+      "first": "added first"
+    },
+    "undoWhat": "Undo: {what}",
+    "undoKey": "Undo: {what} (Z)",
+    "nothingToUndo": "Nothing to undo",
+    "suggested": "Suggested",
+    "toCheck": "{n} to check",
+    "howAlike": "How alike",
+    "showPairs": "Show pairs that are",
+    "looking": {
+      "one": "Looking for duplicates: {checked} of {n} file",
+      "other": "Looking for duplicates: {checked} of {n} files"
+    },
+    "nothingYet": "Nothing found yet",
+    "nothingYetHint": "Pairs show up as the library is checked.",
+    "none": "No duplicates to check",
+    "noneHint": "New downloads are checked as they arrive.",
+    "lessAlike": "Look for less alike pairs",
+    "switch": "Switch between A and B (Space)",
+    "tapToSwitch": "Tap to switch",
+    "pauseBoth": "Pause both",
+    "playBoth": "Play both",
+    "position": "Position (both videos)",
+    "variant": "The colors differ: maybe a variant rather than a copy.",
+    "same": "They look the same.",
+    "suggestKeep": "Suggested: keep {side} ({why}).",
+    "merge": "The kept file gets the other's tags and sources.",
+    "keepA": "Keep A",
+    "keepATitle": "Keep A, delete B (A)",
+    "keepBoth": "Keep both",
+    "keepBothTitle": "They're not duplicates (K)",
+    "keepB": "Keep B",
+    "keepBTitle": "Keep B, delete A (B)",
+    "howCompare": "How to compare",
+    "flip": "Flip",
+    "side": "Side by side",
+    "skipTitle": "Decide later (S)"
+  },
+  "offline": {
+    "automation": "browser automation",
+    "refused": "the browser refused it",
+    "noWorkers": "this browser has no service workers here (they need HTTPS)"
+  },
+  "report": {
+    "failed": "Could not make the report ({status})"
+  },
+  "rankings": {
+    "title": "I came",
+    "period": "Period",
+    "periods": {
+      "week": "Week",
+      "month": "Month",
+      "year": "Year",
+      "all": "All time"
+    },
+    "in": {
+      "week": "this week",
+      "month": "in the last 30 days",
+      "year": "in the last year",
+      "all": "in all"
+    },
+    "clearTitle": "Clear every count?",
+    "clearBody": "Every press, on every file. This can't be undone.",
+    "clearAll": "Clear all",
+    "cleared": "Cleared {n}",
+    "counting": "Counting…",
+    "none": "Nothing counted yet",
+    "noneHint": "Tap the drop in the viewer (or press C).",
+    "streak": {
+      "one": "day in a row",
+      "other": "days in a row"
+    },
+    "first": "the first",
+    "onDay": "<b>{n}</b> on {day}",
+    "perDay": "Per day",
+    "perDayYear": "Per day, the last year",
+    "files": "Files",
+    "pages": "Comic pages",
+    "pageN": "Page {page}",
+    "pageLabel": {
+      "one": "Number {rank}: {title}, page {page} - {n} time",
+      "other": "Number {rank}: {title}, page {page} - {n} times"
+    },
+    "seeAll": "See all",
+    "fileLabel": {
+      "one": "Number {rank}: {n} time",
+      "other": "Number {rank}: {n} times"
+    },
+    "group": {
+      "creators": "Creators",
+      "characters": "Characters",
+      "series": "Series",
+      "tags": "Tags"
+    }
+  },
+  "downloads": {
+    "searchOnSite": "Search on the site",
+    "subscribe": "Subscribe",
+    "subSort": {
+      "next": "Next check",
+      "new": "Most new last check",
+      "files": "Most files",
+      "checked": "Last checked",
+      "name": "Name"
+    },
+    "retry": "Retry",
+    "whereStopped": "where it stopped",
+    "resume": "Resume",
+    "skipCheck": "Skip this check",
+    "removeFromList": "Remove from the list",
+    "checking": "Checking \"{name}\" for new posts",
+    "paused": "Paused",
+    "resumed": "Resumed \"{name}\"",
+    "groupInterval": "Everything in \"{name}\" is now checked {every}",
+    "deleteGroupTitle": "Delete the group \"{name}\"?",
+    "deleteGroupBody": {
+      "one": "Its subscription stays, in no group.",
+      "other": "Its {n} subscriptions stay, in no group."
+    },
+    "deleteGroup": "Delete group",
+    "groupDeleted": "Deleted the group \"{name}\" (its subscriptions stay)",
+    "moved": "Moved \"{query}\" to \"{name}\"",
+    "noGroupNow": "\"{query}\" is in no group now",
+    "movedNew": "Moved \"{query}\" to the new group \"{name}\"",
+    "speed": "{size}/s",
+    "nameGroupFirst": "Name the new group first",
+    "subscribedIn": "Subscribed to \"{query}\" in \"{name}\": the first check starts now, then {every}",
+    "subscribed": "Subscribed to \"{query}\": the first check starts now, then {every}",
+    "downloading": "Downloading \"{query}\" from {site}",
+    "removed": "Removed \"{query}\" (its files stay in the library)",
+    "outcome": {
+      "downloaded": "Downloaded",
+      "already": "Already in the library",
+      "deleted": "Deleted before - not downloaded",
+      "skipped": "Gone from the site",
+      "blacklisted": "Blacklisted - not downloaded",
+      "too_big": "Over a download rule - not downloaded"
+    },
+    "postFailed": "Post {post} failed again",
+    "postFailedWhy": "Post {post} failed again: {error}",
+    "ago": {
+      "min": "{n} min ago",
+      "h": "{n} h ago",
+      "days": {
+        "one": "{n} day ago",
+        "other": "{n} days ago"
+      }
+    },
+    "retrying": {
+      "one": "Retrying {n} failed download",
+      "other": "Retrying {n} failed downloads"
+    },
+    "cleared": {
+      "one": "Cleared {n} finished download",
+      "other": "Cleared {n} finished downloads"
+    },
+    "once": "Once",
+    "every": {
+      "week": "every week",
+      "days": {
+        "one": "every day",
+        "other": "every {n} days"
+      },
+      "hours": {
+        "one": "every hour",
+        "other": "every {n} hours"
+      }
+    },
+    "span": {
+      "min": "{n} min",
+      "h": "{n} h",
+      "d": "{n} d"
+    },
+    "notChecked": "not checked yet",
+    "checkedAgo": "checked {span} ago",
+    "retryIn": "retry in {span}",
+    "nextSoon": "next check soon",
+    "nextIn": "next in {span}",
+    "checkOf": "the check of {query}",
+    "subscribedSearch": "Subscribed to \"{query}\": checks {every} for new posts",
+    "kept": {
+      "one": "Kept {n} file",
+      "other": "Kept {n} files"
+    },
+    "favGoneBody": "No longer in your favorites on {site}. You can still undo it.",
+    "unsubTitle": "Unsubscribe from \"{query}\"?",
+    "unsubBody": "Its files stay.",
+    "unsubscribe": "Unsubscribe",
+    "unsubscribed": "Unsubscribed from \"{query}\" (its files stay in the library)",
+    "interval": "\"{query}\" is now checked {every}",
+    "state": {
+      "queued": "Waiting",
+      "running": "Downloading",
+      "paused": "Paused",
+      "done": "Done",
+      "failed": "Failed",
+      "checking": "Checking",
+      "retrying": "Retrying"
+    },
+    "foldName": "Fold {name}",
+    "unfoldName": "Unfold {name}",
+    "offTitle": "Switched off in Settings > Sites: {what}",
+    "noEstimate": "Downloading (no estimate)",
+    "notStarted": "Not started",
+    "upTo": {
+      "one": "up to {n} file",
+      "other": "up to {n} files"
+    },
+    "speedTitle": "Download speed",
+    "stat": {
+      "ofPosts": {
+        "one": "of ~{n} post",
+        "other": "of ~{n} posts"
+      },
+      "posts": {
+        "one": "post",
+        "other": "posts"
+      },
+      "new": "new",
+      "had": "had",
+      "deletedBefore": "deleted before",
+      "blacklisted": "blacklisted",
+      "skipped": "skipped",
+      "failed": "failed",
+      "postsThisCheck": {
+        "one": "post this check",
+        "other": "posts this check"
+      },
+      "files": {
+        "one": "file",
+        "other": "files"
+      },
+      "newLastChecks": "new last checks",
+      "toRefresh": "to refresh",
+      "ofPages": {
+        "one": "of {n} page",
+        "other": "of {n} pages"
+      },
+      "ofGalleries": {
+        "one": "of ~{n} gallery",
+        "other": "of ~{n} galleries"
+      },
+      "galleries": {
+        "one": "gallery",
+        "other": "galleries"
+      },
+      "galleriesThisCheck": {
+        "one": "gallery this check",
+        "other": "galleries this check"
+      },
+      "comics": {
+        "one": "comic",
+        "other": "comics"
+      },
+      "pages": {
+        "one": "page",
+        "other": "pages"
+      },
+      "newPages": {
+        "one": "new page",
+        "other": "new pages"
+      },
+      "pageOf": "page {done} of {pages}",
+      "hadAll": "had it all"
+    },
+    "tryingNow": "Trying {site} again",
+    "tryingIn": "Trying again in {span}",
+    "attempt": "(attempt {n})",
+    "gaveUp": {
+      "one": "Stopped trying after {n} attempt - press Retry to try again",
+      "other": "Stopped trying after {n} attempts - press Retry to try again"
+    },
+    "moreForDownload": "More for the download {query}",
+    "favGone": "{n} no longer in your favorites",
+    "keep": "Keep",
+    "checkNow": "Check now",
+    "schedule": "Schedule",
+    "check": "Check",
+    "moveToGroup": "Move to group",
+    "noGroup": "No group",
+    "newGroup": "New group…",
+    "filesStay": "files stay",
+    "newGroupName": "Name of the new group",
+    "newGroupNameFor": "New group name for {query}",
+    "createMove": "Create and move",
+    "manageSites": "Manage sites",
+    "newHint": "Posts you have, deleted or blacklisted are skipped.",
+    "pickSite": "Pick a site",
+    "searchSite": "Search {site}, e.g. blue_sky -cloud",
+    "searchAny": "Search, e.g. blue_sky -cloud",
+    "myFavorites": "My favorites",
+    "myFavoritesTitle": "My favorites (fav:me)",
+    "files": "Files",
+    "firstCheck": "First check",
+    "all": "All",
+    "maxFiles": "Max files",
+    "maxFirst": "Max files on the first check",
+    "maxFilesTitle": "Stop once this many files are in the library (blacklisted or skipped posts do not count)",
+    "maxFirstTitle": "The first check stops once this many files are in the library (later checks get every new post)",
+    "repeat": "Repeat",
+    "group": "Group",
+    "addToGroup": "Add to group",
+    "newGroupExample": "Name of the new group, e.g. Artists",
+    "newGroupLabel": "New group name",
+    "addToFavs": "Add to my favorites",
+    "noteOnce": {
+      "one": "Stops once {n} file is in the library. Blacklisted and skipped posts do not count.",
+      "other": "Stops once {n} files are in the library. Blacklisted and skipped posts do not count."
+    },
+    "noteSub": "Checked {every} for new posts. The first check gets {first}",
+    "newestN": {
+      "one": "the newest {n} file",
+      "other": "the newest {n} files"
+    },
+    "everyPost": "every post",
+    "fromSite": "from {site}",
+    "queue": "Queue",
+    "queueHint": "One queue per site, top first. Drag to reorder.",
+    "queueWaits": "this queue waits",
+    "nothingWaiting": "Nothing waiting.",
+    "subsHint": "Searches checked again for new posts.",
+    "filterSubs": "Filter subscriptions",
+    "orderSubs": "Order subscriptions by",
+    "orderBy": "Order by",
+    "showing": "Showing {count} of {n}",
+    "noMatch": "No subscriptions match \"{filter}\"",
+    "notChecked2": "these aren't checked",
+    "groupLabel": "Group {name}",
+    "newNameFor": "New name for {name}",
+    "checkAllNow": "Check all now",
+    "resumeAll": "Resume all",
+    "pauseAll": "Pause all",
+    "scheduleAll": "Schedule for all",
+    "checkAll": "Check all",
+    "noSubs": "No subscriptions yet.",
+    "notInGroup": "Not in a group",
+    "refresh": {
+      "title": "Tag refresh",
+      "hint": "Sites keep editing tags: posts you have are read again now and then.",
+      "refreshing": "Refreshing",
+      "upToDate": "Up to date"
+    },
+    "finished": "Finished",
+    "retryFailed": "Retry failed",
+    "clearFinished": "Clear finished",
+    "noFinished": "No finished downloads.",
+    "failedFiles": "Failed files",
+    "failedFilesHint": "Posts whose file couldn't be downloaded.",
+    "retryAll": "Retry all",
+    "post": "Post {post}",
+    "retryPost": "Retry post {post}",
+    "openComics": "Open Comics",
+    "retriedPost": "Post {post}: {outcome}",
+    "retryingPosts": "Trying {n} failed files again",
+    "retryKind": "Retry",
+    "sizeOf": "{read} of {total}",
+    "inQueue": "{site} queue",
+    "finishedOn": "finished on {site}",
+    "allRetrying": "All of them are being tried again",
+    "pausedTitle": "It kept failing to answer: its downloads wait until it does",
+    "pausedLine": "isn't answering - its downloads wait. Trying again at {time}",
+    "tryNow": "Try now",
+    "pausedNotice": "{site} isn’t answering: its downloads are paused until it does ({error})",
+    "backNotice": "{site} answers again: its downloads carry on",
+    "history": "History",
+    "sum": {
+      "running": "running",
+      "waiting": "waiting",
+      "failed": {
+        "one": "failed file",
+        "other": "failed files"
+      },
+      "attention": {
+        "one": "subscription to look at",
+        "other": "subscriptions to look at"
+      },
+      "tagsDue": {
+        "one": "post to refresh",
+        "other": "posts to refresh"
+      },
+      "quiet": "Nothing going on"
+    },
+    "needsLook": "Needs a look",
+    "dismissed": {
+      "one": "Dismissed {n} failed file",
+      "other": "Dismissed {n} failed files"
+    },
+    "dismiss": "Dismiss",
+    "dismissAll": "Dismiss all",
+    "dismissTitle": "Take off the list (a later search can try it again)",
+    "dismissPost": "Dismiss post {post}",
+    "failedWhy": "Failed files: {reason}",
+    "reason": {
+      "notFound": "Not on the site any more",
+      "blocked": "Refused by the site",
+      "connection": "Connection problems",
+      "file": "Damaged or unreadable",
+      "other": "Other"
+    },
+    "reasonHint": {
+      "notFound": "The site deleted these posts or their files.",
+      "blocked": "A login, Cloudflare or too many requests. Trying again later often works.",
+      "connection": "The site or the network didn't answer in time. Trying again usually works.",
+      "file": "The file arrived broken or couldn't be read.",
+      "other": "Something else went wrong - each one says what."
+    },
+    "today": "Today",
+    "earlier": "Earlier",
+    "noneToday": "Nothing finished today.",
+    "health": {
+      "ok": "Working",
+      "failing": "Its checks fail",
+      "quiet": "Nothing new for months",
+      "paused": "Paused",
+      "checking": "Checking now"
+    },
+    "foundAgo": "found {span} ago",
+    "freshTitle": {
+      "one": "{n} new file since you last looked: show it",
+      "other": "{n} new files since you last looked: show them"
+    },
+    "newestFiles": "The newest files it found",
+    "openComic": "Open the comic",
+    "nextRing": "Next check: {when}"
+  },
+  "setup": {
+    "skipAll": "Skip setup",
+    "label": "Setup",
+    "stepOf": "Step {n} of {total}",
+    "title": {
+      "sections": "What will you use?",
+      "storage": "Storage",
+      "sites": "Sites",
+      "look": "How it looks",
+      "app": "Install the app",
+      "notify": "Notifications",
+      "rules": "Before downloading",
+      "library": "Start your library",
+      "done": "You're all set"
+    },
+    "sections": {
+      "lead": "Pick one or both. You can change it later in Settings > Viewing."
+    },
+    "storage": {
+      "lead": "Where Vitrine keeps your library, and the tools it uses.",
+      "failed": "Couldn't check: {error}",
+      "files": "Your files",
+      "free": "{free} free of {total}",
+      "filesLow": "Little room left: point the files folder at a bigger disk (the <c>-files-dir</c> option or <c>VITRINE_FILES_DIR</c>).",
+      "data": "Database and thumbnails",
+      "dataLow": "Little room left: a fast disk with a few GB free keeps it quick.",
+      "ffmpeg": "Video tool (ffmpeg)",
+      "found": "Found",
+      "noFfmpeg": "Not found: videos get no thumbnails or previews. Install ffmpeg (the Docker image has it), then restart Vitrine.",
+      "vips": "Image tool (libvips)",
+      "noVips": "Not found: images use ffmpeg instead (slower for very big ones). Optional.",
+      "backups": "A copy of the library database is made every day (Settings > Backups)."
+    },
+    "sites": {
+      "lead": "Add the sites you download from. A login is optional for most; you can add one later in Settings > Sites."
+    },
+    "notify": {
+      "homeScreen": "On iPhone and iPad, notifications work once Vitrine is on the Home Screen (the step before). You can turn them on later in Settings > Notifications.",
+      "lead": "Get told when new files arrive or a download fails - on each device you turn them on."
+    },
+    "library": {
+      "noSites": "Add a site first (the Sites step), then start your first download here.",
+      "lead": "Bring posts in from a site: search it for a tag, then download what it finds once, or subscribe to it.",
+      "onceTitle": "Once",
+      "onceHint": "All the posts it finds, or only the newest so many.",
+      "subTitle": "Subscribe",
+      "subHint": "Checks by itself as often as you like and brings only what's new.",
+      "start": "Start a download"
+    },
+    "done": {
+      "sub": "Your subscription's first check is running - files show up in the library as they arrive.",
+      "once": "Your first download is running - files show up in the library as they arrive.",
+      "ready": "Your library is ready.",
+      "backups": "Daily backups",
+      "backupsHint": "The library database is copied every day; restore one in Settings > Backups.",
+      "blacklistButton": "Open the blacklist",
+      "changeTitle": "Blacklist and download rules",
+      "changeHint": "Changed any time: the blacklist under Tags, the rules in Settings.",
+      "tourTitle": "A quick tour",
+      "tourHint": "A few hints show you around the library next."
+    },
+    "seeDownload": "See the download",
+    "openLibrary": "Open Media",
+    "skip": "Skip",
+    "continue": "Continue",
+    "look": {
+      "lead": "How the library shows your files. All of it can be changed later.",
+      "squares": "Tidy rows of equal tiles.",
+      "masonry": "Each file in its own shape.",
+      "later": "More in Settings > Viewing."
+    },
+    "rules": {
+      "lead": "What should never be downloaded - before your first download brings anything in.",
+      "limits": "Files over these sizes are skipped. Empty: no limit."
+    }
+  },
+  "selection": {
+    "short": {
+      "selectAll": "Select all",
+      "refresh": "Refresh",
+      "collection": "Collection",
+      "removeCollection": "Remove",
+      "read": "Read",
+      "unread": "Unread",
+      "favorite": "Favorite",
+      "unfavorite": "Unfavorite"
+    },
+    "addedTags": {
+      "one": "added {n} tag",
+      "other": "added {n} tags"
+    },
+    "removedTags": "removed {n}",
+    "saved": {
+      "one": "Saved for {n} file: {changes}",
+      "other": "Saved for {n} files: {changes}"
+    },
+    "deleteTitle": {
+      "one": "Delete this file?",
+      "other": "Delete {n} files?"
+    },
+    "deleteBody": "You can still undo it.",
+    "refreshing": {
+      "one": "Refreshing the tags of {n} post when its site is free (see Downloads)",
+      "other": "Refreshing the tags of {n} posts when their site is free (see Downloads)"
+    },
+    "noSite": "None of these files came from a site",
+    "label": "Selected files",
+    "editorLabel": "Tags of the selected files",
+    "tagsOf": {
+      "one": "Tags of {n} file",
+      "other": "Tags of {n} files"
+    },
+    "closeEditor": "Close the tag editor",
+    "closeTitle": "Close (changes not saved)",
+    "addLabel": "Add tags to the selected files",
+    "dontAddAll": "Don't add {tag} to all",
+    "addAll": {
+      "one": "Add {tag} to all {n} file",
+      "other": "Add {tag} to all {n} files"
+    },
+    "backToSome": "Back to only the files that have it",
+    "onSome": {
+      "one": "On {count} of {n} file - tap to add it to all",
+      "other": "On {count} of {n} files - tap to add it to all"
+    },
+    "all": "all",
+    "keep": "Keep {tag}",
+    "keepIt": "Keep it",
+    "removeFromAll": "Remove {tag} from all",
+    "removeTitle": "Remove from all the selected files",
+    "noTags": "These files have no tags yet.",
+    "toAdd": "{n} to add",
+    "toRemove": "{n} to remove",
+    "editorHint": "Tap × to remove a tag from all, + to give one to all",
+    "clear": "Clear selection",
+    "selected": "selected",
+    "refreshLabel": "Refresh tags of selected",
+    "refreshTitle": "Refresh tags from the sites",
+    "favorite": "Add selected to favorites",
+    "unfavorite": "Remove selected from favorites",
+    "delete": "Delete selected",
+    "selectAllLabel": "Select all"
+  },
+  "stats": {
+    "kind": {
+      "image": "Images",
+      "gif": "GIFs",
+      "video": "Videos"
+    },
+    "disk": {
+      "files": {
+        "label": "Originals disk",
+        "hint": "Original files"
+      },
+      "data": {
+        "label": "Data disk",
+        "hint": "Databases, thumbnails, previews"
+      },
+      "both": {
+        "label": "Disk",
+        "hint": "Everything"
+      }
+    },
+    "uptime": {
+      "label": "Running for",
+      "days": {
+        "one": "{n} day {h} h",
+        "other": "{n} days {h} h"
+      },
+      "hours": "{h} h {m} min",
+      "minutes": "{m} min"
+    },
+    "report": {
+      "what": "the report",
+      "title": "Problem report",
+      "hint": "The setup, counts and recent log, for a bug report - without tags, searches, links or site names.",
+      "hide": "Hide",
+      "show": "Show",
+      "label": "The problem report"
+    },
+    "tile": {
+      "files": {
+        "one": "file",
+        "other": "files"
+      },
+      "inAll": "in all",
+      "tags": {
+        "one": "tag in use",
+        "other": "tags in use"
+      }
+    },
+    "favorites": "Favorites",
+    "tagLinks": "Tag links",
+    "yours": "{n} yours",
+    "relations": "Parents · siblings",
+    "untagged": "Untagged files",
+    "trash": "Deleted, can be undone",
+    "removed": "Deleted for good",
+    "removedHint": "never downloaded again",
+    "imports": "Imports",
+    "lastDays": "<b>{n}</b> in the last {days} days",
+    "first": "first {date}",
+    "chart": "Files imported per day, last {days} days",
+    "today": "Today",
+    "downloads": "Downloads",
+    "postsSeen": {
+      "one": "post seen",
+      "other": "posts seen"
+    },
+    "nothingDownloaded": "Nothing downloaded yet.",
+    "subscriptions": "Subscriptions",
+    "paused": "{n} paused",
+    "failing": "{n} failing",
+    "storage": "Storage",
+    "freeOf": "free of {total}",
+    "used": "{disk} used",
+    "originals": "Originals",
+    "database": "Database",
+    "thumbnails": "Thumbnails",
+    "previews": "Previews",
+    "previewsHint": "made again when needed",
+    "server": "Server",
+    "version": "Version",
+    "memory": "Memory",
+    "inUse": "{size} in use",
+    "system": "System",
+    "cpus": {
+      "one": "{n} CPU",
+      "other": "{n} CPUs"
+    },
+    "notFound": "Not found",
+    "imagesUseFfmpeg": "images use ffmpeg",
+    "took": "Counted in {ms} ms."
+  },
+  "depth": {
+    "label": "Check depth",
+    "none": "None",
+    "posts": {
+      "one": "{n} post",
+      "other": "{n} posts"
+    },
+    "defaultNone": "Default (none)",
+    "defaultPosts": {
+      "one": "Default ({n} post)",
+      "other": "Default ({n} posts)"
+    }
+  },
+  "sites": {
+    "engine": {
+      "webPages": "{engine} (web pages)",
+      "other": "Other"
+    },
+    "usage": {
+      "subscriptions": {
+        "one": "{n} subscription",
+        "other": "{n} subscriptions"
+      },
+      "downloads": {
+        "one": "{n} download",
+        "other": "{n} downloads"
+      },
+      "and": " and "
+    },
+    "off": "{site} is off",
+    "offWaiting": "{site} is off: its {waiting} wait",
+    "on": "{site} is on again",
+    "builtInTitle": "Go back to the built-in {site}?",
+    "builtInBody": "Your installed version is deleted.",
+    "goBack": "Go back",
+    "removeTitle": "Remove {site}?",
+    "removeBuiltIn": "Its files and tags stay. Add it again from Add a site.",
+    "removeBody": "Its files, tags and login stay.",
+    "removeBodyWaiting": "Its files, tags and login stay; its {waiting} wait.",
+    "remove": "Remove",
+    "restored": "{site} is back to the built-in plugin",
+    "removed": "Removed {site}",
+    "installed": "Installed {site}",
+    "updated": "Updated {site} to {version}",
+    "updatedNew": "Updated {site} to the new version",
+    "tooBig": "That file is too big to be a plugin.",
+    "field": {
+      "username": "User name",
+      "password": "Password",
+      "api_key": "API key",
+      "user_id": "User ID",
+      "ipb_member_id": "ipb_member_id cookie",
+      "ipb_pass_hash": "ipb_pass_hash cookie"
+    },
+    "placeholder": {
+      "username": "Your user name",
+      "password": "Your password",
+      "paste": "Paste your {field}",
+      "replace": "Saved - type to replace",
+      "cookie": "Paste the cookie's value"
+    },
+    "status": {
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "needsAccount": "Needs an account",
+      "ready": "Ready"
+    },
+    "switchOn": "Switch on",
+    "switchOff": "Switch off",
+    "test": "Test connection",
+    "updateTo": "Update to {version}",
+    "changeCreds": "Change credentials",
+    "removeCreds": "Remove credentials",
+    "useBuiltIn": "Use the built-in version",
+    "removeSite": "Remove site",
+    "credsSaved": "Saved the {site} credentials",
+    "credsRemoved": "Removed the {site} credentials",
+    "removeLoginTitle": "Remove the {site} login?",
+    "removeLoginBody": "Its downloads stop until you add one.",
+    "hint": "Logins stay on the server.",
+    "none": "No site plugins installed.",
+    "builtIn": "built in",
+    "installedTag": "installed",
+    "tagTypes": "tag types",
+    "testing": "Testing…",
+    "available": "Version {version} is available.",
+    "availableHave": "Version {version} is available (you have {have}).",
+    "updateSite": "Update {site}",
+    "updating": "Updating…",
+    "credsSavedShort": "Credentials saved",
+    "savedField": "saved",
+    "fieldLabel": "{site} {field}",
+    "hideTyped": "Hide what I typed",
+    "showTyped": "Show what I typed",
+    "saving": "Saving…",
+    "close": "Close",
+    "add": "Add site",
+    "addRegion": "Add a site",
+    "showAdult": "Show adult sites (18+)",
+    "adult": "adult",
+    "installSite": "Install {site}",
+    "installing": "Installing…",
+    "install": "Install",
+    "listFailed": "The plugin list couldn't be read: {error}",
+    "allOthers": "Every other site in the plugin list is installed.",
+    "all": "Every site in the plugin list is installed.",
+    "fromFileHint": "Or install a plugin file (.yaml).",
+    "fromFile": "Install from file",
+    "pluginFile": "Plugin file",
+    "flare": {
+      "connected": "Connected to FlareSolverr {version}",
+      "address": "FlareSolverr address",
+      "test": "Test",
+      "notSet": "Not set up.",
+      "hint": "For sites that show a \"Checking your browser\" page. {link} must reach them from Vitrine's internet address (e.g. the same VPN)."
+    },
+    "pause": {
+      "title": "When a site stops answering",
+      "hint": "Its downloads wait, and carry on by themselves once it answers again.",
+      "after": {
+        "one": "Pause after {n} error",
+        "other": "Pause after {n} errors"
+      },
+      "never": "Never pause"
+    },
+    "order": {
+      "title": "Queue order",
+      "checksFirst": "Subscription checks first",
+      "checksFirstHint": "A check that comes up while a big download runs goes ahead of it. The download carries on afterwards from where it was."
+    }
+  },
+  "library": {
+    "markSeen": {
+      "one": "Mark the {n} new file as seen",
+      "other": "Mark the {n} new files as seen"
+    },
+    "markSeenTitle": "New since you last cleared them - tap to mark all as seen",
+    "new": "{n} new",
+    "searching": "Searching…",
+    "favSearch": "Favorites tag search",
+    "search": "Tag search",
+    "offline": "Offline · showing saved results",
+    "noMatch": "Nothing matches this search.",
+    "noFavorites": "No favorites yet. Tap the heart on a file to add it.",
+    "trashSearch": "Trash tag search",
+    "trashEmpty": "The trash is empty."
+  },
+  "appSections": {
+    "mediaHint": "Pictures, GIFs and videos.",
+    "comicsHint": "Comics and galleries, read page by page.",
+    "lastOn": "One of the two stays on.",
+    "offTitle": "Switch off {name}?",
+    "offBody": "Its {subs} subscriptions and {downloads} downloads are removed. Your files stay unless you delete them next.",
+    "off": "Switch off",
+    "deleteTitle": "Also delete everything in {name}?",
+    "deleteMediaBody": {
+      "one": "{n} file ({size}) is deleted for good. This can't be undone. Cancel keeps it.",
+      "other": "{n} files ({size}) are deleted for good. This can't be undone. Cancel keeps them."
+    },
+    "deleteComicsBody": {
+      "one": "{n} comic ({size}) is deleted for good. This can't be undone. Cancel keeps it.",
+      "other": "{n} comics ({size}) are deleted for good. This can't be undone. Cancel keeps them."
+    },
+    "deleteAll": "Delete everything",
+    "deleteWord": "delete all",
+    "offDone": "{name} is off. Switch it on again in Settings > Viewing.",
+    "offDeleting": "{name} is off - deleting its files (a notice says when it's done).",
+    "deletedMedia": {
+      "one": "Deleted {n} file for good",
+      "other": "Deleted {n} files for good"
+    },
+    "deletedComics": {
+      "one": "Deleted {n} comic for good",
+      "other": "Deleted {n} comics for good"
+    },
+    "deleteFailed": "Deleting failed: {error}"
+  },
+  "trash": {
+    "restore": "Restore",
+    "restored": {
+      "one": "Restored {n} file",
+      "other": "Restored {n} files"
+    },
+    "purge": "Delete forever",
+    "purgeTitle": {
+      "one": "Delete {n} file forever?",
+      "other": "Delete {n} files forever?"
+    },
+    "purgeBody": "This can't be undone.",
+    "purgeComicsTitle": {
+      "one": "Delete {n} comic forever?",
+      "other": "Delete {n} comics forever?"
+    },
+    "purgedComics": {
+      "one": "Deleted {n} comic forever",
+      "other": "Deleted {n} comics forever"
+    },
+    "restoredComics": {
+      "one": "Restored {n} comic",
+      "other": "Restored {n} comics"
+    },
+    "emptyComicsTitle": "Empty the comics trash?",
+    "emptyComicsBody": {
+      "one": "{n} comic ({size}) is deleted forever. This can't be undone.",
+      "other": "{n} comics ({size}) are deleted forever. This can't be undone."
+    },
+    "purged": {
+      "one": "Deleted {n} file forever",
+      "other": "Deleted {n} files forever"
+    },
+    "empty": "Empty trash",
+    "emptyTitle": "Empty the trash?",
+    "emptyBody": {
+      "one": "{n} file ({size}) is deleted forever. This can't be undone.",
+      "other": "{n} files ({size}) are deleted forever. This can't be undone."
+    },
+    "emptyWord": "delete",
+    "keep": "kept until you empty it",
+    "keepDays": {
+      "one": "kept {n} day",
+      "other": "kept {n} days"
+    }
+  },
+  "confirm": {
+    "typeToConfirm": "Type \"{word}\" to confirm"
+  },
+  "video": {
+    "position": "Position",
+    "play": "Play",
+    "pause": "Pause",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "volume": "Volume",
+    "loop": "Loop",
+    "speed": "Playback speed",
+    "exitFullscreen": "Exit full screen",
+    "fullscreen": "Full screen",
+    "exitFullscreenKey": "Exit full screen (F)",
+    "fullscreenKey": "Full screen (F)",
+    "controls": "Video controls",
+    "tapForSound": "Tap for sound"
+  },
+  "app": {
+    "unreachable": "Vitrine isn't reachable: {error}",
+    "newVersion": "A new version of Vitrine is ready",
+    "reload": "Reload"
+  },
+  "menu": {
+    "library": "Media",
+    "everything": "Everything",
+    "favorites": "Favorites",
+    "trash": "Trash",
+    "duplicates": "Duplicates",
+    "menu": "Menu",
+    "main": "Main",
+    "fold": "Fold",
+    "unfold": "Unfold"
+  },
+  "saved": {
+    "saved": "Saved \"{name}\"",
+    "updated": "\"{name}\" now searches the current search",
+    "deleted": "Deleted \"{name}\"",
+    "title": "Saved searches",
+    "done": "Done",
+    "edit": "Edit",
+    "isSaved": "This search is saved as <b>{name}</b>",
+    "nameLabel": "Name for the current search",
+    "reorder": "Reorder {name} (arrow keys move it)",
+    "dragToReorder": "Drag to reorder",
+    "nameOf": "Name of {name}",
+    "changedFrom": "Changed from <b>{name}</b>",
+    "update": "Update",
+    "saveNew": "Save as new",
+    "deleteLabel": "Delete {name}",
+    "newTitle": "New since you last opened it",
+    "groups": "Group tags",
+    "none": "No saved searches yet",
+    "noneSave": "Save this search to have it one tap away on every device.",
+    "noneSearch": "Search for something, then tap the star to save it. It will be one tap away on every device."
+  },
+  "searchBar": {
+    "or": "OR",
+    "clear": "Clear search",
+    "chipTitle": "{chip} - tap to edit",
+    "chipTitleDrag": "{chip} - tap to edit, drag onto another chip to make an OR group",
+    "removeChip": "Remove {chip} from the search",
+    "filters": "Filters",
+    "sortFilters": "Sort and filters",
+    "sortFiltersChanged": "Sort and filters (not the default order)",
+    "savedAs": "Saved searches (this one is saved as {name})",
+    "newFiles": ", new files",
+    "savedAsTitle": "Saved as \"{name}\""
+  },
+  "chipLabel": {
+    "from": "from {sites}",
+    "notFrom": "not from {sites}",
+    "noAudio": "no audio",
+    "notFavorite": "not a favorite",
+    "sort": "sort: {sort}",
+    "first": "first {n}",
+    "title": "“{words}”"
+  },
+  "filterMenu": {
+    "when": {
+      "last": "In the last",
+      "ago": "More than … ago",
+      "since": "Since a date",
+      "before": "Before a date",
+      "on": "On a date"
+    },
+    "default": "default",
+    "allSites": "All sites",
+    "nSites": {
+      "one": "{n} site",
+      "other": "{n} sites"
+    },
+    "filterLabel": "{filter} filter",
+    "sort": "Sort",
+    "from": "Show files from",
+    "fromShort": "From",
+    "fromLabel": "Show files from: {from}",
+    "backToMain": "Back to sort and filters",
+    "backToOrders": "Back to the orders",
+    "now": "Now",
+    "resetTitle": "Back to the default order (Settings)",
+    "reset": "Reset to default",
+    "sortBy": "Sort by: {field}",
+    "sortByWay": "Sort by: {field}, {way} first",
+    "all": "All filters",
+    "howMany": "How many",
+    "unit": "Unit",
+    "ago": "ago",
+    "date": "Date",
+    "comparison": "Comparison",
+    "value": "Value",
+    "tagsWord": "tags",
+    "pixels": "pixels",
+    "isOrNot": "Is or is not",
+    "is": "Is",
+    "isNot": "Is not",
+    "noSites": "No sites yet.",
+    "first": "First",
+    "howManyResults": "How many results",
+    "results": "results",
+    "add": "Add filter",
+    "pagesWord": "pages",
+    "noneYet": "None yet."
+  },
+  "details": {
+    "came": {
+      "reset": "Count reset",
+      "removedOne": "Removed one ({n} left)",
+      "removed": "Removed",
+      "times": {
+        "one": "{n} time",
+        "other": "{n} times"
+      },
+      "removeOne": "Remove one",
+      "resetButton": "Reset"
+    },
+    "added": "added {n}",
+    "tagsSaved": "Tags saved ({changes})",
+    "removedTag": "Removed {tag}",
+    "refreshed": "Tags refreshed from the site",
+    "gone": "The site no longer has this post (tags kept)",
+    "typeKind": "{type} {kind}",
+    "kind": {
+      "video": "video",
+      "animation": "animation",
+      "image": "image"
+    },
+    "dimensions": "Dimensions",
+    "sound": "sound",
+    "silent": "silent",
+    "fileId": "File ID",
+    "copyId": "Copy the file ID",
+    "what": {
+      "id": "the file ID",
+      "post": "the post page link",
+      "source": "the source link"
+    },
+    "from": "Where it's from",
+    "postPage": "Post page",
+    "openPost": "Open the post page",
+    "open": "Open",
+    "copyPost": "Copy the post page link",
+    "copyLink": "Copy link",
+    "openSource": "Open the source",
+    "copySource": "Copy the source link",
+    "sources": "Sources",
+    "sourcesWhat": "sources",
+    "subOn": "Subscription on {site}, {date}",
+    "downloadOn": "Download on {site}, {date}",
+    "openSubNamed": "Open the subscription {name}",
+    "openSub": "Open the subscription",
+    "refreshLabel": "Refresh tags from the site",
+    "refreshTitle": "Read this post's tags from the site again",
+    "saveTags": "Save tags",
+    "saveChanges": "Save the changes",
+    "pick": "Pick several tags",
+    "donePicking": "Done picking",
+    "pickTitle": "Pick several tags (search or download them together)",
+    "editTags": "Edit tags",
+    "editTitle": "Add or remove tags",
+    "addTags": "Add tags",
+    "pending": "{changes} - press ✓ to save",
+    "notSaved": "{tag} · not saved yet",
+    "tagFrom": "{tag} · from {from}",
+    "removeTag": "Remove {tag}",
+    "noTags": "No tags yet",
+    "picked": "Picked tags",
+    "nPicked": "{n} picked",
+    "tapToPick": "Tap tags to pick them",
+    "stopPicking": "Stop picking",
+    "searchAll": "Search all of them",
+    "searchAllTitle": "A new search: files with all of them",
+    "allOfThem": "All of them",
+    "searchAny": "Search any of them",
+    "searchAnyTitle": "A new search: files with any of them",
+    "anyOfThem": "Any of them",
+    "addThem": "Add them to the search",
+    "addThemTitle": "Add them to the current search",
+    "downloadAll": "Download all of them",
+    "downloadAllTitle": "A new download: posts with all of them",
+    "downloadAny": "Download any of them",
+    "downloadAnyTitle": "A new download: posts with any of them (the site's OR search)",
+    "refreshQueued": "Its site isn’t answering: the refresh is queued for when it does"
+  },
+  "viewer": {
+    "countedFirst": "Counted · the first time for this one",
+    "counted": "Counted · {n} times for this one",
+    "back10": "◂◂ 10 s",
+    "forward10": "10 s ▸▸",
+    "soundOff": "Sound off",
+    "soundOn": "Sound on",
+    "newTitle": "New since you last marked all as seen",
+    "percentTitle": "Shown at {n} % of its own size",
+    "percent": "{n} %",
+    "loading": "Loading the picture",
+    "favoriteKey": "Add to favorites (L)",
+    "unfavoriteKey": "Remove from favorites (L)",
+    "cameSoFar": "I came ({n} so far)",
+    "cameKey": "I came (C)",
+    "detailsKey": "Details (i)",
+    "previous": "Previous",
+    "next": "Next",
+    "deleteFile": "Delete file",
+    "deleteKey": "Delete (Del)",
+    "closeDetails": "Close details",
+    "closeKey": "Close (i)"
+  },
+  "comics": {
+    "title": "Comics",
+    "count": {
+      "one": "{n} comic",
+      "other": "{n} comics"
+    },
+    "searchPlaceholder": "Search by tag, or /title",
+    "pageOf": "Page {page} of {n}",
+    "pages": {
+      "one": "{n} page",
+      "other": "{n} pages"
+    },
+    "havePages": {
+      "one": "{have} of {n} page",
+      "other": "{have} of {n} pages"
+    },
+    "read": "Read",
+    "fromStart": "Read from the start",
+    "onSite": "Open on the site",
+    "deleteTitle": "Delete \"{title}\"?",
+    "deleteBody": "Its pages go with it. You can still undo it.",
+    "noMatch": "No comics match.",
+    "none": "No comics yet",
+    "noneHint": "Comics live here, apart from Media. Import a folder of pages or a .cbz on the server: <c>vitrine import-comic /path/to/folder</c>",
+    "imported": "Imported",
+    "deletedOne": "Deleted",
+    "deletedN": {
+      "one": "Deleted {n} comic",
+      "other": "Deleted {n} comics"
+    },
+    "deleteTitleN": {
+      "one": "Delete {n} comic?",
+      "other": "Delete {n} comics?"
+    },
+    "deleteBodyN": "Their pages go with them. You can still undo it.",
+    "refreshed": {
+      "one": "Read {n} comic from its site again",
+      "other": "Read {n} comics from their sites again"
+    },
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "markedRead": {
+      "one": "Marked {n} comic as read",
+      "other": "Marked {n} comics as read"
+    },
+    "markedUnread": {
+      "one": "Marked {n} comic as unread",
+      "other": "Marked {n} comics as unread"
+    },
+    "continueAt": "Continue at page {page}",
+    "everything": "All comics",
+    "favSearch": "Search favorites",
+    "noFavorites": "No favorite comics yet. Add one from its menu, or select some and tap the heart.",
+    "trashSearch": "Trash tag search",
+    "trashEmpty": "No comics in the trash.",
+    "again": "Download again",
+    "againTitle": "Download \"{title}\" again?",
+    "againBody": "Its pages are cleared and fetched again from the site - they count toward the site's image limit.",
+    "againStarted": "Downloading again - see Downloads",
+    "finished": "Finished",
+    "notStarted": "Not started",
+    "id": "Comic ID",
+    "copyId": "Copy the comic ID",
+    "galleryPage": "Gallery page",
+    "copyLink": "Copy the gallery link",
+    "againHint": "Its pages fetched again from the site",
+    "deleteLabel": "Delete this comic",
+    "what": {
+      "id": "the comic ID",
+      "link": "the gallery link"
+    },
+    "progress": "Progress",
+    "rename": "Rename",
+    "renamed": "Renamed",
+    "titleBack": "The site's title again",
+    "inProgress": "Reading",
+    "crop": {
+      "button": "Crop",
+      "title": "Crop the cover",
+      "hint": "Drag the frame to move it, a corner to resize it.",
+      "reset": "All of it",
+      "menu": "Crop cover"
+    },
+    "originalTitle": "Original title",
+    "titleLabel": "Title",
+    "markAs": "Mark as",
+    "state": {
+      "read": "Read",
+      "unread": "Unread",
+      "reading": "In progress"
+    }
+  },
+  "reader": {
+    "pages": "Pages {a}–{b} of {n}",
+    "noPages": "No pages downloaded yet.",
+    "pageAlt": "Page {n}",
+    "end": "End of {title}",
+    "backToShelf": "Back to Comics",
+    "again": "Read again",
+    "closeKey": "Close (Esc)",
+    "settings": "Reading",
+    "layout": "Layout",
+    "mode": {
+      "single": "One page",
+      "spread": "Two pages",
+      "scroll": "Scroll down"
+    },
+    "direction": "Direction",
+    "ltr": "Left to right",
+    "rtl": "Right to left",
+    "rtlManga": "Right to left (manga)",
+    "page": "Page",
+    "upNext": "Up next"
+  },
+  "comicSelection": {
+    "saved": {
+      "one": "Saved for {n} comic: {changes}",
+      "other": "Saved for {n} comics: {changes}"
+    },
+    "noSite": "None of these comics came from a site",
+    "label": "Selected comics",
+    "editorLabel": "Tags of the selected comics",
+    "tagsOf": {
+      "one": "Tags of {n} comic",
+      "other": "Tags of {n} comics"
+    },
+    "addLabel": "Add tags to the selected comics",
+    "addAll": {
+      "one": "Add {tag} to all {n} comic",
+      "other": "Add {tag} to all {n} comics"
+    },
+    "backToSome": "Back to only the comics that have it",
+    "onSome": {
+      "one": "On {count} of {n} comic - tap to add it to all",
+      "other": "On {count} of {n} comics - tap to add it to all"
+    },
+    "removeTitle": "Remove from all the selected comics",
+    "noTags": "These comics have no tags yet."
+  },
+  "stack": {
+    "showAll": "Show all {n} ({what})",
+    "showLess": "Show less"
+  },
+  "bell": {
+    "label": "Notifications",
+    "labelUnread": {
+      "one": "Notifications, {n} unread",
+      "other": "Notifications, {n} unread"
+    },
+    "clear": "Clear",
+    "empty": "No notifications",
+    "justNow": "Just now"
+  },
+  "collections": {
+    "addTo": "Add to collection",
+    "new": "New collection",
+    "newItem": "New collection…",
+    "name": "Name",
+    "namePlaceholder": "e.g. Some Series",
+    "create": "Create",
+    "created": {
+      "one": "Made the collection \"{name}\" with {n} comic",
+      "other": "Made the collection \"{name}\" with {n} comics"
+    },
+    "added": {
+      "one": "Added {n} comic to \"{name}\"",
+      "other": "Added {n} comics to \"{name}\""
+    },
+    "removed": {
+      "one": "Took {n} comic out of its collection",
+      "other": "Took {n} comics out of their collection"
+    },
+    "remove": "Remove from collection",
+    "rename": "Rename collection",
+    "renamed": "Renamed the collection to \"{name}\"",
+    "takeApart": "Take apart",
+    "takeApartHint": "Its comics stay, on their own again",
+    "takenApart": "Took \"{name}\" apart (its comics stay)",
+    "reorder": "Reorder",
+    "orderTitle": "Order of \"{name}\"",
+    "moveComic": "Move {title} (drag, or the arrow keys)",
+    "aToZ": "A to Z",
+    "ordered": "Saved the order of \"{name}\"",
+    "delete": "Delete collection",
+    "deleteHint": "Its comics too",
+    "deleteTitle": "Delete \"{name}\" and its comics?",
+    "deleteBody": {
+      "one": "Its {n} comic goes to the trash, with its pages. You can still undo it.",
+      "other": "Its {n} comics go to the trash, with their pages. You can still undo it."
+    },
+    "deleted": "Deleted \"{name}\" and its comics",
+    "count": {
+      "one": "{n} comic",
+      "other": "{n} comics"
+    },
+    "readOf": "{read} of {n} read",
+    "back": "Back to all comics",
+    "moreFor": "More for the collection {name}"
+  },
+  "noticeKinds": {
+    "title": "What goes where",
+    "hint": "For every device; the bell is shared by all of them. Ones with Undo or Reload, and errors, always show on screen too.",
+    "defaults": "Defaults",
+    "modes": {
+      "bell": "Bell",
+      "screen": "On screen",
+      "off": "Off"
+    },
+    "groups": {
+      "downloader": "Downloads (on their own)",
+      "library": "Media and viewer",
+      "comics": "Comics",
+      "downloads": "Downloads page",
+      "settings": "Settings",
+      "app": "App"
+    },
+    "kinds": {
+      "new": "New files from a subscription",
+      "done": "A download finished, or a first check",
+      "failed": "A check failed, or a download gave up",
+      "blacklisted": "A file got a blacklisted tag",
+      "paused": "A site isn’t answering",
+      "back": "A site answers again",
+      "deleted": "Deleted (files or comics) and restored",
+      "tags": "Tags saved or removed",
+      "favorites": "Favorites added or removed",
+      "came": "“I came” counted or reset",
+      "copied": "Copied",
+      "refreshed": "Tags or comics refreshed from their site",
+      "tagEdits": "Tags renamed, aliased or moved; rankings cleared",
+      "comicRead": "Comics marked read or unread",
+      "comicEdits": "Comics renamed, read again, downloading again",
+      "collections": "Collections changed",
+      "downloadsStarted": "Downloads started or removed, subscribed, unsubscribed",
+      "downloadsControl": "Paused, resumed, checking now, interval changed",
+      "groups": "Subscription groups changed",
+      "retrying": "Retrying failed downloads",
+      "retryResult": "The result of retrying a post",
+      "downloadsMisc": "Finished cleared, files kept, trying a site again",
+      "backups": "Backups",
+      "sites": "Sites and their credentials",
+      "savedSearches": "Saved searches",
+      "device": "This device: app installed, notifications off",
+      "update": "A new version is ready",
+      "errors": "Errors"
+    },
+    "withUndo": "With Undo",
+    "withReload": "With Reload"
+  },
+  "browse": {
+    "title": "Browse",
+    "noSites": "No gallery site to browse: add e-hentai or ExHentai in Settings > Sites.",
+    "searchOn": "Search {site}",
+    "found": "{n} galleries",
+    "one": "1 gallery",
+    "none": "No galleries match.",
+    "have": "In library",
+    "queued": "Downloading",
+    "read": "Read",
+    "thumbs": "Pages",
+    "page": "Page {n}",
+    "searchCategory": "Search this category",
+    "rating": "Rating",
+    "uploader": "Uploader",
+    "loadingMore": "Loading more galleries",
+    "sort": {
+      "newest": "Newest",
+      "popular": "Popular now",
+      "top-day": "Top yesterday",
+      "top-month": "Top this month",
+      "top-year": "Top this year",
+      "top-all": "Top of all time"
+    },
+    "sortHint": "Clears the search",
+    "siteLabel": "Site: {site}",
+    "selectHint": "Select galleries to download several at once",
+    "selected": "Selected galleries",
+    "downloadingMany": {
+      "one": "Downloading {n} gallery from {site}.",
+      "other": "Downloading {n} galleries from {site}."
+    },
+    "hadSome": {
+      "one": "{n} was in the library or downloading already.",
+      "other": "{n} were in the library or downloading already."
+    },
+    "prevThumbs": "Earlier pages",
+    "nextThumbs": "Later pages"
+  },
+  "newDl": {
+    "open": "New download",
+    "openTitle": "A new download: this search, or another, on a site",
+    "site": "Which site?",
+    "search": "Search {site}",
+    "how": "Download once or subscribe?",
+    "thisSearch": "This search",
+    "other": "Something else",
+    "otherHint": "A new search on a site",
+    "noSites": "No site to download from yet.",
+    "leftOut": "Left out (the site can’t search them): {what}",
+    "next": "Next",
+    "onceHint": "Everything the search finds now.",
+    "split": "{site} has no OR search: {n} searches, one for each combination.",
+    "searches": "{n} searches"
+  },
+  "tour": {
+    "of": "{n} of {total}",
+    "skip": "Skip tour",
+    "next": "Next",
+    "done": "Done",
+    "search": {
+      "title": "Search",
+      "text": "Type tags and a space: each becomes a chip - tap one to change it. Filters and the order are behind the filter button."
+    },
+    "download": {
+      "title": "Downloads",
+      "text": "Download from a site: a search once, or subscribe to it and get new posts by themselves."
+    },
+    "saved": {
+      "title": "Saved searches",
+      "text": "Save the search you have, or run one you saved - on every device."
+    },
+    "view": {
+      "title": "Viewing",
+      "touch": "Tap a file to see it. Swipe sideways for the next one, up for its details, down to close.",
+      "mouse": "Click a file to see it: the arrow keys go to the next one, I shows its details, Esc closes. Rest the mouse on a tile for a preview."
+    },
+    "menu": {
+      "title": "Everything else",
+      "text": "Downloads, comics, tags, the trash and settings are in the menu."
+    }
+  }
+}

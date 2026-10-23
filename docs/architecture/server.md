@@ -1,0 +1,128 @@
+# The server
+
+Implementation decisions of the Go server, the HTTP server and its API conventions, signed file links, screen-sized copies, the Docker image.
+
+## Implementation decisions (build step 1, 2026-10-14)
+Made while building items 1-3 of step 1 (repo skeleton, file store, metadata DB); review and change freely.
+- **Config**: TOML file (`github.com/BurntSushi/toml`; unknown keys are an error, so typos show up) + `VITRINE_*`
+  environment variables + command-line flags, in that order of priority. File location: the OS config dir
+  (`~/.config/vitrine/config.toml` etc.) or `VITRINE_CONFIG` / `-config`. Settings so far: `data_dir` (default: the
+  OS's app-data dir), `files_dir` (default `<data_dir>/files`), `listen` (default `:8080`). Example:
+  `config.example.toml`.
+- **Layout**: `cmd/vitrine` (one binary with subcommands: `import`, `config`, `version`; `serve` comes with the HTTP
+  server), `internal/config`, `internal/media` (file types), `internal/store` (originals), `internal/db` (meta.db +
+  migrations), `internal/library` (import = store + DB). The spike stays a separate module in `spike/`.
+- **File types** are a small integer (`media.Type`) stored in the DB and later the index; codes are fixed forever:
+  1 JPEG, 2 PNG, 3 GIF, 4 WebP, 5 AVIF, 6 MP4, 7 QuickTime, 8 WebM, 9 Matroska. Detected from the first 64 bytes only,
+  never from the file name. HEIC is refused (browsers can't show it). Animated vs static, dimensions, duration and
+  audio come later from libvips/ffprobe at import (one consistent probe step for all types).
+- **Store**: temp files in `<files_dir>/tmp` (same filesystem, so the rename is atomic), fsync, rename, then fsync the
+  directory (skipped on Windows, which can't sync directories). An existing file with the same hash is never touched.
+  Leftover temp files are deleted at start-up. Measured: ~450 MB/s per write including fsync.
+- **meta.db**: schema in `internal/db/migrations/NNNN_name.sql`, applied in order, version in `PRAGMA user_version`;
+  a database from a newer Vitrine is refused. All tables `STRICT`; times are Unix milliseconds (UTC). Two connection
+  pools: one writer connection (`BEGIN IMMEDIATE`) and up to 8 read-only connections. `files.id` uses
+  `AUTOINCREMENT` so IDs are never reused even if a row is deleted. Tag/URL origin is a `sites` row; site 0 =
+  `user`. Namespace 0 = no namespace. URL kinds: 1 post, 2 source, 3 file. A `meta` table holds a `generation`
+  counter (bumped on every library change; later checked against the index snapshot). Downloader tables come in a
+  later migration with the downloader.
+- **Import**: store first, then one transaction that checks tombstones and inserts the row (`ON CONFLICT DO NOTHING`,
+  so the same file twice keeps one ID). A tombstoned file is refused and a fresh copy removed from the store - also
+  for manual imports (an override can come later if wanted). Measured: ~2.5 ms per small file (mostly fsync).
+- **Not done yet**: the start-up sweep for originals without a DB row (crash between store and DB) - needs care
+  with ~90k files on an HDD; probably compare against a list kept by the importer rather than walking every folder.
+- **CI** (GitHub Actions): tests + vet + a short benchmark run on Linux (amd64, arm64), Windows and macOS; gofmt,
+  `go mod tidy` and race-detector checks; pure-Go builds for all six OS/arch targets.
+
+## HTTP server as built (step 1 item 6, 2026-10-14)
+- `vitrine serve` (`internal/server`, net/http): JSON API, originals at `/files/<sha256>.<ext>` (range requests via
+  `http.ServeContent`, `Cache-Control: private, max-age=1y, immutable`), thumbnails at `/thumbs/<id>.webp?v=<recipe>`
+  (immutable when the version matches), the embedded web page at `/`. Graceful shutdown on SIGINT/SIGTERM; no write
+  timeout (videos stream as long as they play); thumbnails for pending files are made in the background at start.
+- **Login** (`internal/auth`, migration `0002_auth`): one account today, tables keyed by user. First visit shows
+  "create your account" (refused once an account exists - set it up before exposing Vitrine); `vitrine passwd <name>`
+  sets/resets a password and ends all sessions. Passwords: argon2id (64 MiB, 3 passes, 4 lanes, PHC string).
+  Sessions: random 32-byte token in an HttpOnly, SameSite=Lax cookie (Secure when the request came over HTTPS,
+  directly or per `X-Forwarded-Proto`); only its SHA-256 is stored; expires after 180 days unused. Failed logins are
+  rate-limited globally (10 per minute) - no trust in proxy headers needed with one account.
+- **Cross-site protection**: changing requests must send JSON (plain forms can't, cross-site) and, if the browser sends
+  an `Origin`, it must match the host. Plus `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, and a
+  strict CSP on the web page (no inline scripts or styles; since 2026-10-23 also `object-src 'none'` and
+  `form-action 'self'`), and `Strict-Transport-Security` (a year) when the request came over HTTPS (directly or a proxy's
+  `X-Forwarded-Proto`) - the user approved it knowing a later plain-HTTP visit to the same address would be refused.
+  `TestSecurityHeaders`.
+- **Licenses (2026-10-23)**: `GET /licenses` (open, also in anonymous mode - outside `unlessAnonymous`): plain text -
+  Vitrine's version, copyright ("The Vitrine authors"), the AGPL notice and `SourceURL` (section 13: users over a
+  network can get the source), then the web app's bundled packages (Vite `build.license` -> `web/app/licenses.md`:
+  svelte, clsx) and the Go side (`internal/server/licenses/go.txt`, generated by `web/scripts/go-notices.mjs` =
+  `npm run notices`: Go's own license and every module `go list -deps ./cmd/vitrine` names, with all their
+  LICENSE*/NOTICE files, plus Feather's MIT notice - some icons are adapted from it). `TestLicenseNoticesCurrent`
+  fails when go.mod's direct requirements (path + version) aren't in it. Settings > Account > About shows the version,
+  the license, Source code and Third-party licenses. All dependencies are permissive (MIT, BSD-3, Apache-2.0):
+  compatible with AGPL-3.0.
+- **Final review (2026-10-23, before v1)**: govulncheck (0 vulnerabilities in reached code once built with Go 1.27.3 -
+  `toolchain go1.27.3` in go.mod, fetched by the go command itself; 11 were in 1.27.0's net/http, crypto/tls,
+  crypto/x509), staticcheck, deadcode, knip, jscpd, `npm audit` (no runtime dependencies at all). Found sound and left
+  as is: argon2id passwords, hashed session tokens, the dummy hash against name probing, the global login limit, the
+  JSON + Origin check, owner-only secrets and local socket, the favicon fetcher's public-addresses-only dialer, plugins
+  as data only. The web app's built files are gzipped once (best compression) and kept (`assetCache`: the 680 KB script
+  was compressed again on every first load); a server error's cause goes in the request's log line (`statusWriter.err`
+  - a bare "500" said nothing); a request the page called off is no "session check" error.
+- **API** (all JSON; `{error}` on failure): `GET /api/health` (open), `GET /api/session`, `POST /api/setup|login|logout`,
+  `GET /api/search?q=&limit=` (keeps the whole result server-side and returns `result` ID + first slice + `took_ms`),
+  `GET /api/results/{id}?offset=&limit=` (slices; 404 when evicted from the 32-entry LRU -> search again),
+  `GET /api/files?ids=` (up to 1000: type, size, dims, duration, audio, times, placeholder, url, thumb),
+  `GET /api/files/{id}/tags` (with origins), `POST /api/tags {ids, add, remove}`, `POST /api/delete {ids, reason}`,
+  `POST /api/undelete {ids}`, `GET /api/autocomplete?q=&limit=`, `GET|POST /api/relations` (`{kind: parent|sibling,
+  action: add|remove, from, to}`; loops -> 400), `GET /api/stats`.
+- **Test page** (`internal/server/web`, vanilla JS, ~300 lines, Catppuccin Mocha): login/setup, search with
+  autocomplete on the word being typed, an endless square-tile grid loading 200 results at a time with the 4x4
+  placeholder behind each thumbnail, a viewer (image/video, tags clickable). A stand-in until the Svelte client.
+- Checked in Chrome against a 34-file library: first page in ~35 ms in all; no console errors.
+
+## Local socket and the command line (2026-10-23)
+The user (to-do 100): "so you can fully interact with it and debug it through the command line - not only for you,
+but for users, so make sure it's all documented" - the guide is [docs/cli.md](../cli.md).
+- `vitrine serve` also serves the API on a Unix socket, config `socket` (`VITRINE_SOCKET`; default
+  `<data_dir>/vitrine.sock`, `off` turns it off; Go's AF_UNIX works on Windows 10+ too). `Server.Local()` marks its
+  requests; `requireLogin` lets them act as the account (`auth.Owner`: the first user; none yet -> 401 "no account
+  yet"). Trust = file access: owner-only (0600) on Linux/macOS, the data folder's permissions, same machine only (in
+  Docker: inside the container). A socket a running server answers on isn't taken over (two servers on one library);
+  a stale one (a crash) is replaced; it goes when the server stops.
+- The CLI (`cmd/vitrine/live.go`, `cmd_live.go`, `live_lib.go`) is a plain HTTP client over the socket: the same API
+  and JSON as the web app (the server's own Go types decode it). Live-only: `status`, `queue`, `subs`, `failed`,
+  `notices`, `logs`, `api`. `search`, `tag`, `blacklist`, `setting`, `sites`, `credentials` go through the
+  server when it runs (before, they wrote meta.db behind its back: its index and settings were stale until a restart)
+  and open the library themselves when it doesn't. Flags may follow the words (`parseMixed`: only the command's own
+  flags; a search's `-cloud` stays a word). Sites are plugin IDs passed to the server - none is built into the CLI.
+- `GET /api/logs?n=&after=&level=` - the log ring's records as JSON (not anonymized, unlike the problem report);
+  `after` lets `vitrine logs -f` follow along.
+- Tested by `TestLiveCommands` (a real `serve` in the test, the commands through its socket, then offline again).
+
+## Docker image as built (2026-10-14)
+- `Dockerfile`: build stage `golang:1.27-trixie` (pure Go, `CGO_ENABLED=0`, version via `--build-arg VERSION`), runtime
+  `debian:trixie-slim` + `ffmpeg` + `libvips-tools` (~630 MB; a slimmer image - e.g. static ffmpeg, vips without
+  the full toolset - is a later optimization). Runs as uid/gid 1000, `VITRINE_DATA_DIR=/data` (volume), listens on
+  `:8080`, `HEALTHCHECK` = `vitrine healthcheck` (GET /api/health on the local port), clean stop on SIGTERM.
+- `.dockerignore` keeps `.git`, personal notes, docs, the spike and local data out of the build.
+- `compose.example.yaml`: data in `./data`, originals in `./files` (`VITRINE_FILES_DIR=/files`), `user: 1000:1000`, an
+  optional VPN-container note. The multi-arch image on `ghcr.io/usevitrine/vitrine` comes with the GitHub setup.
+
+## Signed file links (2026-10-14)
+- File and thumbnail URLs from the API carry `?k=` = HMAC-SHA256(server media key, "file:" + SHA-256), first 18
+  bytes, base64url. `/files/...` and `/thumbs/...` accept a valid signature **or** a session cookie. Reason: a video
+  element's media loader may not send cookies (seen in Playwright's WebKit: `<video>` requests arrived without the
+  session cookie -> 401 -> "media error 4", while `fetch` and `<img>` sent it). iOS Safari plays video through its
+  own media stack, and iOS is first-class, so media must not depend on cookies (hydrus-web, which plays on
+  iPhones, also puts its key in the URL).
+- The media key is 32 random bytes in `meta` (`media_key`), made on first start. A link never expires (URLs are
+  cached for good), opens only its own file, and only the logged-in API hands links out. Changing the key (delete the
+  row, restart) invalidates every link.
+- Debug logging: `VITRINE_LOG_LEVEL=debug` logs every request (method, path, range, status, time).
+
+### Screen-sized copies made ahead (2026-10-16)
+The viewer asks for `?size=<screen>&for=screen`; the server remembers those sizes (renditions dir,
+`screen-sizes.json`, forgotten after 30 days unused) and every 10 minutes makes the missing copies at them for
+still images bigger than that, newest first, one at a time (`RunRenditionsAhead`). It stops at 80% of
+`renditions_max_gb`, so copies made ahead never push out viewed ones. Zoom requests (no `for=screen`) don't count.
+About 0.6 MB per copy (WebP).

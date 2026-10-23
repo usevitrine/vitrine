@@ -1,0 +1,143 @@
+/* The details panels' body (a library file's: FilePanel; a comic's:
+   ComicPanel) - one look for both: a facts card, rows of links, sections
+   with small uppercase headings. The Tags section brings its own
+   (TagsSection). */
+.details {
+  display: grid;
+  gap: 22px;
+  align-content: start;
+}
+.details section {
+  display: grid;
+  gap: 10px;
+}
+.details .head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+.details h3 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--font-small);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--subtext);
+}
+
+/* The facts: label above value, two to a row. */
+.details .facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface0); /* the 1px gaps become hairlines */
+  border: 1px solid var(--surface0);
+}
+.details .facts > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--base);
+  min-width: 0;
+}
+/* A fact that takes the whole row; an odd last one does too. */
+.details .facts > div.wide,
+.details .facts > div:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.details dt {
+  font-size: 12px;
+  color: var(--subtext);
+}
+.details dd {
+  margin: 0;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.details dd .muted {
+  font-weight: 400;
+}
+.details dd.id {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.details .copy-id {
+  width: 26px;
+  min-width: 0;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  margin: -2px 0;
+  color: var(--subtext);
+  background: none;
+}
+
+/* Links and searches: one row each. */
+.details .rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--surface0);
+  background: var(--base);
+}
+.details .rows li + li {
+  border-top: 1px solid var(--surface0);
+}
+.details .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 6px 8px 12px;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  text-decoration: none;
+  text-align: left;
+  font-weight: 400;
+  white-space: normal;
+}
+/* A row's own buttons (open, copy): the only things in it that react. */
+.details .act {
+  flex: none;
+  color: var(--subtext);
+}
+.details .act + .act {
+  margin-left: -8px;
+}
+.details .ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--mauve) 16%, transparent);
+  color: var(--mauve);
+}
+.details .what {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.details .what .q {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.details .what .sub {
+  font-size: var(--font-small);
+  color: var(--subtext);
+  overflow-wrap: anywhere;
+}

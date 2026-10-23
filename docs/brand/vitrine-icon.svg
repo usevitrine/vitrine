@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Vitrine's mark: the letter V cut like a crystal (each arm a lit and a shaded face). -->
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cba6f7"/><stop offset="1" stop-color="#f5c2e7"/></linearGradient></defs>
+  <rect width="64" height="64" rx="14" fill="#1e1e2e"/>
+  <g transform="translate(0 -2)">
+    <polygon points="11,14 23,14 32,40 32,54" fill="url(#g)"/><polygon points="11,14 23,14 32,40 32,54" fill="#fff" opacity=".22"/>
+    <polygon points="11,14 32,54 21,40" fill="url(#g)"/><polygon points="11,14 32,54 21,40" fill="#1e1e2e" opacity=".05"/>
+    <polygon points="41,14 53,14 32,54 32,40" fill="url(#g)"/><polygon points="41,14 53,14 32,54 32,40" fill="#1e1e2e" opacity=".12"/>
+    <polygon points="53,14 43,40 32,54" fill="url(#g)"/><polygon points="53,14 43,40 32,54" fill="#1e1e2e" opacity=".28"/>
+  </g>
+</svg>

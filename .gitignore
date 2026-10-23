@@ -1,0 +1,29 @@
+# personal notes (your own setup) - never commit
+CLAUDE.local.md
+TODO.local.md
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# build output
+/vitrine
+/vitrine.exe
+/vitrine.old*.exe
+/dist/
+
+# local test data
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# web client: dependencies and build output (embedded into the binary at build time)
+/web/node_modules/
+/internal/server/web/app/
+/web/test-results/
+/web/playwright-report/
+
+# browser diagnostics saved for debugging (may describe your machine)
+about-gpu-*.txt
+
+# your own deploy scripts (your setup) - never commit
+*.local.sh

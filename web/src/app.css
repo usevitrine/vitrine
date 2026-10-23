@@ -1,0 +1,684 @@
+/* Vitrine: Catppuccin Mocha only, accent Mauve. Sizes follow the input
+   device, not the window: compact with a mouse, finger-sized on touch. */
+:root {
+  --crust: #11111b;
+  --mantle: #181825;
+  --base: #1e1e2e;
+  --surface0: #313244;
+  --surface1: #45475a;
+  --surface2: #585b70;
+  --overlay0: #6c7086;
+  --overlay1: #7f849c;
+  --text: #cdd6f4;
+  --subtext: #a6adc8;
+  --mauve: #cba6f7;
+  --lavender: #b4befe;
+  --green: #a6e3a1;
+  --yellow: #f9e2af;
+  --red: #f38ba8;
+  --blue: #89b4fa;
+  --peach: #fab387;
+  --teal: #94e2d5;
+  --sky: #89dceb;
+  --flamingo: #f2cdcd;
+  --maroon: #eba0ac;
+  --pink: #f5c2e7;
+  --sapphire: #74c7ec;
+
+  /* Tag namespaces: each its own color (booru-like: artists red, characters
+     green, series purple, meta orange, general tags blue). */
+  --tag-general: var(--blue);
+  --tag-creator: var(--red);
+  --tag-character: var(--green);
+  --tag-series: var(--mauve);
+  --tag-meta: var(--peach);
+
+  /* Mouse (fine pointer): compact. */
+  --control-h: 32px;
+  --font: 14px;
+  --font-small: 12px;
+  --radius: 8px;
+  --gap: 8px;
+  --tile: 170px;
+
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  /* Phone sheets (menus along the bottom, the details): the tallest they get;
+     longer content scrolls inside. */
+  --sheet-max-h: min(70dvh, calc(100dvh - 24px - var(--safe-top)));
+
+  color-scheme: dark;
+}
+
+@media (pointer: coarse) {
+  :root {
+    --control-h: 44px;
+    --font: 16px; /* 16 px: iOS doesn't zoom into inputs */
+    --font-small: 13px;
+    --tile: 120px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--base);
+  color: var(--text);
+  font: var(--font) / 1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* The app is pinned to the window's edges instead of sized with vh/dvh: in
+   the iOS home-screen app (status bar over the content) those units can come
+   out shorter than the screen and leave a gap at the bottom. Safe areas are
+   handled by padding inside (--safe-*). */
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* iOS home-screen app: extra space below the status bar (its blur reaches into the
+   page); --top-extra comes from Settings > Display. */
+html.standalone {
+  --safe-top: calc(env(safe-area-inset-top, 0px) + var(--top-extra, 0px));
+}
+/* Without viewport-fit=cover iOS reports no inset at the bottom, yet the home-screen app runs to the screen's rounded
+   corners and the home indicator: bars along the bottom (the selection bar, the video controls) keep clear of them -
+   --home-bar below them, --safe-corner a little more room at their sides. (Sheets and the reader's slider have room
+   of their own already.) */
+@media (pointer: coarse) {
+  html.standalone {
+    --home-bar: 20px;
+    --safe-corner: 10px;
+  }
+}
+
+/* No double-tap-to-zoom delay on controls; no long-press preview on tiles. */
+button,
+a,
+input,
+label {
+  touch-action: manipulation;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* ---- Controls: every input, select and button is one height (--control-h),
+   one radius and one border, so rows of mixed controls line up. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+input:not([type='checkbox'], [type='radio'], [type='range']),
+select,
+textarea {
+  min-height: var(--control-h);
+  min-width: 0;
+  padding: 0 11px;
+  background: var(--crust);
+  border: 1px solid var(--surface1);
+  border-radius: var(--radius);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+textarea {
+  padding: 8px 11px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--overlay0);
+}
+
+input:not([type='checkbox'], [type='radio'], [type='range']):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--mauve);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mauve) 18%, transparent);
+}
+
+/* Number inputs without spinners (they don't fit the control height). */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Selects drawn like inputs (WebKit's own look ignores the height), with a
+   chevron; phones still open the native picker. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a6adc8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+}
+
+input[type='checkbox'],
+input[type='range'] {
+  accent-color: var(--mauve);
+}
+input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: none;
+}
+input[type='range'] {
+  margin: 0;
+}
+
+/* Buttons: filled (main action), .quiet (outlined), .icon (just an icon),
+   .danger (filled red) and .quiet.danger (outlined red). */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--control-h);
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--mauve);
+  color: var(--crust);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  /* Hover changes are instant (no fade), here and everywhere: moving between two
+     neighbors, one fading out while the other faded in flickered. */
+}
+
+button.quiet {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--surface1);
+  font-weight: 500;
+}
+
+button.icon {
+  background: transparent;
+  color: var(--subtext);
+  width: var(--control-h);
+  min-width: var(--control-h);
+  padding: 0;
+}
+
+/* A link that looks like an icon button (e.g. "Open" beside a "Copy" button):
+   the same size, shape and states. */
+a.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--subtext);
+}
+
+button.danger {
+  background: var(--red);
+  color: var(--crust);
+}
+
+button.quiet.danger {
+  background: transparent;
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 40%, transparent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  /* Filled buttons lighten with a thin white layer - not a filter: a filter makes
+     the browser repaint the button differently as it starts and ends (a flicker). */
+  button:not(.quiet, .icon):hover:not(:disabled) {
+    background-image: linear-gradient(rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.08));
+  }
+  button.quiet:hover:not(:disabled),
+  button.icon:hover:not(:disabled),
+  a.icon:hover {
+    background: var(--surface0);
+    color: var(--text);
+  }
+  button.quiet.danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--red) 12%, transparent);
+    color: var(--red);
+  }
+}
+
+/* ---- Page layout shared by the screens other than the library: a centered
+   column of cards. */
+.page {
+  height: 100%;
+  overflow-y: auto;
+  /* (room for the top bar, which floats over the page) */
+  padding: calc(var(--bar-h, 0px) + 16px) 12px calc(28px + var(--safe-bottom));
+}
+.page-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+.page h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 4px 2px 0;
+  letter-spacing: -0.01em;
+}
+@media (min-width: 900px) {
+  .page {
+    padding-top: calc(var(--bar-h, 0px) + 28px);
+  }
+}
+
+.card {
+  background: var(--mantle);
+  border: 1px solid var(--surface0);
+  border-radius: 14px;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr); /* never wider than the card */
+}
+.card-head {
+  display: grid;
+  gap: 4px;
+}
+.card h2 {
+  font-size: 16px;
+  font-weight: 650;
+  margin: 0;
+}
+.hint {
+  margin: 0;
+  color: var(--subtext);
+  font-size: var(--font-small);
+  line-height: 1.45;
+}
+
+/* A labeled setting: label, optional hint, control. */
+.field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+/* A setting with a unit inside its box (Download rules: "500 MB"). */
+.rule {
+  display: grid;
+  gap: 6px;
+}
+.unit-input {
+  position: relative;
+  display: block;
+}
+.unit-input input {
+  width: 100%;
+  padding-right: 96px;
+}
+.unit {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  translate: 0 -50%;
+  color: var(--subtext);
+  font-size: var(--font-small);
+  pointer-events: none;
+}
+.field-label {
+  font-weight: 500;
+}
+
+/* "Nothing here yet" inside a card. */
+.empty {
+  margin: 0;
+  padding: 14px;
+  text-align: center;
+  color: var(--subtext);
+  font-size: var(--font-small);
+  border: 1px dashed var(--surface1);
+  border-radius: 10px;
+}
+
+/* An input with its Add button beside it, in a fixed place above what it adds to
+   (the blacklist, a parent's children): it never moves as the list grows. */
+.add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.add-row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.add-row > button {
+  flex: none;
+}
+
+/* A removable tag pill (blacklist, tag parents). */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: calc(var(--control-h) - 6px);
+  padding: 0 2px 0 11px;
+  border-radius: 999px;
+  background: var(--surface0);
+  font-size: var(--font-small);
+}
+.pill button {
+  width: calc(var(--control-h) - 10px);
+  height: calc(var(--control-h) - 10px);
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--subtext);
+}
+@media (hover: hover) {
+  .pill button:hover {
+    background: var(--surface1);
+    color: var(--text);
+    filter: none;
+  }
+}
+
+.small {
+  font-size: var(--font-small);
+}
+
+:focus-visible {
+  outline: 2px solid var(--mauve);
+  outline-offset: 1px;
+}
+
+a {
+  color: var(--blue);
+}
+
+.error {
+  color: var(--red);
+}
+
+.muted {
+  color: var(--subtext);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+
+/* The floating scrollbar (lib/overlayScroll, with a mouse): the scroller's own bar
+   hidden (it took room and shifted the page as it came and went); a thin thumb
+   over the content at the right edge, shown while scrolling or pointed at. */
+.oscroll-host {
+  scrollbar-width: none;
+}
+.oscroll-host::-webkit-scrollbar {
+  display: none;
+}
+.oscroll {
+  position: absolute;
+  z-index: 30;
+  width: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 32%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.25s,
+    width 0.15s,
+    background-color 0.15s;
+}
+.oscroll.on {
+  opacity: 1;
+  pointer-events: auto;
+}
+.oscroll:hover,
+.oscroll.drag {
+  width: 10px;
+  background: color-mix(in srgb, var(--text) 50%, transparent);
+}
+
+/* Menus with pages (lib/pages.svelte.ts): the pages stack in one grid cell, so
+   the old and the new can cross; the box's height follows the new page. */
+/* A dialog in the middle of what can be seen: above the on-screen keyboard (--kb, --vv-top: lib/viewport). */
+:root {
+  --view-top: var(--vv-top, 0px);
+  --view-h: calc(100dvh - var(--kb, 0px) - var(--vv-top, 0px));
+  --view-mid: calc(var(--view-top) + var(--view-h) / 2);
+}
+.mpages {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.mpages.animating {
+  overflow: hidden;
+  transition: height 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.mpage {
+  grid-area: 1 / 1;
+  align-self: start; /* its own height (not stretched to the taller page while two cross) */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+/* Phone sheets: their grab bar and header drag them down (lib/sheetDrag) - the
+   browser mustn't scroll the page from there. */
+[data-sheet] .grab-zone,
+[data-sheet] .head,
+[data-sheet] [data-drag],
+[data-sheet][data-drag] {
+  touch-action: none;
+}
+
+/* The viewer's open/close animation (lib/hero.ts, inside #app): just under the
+   viewer (40), which is see-through while it opens, its controls above. */
+.hero-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  pointer-events: none;
+}
+.hero-shade {
+  position: absolute;
+  inset: 0;
+  background: var(--crust);
+}
+.hero-frame {
+  position: fixed;
+  overflow: hidden;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.hero-pic {
+  /* sized in px at the picture's own shape (lib/hero.ts); a second one crossfades over the first */
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  transform-origin: 0 0;
+  will-change: transform, opacity;
+}
+.hero-pic img {
+  display: block;
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+/* Sub-pages of a screen (e.g. Tags: All tags / Tag rules): a two-way switch
+   under the heading; full width on phones. */
+.segmented {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--crust);
+  border: 1px solid var(--surface0);
+}
+.segmented button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: calc(var(--control-h) - 4px);
+  padding: 4px 12px;
+  line-height: 1.2;
+  border-radius: 9px;
+  background: none;
+  color: var(--subtext);
+  font-weight: 600;
+}
+.segmented button[aria-selected='true'] {
+  background: var(--surface0);
+  color: var(--mauve);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+}
+@media (hover: hover) {
+  .segmented button:hover:not([aria-selected='true']) {
+    filter: none;
+    color: var(--text);
+  }
+}
+@media (min-width: 640px) {
+  .segmented {
+    width: fit-content;
+  }
+  .segmented button {
+    flex: none;
+    min-width: 140px;
+  }
+}
+
+/* ---- Floating controls over a picture (the viewer, the comic reader). No band across the picture: each control on
+   a small dark backing that blurs what's behind it (readable on a white picture too), full-strength text. The bar
+   fades with --chrome-fade (a swipe down to close); only its controls take presses - the picture works between. */
+.float-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: calc(6px + var(--safe-top)) calc(8px + var(--safe-right, 0px)) 6px calc(8px + var(--safe-left, 0px));
+  transition: opacity 0.2s;
+  opacity: var(--chrome-fade, 1);
+  pointer-events: none;
+}
+.float-bar > * {
+  pointer-events: auto;
+}
+.float-bar button,
+.float-bar .chip {
+  background: rgb(17 17 27 / 0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.float-bar button {
+  color: var(--text);
+  border-radius: 50%;
+}
+.float-bar .on {
+  color: var(--mauve);
+}
+.float-bar button.fav.on {
+  color: var(--red);
+}
+.float-bar .chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: var(--text);
+  font-size: var(--font-small);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* The arrows at the sides (wide screens). */
+.side-nav {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 64px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(17 17 27 / 0.45);
+  color: var(--text);
+  transition: opacity 0.2s;
+}
+.side-nav.left {
+  left: 8px;
+}
+.side-nav.right {
+  right: 8px;
+}
+.side-nav:disabled {
+  opacity: 0;
+}
+/* The spinner (the same everywhere). */
+.spinner {
+  width: 16px;
+  height: 16px;
+  margin-left: 2px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--text) 18%, transparent);
+  border-top-color: var(--mauve);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
