@@ -3542,6 +3542,7 @@ test('tag rules: a parent\'s "add children" box stays put above its children, wi
   const box = group.getByRole('combobox', { name: 'Add a child to rule_parent' });
   const add = group.getByRole('button', { name: 'Add', exact: true });
   await expect(add).toBeDisabled(); // nothing typed
+  await page.waitForTimeout(400); // (the lists slide in after loading)
   const y0 = (await box.boundingBox())!.y;
   await box.fill('blue_sky landscape');
   await add.click();
@@ -4611,7 +4612,7 @@ test('a tag can be put in another namespace: from the details (its tag menu) and
   await menu.getByRole('menuitemradio', { name: 'Series' }).click();
   await expect(page.getByText('blue_sky is series now (4 files)')).toBeVisible();
   // The details show it as a series tag; every file has it there.
-  await expect(panel.locator('section', { hasText: 'Series' }).getByRole('button', { name: 'blue_sky', exact: true })).toBeVisible();
+  await expect(panel.getByRole('listitem', { name: /^series:blue_sky/ })).toBeVisible(); // (it moves there: the old one fades out of General meanwhile)
   expect((await page.evaluate(() => fetch('/api/search?q=series:blue_sky&limit=10').then((r) => r.json()))).ids.length).toBe(4);
   await page.keyboard.press('Escape');
 

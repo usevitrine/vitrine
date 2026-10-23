@@ -2,6 +2,7 @@
   // The download blacklist: tags whose posts are never downloaded, and a
   // clean-up for library files that already have them (an undoable delete).
   import { onMount } from 'svelte';
+  import { reveal, pop, moved } from '../lib/motion';
   import { api, type BlacklistMatches } from '../lib/api';
   import { toasts } from '../lib/toast.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
@@ -113,32 +114,32 @@
     <button onclick={() => add(draft)} disabled={!draft.trim()}><Icon name="plus" size={18} /> {t('common.add')}</button>
   </div>
   {#if suggest.some((s) => !tags.includes(s))}
-    <div class="suggest">
+    <div class="suggest" transition:reveal>
       <span class="hint">{t('blacklist.common')}</span>
       {#each suggest.filter((s) => !tags.includes(s)) as s (s)}
-        <button class="pill add" onclick={() => add(s)}><Icon name="plus" size={13} /> {s}</button>
+        <button class="pill add" onclick={() => add(s)} animate:moved transition:pop><Icon name="plus" size={13} /> {s}</button>
       {/each}
     </div>
   {/if}
   {#if tags.length}
-    <div class="tags">
+    <div class="tags" transition:reveal>
       {#each tags as tag (tag)}
-        <span class="pill">
+        <span class="pill" animate:moved transition:pop>
           {tag}
           <button aria-label={t('blacklist.remove', { tag })} onclick={() => remove(tag)}><Icon name="close" size={14} /></button>
         </span>
       {/each}
     </div>
   {:else}
-    <p class="empty">{t('blacklist.empty')}</p>
+    <p class="empty" transition:reveal>{t('blacklist.empty')}</p>
   {/if}
 
   {#if matches && tags.length}
-    <div class="matches" class:clean={matches.total === 0}>
+    <div class="matches" class:clean={matches.total === 0} transition:reveal>
       {#if matches.total === 0}
-        <p class="small"><Icon name="check" size={16} /> {t('blacklist.clean')}</p>
+        <p class="small" transition:reveal><Icon name="check" size={16} /> {t('blacklist.clean')}</p>
       {:else}
-        <div class="summary">
+        <div class="summary" transition:reveal>
           <p>
             <Rich text={t('blacklist.matches', { n: matches.total })} />
             <span class="muted">· {bytes(matches.size)}</span>

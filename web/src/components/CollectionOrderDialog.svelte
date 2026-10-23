@@ -3,6 +3,7 @@
   // drag one by its grip (or arrow keys on it), A to Z puts them back by title, Save keeps it. Its page, its tile's
   // covers and the reader's Up next follow it. Opened from the collection's menu (collections.ordering).
   import Modal from './Modal.svelte';
+  import { reveal } from '../lib/motion';
   import Icon from './Icon.svelte';
   import { ListDrag } from '../lib/listDrag.svelte';
   import { api, type Comic } from '../lib/api';
@@ -65,11 +66,11 @@
 {#if k}
   <Modal title={t('collections.orderTitle', { name: k.name })} width={440} onclose={close}>
     {#if loading}
-      <div class="wait" role="status" aria-label={t('common.loading')}><span class="spinner"></span></div>
+      <div class="wait" role="status" aria-label={t('common.loading')} transition:reveal><span class="spinner"></span></div>
     {:else if error}
-      <p class="error">{error}</p>
+      <p class="error" transition:reveal>{error}</p>
     {:else}
-      <ul class="list" class:dragging={!!lists.drag}>
+      <ul class="list" class:dragging={!!lists.drag} transition:reveal>
         {#each list as c, i (c.id)}
           <li class:lifted={lists.drag?.from === i} style:transform={lists.shift(i) ? `translateY(${lists.shift(i)}px)` : undefined}>
             <button

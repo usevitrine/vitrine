@@ -3,6 +3,7 @@
   // glance - read when the section opens and again every half minute while
   // it's on screen.
   import { onMount } from 'svelte';
+  import { reveal, moved } from '../lib/motion';
   import { api, type LibraryStats } from '../lib/api';
   import { formatSize } from '../lib/results.svelte';
   import { siteLabel } from '../lib/sites.svelte';
@@ -98,7 +99,7 @@
     <p class="hint">{t('rankings.counting')}</p>
   </section>
 {:else}
-  <section class="card">
+  <section class="card" transition:reveal>
     <div class="card-head"><h2>{t('settings.section.library.label')}</h2></div>
     <div class="tiles">
       <div class="tile"><b>{n(st.files)}</b><span>{t('stats.tile.files', { n: st.files })}</span></div>
@@ -158,9 +159,9 @@
   <section class="card">
     <div class="card-head"><h2>{t('stats.downloads')}</h2></div>
     {#if st.sites.length}
-      <ul class="sites">
+      <ul class="sites" transition:reveal>
         {#each st.sites as s (s.site)}
-          <li>
+          <li animate:moved transition:reveal>
             <SiteIcon host={siteLabel(s.site)} />
             <span class="what">{siteLabel(s.site)}</span>
             <span class="num">{n(s.files)} <small>{t('stats.tile.files', { n: s.files })}</small></span>
@@ -169,7 +170,7 @@
         {/each}
       </ul>
     {:else}
-      <p class="hint">{t('stats.nothingDownloaded')}</p>
+      <p class="hint" transition:reveal>{t('stats.nothingDownloaded')}</p>
     {/if}
     <dl class="rows">
       <div>
@@ -229,7 +230,7 @@
       <button class="quiet" onclick={() => reportAction('show')} disabled={making} aria-expanded={showReport}><Icon name={showReport ? 'eyeoff' : 'eye'} size={16} /> {showReport ? t('stats.report.hide') : t('stats.report.show')}</button>
     </div>
     {#if showReport}
-      <pre class="report" aria-label={t('stats.report.label')}>{report}</pre>
+      <pre class="report" aria-label={t('stats.report.label')} transition:reveal>{report}</pre>
     {/if}
   </section>
 {/if}

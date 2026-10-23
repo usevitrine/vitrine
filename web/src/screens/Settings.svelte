@@ -6,6 +6,7 @@
   // Phones and tablets (top spacing is for the home-screen app there).
   const touchScreen = matchMedia('(pointer: coarse)').matches;
   import { onMount } from 'svelte';
+  import { reveal, pop } from '../lib/motion';
   import { api, toPlainSignIn } from '../lib/api';
   import { settings } from '../lib/settings.svelte';
   import { switchOff } from '../lib/sections';
@@ -159,7 +160,7 @@
                 items={[0, 7, 30, 90, 365].map((n) => ({ label: n ? t('settings.trashDays.after', { n }) : t('settings.trashDays.never'), on: n === settings.trashDays, run: () => (settings.trashDays = n) }))} />
             </div>
             {#if stats}
-              <p class="hint">{t('common.files', { n: stats.files })} · {t('settings.tagsInUse', { n: stats.tags })}</p>
+              <p class="hint" transition:reveal>{t('common.files', { n: stats.files })} · {t('settings.tagsInUse', { n: stats.tags })}</p>
             {/if}
           </section>
           {:else if current === 'sites'}
@@ -246,7 +247,7 @@
               </span>
             </label>
             {#if !settings.sfwMode}
-            <label class="check">
+            <label class="check" transition:reveal>
               <input type="checkbox" bind:checked={settings.cameButton} />
               <span class="field">
                 <span class="field-label">{t('settings.videos.came')}</span>
@@ -277,7 +278,7 @@
             </div>
           </section>
           {#if touchScreen}
-          <section class="card">
+          <section class="card" transition:reveal>
             <div class="card-head"><h2>{t('settings.display.title')}</h2></div>
             <label class="field">
               <span class="field-label">{t('settings.display.top')} <span class="value">{t('settings.display.pt', { n: settings.topSpacing })}</span></span>
@@ -297,7 +298,7 @@
               <p class="hint">{t('settings.device.only')}</p>
             </div>
             {#if canSave()}
-              <div class="saved">
+              <div class="saved" transition:reveal>
                 <div class="field">
                   <span class="field-label">{t('settings.device.saved')}</span>
                   <span class="hint">
@@ -305,7 +306,7 @@
                     {t('settings.device.offline')}
                   </span>
                   {#if helper && helper.state !== 'running'}
-                    <span class="hint helper" role="status">
+                    <span class="hint helper" role="status" transition:pop>
                       {#if helper.state === 'starting'}
                         {t('settings.device.starting')}
                       {:else}

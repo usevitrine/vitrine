@@ -2,6 +2,7 @@
   // Tag parents (group tags: searching the parent finds every child's files)
   // and siblings (one tag stands for another).
   import { onMount } from 'svelte';
+  import { reveal, pop, moved } from '../lib/motion';
   import { api, type Relation } from '../lib/api';
   import { toasts } from '../lib/toast.svelte';
   import TagInput from '../components/TagInput.svelte';
@@ -96,7 +97,7 @@
         <button onclick={addParent}><Icon name="plus" size={18} /> {t('common.add')}</button>
       </div>
       {#each groups as g (g.parent)}
-        <div class="group">
+        <div class="group" animate:moved transition:reveal>
           <div class="gname"><span style:color={tagColor(g.parent)}>{g.parent}</span> <span class="muted">· {g.children.length}</span></div>
           <div class="add-row">
             <TagInput bind:value={() => childDraft[g.parent] ?? "", (v) => (childDraft[g.parent] = v)} multi label={t('tags.parents.addChildTo', { tag: g.parent })} placeholder={t('tags.parents.addChildren')} onenter={(text) => addChildren(g.parent, text)} />
@@ -104,7 +105,7 @@
           </div>
           <div class="chips">
             {#each g.children as c (c)}
-              <span class="pill">
+              <span class="pill" animate:moved transition:pop>
                 <span style:color={tagColor(c)}>{c}</span>
                 <button aria-label={t('tags.parents.remove', { tag: c, parent: g.parent })} onclick={() => edit('parent', 'remove', c, g.parent)}
                   ><Icon name="close" size={14} /></button>
@@ -113,7 +114,7 @@
           </div>
         </div>
       {:else}
-        <p class="empty">{t('tags.parents.empty')}</p>
+        <p class="empty" transition:reveal>{t('tags.parents.empty')}</p>
       {/each}
     </section>
 
@@ -129,9 +130,9 @@
         <button onclick={addSibling}><Icon name="plus" size={18} /> {t('common.add')}</button>
       </div>
       {#if siblings.length}
-        <ul class="list">
+        <ul class="list" transition:reveal>
           {#each siblings as s (s.from)}
-            <li>
+            <li animate:moved transition:reveal>
               <span><span style:color={tagColor(s.from)}>{s.from}</span> <span class="arrow">→</span> <span style:color={tagColor(s.to)}>{s.to}</span></span>
               <button class="icon" aria-label={t('tags.siblings.remove', { tag: s.from })} onclick={() => edit('sibling', 'remove', s.from)}
                 ><Icon name="close" size={16} /></button>
@@ -139,7 +140,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="empty">{t('tags.siblings.empty')}</p>
+        <p class="empty" transition:reveal>{t('tags.siblings.empty')}</p>
       {/if}
     </section>
 

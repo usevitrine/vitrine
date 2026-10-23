@@ -3,6 +3,7 @@
   // the searches that found it), its sources (the first one; the rest folded) and its tags (tap to search, × to
   // remove, add new ones). The viewer gives it its header and close button.
   import { api, type FileInfo, type FileLink, type FileSource, type FileTag } from '../lib/api';
+  import { reveal, pop } from '../lib/motion';
   import { router } from '../lib/router.svelte';
   import { siteLabel } from '../lib/sites.svelte';
   import { formatDuration, formatSize, results } from '../lib/results.svelte';
@@ -153,7 +154,7 @@
   </dl>
 
   {#if posts.length || downloadedBy.length}
-    <section aria-label={t('details.from')}>
+    <section aria-label={t('details.from')} transition:reveal>
       <div class="head">
         <h3>{t('details.from')}</h3>
       </div>
@@ -181,7 +182,7 @@
                 onclick={() => {
                   router.focus = 'sub:' + f.subscription_id;
                   router.go('downloads');
-                }}><Icon name="right" size={17} /></button>
+                }} transition:pop><Icon name="right" size={17} /></button>
             {/if}
           </li>
         {/each}

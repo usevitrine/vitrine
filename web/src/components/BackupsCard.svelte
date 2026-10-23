@@ -3,6 +3,7 @@
   // settings, deletion records) - daily and on demand; download one, restore
   // one (it goes in place when Vitrine restarts), or restore from a file.
   import { onMount } from 'svelte';
+  import { reveal, pop, moved } from '../lib/motion';
   import { api, type BackupInfo } from '../lib/api';
   import { settings } from '../lib/settings.svelte';
   import { formatSize } from '../lib/results.svelte';
@@ -165,7 +166,7 @@
   </div>
 
   {#if pending}
-    <div class="pending" role="status">
+    <div class="pending" role="status" transition:reveal>
       <p><Rich text={t('backups.pending')} /></p>
       <div class="row-actions">
         <button class="go" onclick={restart} disabled={restarting}><Icon name="retry" size={17} /> {restarting ? t('backups.restarting') : t('backups.restartNow')}</button>
@@ -188,15 +189,15 @@
     <button class="go now" onclick={backUpNow} disabled={making}><Icon name="download" size={17} /> {making ? t('backups.making') : t('backups.now')}</button>
   </div>
 
-  {#if lastError}<p class="error small">{t('backups.failed', { error: lastError })}</p>{/if}
+  {#if lastError}<p class="error small" transition:reveal>{t('backups.failed', { error: lastError })}</p>{/if}
 
   {#if list.length}
-    <ul class="list" aria-label={t('backups.title')}>
+    <ul class="list" aria-label={t('backups.title')} transition:reveal>
       {#each list as b, i (b.name)}
-        <li>
+        <li animate:moved transition:reveal>
           <div class="row">
             <span class="what">
-              <span class="q">{when(b.created_at)}{#if i === 0}<span class="newest">{t('backups.newest')}</span>{/if}</span>
+              <span class="q">{when(b.created_at)}{#if i === 0}<span class="newest" transition:pop>{t('backups.newest')}</span>{/if}</span>
               <span class="sub">{formatSize(b.size)}</span>
             </span>
             <ActionMenu
@@ -212,13 +213,13 @@
       {/each}
     </ul>
   {:else if loaded}
-    <p class="empty">{t('backups.empty')}</p>
+    <p class="empty" transition:reveal>{t('backups.empty')}</p>
   {/if}
 
   <div class="foot">
     <button class="quiet" onclick={() => fileInput?.click()} disabled={staging}><Icon name="undo" size={16} /> {t('backups.fromFile')}</button>
     <input bind:this={fileInput} type="file" accept=".gz,.db,application/gzip" hidden onchange={restoreFile} aria-label={t('backups.file')} />
-    {#if dir}<span class="hint small">{t('backups.savedIn', { dir })}</span>{/if}
+    {#if dir}<span class="hint small" transition:pop>{t('backups.savedIn', { dir })}</span>{/if}
   </div>
 </section>
 

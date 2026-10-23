@@ -3,6 +3,7 @@
   // rename it (your own tags) or alias it to another (a sibling - for tags from
   // sites, which a tag refresh would otherwise bring back under the old name).
   import { api, type BrowsedTag, type Relation } from '../lib/api';
+  import { reveal, pop, moved, swap } from '../lib/motion';
   import { router } from '../lib/router.svelte';
   import { toasts } from '../lib/toast.svelte';
   import { namespaces, nsChoices, moveToNamespace, nsColor, nsLabel, nsRank, splitTag } from '../lib/namespaces.svelte';
@@ -139,7 +140,7 @@
   </div>
 
   {#if error}
-    <p class="error small">{error}</p>
+    <p class="error small" transition:reveal>{error}</p>
   {/if}
 
   <p class="summary small muted" aria-live="polite">
@@ -147,15 +148,15 @@
   </p>
 
   {#if tags.length}
-    <ul class="list">
+    <ul class="list" transition:reveal>
       {#each tags as bt (bt.tag)}
         {@const st = splitTag(bt.tag)}
-        <li class:open={open === bt.tag} style:--c={nsColor(bt.namespace)}>
+        <li class:open={open === bt.tag} style:--c={nsColor(bt.namespace)} animate:moved in:swap>
           <div class="line">
             <button class="row" title={t('tagBrowser.searchFor', { tag: bt.tag })} onclick={() => search(bt.tag)}>
               <span class="name">
                 {#if bt.namespace}<span class="ns">{bt.namespace}:</span>{/if}{st.name}
-                {#if bt.ideal}<span class="ideal">→ {bt.ideal}</span>{/if}
+                {#if bt.ideal}<span class="ideal" transition:pop>→ {bt.ideal}</span>{/if}
               </span>
               <span class="count">{num(bt.count)}</span>
             </button>
@@ -184,7 +185,7 @@
               ]} />
           </div>
           {#if open === bt.tag && mode}
-            <div class="actions">
+            <div class="actions" transition:reveal>
               {#if mode}
                 <form
                   class="edit"
@@ -192,7 +193,7 @@
                     e.preventDefault();
                     if (mode === 'rename') rename(bt);
                     else alias(bt);
-                  }}>
+                  }} transition:reveal>
                   <p class="hint">
                     <Rich text={t(mode === 'rename' ? 'tagBrowser.renameHint' : 'tagBrowser.aliasFormHint', { tag: bt.tag })} />
                   </p>
@@ -215,12 +216,12 @@
       {/each}
     </ul>
     {#if tags.length < total}
-      <button class="quiet more" disabled={loading} onclick={() => load(true)}>
+      <button class="quiet more" disabled={loading} onclick={() => load(true)} transition:reveal>
         {loading ? t('common.loading') : t('tagBrowser.more', { n: total - tags.length })}
       </button>
     {/if}
   {:else if !loading && !error}
-    <p class="empty">{filter || ns ? t('tagBrowser.noMatch') : t('tagBrowser.none')}</p>
+    <p class="empty" transition:reveal>{filter || ns ? t('tagBrowser.noMatch') : t('tagBrowser.none')}</p>
   {/if}
 </section>
 

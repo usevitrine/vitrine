@@ -2,6 +2,7 @@
   // Settings > Notifications: turn push notifications on for this device,
   // send a test, pick what to be told about, and see the other devices.
   import { onMount } from 'svelte';
+  import { reveal, moved } from '../lib/motion';
   import { push, deviceLabel } from '../lib/push.svelte';
   import { settings } from '../lib/settings.svelte';
   import { toasts } from '../lib/toast.svelte';
@@ -69,20 +70,20 @@
     </header>
 
     {#if push.support === 'needs-home-screen'}
-      <p class="hint"><Rich text={t('notify.homeScreen')} /></p>
+      <p class="hint" transition:reveal><Rich text={t('notify.homeScreen')} /></p>
     {:else if push.support === 'unsupported'}
-      <p class="hint">{t('notify.unsupported')}</p>
+      <p class="hint" transition:reveal>{t('notify.unsupported')}</p>
     {:else if push.permission === 'denied'}
-      <p class="hint">{t('notify.blocked')}</p>
+      <p class="hint" transition:reveal>{t('notify.blocked')}</p>
     {:else if !push.loaded}
-      <p class="hint">{t('notify.checking')}</p>
+      <p class="hint" transition:reveal>{t('notify.checking')}</p>
     {:else if push.endpoint}
-      <div class="actions">
+      <div class="actions" transition:reveal>
         <button onclick={test} disabled={testing || push.busy}>{testing ? t('notify.sending') : t('notify.test')}</button>
         <button class="quiet" onclick={() => push.disable()} disabled={push.busy}>{t('notify.turnOff')}</button>
       </div>
     {:else}
-      <div class="actions">
+      <div class="actions" transition:reveal>
         <button onclick={() => push.enable()} disabled={push.busy}>
           <Icon name="bell" size={16} />
           {push.busy ? t('notify.turningOn') : t('notify.turnOn')}
@@ -91,9 +92,9 @@
     {/if}
 
     {#if push.error}
-      <p class="result" role="status"><Icon name="close" size={16} /><span>{push.error}</span></p>
+      <p class="result" role="status" transition:reveal><Icon name="close" size={16} /><span>{push.error}</span></p>
     {:else if tested}
-      <p class="result" class:ok={tested.ok} role="status">
+      <p class="result" class:ok={tested.ok} role="status" transition:reveal>
         <Icon name={tested.ok ? 'check' : 'close'} size={16} /><span>{tested.text}</span>
       </p>
     {/if}
@@ -131,11 +132,11 @@
   </fieldset>
 
   {#if others.length}
-    <div class="others">
+    <div class="others" transition:reveal>
       <span class="field-label">{t('notify.others')}</span>
       <ul>
         {#each others as d (d.endpoint)}
-          <li>
+          <li animate:moved transition:reveal>
             <span class="who">
               <span>{d.label}</span>
               <span class="meta">{t('notify.added', { date: added(d.created_at) })}</span>

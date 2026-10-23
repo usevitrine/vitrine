@@ -5,6 +5,7 @@
   // suggestions can be marked - from several words typed one after another - and go in together: all of them, or
   // any of them (an OR group).
   import { api, type Suggestion } from '../lib/api';
+  import { pop, moved } from '../lib/motion';
   import { splitTag, tagColor, nsLabel } from '../lib/namespaces.svelte';
   import { t, num } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
@@ -427,14 +428,14 @@
             {#each marks as m (m)}
               <button type="button" class="mtag" style:color={tagColor(m)} aria-label={t('tagInput.unmark', { tag: m })}
                 onmousedown={(e) => press(e, () => (marks = marks.filter((x) => x !== m)))} ontouchend={(e) => press(e, () => (marks = marks.filter((x) => x !== m)))}
-                >{splitTag(m).name}<Icon name="close" size={11} /></button>
+                 animate:moved transition:pop>{splitTag(m).name}<Icon name="close" size={11} /></button>
             {/each}
           </span>
           <span class="mark-go">
             <button type="button" class="go" onmousedown={(e) => press(e, () => addMarked(false))} ontouchend={(e) => press(e, () => addMarked(false))}>{t('details.allOfThem')}</button>
             {#if anyText}
               <button type="button" class="go" onmousedown={(e) => press(e, () => addMarked(true))} ontouchend={(e) => press(e, () => addMarked(true))}
-                >{t('details.anyOfThem')}</button>
+                 transition:pop>{t('details.anyOfThem')}</button>
             {/if}
           </span>
         </li>

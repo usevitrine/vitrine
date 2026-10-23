@@ -6,6 +6,7 @@
   // them (nothing is saved until the check), the arrows read them again from
   // the site. The panel loads the tags and says how to change them.
   import { onDestroy, untrack } from 'svelte';
+  import { reveal, pop, moved } from '../lib/motion';
   import type { FileTag } from '../lib/api';
   import { format, parse } from '../lib/query';
   import { toasts } from '../lib/toast.svelte';
@@ -211,7 +212,7 @@
 
 <section aria-label={t('tags.title')}>
   <div class="head">
-    <h3>{t('tags.title')}{#if tags.length}<span class="n">{tags.length}</span>{/if}</h3>
+    <h3>{t('tags.title')}{#if tags.length}<span class="n" transition:pop>{tags.length}</span>{/if}</h3>
     {#if refresh}
       <button
         class="icon head-btn"
@@ -219,7 +220,7 @@
         disabled={refreshing}
         onclick={doRefresh}
         aria-label={t('details.refreshLabel')}
-        title={t('details.refreshTitle')}><Icon name="retry" size={17} /></button>
+        title={t('details.refreshTitle')} transition:pop><Icon name="retry" size={17} /></button>
     {/if}
     {#if editing}
       <button class="icon head-btn save" onclick={() => saveEdits()} aria-label={t('details.saveTags')} title={changed ? t('details.saveChanges') : t('saved.done')}><Icon name="check" size={18} /></button>
@@ -231,21 +232,21 @@
           aria-pressed={selecting}
           onclick={() => (selecting ? endSelecting() : ((selecting = true), (picked = null)))}
           aria-label={t('details.pick')}
-          title={selecting ? t('details.donePicking') : t('details.pickTitle')}><Icon name="checks" size={18} /></button>
+          title={selecting ? t('details.donePicking') : t('details.pickTitle')} transition:pop><Icon name="checks" size={18} /></button>
       {/if}
       {#if !selecting && save}
-        <button class="icon head-btn" onclick={startEditing} aria-label={t('details.editTags')} title={t('details.editTitle')}><Icon name="pencil" size={17} /></button>
+        <button class="icon head-btn" onclick={startEditing} aria-label={t('details.editTags')} title={t('details.editTitle')} transition:pop><Icon name="pencil" size={17} /></button>
       {/if}
     {/if}
   </div>
   {#if editing}
     <TagInput bind:value={adding} {comics} multi label={t('details.addTags')} placeholder={t('blacklist.addPlaceholder')} onenter={add} autofocus />
     {#if changed}
-      <p class="pending small">{t('details.pending', { changes: [toAdd.length ? t('selection.toAdd', { n: toAdd.length }) : '', toRemove.length ? t('selection.toRemove', { n: toRemove.length }) : ''].filter(Boolean).join(', ') })}</p>
+      <p class="pending small" transition:reveal>{t('details.pending', { changes: [toAdd.length ? t('selection.toAdd', { n: toAdd.length }) : '', toRemove.length ? t('selection.toRemove', { n: toRemove.length }) : ''].filter(Boolean).join(', ') })}</p>
     {/if}
   {/if}
   {#each groups as g (g.ns)}
-    <div class="group" style:--c={nsColor(g.ns)}>
+    <div class="group" style:--c={nsColor(g.ns)} animate:moved transition:reveal>
       <h4>{nsLabel(g.ns)} <span class="n">{g.tags.length}</span></h4>
       <ul class="tags">
         {#each g.tags as tg (tg.tag)}
@@ -255,7 +256,7 @@
             class:adding={tg.origins.includes('new')}
             class:removing={toRemove.includes(tg.tag)}
             class:chosen={selecting && chosen.includes(tg.tag)}
-            title={tg.origins.includes('new') ? t('details.notSaved', { tag: tg.tag }) : t('details.tagFrom', { tag: tg.tag, from: tg.origins.join(', ') })}>
+            title={tg.origins.includes('new') ? t('details.notSaved', { tag: tg.tag }) : t('details.tagFrom', { tag: tg.tag, from: tg.origins.join(', ') })} animate:moved transition:pop>
             <button
               class="name"
               aria-label={splitTag(tg.tag).name}
@@ -276,7 +277,7 @@
             >
             {#if editing}
               {#if toRemove.includes(tg.tag)}
-                <button class="x" aria-label={t('selection.keep', { tag: tg.tag })} title={t('selection.keepIt')} onclick={() => toggleRemove(tg.tag)}><Icon name="undo" size={14} /></button>
+                <button class="x" aria-label={t('selection.keep', { tag: tg.tag })} title={t('selection.keepIt')} onclick={() => toggleRemove(tg.tag)} transition:pop><Icon name="undo" size={14} /></button>
               {:else}
                 <button class="x" aria-label={t('details.removeTag', { tag: tg.tag })} title={t('sites.remove')} onclick={() => toggleRemove(tg.tag)}><Icon name="close" size={14} /></button>
               {/if}
@@ -286,10 +287,10 @@
       </ul>
     </div>
   {:else}
-    <p class="none muted">{t('details.noTags')}</p>
+    <p class="none muted" transition:reveal>{t('details.noTags')}</p>
   {/each}
   {#if selecting}
-    <div class="pick-bar" role="toolbar" aria-label={t('details.picked')}>
+    <div class="pick-bar" role="toolbar" aria-label={t('details.picked')} transition:reveal>
       <div class="pick-head">
         <span class="pick-n">{chosen.length ? t('details.nPicked', { n: chosen.length }) : t('details.tapToPick')}</span>
         <button class="icon pick-x" aria-label={t('details.stopPicking')} title={t('saved.done')} onclick={endSelecting}><Icon name="close" size={16} /></button>

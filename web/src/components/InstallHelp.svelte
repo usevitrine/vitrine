@@ -5,6 +5,7 @@
   // Android (Chrome, Brave, Edge, Samsung Internet, Firefox, Opera) and desktop
   // (Chrome, Brave, Edge, Safari; Firefox can't).
   import Icon from './Icon.svelte';
+  import { reveal } from '../lib/motion';
   import Rich from './Rich.svelte';
   import { install, where } from '../lib/install.svelte';
   import { toasts } from '../lib/toast.svelte';
@@ -61,19 +62,19 @@
 </script>
 
 {#if install.installed}
-  <p class="ok-line"><Icon name="check" size={18} /> {t('install.installedHere')}</p>
+  <p class="ok-line" transition:reveal><Icon name="check" size={18} /> {t('install.installedHere')}</p>
 {:else if install.offer}
-  <p class="lead">{platform === 'desktop' ? t('install.lead.desktop') : t('install.lead.android')}</p>
+  <p class="lead" transition:reveal>{platform === 'desktop' ? t('install.lead.desktop') : t('install.lead.android')}</p>
   <button class="install" onclick={run}><Icon name="download" size={18} /> {t('install.button')}</button>
 {:else if how}
-  <p class="lead">{how.lead}</p>
+  <p class="lead" transition:reveal>{how.lead}</p>
   <ol class="how">
     {#each how.steps as s, i (i)}
       <li><span class="key"><Icon name={s.icon} size={20} /></span><span><Rich text={s.text} /></span></li>
     {/each}
   </ol>
 {:else}
-  <p class="lead">{t('install.firefoxDesktop')}</p>
+  <p class="lead" transition:reveal>{t('install.firefoxDesktop')}</p>
 {/if}
 
 <style>
