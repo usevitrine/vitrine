@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cubicOut } from 'svelte/easing';
   import { slide } from 'svelte/transition';
+  import { reveal } from '../lib/motion';
   import { live } from '../lib/live.svelte';
   import { connection } from '../lib/offline.svelte';
   import Welcome from '../components/Welcome.svelte';
@@ -346,11 +347,11 @@
     </div>
     {#if inTrash && trash.files > 0}
       <!-- What the trash holds, and how long it keeps it. -->
-      <p class="trash-facts">{t('common.files', { n: trash.files })} · {trash.size} · {trash.days ? t('trash.keepDays', { n: trash.days }) : t('trash.keep')}</p>
+      <p class="trash-facts" transition:reveal>{t('common.files', { n: trash.files })} · {trash.size} · {trash.days ? t('trash.keepDays', { n: trash.days }) : t('trash.keep')}</p>
     {/if}
     <!-- (no "No tag ..." line: the user - an empty result says enough) -->
     {#if connection.offline || results.error}
-    <div class="status" aria-live="polite">
+    <div class="status" aria-live="polite" transition:reveal>
       {#if connection.offline}
         <span class="offline"><Icon name="clock" size={14} /> {t('library.offline')}</span>
       {:else}
@@ -363,7 +364,7 @@
     <!-- (only once a search has finished: before the first one - the app starting - the welcome flashed) -->
     {#if results.total === 0 && !results.busy && !results.error && results.searches > 0}
       {#if query}
-        <div class="empty"><p>{t('library.noMatch')}</p></div>
+        <div class="empty" transition:reveal><p>{t('library.noMatch')}</p></div>
       {:else if fav}
         <div class="empty"><p>{t('library.noFavorites')}</p></div>
       {:else if inTrash}

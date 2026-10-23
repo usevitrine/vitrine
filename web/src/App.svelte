@@ -4,6 +4,7 @@
   import { live } from './lib/live.svelte';
   import { onMount, untrack } from 'svelte';
   import { fade, fly, slide } from 'svelte/transition';
+  import { reveal, pop } from './lib/motion';
   import { api, setLoggedOutHandler, type Session, toPlainSignIn } from './lib/api';
   import { router, type Screen } from './lib/router.svelte';
   import Icon from './components/Icon.svelte';
@@ -276,7 +277,7 @@
 <svelte:window onkeydown={(e) => e.key === 'Escape' && drawer && (drawer = false)} />
 
 {#if failed}
-  <p class="center error">{t('app.unreachable', { error: failed })}</p>
+  <p class="center error" transition:reveal>{t('app.unreachable', { error: failed })}</p>
 {:else if !session}
   <!-- loading: a blank, themed screen for the split second it takes -->
 {:else if !session.logged_in}
@@ -324,7 +325,7 @@
               onclick={() => (tab.id === 'trash' && settings.mediaOff ? goTo('comics', 'trash') : goTo(tab.screen, tab.first))}>
               <Icon name={tab.icon} size={22} />
               <span id="menu-{key}">{tab.label}</span>
-              {#if tab.screen === 'duplicates' && dupes.count}<span class="count-badge">{num(dupes.count)}</span>{/if}
+              {#if tab.screen === 'duplicates' && dupes.count}<span class="count-badge" transition:pop>{num(dupes.count)}</span>{/if}
             </button>
             {#if tab.subs}
               <button
