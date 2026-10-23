@@ -7,7 +7,7 @@
   // tap opens the reader at /comics/<id>. Comics live only here - their pages are
   // never in the library's grid.
   import { onMount, tick, untrack } from 'svelte';
-  import { reveal, pop, glide } from '../lib/motion';
+  import { reveal, pop, glide, swap } from '../lib/motion';
   import { collections } from '../lib/collections.svelte';
   import ActionMenu from '../components/ActionMenu.svelte';
   import { cubicOut } from 'svelte/easing';
@@ -508,13 +508,13 @@
   <div class="grid">
     {#if results.total === 0 && !results.busy && !results.error && results.searches > 0}
       {#if query}
-        <div class="empty" transition:reveal><p>{t('comics.noMatch')}</p></div>
+        <div class="empty" in:swap><p>{t('comics.noMatch')}</p></div>
       {:else if fav}
-        <div class="empty"><p>{t('comics.noFavorites')}</p></div>
+        <div class="empty" in:swap><p>{t('comics.noFavorites')}</p></div>
       {:else if inTrash}
-        <div class="empty"><p>{t('comics.trashEmpty')}</p></div>
+        <div class="empty" in:swap><p>{t('comics.trashEmpty')}</p></div>
       {:else}
-        <div class="empty-shelf">
+        <div class="empty-shelf" in:swap>
           <span class="badge"><Icon name="book" size={28} /></span>
           <h2>{t('comics.none')}</h2>
           <p class="muted"><Rich text={t('comics.noneHint')} /></p>

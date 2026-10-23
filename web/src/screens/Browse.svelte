@@ -4,7 +4,7 @@
   // comics, marked when the library has them or their download waits, page after page as the end comes near). A tile
   // opens its details in the app's details panel (GalleryPanel: like a comic's), with Download in the panel's header.
   import { onMount } from 'svelte';
-  import { reveal, pop, glide } from '../lib/motion';
+  import { reveal, pop, glide, swap } from '../lib/motion';
   import { fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { api, type BrowseGallery } from '../lib/api';
@@ -154,14 +154,14 @@
   </header>
   <div class="grid">
     {#if loaded && !sites.length}
-      <div class="empty-shelf" transition:reveal>
+      <div class="empty-shelf" in:swap>
         <span class="badge"><Icon name="book" size={28} /></span>
         <p class="muted">{t('browse.noSites')}</p>
       </div>
     {:else if results.total === 0 && !results.busy && !results.error && results.searches > 0}
-      <div class="empty" transition:reveal><p>{t('browse.none')}</p></div>
+      <div class="empty" in:swap><p>{t('browse.none')}</p></div>
     {:else if results.total === 0 && results.busy}
-      <div class="first-load" role="status" aria-label={t('library.searching')} transition:reveal><span class="spinner"></span></div>
+      <div class="first-load" role="status" aria-label={t('library.searching')} in:swap><span class="spinner"></span></div>
     {:else}
       <Grid {pad} inset={topbar.h + headH - topbar.off} onopen={details} />
     {/if}

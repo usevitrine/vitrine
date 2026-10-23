@@ -510,7 +510,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: calc(14px + var(--safe-top)) 8px calc(14px + var(--safe-bottom)) calc(8px + var(--safe-left));
+    padding: calc(14px + var(--safe-top)) 8px calc(14px + var(--bottom-room)) calc(8px + var(--safe-left) + var(--safe-corner, 0px));
     background: var(--mantle);
     border-right: 1px solid var(--surface0);
     box-shadow: 12px 0 32px rgb(0 0 0 / 0.45);

@@ -295,7 +295,7 @@
   .first {
     height: 100%;
     overflow-y: auto;
-    padding: calc(var(--safe-top) + 12px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 24px) calc(var(--safe-left) + 16px);
+    padding: calc(var(--safe-top) + 12px) calc(var(--safe-right) + 16px) calc(var(--bottom-room) + 24px) calc(var(--safe-left) + 16px);
   }
   .inner {
     max-width: 600px;

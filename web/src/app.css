@@ -105,6 +105,11 @@ html.standalone {
     --safe-corner: 10px;
   }
 }
+/* The room at the bottom for anything that reaches it - pages, sheets, the sidebar, bars: the reported inset or the
+   home-screen app's own, whichever is bigger (the user: "the massive curved screen is close to the content"). */
+:root {
+  --bottom-room: max(var(--safe-bottom), var(--home-bar, 0px));
+}
 
 /* No double-tap-to-zoom delay on controls; no long-press preview on tiles. */
 button,
@@ -286,7 +291,7 @@ button:disabled {
   height: 100%;
   overflow-y: auto;
   /* (room for the top bar, which floats over the page) */
-  padding: calc(var(--bar-h, 0px) + 16px) 12px calc(28px + var(--safe-bottom));
+  padding: calc(var(--bar-h, 0px) + 16px) 12px calc(28px + var(--bottom-room));
 }
 .page-inner {
   max-width: 760px;

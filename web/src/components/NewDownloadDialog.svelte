@@ -427,7 +427,7 @@
     translate: none;
     width: auto;
     max-height: calc(var(--view-h) - 12px);
-    padding: 0 14px calc(18px + var(--safe-bottom));
+    padding: 0 14px calc(18px + var(--bottom-room));
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);

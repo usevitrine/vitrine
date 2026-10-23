@@ -14,6 +14,15 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   `--radius` 8px, `--gap` 8px. Every input, select and button is one height (`--control-h`).
 - **Safe areas**: `--safe-top/bottom/left/right` (env insets; the home-screen app adds `--top-extra`), `--home-bar`
   and `--safe-corner` for bars along the bottom in the iOS home-screen app; `--sheet-max-h` caps phone sheets.
+  **`--bottom-room`** (2026-10-23, the user: Duplicates' bottom too close to "the massive curved screen", "fix similar
+  situations site wide such as the sheets ... and the sidebar"): the reported bottom inset or `--home-bar`, whichever
+  is bigger - everything that reaches the bottom uses it: `.page`, sheets (menus, chip editor, tag menu, filters, New
+  download, confirmations, the details), the sidebar (+ `--safe-corner` at its side), Duplicates (+ `--safe-corner`
+  at the sides: its Keep row spans the screen), the first steps, the reader's slider (+ corners at its ends).
+  Checked with the screen's 55 px corners drawn over standalone iPhone shots.
+- **Placeholders that alternate with something full-height** (an empty result vs the grid, Duplicates' empty card vs
+  the pictures, its video bar): fade in place (`in:swap`), never a height slide - a collapsing placeholder squeezed
+  what replaced it, so Duplicates' picture started small and grew (the user noticed).
 - **Buttons**: filled (the main action, mauve), `.quiet` (outlined), `.icon` (just an icon), `.danger`; square icon
   buttons in toolbars (the selection bar). **Cards** (`.card`, `.card-head`, `.hint`, `.field`, `.empty`, `.pill`)
   on the screens other than the library (`.page`, centered). Floating controls over a picture: `.float-bar`, `.chip`,

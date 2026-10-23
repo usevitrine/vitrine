@@ -600,7 +600,7 @@
     bottom: 0;
     max-height: var(--sheet-max-h);
     overflow-y: auto;
-    padding: 0 14px calc(30px + var(--safe-bottom));
+    padding: 0 14px calc(30px + var(--bottom-room));
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);

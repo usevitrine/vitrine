@@ -256,7 +256,7 @@
     max-height: var(--sheet-max-h);
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 0 12px calc(30px + var(--safe-bottom));
+    padding: 0 12px calc(30px + var(--bottom-room));
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);

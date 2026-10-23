@@ -150,7 +150,7 @@
     bottom: var(--kb, 0px); /* (just above the on-screen keyboard: a word to type) */
     width: auto;
     transform: none;
-    padding: 0 20px calc(26px + var(--safe-bottom));
+    padding: 0 20px calc(26px + var(--bottom-room));
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);

@@ -5,7 +5,7 @@
   // suggested. Keeping one gives it the other's tags and sources and deletes
   // the other (undo from the notice, or within the usual 7 days).
   import { onMount } from 'svelte';
-  import { reveal, pop } from '../lib/motion';
+  import { reveal, pop, swap } from '../lib/motion';
   import { SvelteSet } from 'svelte/reactivity';
   import { api, type DupeFile, type DupePair } from '../lib/api';
   import { dupes, levels } from '../lib/dupes.svelte';
@@ -394,9 +394,9 @@
   {/if}
 
   {#if !loaded}
-    <div class="nothing" transition:reveal></div>
+    <div class="nothing" in:swap></div>
   {:else if !cur}
-    <div class="nothing" transition:reveal>
+    <div class="nothing" in:swap>
       <div class="empty-card">
         <span class="empty-icon"><Icon name={checking ? 'clock' : 'check'} size={28} /></span>
         {#if checking}
@@ -438,7 +438,8 @@
 
     {#if hasVideo}
       <!-- One bar for both videos: play/pause, where they are, scrub both. -->
-      <div class="vbar" transition:reveal>
+      <!-- (fades in place: sliding open would make the pictures above shrink while it did) -->
+      <div class="vbar" in:swap>
         <button class="icon" aria-label={vplaying ? t('dupes.pauseBoth') : t('dupes.playBoth')} title={vplaying ? t('video.pause') : t('video.play')} onclick={togglePlay}
           ><Icon name={vplaying ? 'pause' : 'play'} size={18} /></button>
         <input
@@ -503,7 +504,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: calc(var(--bar-h, 0px) + 12px) 12px calc(12px + var(--safe-bottom)); /* (room for the top bar) */
+    padding: calc(var(--bar-h, 0px) + 12px) calc(12px + var(--safe-corner, 0px)) calc(12px + var(--bottom-room)); /* (room for the top bar; clear of the screen's corners) */
     max-width: 1200px;
     margin: 0 auto;
   }
@@ -522,6 +523,7 @@
   .count {
     color: var(--subtext);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   .spacer {
     flex: 1;

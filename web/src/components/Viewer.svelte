@@ -1295,7 +1295,7 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 16px 16px calc(24px + var(--safe-bottom));
+    padding: 16px 16px calc(24px + var(--bottom-room));
   }
   @media (max-width: 899px) {
     .panel {
@@ -1332,7 +1332,7 @@
       background: var(--surface2);
     }
     .panel-body {
-      padding: 16px 20px calc(24px + var(--safe-bottom));
+      padding: 16px 20px calc(24px + var(--bottom-room));
     }
   }
 </style>

@@ -1202,7 +1202,8 @@
   /* Touch screens: well clear of a phone's home bar (its swipe up must not catch the slider). */
   @media (pointer: coarse) {
     .bottom {
-      bottom: calc(var(--safe-bottom) + 28px);
+      bottom: calc(var(--bottom-room) + 20px);
+      width: min(760px, calc(100% - 24px - 2 * var(--safe-corner, 0px))); /* (its ends clear of the screen's corners) */
     }
   }
   .hide {

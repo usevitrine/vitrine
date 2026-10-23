@@ -1,7 +1,7 @@
 <script lang="ts">
   import { cubicOut } from 'svelte/easing';
   import { slide } from 'svelte/transition';
-  import { reveal } from '../lib/motion';
+  import { reveal, swap } from '../lib/motion';
   import { live } from '../lib/live.svelte';
   import { connection } from '../lib/offline.svelte';
   import Welcome from '../components/Welcome.svelte';
@@ -364,13 +364,13 @@
     <!-- (only once a search has finished: before the first one - the app starting - the welcome flashed) -->
     {#if results.total === 0 && !results.busy && !results.error && results.searches > 0}
       {#if query}
-        <div class="empty" transition:reveal><p>{t('library.noMatch')}</p></div>
+        <div class="empty" in:swap><p>{t('library.noMatch')}</p></div>
       {:else if fav}
-        <div class="empty"><p>{t('library.noFavorites')}</p></div>
+        <div class="empty" in:swap><p>{t('library.noFavorites')}</p></div>
       {:else if inTrash}
-        <div class="empty"><p>{t('library.trashEmpty')}</p></div>
+        <div class="empty" in:swap><p>{t('library.trashEmpty')}</p></div>
       {:else}
-        <div class="welcome-scroll"><Welcome /></div>
+        <div class="welcome-scroll" in:swap><Welcome /></div>
       {/if}
     {:else}
       <Grid
