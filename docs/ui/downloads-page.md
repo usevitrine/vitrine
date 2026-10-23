@@ -124,6 +124,18 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   "Manage sites" cog sits muted in the card's title row. **`--overlay1` (#7f849c) was missing from the palette**:
   ten places that meant to be muted (Off chips, "Not started", subscription row icons, Settings chevrons...) showed
   in full text color.
+- **The downloads menu in the top bar (2026-10-23)** (the user: "the download button on media should be converted
+  into a current downloads dropdown similar to the notifications with a button to add a new download and a list of
+  current downloads with a counter on the icon"): the Library's download icon (`DownloadsMenu`, left of the bell)
+  has a peach counter - downloads running or waiting (not paused) - and its arrow bobs while one downloads. A press
+  opens a panel like the bell's (grows out of it; press outside / Escape / Back closes): "Downloads" + "All >" (the
+  Downloads page), **New download** (full width; the dialog below, with the search in the bar), then what is going on
+  now - running, waiting, paused (a subscription's check named "the check of x") - each with its site icon, "Downloading
+  · 12 files" / Waiting / Paused and the same progress bar as the Downloads page (`lib/downloadProgress`, shared;
+  striped without an estimate); six at most, then "N more"; a row opens the Downloads page. "Nothing downloading" when
+  none. Data: `lib/activeDownloads` (`GET /api/downloads`, read again when the live stream says the queue changed;
+  polled every 5 s only without it). Phones: the panel spans the top bar with 8 px each side (the bell's too, since).
+  The tour's Downloads hint points at it.
 - **New download from the Library (2026-10-22)** (the user: "a download button on the library page that opens a new
   download popup, a multi page form"): a download icon in the Library's top bar opens `NewDownloadDialog` - pages
   like the other menus (`lib/pages`, Back in the header): (1) only when the search has tags: "This search" (its

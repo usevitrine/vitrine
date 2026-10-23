@@ -12,7 +12,7 @@
   const touch = matchMedia('(pointer: coarse)').matches;
   const all = [
     { sel: '.bar [role="combobox"]', title: t('tour.search.title'), text: t('tour.search.text') },
-    { sel: 'button[aria-label="New download"]', title: t('tour.download.title'), text: t('tour.download.text') },
+    { sel: 'button.dl', title: t('tour.download.title'), text: t('tour.download.text') },
     { sel: 'button[aria-label^="Saved searches"]', title: t('tour.saved.title'), text: t('tour.saved.text') },
     { sel: '.tile[data-i="0"]', title: t('tour.view.title'), text: touch ? t('tour.view.touch') : t('tour.view.mouse') },
     { sel: '.menu-button', title: t('tour.menu.title'), text: t('tour.menu.text') },

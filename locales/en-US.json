@@ -2348,9 +2348,21 @@
     "prevThumbs": "Earlier pages",
     "nextThumbs": "Later pages"
   },
+  "dlMenu": {
+    "label": "Downloads",
+    "labelActive": {
+      "one": "Downloads, {n} going on",
+      "other": "Downloads, {n} going on"
+    },
+    "all": "All",
+    "empty": "Nothing downloading",
+    "more": {
+      "one": "{n} more",
+      "other": "{n} more"
+    }
+  },
   "newDl": {
     "open": "New download",
-    "openTitle": "A new download: this search, or another, on a site",
     "site": "Which site?",
     "search": "Search {site}",
     "how": "Download once or subscribe?",
@@ -2375,7 +2387,7 @@
     },
     "download": {
       "title": "Downloads",
-      "text": "Download from a site: a search once, or subscribe to it and get new posts by themselves."
+      "text": "What is downloading now, and New download: a search on a site once, or subscribe to it and get new posts by themselves."
     },
     "saved": {
       "title": "Saved searches",

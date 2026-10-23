@@ -4,6 +4,7 @@
   import Welcome from '../components/Welcome.svelte';
   import { onMount, tick, untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
+  import DownloadsMenu from '../components/DownloadsMenu.svelte';
   import { fitContain, hero, rectOf, reducedMotion } from '../lib/hero';
   import { results } from '../lib/results.svelte';
   import { router } from '../lib/router.svelte';
@@ -19,7 +20,6 @@
   import { api } from '../lib/api';
   import { saved } from '../lib/saved.svelte';
   import { t } from '../lib/i18n.svelte';
-  import { openNewDownload } from '../lib/newDownload.svelte';
   import { trash, emptyTrash } from '../lib/trash.svelte';
 
   // The search and its order are kept apart: the order is in the sort menu and
@@ -320,7 +320,7 @@
   <span class="count" aria-live="polite"
     >{#if (results.busy || !results.searches) && !results.total}{t('library.searching')}{:else if !results.error}{t('common.files', { n: results.total })}{/if}</span
   >
-  {#if !inTrash}<button class="icon new-dl" aria-label={t('newDl.open')} title={t('newDl.openTitle')} aria-haspopup="dialog" onclick={() => openNewDownload(query)}><Icon name="download" /></button>{/if}
+  {#if !inTrash}<DownloadsMenu {query} />{/if}
 {/snippet}
 
 <div class="library" style:--lib-pad="{pad}px">

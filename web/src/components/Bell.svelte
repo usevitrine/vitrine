@@ -245,6 +245,17 @@
     transform-origin: calc(100% - 22px) 0;
     overflow: hidden;
   }
+  /* Phones: across the top bar, the same margin on both sides (the bar holds it, not the button). */
+  @media (max-width: 639px) {
+    .bell-wrap {
+      position: static;
+    }
+    .panel {
+      left: 8px;
+      right: 8px;
+      width: auto;
+    }
+  }
   /* A modest heading: the title, the broom beside it. */
   header {
     display: flex;

@@ -69,6 +69,12 @@ async function rowMenu(page: import('@playwright/test').Page, row: string, item:
 }
 
 /** Picks a result order ("Oldest imported") in the search bar's Sort and filters menu. */
+/** New download from the top bar's downloads menu. */
+async function openNewDownload(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: /^Downloads/ }).click();
+  await page.getByRole('dialog', { name: 'Downloads' }).getByRole('button', { name: 'New download' }).click();
+}
+
 async function pickSort(page: import('@playwright/test').Page, label: string) {
   const [dir, field] = label.split(' ');
   await page.getByRole('button', { name: 'Filters', exact: true }).click();
@@ -4126,11 +4132,52 @@ test('search chips have a menu like a tag in the details: edit, exclude, new sea
   await expect(page.locator('.chip')).toHaveCount(0);
 });
 
+test('library: the downloads menu - a counter, New download, what is downloading now (running first), to the Downloads page', async ({ page }) => {
+  const search = (id: number, state: string, extra = {}) => ({
+    id, site: 'test-down', query: `menu_${id}`, state, max_posts: 10, site_total: 0, handled: 0, downloaded: 0, already: 0, deleted: 0, skipped: 0,
+    blacklisted: 0, position: id, failed: 0, created_at: 0, ...extra,
+  });
+  let searches = [search(1, 'queued'), search(2, 'done'), search(3, 'paused'), search(4, 'running', { downloaded: 4, label: 'A running one' })];
+  await page.route('**/api/downloads', async (r) => {
+    if (r.request().method() !== 'GET') return r.continue();
+    const res = await r.fetch();
+    await r.fulfill({ response: res, json: { ...(await res.json()), searches, sites_paused: {} } });
+  });
+  await page.goto('/');
+  const button = page.getByRole('button', { name: /^Downloads/ });
+  await expect(button).toHaveAccessibleName('Downloads, 2 going on'); // running and waiting (not paused, not done)
+  await expect(button.locator('.counter')).toHaveText('2');
+  await button.click();
+  const menu = page.getByRole('dialog', { name: 'Downloads' });
+  const rows = menu.locator('li');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('A running one');
+  await expect(rows.nth(0)).toContainText('Downloading · 4 files');
+  await expect(rows.nth(0).locator('.fill')).toHaveAttribute('style', /width: 40%/);
+  await expect(rows.nth(1)).toContainText('menu_1');
+  await expect(rows.nth(1)).toContainText('Waiting');
+  await expect(rows.nth(2)).toContainText('Paused');
+  await rows.nth(0).click();
+  await expect(page).toHaveURL(/\/downloads/);
+  await expect(menu).toHaveCount(0);
+  // Nothing going on: no counter, a quiet line.
+  searches = [search(2, 'done')];
+  await page.goto('/');
+  await expect(button).toHaveAccessibleName('Downloads');
+  await expect(button.locator('.counter')).toHaveCount(0);
+  await button.click();
+  await expect(menu.getByText('Nothing downloading')).toBeVisible();
+  await expect(menu.getByRole('button', { name: 'New download' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('library: the download button - this search or another, the site, the search written its way, once or a subscription', async ({ page }) => {
   const posted: { site: string; query: string; max_posts: number }[] = [];
   await page.route('**/api/downloads', (r) => (r.request().method() === 'POST' ? (posted.push(r.request().postDataJSON()), r.fulfill({ json: { id: 1 } })) : r.continue()));
   await page.goto('/?q=' + encodeURIComponent('blue_sky ( landscape ~ portrait ) system:type=image'));
-  await page.getByRole('button', { name: 'New download' }).click();
+  await openNewDownload(page);
   const dlg = page.getByRole('dialog');
   // The search in the bar (in its chips' words), on a site with an OR search: its tags that way, the filter left out.
   await expect(dlg.getByRole('button', { name: /This search/ })).toContainText('blue_sky · landscape or portrait · images');
@@ -4159,7 +4206,7 @@ test('library: the download button - this search or another, the site, the searc
   let subscribed: { site: string; query: string; interval: number } | null = null;
   await page.route('**/api/subscriptions', (r) => (r.request().method() === 'POST' ? ((subscribed = r.request().postDataJSON()), r.fulfill({ json: { id: 1 } })) : r.continue()));
   await page.goto('/?q=system:type%3Dimage');
-  await page.getByRole('button', { name: 'New download' }).click();
+  await openNewDownload(page);
   await expect(dlg.getByRole('heading', { name: 'Which site?' })).toBeVisible();
   await dlg.getByRole('button', { name: 'safebooru.org' }).click();
   const box = dlg.getByRole('combobox', { name: 'Search on the site' });
@@ -4195,7 +4242,7 @@ test('suggestions: found inside a name (not only its start), what was typed mark
   await box.fill('');
   await page.keyboard.press('Escape');
   // The dialog's search box: its list over the dialog, on screen whole; a pick goes in.
-  await page.getByRole('button', { name: 'New download' }).click();
+  await openNewDownload(page);
   const dlg = newDl(page);
   await dlg.getByRole('button', { name: 'safebooru.org' }).click();
   const sbox = dlg.getByRole('combobox', { name: 'Search on the site' });
@@ -4286,7 +4333,7 @@ test('suggestions: a tag already in the search isn\'t one; marked ones go in tog
 test('library: the download dialog with a very long search never scrolls sideways', async ({ page }) => {
   const long = ['blue_sky', ...Array.from({ length: 14 }, (_, k) => `some_rather_long_tag_number_${k}`), 'a_single_tag_' + 'x'.repeat(120), 'system:type=image'].join(' ');
   await page.goto('/?q=' + encodeURIComponent(long));
-  await page.getByRole('button', { name: 'New download' }).click();
+  await openNewDownload(page);
   const dlg = page.getByRole('dialog');
   const sideways = () => dlg.evaluate((el) => el.scrollWidth - el.clientWidth);
   const pageSideways = () => page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
@@ -4311,7 +4358,7 @@ test('dialogs open above the on-screen keyboard (iOS: it covers the bottom of th
     expect(box.y).toBeGreaterThanOrEqual(0);
     expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height - kb + 1);
   };
-  await page.getByRole('button', { name: 'New download' }).click();
+  await openNewDownload(page);
   await page.waitForTimeout(400);
   await above(page.getByRole('dialog'));
   await page.keyboard.press('Escape');
@@ -4329,7 +4376,7 @@ test('an OR chip\'s download: the site\'s OR search with its tags, or a search f
   const menu = page.getByRole('dialog', { name: 'Edit search chip' });
   // A filter chip: nothing to download.
   await page.locator('.chip-main').nth(1).click();
-  await expect(page.getByRole('button', { name: /^Download/ })).toHaveCount(0);
+  await expect(menu.getByRole('button', { name: /^Download/ })).toHaveCount(0);
   await page.keyboard.press('Escape');
   // The OR group: any of them, as the site's OR search.
   await page.locator('.chip-main').nth(0).click();
@@ -6974,7 +7021,7 @@ test('new download on a phone with the keyboard up: the tag suggestions are part
   test.skip(!isPhone(page), 'phones');
   await page.route('**/api/autocomplete?*', (r) => r.fulfill({ json: { suggestions: [{ tag: 'blue_sky', count: 3 }, { tag: 'blue_hair', count: 2 }, { tag: 'blueberry', count: 1 }], took_ms: 0 } }));
   await page.goto('/');
-  await page.getByRole('button', { name: 'New download' }).click();
+  await openNewDownload(page);
   const dlg = newDl(page);
   await dlg.getByRole('button', { name: 'safebooru.org' }).click();
   const box = dlg.getByRole('combobox', { name: 'Search on the site' });

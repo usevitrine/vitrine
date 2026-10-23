@@ -3,6 +3,7 @@
   import { onMount, tick, untrack } from 'svelte';
   import { fly, slide } from 'svelte/transition';
   import { live, bytes } from '../lib/live.svelte';
+  import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf } from '../lib/downloadProgress';
   import Stack from '../components/Stack.svelte';
   import { api, type DownloadSearch, type RefreshStatus, type Subscription, type SubGroup, type FailedPost, type RetryJob, type SubLook, type SubPic } from '../lib/api';
   import SiteIcon from '../components/SiteIcon.svelte';
@@ -1147,25 +1148,10 @@
   const isGallery = (s: DownloadSearch) => siteInfo.engines[s.site] === 'ehentai';
   /** One gallery's download (its link): counted by page - a search of many, by gallery. */
   const oneGallery = (x: { query: string }) => /\/g\/\d+\/[0-9a-f]+/i.test(x.query);
-  /** The gallery downloading now in a search: its pages stored, out of how many. */
-  function galleryNow(s: DownloadSearch): { done: number; pages: number } | null {
-    const f = live.files.find((x) => x.search === s.id && x.pages);
-    return f ? { done: f.done ?? 0, pages: f.pages ?? 0 } : null;
-  }
-
-  /** Whether a search's progress can be measured (a file limit or the site's total). */
-  const measurable = (s: DownloadSearch) => s.max_posts > 0 || s.site_total > 0 || !!galleryNow(s);
-
-  function progress(s: DownloadSearch): number {
-    // A gallery site: the galleries done, plus how far the one downloading now is.
-    const g = isGallery(s) ? galleryNow(s) : null;
-    if (g && g.pages > 0) return Math.min(1, (s.handled + g.done / g.pages) / Math.max(1, s.site_total, s.handled + 1));
-    // With a limit: files in the library out of the limit (skipped posts don't count).
-    if (s.max_posts > 0 && !(s.site_total > 0 && s.site_total < s.max_posts)) return Math.min(1, (s.downloaded + s.already) / s.max_posts);
-    const total = s.site_total;
-    if (total <= 0) return s.state === 'done' ? 1 : 0;
-    return Math.min(1, s.handled / total);
-  }
+  // How far a search is (lib/downloadProgress, shared with the top bar's downloads menu).
+  const galleryNow = (s: DownloadSearch) => galleryOf(s, live.files);
+  const measurable = (s: DownloadSearch) => measurableOf(s, live.files);
+  const progress = (s: DownloadSearch) => progressOf(s, live.files, isGallery(s));
 </script>
 
 {#snippet siteHead(key: string, siteId: string, count: number, offWhat: string)}
