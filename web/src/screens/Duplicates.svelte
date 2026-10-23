@@ -5,6 +5,7 @@
   // suggested. Keeping one gives it the other's tags and sources and deletes
   // the other (undo from the notice, or within the usual 7 days).
   import { onMount } from 'svelte';
+  import { reveal, pop } from '../lib/motion';
   import { SvelteSet } from 'svelte/reactivity';
   import { api, type DupeFile, type DupePair } from '../lib/api';
   import { dupes, levels } from '../lib/dupes.svelte';
@@ -361,6 +362,7 @@
 {#snippet undoButton()}
   <button
     class="quiet undo"
+    transition:pop
     disabled={!last}
     onclick={() => last && undo(last.pair)}
     aria-label={last ? t('dupes.undoWhat', { what: lastText }) : t('common.undo')}
@@ -370,13 +372,13 @@
 
 {#snippet badge(side: Side)}
   <span class="badge {side}">{side.toUpperCase()}</span>
-  {#if best?.side === side}<span class="suggested"><Icon name="star" size={12} /> {t('dupes.suggested')}</span>{/if}
+  {#if best?.side === side}<span class="suggested" transition:pop><Icon name="star" size={12} /> {t('dupes.suggested')}</span>{/if}
 {/snippet}
 
 <div class="dupes">
   <header class="head">
     <h1>{t('menu.duplicates')}</h1>
-    {#if loaded && remaining > 0}<span class="count">{t('dupes.toCheck', { n: remaining })}</span>{/if}
+    {#if loaded && remaining > 0}<span class="count" transition:pop>{t('dupes.toCheck', { n: remaining })}</span>{/if}
     <span class="spacer"></span>
     <Dropdown
       value={String(dupes.level)}
@@ -385,16 +387,16 @@
   </header>
 
   {#if checking && progress.total > 0}
-    <div class="progress" role="status">
+    <div class="progress" role="status" transition:reveal>
       <div class="bar"><span style:width="{percent}%"></span></div>
       <span class="muted">{t('dupes.looking', { checked: progress.checked, n: progress.total })}</span>
     </div>
   {/if}
 
   {#if !loaded}
-    <div class="nothing"></div>
+    <div class="nothing" transition:reveal></div>
   {:else if !cur}
-    <div class="nothing">
+    <div class="nothing" transition:reveal>
       <div class="empty-card">
         <span class="empty-icon"><Icon name={checking ? 'clock' : 'check'} size={28} /></span>
         {#if checking}
@@ -405,7 +407,7 @@
           <p class="muted">{t('dupes.noneHint')}</p>
           {#if last}{@render undoButton()}{/if}
           {#if dupes.level < 10}
-            <button class="quiet" onclick={() => changeLevel(levels.find((l) => l.value > dupes.level)!.value)}>{t('dupes.lessAlike')}</button>
+            <button class="quiet" onclick={() => changeLevel(levels.find((l) => l.value > dupes.level)!.value)} transition:pop>{t('dupes.lessAlike')}</button>
           {/if}
         {/if}
       </div>
@@ -413,7 +415,7 @@
   {:else}
     {#key key(cur)}
       <div class="stage" class:side={mode === 'side'}>
-        {#if buffering}<span class="buffering spinner" role="status" aria-label={t('common.loading')}></span>{/if}
+        {#if buffering}<span class="buffering spinner" role="status" aria-label={t('common.loading')} transition:pop></span>{/if}
         {#if mode === 'side'}
           {#each ['a', 'b'] as const as s (s)}
             <div class="pane">
@@ -436,7 +438,7 @@
 
     {#if hasVideo}
       <!-- One bar for both videos: play/pause, where they are, scrub both. -->
-      <div class="vbar">
+      <div class="vbar" transition:reveal>
         <button class="icon" aria-label={vplaying ? t('dupes.pauseBoth') : t('dupes.playBoth')} title={vplaying ? t('video.pause') : t('video.play')} onclick={togglePlay}
           ><Icon name={vplaying ? 'pause' : 'play'} size={18} /></button>
         <input

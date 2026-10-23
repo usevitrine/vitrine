@@ -4,6 +4,7 @@
   // comics, marked when the library has them or their download waits, page after page as the end comes near). A tile
   // opens its details in the app's details panel (GalleryPanel: like a comic's), with Download in the panel's header.
   import { onMount } from 'svelte';
+  import { reveal, pop } from '../lib/motion';
   import { fly, fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { api, type BrowseGallery } from '../lib/api';
@@ -123,11 +124,11 @@
   {#if open}
     {@const g = open}
     {#if g.comic}
-      <button class="icon" aria-label={t('browse.read')} title={t('browse.read')} onclick={() => router.go('comics', String(g.comic))}><Icon name="book" /></button>
+      <button class="icon" aria-label={t('browse.read')} title={t('browse.read')} onclick={() => router.go('comics', String(g.comic))} transition:pop><Icon name="book" /></button>
     {:else if g.queued}
-      <span class="icon-state" role="img" aria-label={t('browse.queued')} title={t('browse.queued')}><Icon name="download" /></span>
+      <span class="icon-state" role="img" aria-label={t('browse.queued')} title={t('browse.queued')} transition:pop><Icon name="download" /></span>
     {:else}
-      <button class="icon accent" aria-label={t('backups.download')} title={t('backups.download')} onclick={() => download(g)}><Icon name="download" /></button>
+      <button class="icon accent" aria-label={t('backups.download')} title={t('backups.download')} onclick={() => download(g)} transition:pop><Icon name="download" /></button>
     {/if}
   {/if}
 {/snippet}
@@ -149,18 +150,18 @@
           placeholder={siteInfo.hints[results.site] ?? t('browse.searchOn', { site: siteLabel(results.site) })} onsearch={search} />
       </div>
     {/if}
-    {#if results.error}<div class="status" aria-live="polite"><span class="error">{results.error}</span></div>{/if}
+    {#if results.error}<div class="status" aria-live="polite" transition:reveal><span class="error">{results.error}</span></div>{/if}
   </header>
   <div class="grid">
     {#if loaded && !sites.length}
-      <div class="empty-shelf">
+      <div class="empty-shelf" transition:reveal>
         <span class="badge"><Icon name="book" size={28} /></span>
         <p class="muted">{t('browse.noSites')}</p>
       </div>
     {:else if results.total === 0 && !results.busy && !results.error && results.searches > 0}
-      <div class="empty"><p>{t('browse.none')}</p></div>
+      <div class="empty" transition:reveal><p>{t('browse.none')}</p></div>
     {:else if results.total === 0 && results.busy}
-      <div class="first-load" role="status" aria-label={t('library.searching')}><span class="spinner"></span></div>
+      <div class="first-load" role="status" aria-label={t('library.searching')} transition:reveal><span class="spinner"></span></div>
     {:else}
       <Grid {pad} inset={topbar.h + headH - topbar.off} onopen={details} />
     {/if}

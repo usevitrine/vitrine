@@ -7,6 +7,7 @@
   // tap opens the reader at /comics/<id>. Comics live only here - their pages are
   // never in the library's grid.
   import { onMount, tick, untrack } from 'svelte';
+  import { reveal, pop } from '../lib/motion';
   import { collections } from '../lib/collections.svelte';
   import ActionMenu from '../components/ActionMenu.svelte';
   import { fly } from 'svelte/transition';
@@ -487,16 +488,16 @@
     {/if}
     {#if !inCollection}<div in:fly={{ y: -8, duration: 260, easing: cubicOut }}><div class="search-row">
       {#if inTrash && trash.comics > 0}
-        <button class="empty-trash" aria-label={t('trash.empty')} title={t('trash.empty')} onclick={() => emptyTrash(results)}><Icon name="trash" size={20} /></button>
+        <button class="empty-trash" aria-label={t('trash.empty')} title={t('trash.empty')} onclick={() => emptyTrash(results)} transition:reveal={{ axis: 'x' }}><Icon name="trash" size={20} /></button>
       {/if}
       <div class="search-grow"><SearchBar {query} {sort} placeholder={fav ? t('comics.favSearch') : inTrash ? t('comics.trashSearch') : t('comics.searchPlaceholder')} defaultSort={inTrash ? 'modified' : DEFAULT_SORT} onsearch={search} onsaved={(q, s) => ((sort = s), search(q))} onsort={setSort} /></div>
     </div>
     {#if inTrash && trash.comics > 0}
-      <p class="trash-facts">{t('comics.count', { n: trash.comics })} · {trash.comicSize} · {trash.days ? t('trash.keepDays', { n: trash.days }) : t('trash.keep')}</p>
+      <p class="trash-facts" transition:reveal>{t('comics.count', { n: trash.comics })} · {trash.comicSize} · {trash.days ? t('trash.keepDays', { n: trash.days }) : t('trash.keep')}</p>
     {/if}</div>{/if}
     <!-- (no "No tag ..." line: the user - an empty result says enough) -->
     {#if connection.offline || results.error}
-      <div class="status" aria-live="polite">
+      <div class="status" aria-live="polite" transition:reveal>
         {#if connection.offline}
           <span class="offline"><Icon name="clock" size={14} /> {t('library.offline')}</span>
         {:else}
@@ -508,7 +509,7 @@
   <div class="grid">
     {#if results.total === 0 && !results.busy && !results.error && results.searches > 0}
       {#if query}
-        <div class="empty"><p>{t('comics.noMatch')}</p></div>
+        <div class="empty" transition:reveal><p>{t('comics.noMatch')}</p></div>
       {:else if fav}
         <div class="empty"><p>{t('comics.noFavorites')}</p></div>
       {:else if inTrash}
@@ -531,7 +532,7 @@
 {#snippet panelActions()}
   {#if details}
     {@const c = details}
-    <button class="icon delete" aria-label={t('comics.deleteLabel')} title={t('common.delete')} onclick={() => removeComic(c)}><Icon name="trash" /></button>
+    <button class="icon delete" aria-label={t('comics.deleteLabel')} title={t('common.delete')} onclick={() => removeComic(c)} transition:pop><Icon name="trash" /></button>
   {/if}
 {/snippet}
 

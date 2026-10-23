@@ -4,6 +4,7 @@
   // streak, the most counted files, creators, characters, series and tags. A file opens its
   // ranking in the library (sorted by count); a creator or tag, its search.
   import { api, type Rankings, type FileInfo } from '../lib/api';
+  import { reveal, moved } from '../lib/motion';
   import { router } from '../lib/router.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   import { splitTag, nsColor } from '../lib/namespaces.svelte';
@@ -105,15 +106,15 @@
     </div>
 
     {#if !data}
-      <p class="hint">{t('rankings.counting')}</p>
+      <p class="hint" transition:reveal>{t('rankings.counting')}</p>
     {:else if data.first === 0}
-      <section class="card empty">
+      <section class="card empty" transition:reveal>
         <Icon name="drop" size={28} />
         <p><strong>{t('rankings.none')}</strong></p>
         <p class="hint">{t('rankings.noneHint')}</p>
       </section>
     {:else}
-      <section class="card">
+      <section class="card" transition:reveal>
         <div class="tiles">
           <div class="tile"><b>{n(data.total)}</b><span>{t(`rankings.in.${period}`)}</span></div>
           <div class="tile"><b>{n(data.streak)}</b><span>{t('rankings.streak', { n: data.streak })}</span></div>
@@ -134,7 +135,7 @@
       </section>
 
       {#if data.files.length}
-        <section class="card">
+        <section class="card" transition:reveal>
           <div class="head-row">
             <h2>{t('rankings.files')}</h2>
             <button class="quiet" onclick={() => search('system:came>0 sort:came')}>{t('rankings.seeAll')}</button>
@@ -142,7 +143,7 @@
           <ol class="files">
             {#each data.files as f, i (f.id)}
               {@const info = files.get(f.id)}
-              <li>
+              <li animate:moved transition:reveal>
                 <button class="file" onclick={() => search('system:came>0 sort:came')} aria-label={t('rankings.fileLabel', { rank: i + 1, n: f.count })}>
                   <span class="thumb" style:background-image={info?.thumb ? `url(${info.thumb})` : undefined}></span>
                   <span class="rank">{i + 1}</span>
@@ -156,12 +157,12 @@
 
       {#if data.pages?.length}
         <!-- The comic reader's presses: the exact page, opening the comic there. -->
-        <section class="card">
+        <section class="card" transition:reveal>
           <div class="card-head"><h2>{t('rankings.pages')}</h2></div>
           <ol class="files">
             {#each data.pages as pg, i (pg.comic + ':' + pg.page)}
               {@const info = files.get(pg.file)}
-              <li>
+              <li animate:moved transition:reveal>
                 <button class="file page" onclick={() => openPage(pg.comic, pg.page)} aria-label={t('rankings.pageLabel', { rank: i + 1, n: pg.count, title: pg.title, page: pg.page + 1 })} title={pg.title}>
                   <span class="thumb" style:background-image={info?.thumb ? `url(${info.thumb})` : undefined}></span>
                   <span class="rank">{i + 1}</span>
@@ -177,11 +178,11 @@
       {#each [{ id: 'creators', list: data.creators }, { id: 'characters', list: data.characters ?? [] }, { id: 'series', list: data.series ?? [] }, { id: 'tags', list: data.tags }] as group (group.id)}
         {#if group.list.length}
           {@const top = Math.max(1, ...group.list.map((row) => row.count))}
-          <section class="card">
+          <section class="card" transition:reveal>
             <div class="card-head"><h2>{t(`rankings.group.${group.id}`)}</h2></div>
             <ol class="bars">
               {#each group.list as row, i (row.tag)}
-                <li>
+                <li animate:moved transition:reveal>
                   <button class="bar-row" onclick={() => search(row.tag)}>
                     <span class="rank-n">{i + 1}</span>
                     <span class="name" style:color={nsColor(splitTag(row.tag).ns)}>{tagName(row.tag)}</span>

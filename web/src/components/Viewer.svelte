@@ -1,5 +1,6 @@
 <script lang="ts">
   import { backClose } from '../lib/backClose';
+  import { pop } from '../lib/motion';
   import { dragDown } from '../lib/sheetDrag';
   import { Glide, clampZoom as clampFit, zoomAround, pinchScale } from '../lib/zoom';
   import { reducedMotion } from '../lib/hero';
@@ -973,16 +974,16 @@
     <div class="top float-bar" class:hide={!chrome || !entered} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
       <button class="icon" aria-label={t('sites.close')} onclick={onclose}><Icon name="close" /></button>
       <span class="count chip">{num(index + 1)} / {num(results.total)}</span>
-      {#if index < results.pinned}<span class="chip new" title={t('viewer.newTitle')}>{t('grid.new')}</span>{/if}
-      {#if percent}<span class="chip pct" title={t('viewer.percentTitle', { n: percent })}>{t('viewer.percent', { n: percent })}</span>{/if}
-      {#if loading}<span class="spinner" role="status" aria-label={t('viewer.loading')}></span>{/if}
+      {#if index < results.pinned}<span class="chip new" title={t('viewer.newTitle')} transition:pop>{t('grid.new')}</span>{/if}
+      {#if percent}<span class="chip pct" title={t('viewer.percentTitle', { n: percent })} transition:pop>{t('viewer.percent', { n: percent })}</span>{/if}
+      {#if loading}<span class="spinner" role="status" aria-label={t('viewer.loading')} transition:pop></span>{/if}
       <span class="spacer"></span>
       {#if cur}
         <button class="icon fav" class:on={cur.favorite} aria-label={t('filter.favorite.label')} aria-pressed={!!cur.favorite} title={cur.favorite ? t('viewer.unfavoriteKey') : t('viewer.favoriteKey')}
           onclick={toggleFavorite}><Icon name="heart" filled={!!cur.favorite} /></button>
         {#if settings.came}
           <button class="icon came" aria-label={cur.came ? t('viewer.cameSoFar', { n: cur.came }) : t('rankings.title')} title={t('viewer.cameKey')} onclick={countClimax}
-            ><Icon name="drop" />{#if cur.came}<span class="came-n">{cur.came}</span>{/if}</button>
+            ><Icon name="drop" />{#if cur.came}<span class="came-n" transition:pop>{cur.came}</span>{/if}</button>
         {/if}
       {/if}
       {#if fullscreen.supported && !isVideo}
