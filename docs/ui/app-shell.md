@@ -102,7 +102,7 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   (and a trim deleted hundreds one by one): a screenful queued up and arrived together.
 - **A slimmer top bar on phones (2026-10-23, user: "with the two buttons on the right, the files counter ... and the
   new files button ... it gets cramped")**: under 640 px the logo is just the mark (the V, no "itrine"), the library's
-  file count is shorter from 10,000 on ("159K files",  in lib/i18n: compact notation, 3 significant digits -
+  file count is shorter from 10,000 on ("159K files", `short()` in lib/i18n: compact notation, 3 significant digits -
   the full number in its title and for screen readers); under 380 px the bar's gaps and sides are tighter. The
   new-files chip left the top bar (the user: "move the clear new button to the left of the search bar and have it
   animate in and out" ... "just the icon" ... "make sure the button is square"): a square accent broom left of the
