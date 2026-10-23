@@ -2358,6 +2358,7 @@
       "other": "Downloads, {n} going on"
     },
     "all": "All",
+    "new": "New",
     "empty": "Nothing downloading",
     "more": {
       "one": "{n} more",

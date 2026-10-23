@@ -121,7 +121,7 @@
     <div class="panel" bind:this={panel} role="dialog" aria-label={t('dlMenu.label')} {@attach backClose(close)} in:grow out:grow={{ out: true }}>
       <header>
         <h2>{t('dlMenu.label')}</h2>
-        <button class="quiet link new" onclick={newDownload}><Icon name="plus" size={15} /> {t('newDl.open')}</button>
+        <button class="quiet link new" onclick={newDownload} aria-label={t('newDl.open')}><Icon name="plus" size={15} /> {t('dlMenu.new')}</button>
         <button class="quiet link" onclick={toDownloads}>{t('dlMenu.all')} <Icon name="right" size={15} /></button>
       </header>
       {#if active.list.length}
