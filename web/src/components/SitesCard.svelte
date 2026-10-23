@@ -3,11 +3,15 @@
   // server, never shown again - only whether each is set) and a connection
   // test.
   import { onMount, untrack } from 'svelte';
+  import { slide, fade } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
+  import { cubicOut } from 'svelte/easing';
   import { api, type SiteInfo, type SiteTest, type PluginInfo, type Installed } from '../lib/api';
   import { sites as siteNames } from '../lib/sites.svelte';
   import { toasts } from '../lib/toast.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import Icon from './Icon.svelte';
+  import SiteIcon from './SiteIcon.svelte';
   import ActionMenu, { type MenuItem } from './ActionMenu.svelte';
   import { settings } from '../lib/settings.svelte';
   import { depthChoice, depthLabel } from '../lib/depth';
@@ -30,6 +34,9 @@
   let adding = $state(untrack(() => welcome)); // the Add site panel is open (from the start in the welcome)
   let showAdult = $state(false); // adult sites in the list to add (hidden until asked for)
   let installing = $state<string | null>(null); // a plugin ID, or 'file'
+  let find = $state(''); // Add site's search
+  let kind = $state(''); // Add site's filter: a plugin kind, '' = all
+  let showAll = $state(false); // past the first few sites
   let fileInput = $state<HTMLInputElement>();
   let editing = $state<Record<string, boolean>>({}); // saved credentials being replaced
 
@@ -81,9 +88,24 @@
       busy[s.id] = undefined;
     }
   }
-  // (SFW mode: adult sites never offered - installed ones keep working)
-  const available = $derived(plugins.filter((p) => !p.installed && ((showAdult && !settings.sfwMode) || !p.nsfw)));
-  const adultCount = $derived(settings.sfwMode ? 0 : plugins.filter((p) => !p.installed && p.nsfw).length);
+  // Add site: the sites not installed, A to Z (SFW mode: adult sites never offered - installed ones keep working).
+  // A long list shows its first few with "Show all"; a search for it and filters by kind once there are kinds to pick.
+  const FIRST = 8;
+  const KINDS = ['booru', 'gallery', 'social'];
+  const offerable = $derived(plugins.filter((p) => !p.installed && !(p.nsfw && settings.sfwMode)).sort((a, b) => a.site.localeCompare(b.site)));
+  const available = $derived(offerable.filter((p) => showAdult || !p.nsfw));
+  const adultCount = $derived(offerable.filter((p) => p.nsfw).length);
+  const kinds = $derived(KINDS.filter((k) => available.some((p) => p.kind === k)));
+  const pickedKind = $derived(kinds.length > 1 && kinds.includes(kind) ? kind : ''); // (a kind that's gone: All)
+  const searchable = $derived(offerable.length > FIRST); // the same with or without adult sites
+  const matches = $derived.by(() => {
+    const q = searchable ? find.trim().toLowerCase() : '';
+    return available.filter((p) => (!pickedKind || p.kind === pickedKind) && (!q || [p.site, p.name, p.description ?? ''].some((s) => s.toLowerCase().includes(q))));
+  });
+  const searching = $derived(searchable && !!find.trim());
+  const shown = $derived(searching || showAll ? matches : matches.slice(0, FIRST));
+  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ms = (n: number) => (reduced() ? 0 : n);
   const updateFor = (id: string) => plugins.find((p) => p.id === id && p.update);
 
   async function loadPlugins(refresh = false) {
@@ -402,21 +424,50 @@
       ><Icon name={adding ? 'close' : 'plus'} size={16} /> {adding ? t('sites.close') : t('sites.add')}</button>
   {/if}
   {#if adding}
-    <div class="adding" role="region" aria-label={t('sites.addRegion')}>
-      {#if adultCount}
-        <label class="adult">
+    <div class="adding" role="region" aria-label={t('sites.addRegion')} transition:slide={{ duration: ms(260), easing: cubicOut }}>
+      {#snippet adultSwitch()}
+        <label class="chip adult" class:on={showAdult}>
           <input type="checkbox" bind:checked={showAdult} />
           <span>{t('sites.showAdult')}</span>
         </label>
+      {/snippet}
+      {#if searchable}
+        <div class="top">
+          <label class="find">
+            <Icon name="search" size={16} />
+            <input
+              type="search"
+              bind:value={find}
+              placeholder={t('sites.search')}
+              aria-label={t('sites.search')}
+              autocapitalize="off"
+              autocomplete="off"
+              spellcheck="false" />
+          </label>
+          {#if adultCount}{@render adultSwitch()}{/if}
+        </div>
       {/if}
-      {#if available.length}
+      {#if kinds.length > 1 || (adultCount && !searchable)}
+        <div class="filters">
+          {#if kinds.length > 1}
+            <div class="kinds" role="radiogroup" aria-label={t('sites.kind')}>
+              {#each ['', ...kinds] as k (k)}
+                <button class="chip" role="radio" aria-checked={pickedKind === k} onclick={() => (kind = k)}>{t(k ? `sites.kinds.${k}` : 'sites.kinds.all')}</button>
+              {/each}
+            </div>
+          {/if}
+          {#if adultCount && !searchable}{@render adultSwitch()}{/if}
+        </div>
+      {/if}
+      {#if shown.length}
         <ul class="available">
-          {#each available as p (p.id)}
-            <li>
+          {#each shown as p (p.id)}
+            <li animate:flip={{ duration: ms(220), easing: cubicOut }} in:fade={{ duration: ms(180), delay: ms(60) }} out:slide={{ duration: ms(200), easing: cubicOut }}>
+              <SiteIcon host={p.site} />
               <div class="title">
-                <h3>{p.site} {#if p.nsfw && !settings.sfwMode}<span class="badge">{t('sites.adult')}</span>{/if}</h3>
+                <h3><span class="host">{p.site}</span>{#if p.nsfw}<span class="badge">{t('sites.adult')}</span>{/if}</h3>
                 <p class="meta">{[p.name !== p.site ? p.name : '', p.version ? 'v' + p.version : ''].filter(Boolean).join(' · ')}</p>
-                {#if p.description}<p class="hint">{p.description}</p>{/if}
+                {#if p.description}<p class="desc">{p.description}</p>{/if}
               </div>
               <button disabled={installing !== null} onclick={() => install(p)} aria-label={t('sites.installSite', { site: p.site })}>
                 {installing === p.id ? t('sites.installing') : t('sites.install')}
@@ -424,6 +475,11 @@
             </li>
           {/each}
         </ul>
+        {#if shown.length < matches.length}
+          <button class="quiet more" onclick={() => (showAll = true)}>{t('sites.showAll', { n: matches.length })}</button>
+        {/if}
+      {:else if searching || pickedKind}
+        <p class="hint">{adultCount && !showAdult && offerable.some((p) => p.nsfw && (!pickedKind || p.kind === pickedKind) && [p.site, p.name, p.description ?? ''].some((s) => s.toLowerCase().includes(find.trim().toLowerCase()))) ? t('sites.noMatchAdult') : t('sites.noMatch')}</p>
       {:else if pluginsError}
         <p class="hint">{t('sites.listFailed', { error: pluginsError })}</p>
       {:else if adultCount && !showAdult}
@@ -571,29 +627,168 @@
     border-radius: 12px;
     border: 1px dashed var(--surface2);
   }
-  .adult {
+  /* The search with the adult switch beside it. */
+  .top {
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+  .top .chip.adult {
+    height: var(--control-h);
+  }
+  .find {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .find :global(svg) {
+    position: absolute;
+    left: 11px;
+    color: var(--overlay0);
+    pointer-events: none;
+  }
+  .find input {
+    width: 100%;
+    padding-left: 34px;
+  }
+  /* Kinds on the left (the adult switch at the end when there's no search). */
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 0;
+    height: calc(var(--control-h) - 6px);
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--surface0);
     color: var(--subtext);
     font-size: var(--font-small);
+    font-weight: 600;
+    transition:
+      background-color 0.15s,
+      color 0.15s,
+      box-shadow 0.15s;
+  }
+  .chip[aria-checked='true'],
+  .chip.on {
+    background: color-mix(in srgb, var(--mauve) 22%, var(--surface0));
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mauve) 60%, transparent);
+  }
+  .chip.adult {
+    position: relative;
+    margin-left: auto;
+  }
+  .chip.adult.on {
+    background: color-mix(in srgb, var(--peach) 18%, var(--surface0));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--peach) 55%, transparent);
+  }
+  /* The switch is the chip itself: an unseen checkbox over all of it (keyboards and screen readers too). */
+  .chip.adult input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
     cursor: pointer;
+  }
+  .chip.adult:has(input:focus-visible) {
+    outline: 2px solid var(--mauve);
+    outline-offset: 2px;
+  }
+  @media (hover: hover) {
+    .chip:hover:not([aria-checked='true']):not(.on) {
+      filter: none;
+      color: var(--text);
+    }
   }
   .available {
     list-style: none;
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    border-radius: 12px;
+    border: 1px solid var(--surface0);
+    background: var(--crust);
+    overflow: hidden;
   }
   .available li {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
+    padding: 10px 12px;
+    background: var(--crust);
   }
-  .available .hint {
-    margin: 2px 0 0;
+  .available li + li {
+    border-top: 1px solid var(--surface0);
+  }
+  .available .title {
+    flex: 1;
+    min-width: 0;
+  }
+  /* The address on one line (the odd very long one ends in "…"), its adult badge after it. */
+  .available h3 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .available .host {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .available .badge {
+    flex: none;
+    margin-left: 0;
+  }
+  .available .desc {
+    margin: 3px 0 0;
+    color: var(--subtext);
+    font-size: var(--font-small);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .available li > button {
+    flex: none;
+  }
+  .more {
+    justify-self: center;
+  }
+  /* Phones: the panel without its own frame - the list has one - so the rows get the width. */
+  @media (max-width: 639px) {
+    .adding {
+      padding: 4px 0 0;
+      border: none;
+      border-radius: 0;
+    }
+    .available li {
+      gap: 10px;
+      padding: 10px;
+    }
+    .available li > button {
+      padding-inline: 14px;
+    }
   }
   .badge {
     margin-left: 4px;

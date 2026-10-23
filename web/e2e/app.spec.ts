@@ -2133,13 +2133,13 @@ test('settings: install a site from the plugin list, update one, install from a 
   await card.getByRole('button', { name: 'Add site' }).click();
   const panel = card.getByRole('region', { name: 'Add a site' });
   await expect(panel.getByText('test-extra.invalid')).toHaveCount(0); // an adult site: only when asked for
-  await panel.getByText('Show adult sites (18+)').click();
+  await panel.getByRole('checkbox', { name: 'Adult (18+)' }).check();
   await expect(panel.getByText('test-extra.invalid')).toBeVisible();
   await expect(panel.getByText('test-down.invalid')).toHaveCount(0); // installed sites aren't offered again
   await expect(panel.getByText('adult', { exact: true })).toBeVisible();
   await panel.getByRole('button', { name: 'Install test-extra.invalid' }).click();
   await expect(page.getByText('Installed test-extra.invalid 1.0.0')).toBeVisible();
-  await expect(card.getByRole('heading', { name: 'test-extra.invalid' })).toBeVisible();
+  await expect(card.locator('article').getByRole('heading', { name: 'test-extra.invalid' })).toBeVisible();
   // Usable at once: it's a site for new downloads.
   await page.goto('/downloads');
   await page.getByRole('button', { name: 'Site', exact: true }).click();
@@ -2172,7 +2172,7 @@ test('settings: install a site from the plugin list, update one, install from a 
   await expect(page.getByText('Removed test-extra.invalid')).toBeVisible();
   await expect(card.getByRole('heading', { name: 'test-extra.invalid' })).toHaveCount(0);
   await card.getByRole('button', { name: 'Add site' }).click();
-  await panel.getByRole('checkbox', { name: 'Show adult sites (18+)' }).check();
+  await panel.getByRole('checkbox', { name: 'Adult (18+)' }).check();
   await expect(panel.getByText('test-extra.invalid')).toBeVisible(); // back in Add site
   await card.getByRole('button', { name: 'Close' }).click();
   // Built-in sites can be removed too (asked first - see the site on/off test).
@@ -5506,7 +5506,7 @@ test('first steps: what you\'ll use (and safe for work), storage, sites (adult o
     await expect(page.getByRole('heading', { name: 'Sites', level: 1 })).toBeVisible();
     const extra = page.getByRole('button', { name: 'Install test-extra.invalid' });
     await expect(extra).toHaveCount(0);
-    await page.getByText('Show adult sites (18+)').click();
+    await page.getByRole('checkbox', { name: 'Adult (18+)' }).check();
     await expect(extra).toBeVisible();
     await shot('2-sites');
     await expect(page.getByText('Cloudflare')).toHaveCount(0);
@@ -7228,7 +7228,51 @@ test('SFW mode: the "I came" button, its Rankings, sort and setting go, and adul
   const adding = page.getByRole('region', { name: 'Add a site' });
   await expect(adding).toContainText('sfw.example');
   await expect(adding).not.toContainText('adult.example');
-  await expect(page.getByText('Show adult sites (18+)')).toHaveCount(0);
+  await expect(page.getByText('Adult (18+)')).toHaveCount(0);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+test('Add site with a long plugin list: the first eight A to Z, Show all, a search, kinds and the adult switch', async ({ page }) => {
+  const kinds = ['booru', 'booru', 'booru', 'gallery', 'social'];
+  const plugins = Array.from({ length: 12 }, (_, i) => ({
+    id: `many_${i}`,
+    site: `site-${String.fromCharCode(108 - i)}.example`, // l..a: listed A to Z, not in this order
+    name: `Site ${i}`,
+    version: '1.0.0',
+    description: i === 3 ? 'Comic galleries and doujinshi' : 'Images',
+    kind: kinds[i % kinds.length],
+    installed: false,
+    update: false,
+  }));
+  plugins.push({ ...plugins[0], id: 'many_adult', site: 'adult-gallery.example', name: 'Adult', kind: 'gallery', nsfw: true } as (typeof plugins)[number]);
+  await page.route('**/api/plugins', (r) => r.fulfill({ json: { plugins } }));
+  await page.goto('/settings/sites');
+  await page.getByRole('button', { name: 'Add site', exact: true }).click();
+  const panel = page.getByRole('region', { name: 'Add a site' });
+  const rows = panel.locator('ul.available > li');
+  await expect(rows).toHaveCount(8);
+  await expect(rows.first()).toContainText('site-a.example');
+  await panel.getByRole('button', { name: 'Show all 12 sites' }).click();
+  await expect(rows).toHaveCount(12);
+  // A search: name, address or description.
+  await panel.getByRole('searchbox', { name: 'Search sites' }).fill('doujin');
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText('site-i.example');
+  await panel.getByRole('searchbox', { name: 'Search sites' }).fill('nothing-like-this');
+  await expect(panel.getByText('No sites match.')).toBeVisible();
+  await panel.getByRole('searchbox', { name: 'Search sites' }).fill('adult');
+  await expect(panel.getByText(/Some adult sites do/)).toBeVisible();
+  await panel.getByRole('checkbox', { name: 'Adult (18+)' }).check();
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText('adult-gallery.example');
+  await panel.getByRole('searchbox', { name: 'Search sites' }).fill('');
+  // Kinds.
+  await panel.getByRole('radio', { name: 'Galleries' }).click();
+  await expect(rows).toHaveCount(3); // two galleries and the adult one
+  await panel.getByRole('radio', { name: 'Social' }).click();
+  await expect(rows).toHaveCount(2);
+  await panel.getByRole('radio', { name: 'All', exact: true }).click();
+  await expect(rows).toHaveCount(13);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 

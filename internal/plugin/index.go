@@ -20,7 +20,7 @@ import (
 // file or folder; each entry's file is relative to it.
 //
 //	{"plugins": [{"id": "safebooru", "name": "Safebooru", "site": "safebooru.org", "version": "1.2.0",
-//	              "file": "plugins/safebooru.yaml", "description": "...", "nsfw": true}]}
+//	              "file": "plugins/safebooru.yaml", "description": "...", "kind": "booru", "nsfw": true}]}
 
 // IndexEntry is one plugin in the index.
 type IndexEntry struct {
@@ -30,6 +30,7 @@ type IndexEntry struct {
 	Version     string `json:"version"`
 	File        string `json:"file"`
 	Description string `json:"description,omitempty"`
+	Kind        string `json:"kind,omitempty"` // what sort of site, for the filters in Add site: booru, gallery or social
 	NSFW        bool   `json:"nsfw,omitempty"`
 }
 

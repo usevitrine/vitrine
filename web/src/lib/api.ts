@@ -46,6 +46,7 @@ export interface PluginInfo {
   site: string;
   version: string;
   description?: string;
+  kind?: 'booru' | 'gallery' | 'social' | string; // what sort of site (Add site's filters); others are only under All
   nsfw?: boolean;
   installed: boolean; // a plugin with this ID is installed
   installed_version?: string;

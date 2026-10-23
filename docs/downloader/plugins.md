@@ -70,7 +70,8 @@ Request URLs to sites with API keys carry the key - never log or print them unfi
   search finishes with the old version; a new site gets its worker at once. Index: config `plugin_index`
   (`VITRINE_PLUGIN_INDEX`; an https URL or a local file/folder with `index.json`; default
   `https://raw.githubusercontent.com/usevitrine/vitrine-plugins/main/index.json`), cached 10 min, entries
-  `{id, name, site, version, file, description, nsfw}` with `file` relative to the index; versions compared
+  `{id, name, site, version, file, description, kind, nsfw}` with `file` relative to the index (`kind`: booru,
+  gallery or social - Add site's filters; optional, others only under All); versions compared
   numerically per dot part. API: `GET /api/plugins[?refresh=1]` (an unreadable index is reported in `error`, not a
   failure), `POST /api/plugins/install {id}`, `POST /api/plugins/upload {yaml}`. The plugins repo has `index.json`
   (bump an entry's version with the plugin's). **Remove** (2026-10-15): "Remove site" on an installed site, with a confirmation naming its subscriptions/downloads; deletes only the plugin file - files, tags, history, searches, subscriptions and credentials stay, and its worker stops (per-site context; a running search resumes when it is reinstalled). A file replacing a built-in plugin offers "Use the built-in version" instead; built-in sites have no Remove. `POST /api/plugins/{id}/remove`.

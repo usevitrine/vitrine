@@ -47,7 +47,16 @@ Settings sections and cards: Sites, Library, Download rules, Backups, Stats and 
   waiting when the page is hidden or closed goes at once (`fetch` with `keepalive`), so a toggle right before
   switching apps or reloading isn't lost.
 - **Adult sites behind a switch (2026-10-20)**: Settings > Sites > Add site (and the first steps) list plugins marked
-  nsfw only after "Show adult sites (18+)".
+  nsfw only after "Show adult sites (18+)" (since the overhaul below: the "Adult (18+)" chip).
+- **Add site overhauled (2026-10-23, user: not animated, and 100 sites would be a massive list)**: the sites not
+  installed, A to Z, in one bordered list (like Tags' list): the site's icon, address (one line, adult badge after it),
+  name · version, the description clamped to two lines, Install. Past 8 sites: only the first 8 and "Show all N sites",
+  plus a search (address, name, description; matches all shown) with the Adult (18+) chip beside it; without the
+  search the chip ends the kinds row. Kind chips (All / Image boards / Galleries / Social, from the index's `kind`)
+  only when two or more kinds are offered. "No sites match." (+ "Some adult sites do" when hidden ones would). Motion:
+  the panel slides open/closed, rows fade in and move into place when filtering, an installed site slides out (none
+  with reduced motion). Phones: the panel loses its dashed frame so the rows get the width. Same panel in the first
+  steps (`SitesCard welcome`).
 - **Stats (2026-10-19)**: Settings > Stats (`StatsCard`, `GET /api/stats?days=&tz=`; read on opening and every
   30 s while on screen). Library: files, total size, tags in use as three tiles; a bar of images / GIFs / videos
   (by count) with counts and sizes; tag links (and how many are the user's), parents and siblings, untagged files,
