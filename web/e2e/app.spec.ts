@@ -2839,6 +2839,7 @@ test('search bar: a very long tag shows in full in its chip (the row scrolls)', 
   await page.goto('/?q=' + encodeURIComponent('blue_sky ' + tag));
   const chip = page.locator('.bar .chip').nth(1);
   await expect(chip).toBeVisible();
+  await page.waitForTimeout(300); // (chips grow in)
   const [c, a] = [await chip.boundingBox(), await chip.locator('.atom').boundingBox()];
   expect(a!.x).toBeGreaterThanOrEqual(c!.x); // the text starts inside the chip
   expect(a!.x + a!.width).toBeLessThanOrEqual(c!.x + c!.width + 0.5);

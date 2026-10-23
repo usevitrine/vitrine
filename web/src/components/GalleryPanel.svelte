@@ -4,6 +4,7 @@
   // tags (the same Tags section: a tap opens a tag's menu - search it here, a new download - nothing to edit), and its
   // pages' thumbnails (the site's small ones: nothing against its image limit). The page gives the panel's frame.
   import { tick } from 'svelte';
+  import { reveal, pop } from '../lib/motion';
   import { api, type BrowseGallery, type BrowseThumb, type FileTag } from '../lib/api';
   import { siteLabel } from '../lib/sites.svelte';
   import { namespaces } from '../lib/namespaces.svelte';
@@ -195,10 +196,10 @@
         {#each { length: thumbs.length ? 3 : 6 } as _, k (k)}<span class="thumb placeholder" style:width="{Math.round(THUMB_H * 0.7)}px" style:height="{THUMB_H}px"></span>{/each}
       {/if}
     </div>
-    {#if canBack}<button class="icon nav prev" aria-label={t('browse.prevThumbs')} title={t('browse.prevThumbs')} onclick={() => step(-1)}><Icon name="left" size={18} /></button>{/if}
-    {#if canFwd}<button class="icon nav next" aria-label={t('browse.nextThumbs')} title={t('browse.nextThumbs')} onclick={() => step(1)}><Icon name="right" size={18} /></button>{/if}
+    {#if canBack}<button class="icon nav prev" aria-label={t('browse.prevThumbs')} title={t('browse.prevThumbs')} onclick={() => step(-1)} transition:pop><Icon name="left" size={18} /></button>{/if}
+    {#if canFwd}<button class="icon nav next" aria-label={t('browse.nextThumbs')} title={t('browse.nextThumbs')} onclick={() => step(1)} transition:pop><Icon name="right" size={18} /></button>{/if}
     </div>
-    {#if error}<p class="error small">{error}</p>{/if}
+    {#if error}<p class="error small" transition:reveal>{error}</p>{/if}
   </section>
 </div>
 

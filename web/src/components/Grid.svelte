@@ -15,6 +15,7 @@
   // select a range. Hovering a video or animated GIF with a mouse plays it in
   // its tile (muted), unless turned off in Settings.
   import { tick, untrack, type ComponentProps } from 'svelte';
+  import { pop } from '../lib/motion';
   import { on } from 'svelte/events';
   import type { FileInfo } from '../lib/api';
   import { placeholderURL, formatDuration, previewURL } from '../lib/results.svelte';
@@ -1374,10 +1375,10 @@
           <span class="badge">{formatDuration(tile.f.duration_ms)}</span>
         {/if}
         {#if tile.f?.favorite}
-          <span class="fav-badge" class:on-comic={!!tile.f.comic} role="img" aria-label={t('filter.favorite.label')}><Icon name="heart" size={tile.f.comic ? 15 : 12} filled /></span>
+          <span class="fav-badge" class:on-comic={!!tile.f.comic} role="img" aria-label={t('filter.favorite.label')} transition:pop><Icon name="heart" size={tile.f.comic ? 15 : 12} filled /></span>
         {/if}
         {#if tile.f && tile.i < results.pinned}
-          <span class="new-badge">{t('grid.new')}</span>
+          <span class="new-badge" transition:pop>{t('grid.new')}</span>
         {/if}
         {#if z && opened === z && tile.f && !tile.f.comic?.stack}
           <!-- The video or bigger picture loads once it has grown: decoding a big one
@@ -1408,7 +1409,7 @@
           {/if}
         {/if}
         {#if selection.active && !unpickable(tile.f)}
-          <span class="check" aria-hidden="true">{#if selection.has(tile.f?.id)}<Icon name="check" size={14} />{/if}</span>
+          <span class="check" aria-hidden="true" transition:pop>{#if selection.has(tile.f?.id)}<Icon name="check" size={14} />{/if}</span>
         {/if}
         </span>
       </button>

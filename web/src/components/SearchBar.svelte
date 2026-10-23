@@ -2,6 +2,7 @@
   // The search: typed booru-style text turns into chips; every chip can be
   // edited in place. Each change runs the search straight away.
   import { parse, format, chipText, atomText, label, kindOf, balanced, isTitleText, titleTerm, type Chip } from '../lib/query';
+  import { pop as grow, moved } from '../lib/motion';
   import type { Suggestion } from '../lib/api';
   import TagInput from './TagInput.svelte';
   import { tagColor } from '../lib/namespaces.svelte';
@@ -60,6 +61,32 @@
   const browse = kind === 'browse'; // (a site's search: its own filters and orders, no saved searches)
 
   let chips = $state<Chip[]>([]);
+  // Each chip's key, kept across changes: the same text keeps its chip; a changed one in the same place (an edit)
+  // keeps its place's; others are new. So chips glide when moved, pop in and out when added or removed, and an
+  // edited chip changes in place.
+  let prevKeys: { text: string; key: string }[] = [];
+  let nextKey = 0;
+  const chipKeys = $derived.by(() => {
+    const texts = chips.map(chipText);
+    const used = new Set<string>();
+    const keys: (string | null)[] = texts.map((tx) => {
+      const m = prevKeys.find((p) => p.text === tx && !used.has(p.key));
+      if (!m) return null;
+      used.add(m.key);
+      return m.key;
+    });
+    const out = keys.map((k, i) => {
+      if (k) return k;
+      const old = prevKeys[i];
+      if (old && !used.has(old.key) && !texts.includes(old.text)) {
+        used.add(old.key);
+        return old.key;
+      }
+      return 'c' + nextKey++;
+    });
+    prevKeys = texts.map((text, i) => ({ text, key: out[i] }));
+    return out;
+  });
   // The sites picked in the search (system:site=a,b chips): suggestions only from their files' tags.
   let sites = $derived(
     chips
@@ -324,7 +351,7 @@
           editing = null;
           run([]);
           input?.focus();
-        }}><Icon name="close" size={18} /></button>
+        }} transition:grow><Icon name="close" size={18} /></button>
     {:else}
       <span class="lead"><Icon name="search" size={18} /></span>
     {/if}
@@ -333,8 +360,10 @@
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions (a bigger target for the input, which has its own keys) -->
     <div class="chips-wrap" class:fade-l={fadeL} class:fade-r={fadeR}>
     <div class="chips" style:--typed={draft.length} bind:this={chipsEl} onscroll={edges} onclick={(e) => e.target === e.currentTarget && input?.focus()}>
-    {#each chips as c, i (i + chipText(c))}
+    {#each chips as c, i (chipKeys[i])}
       <span
+        animate:moved
+        transition:grow
         class="chip"
         data-chip={i}
         class:editing={editing === i}
@@ -397,7 +426,7 @@
           editing = null;
           savedOpen = false;
           filterMenu = filterMenu && filterMenu.index === null ? null : { index: null, form: null };
-        }}><Icon name="filter" size={19} />{#if !plain && sort !== pageDefault}<span class="dot"></span>{/if}</button>
+        }}><Icon name="filter" size={19} />{#if !plain && sort !== pageDefault}<span class="dot" transition:grow></span>{/if}</button>
       {#if !plain && !browse}
       <button
         bind:this={starBtn}
@@ -410,7 +439,7 @@
           editing = null;
           filterMenu = null;
           savedOpen = !savedOpen;
-        }}><Icon name="star" size={19} filled={!!current} />{#if saved.anyNew}<span class="dot" aria-hidden="true"></span>{/if}</button>
+        }}><Icon name="star" size={19} filled={!!current} />{#if saved.anyNew}<span class="dot" aria-hidden="true" transition:grow></span>{/if}</button>
       {/if}
     </span>
   </div>

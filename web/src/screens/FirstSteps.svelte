@@ -5,6 +5,7 @@
   // Every step can be skipped; where it is is a shared setting (welcome), so it
   // carries on where it was left - on any device - until finished or skipped.
   import { onMount } from 'svelte';
+  import { reveal, pop } from '../lib/motion';
   import { fly, fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { reducedMotion } from '../lib/hero';
@@ -142,9 +143,9 @@
     {:else if step === 'storage'}
       <p class="lead">{t('setup.storage.lead')}</p>
       {#if statsError}
-        <p class="problem"><Icon name="alert" size={16} /> {t('setup.storage.failed', { error: statsError })}</p>
+        <p class="problem" transition:reveal><Icon name="alert" size={16} /> {t('setup.storage.failed', { error: statsError })}</p>
       {:else if !stats}
-        <p class="hint">{t('notify.checking')}</p>
+        <p class="hint" transition:reveal>{t('notify.checking')}</p>
       {:else}
         {@const files = disk('files')}
         {@const data = disk('data')}
@@ -277,7 +278,7 @@
         <span></span>
         <button onclick={() => finish(started ? 'downloads' : settings.mediaOff ? 'comics' : 'library')}>{started ? t('setup.seeDownload') : t('setup.openLibrary')}</button>
       {:else}
-        {#if at > 0}<button class="quiet" onclick={back}><Icon name="left" size={16} /> {t('common.back')}</button>{:else}<span></span>{/if}
+        {#if at > 0}<button class="quiet" onclick={back} transition:pop><Icon name="left" size={16} /> {t('common.back')}</button>{:else}<span></span>{/if}
         <span class="right">
           {#if step === 'library'}
             <button class="quiet" onclick={next}>{t('setup.skip')}</button>

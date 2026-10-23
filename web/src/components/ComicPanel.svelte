@@ -5,6 +5,7 @@
   // Tags section as a file's: a tap opens a tag's menu, pick several, edit,
   // read them again from the site). The page gives it the panel's frame.
   import { api, type Comic, type FileTag } from '../lib/api';
+  import { pop } from '../lib/motion';
   import { siteLabel } from '../lib/sites.svelte';
   import { toasts } from '../lib/toast.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
@@ -169,7 +170,7 @@
       {#if comic.title_alt}<p class="alt">{comic.title_alt}</p>{/if}
       <div class="reads">
         <button onclick={() => onread(false)}><Icon name="book" size={16} /> {isReading(comic) ? t('comics.continueAt', { page: comic.read_page + 1 }) : t('comics.read')}</button>
-        {#if comic.read_page > 0}<button class="quiet" onclick={() => onread(true)} title={t('comics.fromStart')} aria-label={t('comics.fromStart')}><Icon name="undo" size={16} /></button>{/if}
+        {#if comic.read_page > 0}<button class="quiet" onclick={() => onread(true)} title={t('comics.fromStart')} aria-label={t('comics.fromStart')} transition:pop><Icon name="undo" size={16} /></button>{/if}
       </div>
     </div>
   </div>

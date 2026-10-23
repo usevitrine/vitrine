@@ -23,6 +23,15 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
 - **Motion**: the standard ease is `cubic-bezier(0.2, 0.8, 0.2, 1)` (~180-320 ms); menus drop in with a fade and a
   few px of movement; everything honors `prefers-reduced-motion`. Grid tiles share one motion for any change (slide / appear / leave, `MOTION` in
   Grid.svelte; see grid-and-search.md). Hover changes are instant (no fades).
+- **Everything animates in and out (2026-10-23, the user: "everything should be smoothly animated in an out of
+  view/reshuffling in all situations")**: nothing pops. `lib/motion.ts` has the shared ones - `reveal` (a block in the
+  flow: its height opens/closes as it fades, so what's below glides; `axis: 'x'` beside others), `pop` (small things:
+  grow in, shrink out), `swap` (a cross-fade) and `moved` (`animate:moved` on keyed lists). Every `{#if}`/`{#each}`
+  that shows or hides something gets one; closing is checked as much as opening. Exceptions: a whole list replaced
+  by a new search (the tag browser) fades its rows in rather than sliding 100 rows; the library grid has its own
+  `MOTION`; screens and menus keep their page slides. Search chips keep their identity across changes (same text, or
+  the same place for an edit), so they glide, pop and change in place. Dialogs leave as plainly as they come (200 ms:
+  shrink to 94 %, sink 8 px, fade); menus and panels fade out over 180-200 ms.
 - **Type**: the system font stack (system-ui, -apple-system, Segoe UI, Roboto), line height 1.4.
 - **Words**: American spelling; texts in `locales/` (see ui/languages.md); hints only where a label could mislead, a
   few words.
