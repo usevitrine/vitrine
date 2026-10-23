@@ -2774,27 +2774,6 @@
     min-width: 0;
     scroll-margin-top: 12px;
   }
-  /* (a tab's content rises in after its panel, one part after another) */
-  .panel > * {
-    animation: part-in 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  }
-  .panel > :nth-child(2) {
-    animation-delay: 50ms;
-  }
-  .panel > :nth-child(n + 3) {
-    animation-delay: 100ms;
-  }
-  @keyframes part-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .panel > * {
-      animation: none;
-    }
-  }
   .panel > .card {
     scroll-margin-top: 12px;
   }

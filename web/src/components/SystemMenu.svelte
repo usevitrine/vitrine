@@ -610,11 +610,6 @@
     max-height: none;
     overflow: visible;
   }
-  @keyframes rise {
-    from {
-      transform: translateY(100%);
-    }
-  }
   @media (prefers-reduced-motion: reduce) {
     .backdrop,
     .panel.sheet {

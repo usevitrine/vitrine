@@ -261,11 +261,6 @@
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
   }
-  @keyframes rise {
-    from {
-      transform: translateY(100%);
-    }
-  }
   @media (prefers-reduced-motion: reduce) {
     .backdrop.dim,
     .menu.sheet {

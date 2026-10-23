@@ -250,11 +250,6 @@
     border-radius: 3px;
     background: var(--surface2);
   }
-  @keyframes rise {
-    from {
-      transform: translateY(100%);
-    }
-  }
   .menu {
     position: fixed;
     z-index: 61;
