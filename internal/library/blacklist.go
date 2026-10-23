@@ -50,7 +50,10 @@ type Blacklist struct {
 // Patterns lists the entries, sorted.
 func (b *Blacklist) Patterns() []string { return b.patterns }
 
-// Match returns the first entry one of the tags matches ("" if none).
+// Match returns the first entry one of the tags matches ("" if none). An entry with a namespace ("creator:x", e.g.
+// added from a file's tags, where the library files the site's tags under namespaces) also matches the bare tag
+// ("x"): image boards send bare tags, so "creator:x" never stopped a download of a post tagged x (the user saw one
+// come in).
 func (b *Blacklist) Match(tags []string) string {
 	if b == nil || len(b.patterns) == 0 {
 		return ""
@@ -59,6 +62,9 @@ func (b *Blacklist) Match(tags []string) string {
 		t = strings.ToLower(t)
 		for _, p := range b.patterns {
 			if index.GlobMatch(p, t) {
+				return p
+			}
+			if _, bare, ok := strings.Cut(p, ":"); ok && bare != "" && !strings.Contains(t, ":") && index.GlobMatch(bare, t) {
 				return p
 			}
 		}

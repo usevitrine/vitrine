@@ -26,6 +26,27 @@ func (s *Server) listDownloads(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	// ?active=1: only what's going on now (running, waiting, paused) and the paused sites - the top bar's downloads
+	// menu reads it on every change; the whole page (history, subscriptions, groups) was a lot to send and parse that
+	// often while downloads ran, and scrolling the library stalled (the user saw the background at the bottom).
+	if r.URL.Query().Get("active") == "1" {
+		active := []download.Search{}
+		for _, x := range list {
+			if x.State == download.StateRunning || x.State == download.StateQueued || x.State == download.StatePaused {
+				active = append(active, x)
+			}
+		}
+		paused := map[string]plugin.Pause{}
+		for _, id := range s.dl.Sites() {
+			if st := s.dl.Site(id); st != nil {
+				if p := st.Client.Paused(); !p.Until.IsZero() {
+					paused[id] = p
+				}
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"searches": active, "sites_paused": paused})
+		return
+	}
 	subs, err := s.dl.Subscriptions(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)

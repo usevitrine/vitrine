@@ -4141,11 +4141,8 @@ test('library: the downloads menu - a counter, New download, what is downloading
     blacklisted: 0, position: id, failed: 0, created_at: 0, ...extra,
   });
   let searches = [search(1, 'queued'), search(2, 'done'), search(3, 'paused'), search(4, 'running', { downloaded: 4, label: 'A running one' })];
-  await page.route('**/api/downloads', async (r) => {
-    if (r.request().method() !== 'GET') return r.continue();
-    const res = await r.fetch();
-    await r.fulfill({ response: res, json: { ...(await res.json()), searches, sites_paused: {} } });
-  });
+  // (the menu reads only what's going on: /api/downloads?active=1)
+  await page.route('**/api/downloads?active=1', (r) => r.fulfill({ json: { searches: searches.filter((x) => x.state !== 'done'), sites_paused: {} } }));
   await page.goto('/');
   const button = page.getByRole('button', { name: /^Downloads/ });
   await expect(button).toHaveAccessibleName('Downloads, 2 going on'); // running and waiting (not paused, not done)

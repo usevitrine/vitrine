@@ -1121,3 +1121,22 @@ func TestLicenseNoticesCurrent(t *testing.T) {
 		}
 	}
 }
+
+// GET /api/downloads?active=1: only what's going on now and the paused sites (the top bar's menu reads it on every
+// change) - not the whole page.
+func TestDownloadsActiveOnly(t *testing.T) {
+	e := newEnv(t)
+	e.loginAs("me", "correct horse")
+	dl, err := download.New(context.Background(), e.lib, e.db, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.h.SetDownloader(dl)
+	var all, active map[string]json.RawMessage
+	if code := e.call("GET", "/api/downloads", nil, &all); code != 200 || all["subscriptions"] == nil || all["searches"] == nil {
+		t.Fatalf("all: %d %v", code, all)
+	}
+	if code := e.call("GET", "/api/downloads?active=1", nil, &active); code != 200 || len(active) != 2 || string(active["searches"]) != "[]" || active["sites_paused"] == nil {
+		t.Fatalf("active: %d %v", code, active)
+	}
+}

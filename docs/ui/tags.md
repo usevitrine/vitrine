@@ -79,3 +79,7 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   list shared with Tag rules, so a change in either shows in the other at once). Its menu: Remove from blacklist for
   its own entry; one of a pattern is named ("On the blacklist by ai_*", not removable there - taking it off would let
   other tags through too).
+- **Blacklist entries are bare tags (2026-10-23, the user: "adding a tag to blacklist from details adds the
+  namespace" - and a file with that tag still downloaded)**: image boards send bare tags; the library files them under
+  namespaces. So the details add the bare name ("creator:x" -> "x"), and the server's matching treats an entry with a
+  namespace as also matching the bare tag (`Blacklist.Match`) - "creator:x" never stopped a post tagged x before.

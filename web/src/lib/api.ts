@@ -520,6 +520,8 @@ export const api = {
     get<{ sites: string[]; sites_off?: string[]; sites_paused?: Record<string, SitePause>; searches: DownloadSearch[]; subscriptions: Subscription[]; groups: SubGroup[]; refresh: RefreshStatus[]; retries?: RetryJob[] }>(
       '/api/downloads',
     ),
+  /** Only what's going on now (running, waiting, paused) and the paused sites: the top bar's downloads menu. */
+  activeDownloads: () => get<{ searches: DownloadSearch[]; sites_paused?: Record<string, SitePause> }>('/api/downloads?active=1'),
   /** favorite: the files it brings in become favorites too (e.g. your own favorites on the site). */
   addDownload: (site: string, query: string, max_posts: number, favorite = false, label = '') =>
     post<DownloadSearch>('/api/downloads', { site, query, max_posts, favorite, label }),

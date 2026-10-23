@@ -195,3 +195,7 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
 - **The pill covers its count (2026-10-23)** (the user's screenshot: "99+" sticking out of the Subscriptions pill on a
   phone): the pill is measured again whenever a tab changes size (each tab watched, not only the bar) - a count arriving
   or growing widens its tab after the bar was measured. Test: "the lit pill covers its tab's count".
+- **The downloads menu reads less (2026-10-23)**: `GET /api/downloads?active=1` - only the running, waiting and
+  paused downloads and the paused sites - at most once a second (a change meanwhile read when the second is up).
+  It read the whole page (history, subscriptions, groups) on every live change; while downloads ran that was a lot
+  of work on the page, and scrolling the library stalled (the user saw the background at the bottom).

@@ -207,8 +207,10 @@
     }
   }
   const blacklisted = (tag: string) => !!bl.entryFor(tag);
+  /** Added as the site writes it: the bare name ("creator:x" -> "x") - sites send bare tags, the library files them
+   *  under namespaces (the user: it added the namespace). */
   function blacklistAdd(list: string[]) {
-    const add = list.filter((x) => !blacklisted(x));
+    const add = [...new Set(list.filter((x) => !blacklisted(x)).map((x) => splitTag(x).name))];
     if (!add.length) return;
     setBlacklist([...(bl.tags ?? []), ...add], add.length === 1 ? t('details.blacklistedOne', { tag: add[0] }) : t('details.blacklistedN', { n: add.length }));
   }

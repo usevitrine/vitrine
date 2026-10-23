@@ -156,6 +156,14 @@ func TestBlacklistEntries(t *testing.T) {
 			t.Errorf("Match(%q) = %q, want %q", tg, m, want)
 		}
 	}
+	// An entry with a namespace also stops the bare tag (what image boards send); not another namespace's.
+	l.SetBlacklist(ctx, []string{"creator:some_artist"})
+	b, _ = l.Blacklist(ctx)
+	for tg, want := range map[string]string{"some_artist": "creator:some_artist", "creator:some_artist": "creator:some_artist", "series:some_artist": "", "other": ""} {
+		if m := b.Match([]string{tg}); m != want {
+			t.Errorf("namespaced entry: Match(%q) = %q, want %q", tg, m, want)
+		}
+	}
 }
 
 // Emptying the trash goes in batches (each its own transaction): all of it still goes, and only the trash.

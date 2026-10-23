@@ -19,6 +19,12 @@ class ActiveDownloads {
   private stop: (() => void) | null = null;
   private busy = false;
   private again = false;
+  private last = 0;
+  private later = 0;
+  // At most once a second: while downloads run the queue changes all the time, and each read is work for the page
+  // (scrolling the library stalled - the user saw the background at the bottom). A change meanwhile is read once
+  // the second is up.
+  private static GAP = 1000;
 
   /** Keeps the list current while it's in use; returns the release. */
   use(): () => void {
@@ -35,20 +41,28 @@ class ActiveDownloads {
       if (--this.users === 0) {
         this.stop?.();
         this.stop = null;
+        clearTimeout(this.later);
+        this.later = 0;
       }
     };
   }
 
   async refresh() {
+    const wait = this.last + ActiveDownloads.GAP - performance.now();
+    if (wait > 0) {
+      if (!this.later) this.later = window.setTimeout(() => ((this.later = 0), this.refresh()), wait);
+      return;
+    }
     if (this.busy) {
       this.again = true; // (one more read after this one: changes come in bursts)
       return;
     }
     this.busy = true;
+    this.last = performance.now();
     try {
-      const res = await api.downloads();
+      const res = await api.activeDownloads();
       this.sitesPaused = res.sites_paused ?? {};
-      this.list = res.searches.filter((s) => s.state in rank).sort((a, b) => rank[a.state] - rank[b.state]);
+      this.list = res.searches.filter((s) => s.state in rank).sort((a, b) => rank[a.state] - rank[b.state]); // (only those come)
     } catch {
       /* kept as it was: the next change or poll tries again */
     } finally {

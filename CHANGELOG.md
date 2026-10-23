@@ -20,6 +20,9 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 - **Tags in the details**: press and hold a tag to pick several; "Use" offers searching, downloading or
   blacklisting them. A tag’s menu can add it to the download blacklist (or take it off), and blacklisted tags are
   marked with a crossed-out eye.
+- **Blacklist**: an entry with a namespace (“creator:x”) now also stops downloads of posts tagged x - sites send
+  bare tags, so such entries let files through before; adding from the details adds the bare tag.
+- **Scrolling the library** no longer stalls while downloads run (the downloads menu reads much less, less often).
 - **Deleting files elsewhere** (the blacklist’s clean-up, Duplicates) updates the media page at once, no reload.
 - **Push notifications** for new files say "across N subscriptions" every time.
 - **Duplicates**: the picture no longer starts small and grows when the page opens, or shrinks after you keep one; the “still looking” progress is a thin bar under the heading.
