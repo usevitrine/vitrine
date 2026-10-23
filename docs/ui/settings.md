@@ -48,6 +48,15 @@ Settings sections and cards: Sites, Library, Download rules, Backups, Stats and 
   switching apps or reloading isn't lost.
 - **Adult sites behind a switch (2026-10-20)**: Settings > Sites > Add site (and the first steps) list plugins marked
   nsfw only after "Show adult sites (18+)" (since the overhaul below: the "Adult (18+)" chip).
+- **Logins in a dialog (2026-10-23, user: "the login inputs shouldnt be in the main site card")**: a site card no
+  longer holds the boxes. It shows one line: "✓ Login saved", or "Login available" / "Login needed" (peach, sites
+  that require one) with "Log in" - the line opens the login dialog, as does the ⋯ item "Log in" / "Change login"
+  ("Remove login" stays there). The dialog (`Modal`): the plugin's help, the boxes (empty; saved ones marked
+  "saved"), the eye, and **Test / Cancel / Save** (the three share the row on phones). Test (user: "there should be a
+  test button in the dialogue") tries what's typed over what's saved without saving it - `POST /api/sites/{id}/test
+  {values}`, a throwaway copy of the site's client (`Client.WithCredentials`: same connections, fresh state, its own
+  login session); with nothing typed it tests the saved login. A result goes when a box changes. Save closes the
+  dialog and tests at once, as before.
 - **Add site overhauled (2026-10-23, user: not animated, and 100 sites would be a massive list)**: the sites not
   installed, A to Z, in one bordered list (like Tags' list): the site's icon, address (one line, adult badge after it),
   name · version, the description clamped to two lines, Install. Past 8 sites: only the first 8 and "Show all N sites",

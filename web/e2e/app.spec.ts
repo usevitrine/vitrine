@@ -1425,47 +1425,66 @@ test('the details stay open and where they were scrolled when files arrive', asy
   expect(await body.evaluate((el) => el.scrollTop)).toBe(120);
 });
 
-test('settings: site credentials are saved, tested and removed - never shown back', async ({ page }) => {
+test('settings: a site login is entered in a dialog from its ⋯ menu, tested, saved and removed - never shown back', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough: credentials are on the server');
   await page.goto('/settings/sites');
   const site = page.locator('article.site', { has: page.getByRole('heading', { name: 'test-auth.invalid' }) });
   await expect(site.locator('.status')).toHaveText('Needs an account');
-  await expect(site.getByText('Copy them from your account options.')).toBeVisible();
-  const key = site.getByLabel('test-auth.invalid API key');
-  const user = site.getByLabel('test-auth.invalid User ID');
+  // The card only says a login is needed; the boxes are in a dialog (its ⋯ item, or that line).
+  await expect(site.getByRole('textbox')).toHaveCount(0);
+  await expect(site.getByRole('button', { name: /^Login needed/ })).toBeVisible();
+  await rowMenu(page, 'test-auth.invalid', 'Log in');
+  const dialog = page.getByRole('dialog', { name: 'Log in to test-auth.invalid' });
+  await expect(dialog.getByText('Copy them from your account options.')).toBeVisible();
+  const key = dialog.getByLabel('test-auth.invalid API key');
+  const user = dialog.getByLabel('test-auth.invalid User ID');
   await expect(key).toHaveAttribute('type', 'password');
-  await expect(site.getByRole('button', { name: 'Save' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Test' })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toHaveCount(0);
 
+  await site.getByRole('button', { name: /^Login needed/ }).click();
   await key.fill('e2e-test-key');
   await user.fill('1234');
-  await site.getByRole('button', { name: 'Show what I typed' }).first().click();
+  await dialog.getByRole('button', { name: 'Show what I typed' }).first().click();
   await expect(key).toHaveAttribute('type', 'text');
+  // Test: what's typed, before saving (the test site is down) - nothing saved by it.
+  const tested = page.waitForRequest((r) => r.url().includes('/api/sites/test-auth/test'));
+  await dialog.getByRole('button', { name: 'Test' }).click();
+  expect((await tested).postDataJSON()).toEqual({ values: { api_key: 'e2e-test-key', user_id: '1234' } });
+  await expect(dialog.getByRole('status')).toContainText("didn't accept");
+  await expect(site.locator('.status')).toHaveText('Needs an account');
+  await user.fill('12345');
+  await expect(dialog.getByRole('status')).toHaveCount(0); // (a result for other values goes)
+
   const listed = page.waitForResponse((r) => r.url().includes('/api/sites/test-auth/credentials'));
-  await site.getByRole('button', { name: 'Save' }).click();
+  await dialog.getByRole('button', { name: 'Save' }).click();
   const body = await (await listed).text();
   expect(body).not.toContain('e2e-test-key'); // never sent back
-  // Saved: one line instead of the form, and it was tested straight away (the test site is down).
-  await expect(site.locator('.account')).toContainText('Credentials saved');
-  await expect(key).toHaveCount(0);
+  // Saved: the dialog closes, the card says so, and it was tested straight away.
+  await expect(dialog).toHaveCount(0);
+  await expect(site.locator('.account')).toContainText('Login saved');
   await expect(site.locator('.status')).toHaveText('Not connected');
   await expect(site.getByRole('status')).toContainText("didn't accept");
 
-  // After a reload: still saved, still not shown; Change shows empty boxes marked saved.
+  // After a reload: still saved, still not shown; Change login shows empty boxes marked saved.
   await page.reload();
-  await expect(site.locator('.status')).toHaveText('Ready'); // the card says they're saved
-  await expect(site.locator('.account')).toContainText('Credentials saved');
+  await expect(site.locator('.status')).toHaveText('Ready');
+  await expect(site.locator('.account')).toContainText('Login saved');
   expect(await page.content()).not.toContain('e2e-test-key');
-  await rowMenu(page, 'test-auth.invalid', 'Change credentials');
-  await expect(site.locator('.saved')).toHaveCount(2);
+  await rowMenu(page, 'test-auth.invalid', 'Change login');
+  await expect(dialog.locator('.saved')).toHaveCount(2);
   await expect(key).toHaveValue('');
   await expect(key).toHaveAttribute('placeholder', /Saved/);
-  await site.getByRole('button', { name: 'Cancel' }).click();
-  await expect(key).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Test' })).toBeEnabled(); // (the saved login)
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
 
-  await rowMenu(page, 'test-auth.invalid', 'Remove credentials');
+  await rowMenu(page, 'test-auth.invalid', 'Remove login');
   await confirmIn(page, 'Remove');
   await expect(site.locator('.status')).toHaveText('Needs an account');
-  await expect(site.locator('.saved')).toHaveCount(0);
+  await expect(site.getByRole('button', { name: /^Login needed/ })).toBeVisible();
 });
 
 test('tag browser: counts, filter, namespace, rename your own tag, alias a tag', async ({ page }) => {

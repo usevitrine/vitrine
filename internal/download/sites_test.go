@@ -18,8 +18,24 @@ func TestCredentialsAndTest(t *testing.T) {
 	if len(info) != 1 || info[0].ID != "fake" || info[0].Set["api_key"] || !info[0].Required || info[0].Help == "" || info[0].BuiltIn {
 		t.Fatalf("site info: %+v", info)
 	}
-	if r, _ := e.dl.TestSite(ctx, "fake"); r.OK || r.Message != "Add the credentials first." {
+	if r, _ := e.dl.TestSite(ctx, "fake", nil); r.OK || r.Message != "Add the credentials first." {
 		t.Fatalf("test without credentials: %+v", r)
+	}
+	// Typed but not saved (a login dialog's Test): half of them isn't enough; both connect, and nothing is saved.
+	if r, _ := e.dl.TestSite(ctx, "fake", map[string]string{"api_key": "typed"}); r.OK || r.Message != "Add the credentials first." {
+		t.Fatalf("test with half the typed credentials: %+v", r)
+	}
+	if r, err := e.dl.TestSite(ctx, "fake", map[string]string{"api_key": "typed", "user_id": "1"}); err != nil || !r.OK {
+		t.Fatalf("test with typed credentials: %+v %v", r, err)
+	}
+	if e.dl.SiteInfos()[0].Set["api_key"] {
+		t.Fatal("a test saved the typed credentials")
+	}
+	if r, _ := e.dl.TestSite(ctx, "fake", nil); r.OK {
+		t.Fatalf("the site in use got the typed credentials: %+v", r)
+	}
+	if _, err := e.dl.TestSite(ctx, "fake", map[string]string{"password": "x"}); !errors.Is(err, ErrBadField) {
+		t.Fatalf("test with an unknown field: %v", err)
 	}
 
 	if err := e.dl.SetCredentials("fake", map[string]string{"api_key": " test-key ", "user_id": "42"}); err != nil {
@@ -32,7 +48,7 @@ func TestCredentialsAndTest(t *testing.T) {
 	if err != nil || saved["fake"]["api_key"] != "test-key" || saved["fake"]["user_id"] != "42" {
 		t.Fatalf("file: %v %v", saved, err)
 	}
-	if r, err := e.dl.TestSite(ctx, "fake"); err != nil || !r.OK || r.Posts == 0 {
+	if r, err := e.dl.TestSite(ctx, "fake", nil); err != nil || !r.OK || r.Posts == 0 {
 		t.Fatalf("test: %+v %v", r, err)
 	}
 

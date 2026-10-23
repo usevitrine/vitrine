@@ -87,15 +87,27 @@ func (s *Server) setSiteOff(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// testSite: POST /api/sites/{id}/test -> {ok, posts, message, detail}.
+// testSite: POST /api/sites/{id}/test [{values}] -> {ok, posts, message, detail}. Values: typed credentials to try
+// over the saved ones, without saving them (the login dialog's Test); none = the saved ones.
 func (s *Server) testSite(w http.ResponseWriter, r *http.Request) {
 	if s.dl == nil {
 		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
 		return
 	}
-	res, err := s.dl.TestSite(r.Context(), r.PathValue("id"))
+	var req struct {
+		Values map[string]string `json:"values"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	res, err := s.dl.TestSite(r.Context(), r.PathValue("id"), req.Values)
 	if errors.Is(err, download.ErrUnknownSite) {
 		writeError(w, http.StatusNotFound, err)
+		return
+	}
+	if errors.Is(err, download.ErrBadField) {
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 	if err != nil {

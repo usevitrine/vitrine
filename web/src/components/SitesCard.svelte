@@ -13,6 +13,7 @@
   import Icon from './Icon.svelte';
   import SiteIcon from './SiteIcon.svelte';
   import ActionMenu, { type MenuItem } from './ActionMenu.svelte';
+  import Modal from './Modal.svelte';
   import { settings } from '../lib/settings.svelte';
   import { depthChoice, depthLabel } from '../lib/depth';
   import { t } from '../lib/i18n.svelte';
@@ -38,7 +39,10 @@
   let kind = $state(''); // Add site's filter: a plugin kind, '' = all
   let showAll = $state(false); // past the first few sites
   let fileInput = $state<HTMLInputElement>();
-  let editing = $state<Record<string, boolean>>({}); // saved credentials being replaced
+  let loginId = $state<string | null>(null); // the site whose login dialog is open
+  const loginSite = $derived(sites.find((s) => s.id === loginId));
+  let loginTest = $state<SiteTest | null>(null); // the dialog's Test: what's typed (over what's saved)
+  let loginTesting = $state(false);
 
   /** What stays paused if a site goes ("2 subscriptions and 1 download"). */
   function usage(s: SiteInfo): string {
@@ -248,7 +252,7 @@
     ];
     const u = updateFor(s.id);
     if (u) items.push({ label: t('sites.updateTo', { version: u.version ?? '' }), icon: 'download', disabled: installing !== null, run: () => install(u) });
-    if (s.fields.length && allSet(s)) items.push({ label: t('sites.changeCreds'), icon: 'pencil', run: () => (editing[s.id] = true) });
+    if (s.fields.length) items.push(allSet(s) ? { label: t('sites.changeCreds'), icon: 'pencil', run: () => openLogin(s) } : { label: t('sites.logIn'), icon: 'user', run: () => openLogin(s) });
     if (anySet(s)) items.push({ label: t('sites.removeCreds'), icon: 'close', danger: true, disabled: !!busy[s.id], run: () => remove(s) });
     if (s.removable) {
       items.push({ label: s.overrides ? t('sites.useBuiltIn') : t('sites.removeSite'), icon: 'trash', danger: true, run: () => removeSite(s) });
@@ -264,6 +268,43 @@
     settings.siteCheckDepths = next;
   }
 
+  /** The login dialog: empty boxes (what's saved is never shown, only marked). */
+  function openLogin(s: SiteInfo) {
+    typed[s.id] = {};
+    reveal[s.id] = false;
+    loginTest = null;
+    loginId = s.id;
+  }
+  /** What's typed in the login dialog (empty boxes keep what's saved). */
+  function typedValues(s: SiteInfo): Record<string, string> {
+    const values: Record<string, string> = {};
+    for (const f of s.fields) {
+      const v = (typed[s.id]?.[f] ?? '').trim();
+      if (v) values[f] = v;
+    }
+    return values;
+  }
+  /** The dialog's Test: one request with what's typed over what's saved - nothing is saved; with nothing typed, the
+   *  saved login (and the card shows that result too). */
+  async function testLogin(s: SiteInfo) {
+    const values = typedValues(s);
+    const typedAny = Object.keys(values).length > 0;
+    loginTesting = true;
+    loginTest = null;
+    try {
+      loginTest = await api.testSite(s.id, typedAny ? values : undefined);
+      if (!typedAny) tests[s.id] = loginTest;
+    } catch (e) {
+      loginTest = { ok: false, posts: 0, message: (e as Error).message };
+    } finally {
+      loginTesting = false;
+    }
+  }
+  function closeLogin() {
+    if (loginId) typed[loginId] = {};
+    loginId = null;
+  }
+
   async function test(s: SiteInfo) {
     busy[s.id] = 'test';
     try {
@@ -277,18 +318,14 @@
 
   async function save(e: SubmitEvent, s: SiteInfo) {
     e.preventDefault();
-    const values: Record<string, string> = {};
-    for (const f of s.fields) {
-      const v = (typed[s.id]?.[f] ?? '').trim();
-      if (v) values[f] = v; // empty boxes keep what's saved
-    }
+    const values = typedValues(s);
     if (!Object.keys(values).length) return;
     busy[s.id] = 'save';
     try {
       sites = (await api.setCredentials(s.id, values)).sites;
       typed[s.id] = {};
       reveal[s.id] = false;
-      editing[s.id] = false;
+      loginId = null;
       busy[s.id] = undefined;
       toasts.show(t('sites.credsSaved', { site: s.site }), { cat: 'sites' });
       const fresh = sites.find((x) => x.id === s.id);
@@ -306,7 +343,6 @@
     try {
       sites = (await api.setCredentials(s.id, Object.fromEntries(s.fields.map((f) => [f, ''])))).sites;
       tests[s.id] = undefined;
-      editing[s.id] = false;
       toasts.show(t('sites.credsRemoved', { site: s.site }), { cat: 'sites', kind: 'removed' });
     } catch (err) {
       toasts.error((err as Error).message);
@@ -355,59 +391,17 @@
           </div>
         {/if}
 
-        {#if s.fields.length && allSet(s) && !editing[s.id]}
+        {#if s.fields.length && allSet(s)}
           <div class="account">
             <Icon name="check" size={16} />
             <span class="grow">{t('sites.credsSavedShort')}</span>
           </div>
         {:else if s.fields.length}
-          <form class="creds" onsubmit={(e) => save(e, s)} autocomplete="off">
-            {#if s.help}<p class="hint">{s.help}</p>{/if}
-            {#each s.fields as f (f)}
-              <label class="field">
-                <span class="field-label">
-                  {fieldLabel(f)}
-                  {#if s.set[f]}<span class="saved"><Icon name="check" size={13} /> {t('sites.savedField')}</span>{/if}
-                </span>
-                <span class="secret">
-                  <input
-                    type={reveal[s.id] || f === 'username' ? 'text' : 'password'}
-                    value={typed[s.id]?.[f] ?? ''}
-                    oninput={(e) => (typed[s.id] = { ...typed[s.id], [f]: (e.currentTarget as HTMLInputElement).value })}
-                    placeholder={s.set[f] ? t('sites.placeholder.replace') : placeholder(f)}
-                    aria-label={t('sites.fieldLabel', { site: s.site, field: fieldLabel(f) })}
-                    autocomplete="off"
-                    autocapitalize="off"
-                    spellcheck="false"
-                    data-1p-ignore
-                    data-lpignore="true" />
-                  {#if f !== 'username'}
-                  <button
-                    type="button"
-                    class="icon eye"
-                    aria-label={reveal[s.id] ? t('sites.hideTyped') : t('sites.showTyped')}
-                    title={reveal[s.id] ? t('sites.hideTyped') : t('sites.showTyped')}
-                    aria-pressed={!!reveal[s.id]}
-                    onclick={() => (reveal[s.id] = !reveal[s.id])}><Icon name={reveal[s.id] ? 'eyeoff' : 'eye'} size={18} /></button>
-                  {/if}
-                </span>
-              </label>
-            {/each}
-            <div class="form-actions">
-              {#if editing[s.id]}
-                <button
-                  type="button"
-                  class="quiet"
-                  onclick={() => {
-                    editing[s.id] = false;
-                    typed[s.id] = {};
-                  }}>{t('common.cancel')}</button>
-              {/if}
-              <button type="submit" disabled={!hasTyped(s) || !!busy[s.id]}>
-                {busy[s.id] === 'save' ? t('sites.saving') : t('common.save')}
-              </button>
-            </div>
-          </form>
+          <button type="button" class="account open" class:needed={s.required} onclick={() => openLogin(s)}>
+            <Icon name="user" size={16} />
+            <span class="grow">{s.required ? t('sites.loginNeeded') : t('sites.loginAvailable')}</span>
+            <span class="go">{t('sites.logIn')}</span>
+          </button>
         {/if}
         {#if res}
           <p class="result" class:ok={res.ok} role="status">
@@ -550,6 +544,65 @@
   {/if}
 </section>
 
+{#if loginSite}
+  {@const s = loginSite}
+  <Modal title={t('sites.loginTitle', { site: s.site })} onclose={closeLogin}>
+    <form class="creds" onsubmit={(e) => save(e, s)} autocomplete="off">
+      {#if s.help}<p class="hint">{s.help}</p>{/if}
+      {#each s.fields as f (f)}
+        <label class="field">
+          <span class="field-label">
+            {fieldLabel(f)}
+            {#if s.set[f]}<span class="saved"><Icon name="check" size={13} /> {t('sites.savedField')}</span>{/if}
+          </span>
+          <span class="secret">
+            <input
+              type={reveal[s.id] || f === 'username' ? 'text' : 'password'}
+              value={typed[s.id]?.[f] ?? ''}
+              oninput={(e) => {
+                typed[s.id] = { ...typed[s.id], [f]: (e.currentTarget as HTMLInputElement).value };
+                loginTest = null; // (a result for other values)
+              }}
+              placeholder={s.set[f] ? t('sites.placeholder.replace') : placeholder(f)}
+              aria-label={t('sites.fieldLabel', { site: s.site, field: fieldLabel(f) })}
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              data-1p-ignore
+              data-lpignore="true" />
+            {#if f !== 'username'}
+              <button
+                type="button"
+                class="icon eye"
+                aria-label={reveal[s.id] ? t('sites.hideTyped') : t('sites.showTyped')}
+                title={reveal[s.id] ? t('sites.hideTyped') : t('sites.showTyped')}
+                aria-pressed={!!reveal[s.id]}
+                onclick={() => (reveal[s.id] = !reveal[s.id])}><Icon name={reveal[s.id] ? 'eyeoff' : 'eye'} size={18} /></button>
+            {/if}
+          </span>
+        </label>
+      {/each}
+      {#if loginTest}
+        <p class="result" class:ok={loginTest.ok} role="status" transition:slide={{ duration: ms(180), easing: cubicOut }}>
+          <Icon name={loginTest.ok ? 'check' : 'close'} size={16} />
+          <span>{loginTest.message}{#if loginTest.detail}<span class="detail">{loginTest.detail}</span>{/if}</span>
+        </p>
+      {/if}
+      <div class="foot">
+        <button type="button" class="quiet" disabled={loginTesting || !!busy[s.id] || !(hasTyped(s) || allSet(s))} onclick={() => testLogin(s)}>
+          <Icon name="retry" size={16} />
+          {loginTesting ? t('sites.testing') : t('sites.testLogin')}
+        </button>
+        <span class="spacer"></span>
+        <button type="button" class="quiet" onclick={closeLogin}>{t('common.cancel')}</button>
+        <button type="submit" disabled={!hasTyped(s) || !!busy[s.id]}>
+          {busy[s.id] === 'save' ? t('sites.saving') : t('common.save')}
+        </button>
+      </div>
+    </form>
+  </Modal>
+{/if}
+
 <style>
   .check {
     display: flex;
@@ -606,18 +659,53 @@
   .account .grow {
     color: var(--text);
   }
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+  /* No login yet: the line says one can be added (or is needed) and opens the login dialog, like its ⋯ item. */
+  .account.open {
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 9px 12px;
+    border-radius: 10px;
+    text-align: left;
+    font-weight: 500;
+    background: var(--crust);
+    border: 1px solid var(--surface0);
+    color: var(--subtext);
+    transition:
+      border-color 0.15s,
+      background-color 0.15s;
   }
-  .form-actions button {
+  .account.open .grow {
+    color: var(--subtext);
+  }
+  .account.open .go {
+    color: var(--mauve);
+    font-weight: 600;
+  }
+  .account.open.needed {
+    color: var(--peach);
+    border-color: color-mix(in srgb, var(--peach) 35%, transparent);
+  }
+  .account.open.needed .grow {
+    color: var(--text);
+  }
+  @media (hover: hover) {
+    .account.open:hover {
+      filter: none;
+      background: var(--surface0);
+    }
+  }
+  /* The dialog's buttons: Test on the left, Cancel and Save on the right; on phones the three share the row. */
+  .creds .foot button {
     min-width: 96px;
   }
-  /* Phones: Save (and Cancel) across the card, easy to reach. */
   @media (max-width: 639px) {
-    .form-actions button {
+    .creds .foot button {
       flex: 1;
+      min-width: 0;
+    }
+    .creds .foot .spacer {
+      display: none;
     }
   }
   .adding {

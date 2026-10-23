@@ -556,7 +556,8 @@ export const api = {
     get<{ tags: Record<string, { site: string; count: number }[]> }>('/api/tags/sites?' + tags.map((t) => 't=' + encodeURIComponent(t)).join('&')),
   setCredentials: (id: string, values: Record<string, string>) =>
     post<{ sites: SiteInfo[] }>(`/api/sites/${id}/credentials`, { values }),
-  testSite: (id: string) => post<SiteTest>(`/api/sites/${id}/test`, {}),
+  /** values: typed credentials to try (not saved); none = the saved ones. */
+  testSite: (id: string, values?: Record<string, string>) => post<SiteTest>(`/api/sites/${id}/test`, values ? { values } : {}),
   trySite: (id: string) => post<{ sites: SiteInfo[] }>(`/api/sites/${encodeURIComponent(id)}/try`, {}),
   setSiteOff: (id: string, off: boolean) => post<{ sites: SiteInfo[] }>(`/api/sites/${encodeURIComponent(id)}/off`, { off }),
   saved: (scope: Scope = '') => get<{ saved: SavedSearch[] }>('/api/saved?x' + sc(scope)),

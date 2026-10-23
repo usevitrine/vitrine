@@ -152,16 +152,47 @@ type TestResult struct {
 	Detail  string `json:"detail,omitempty"`
 }
 
-// TestSite makes one small request with the current credentials.
-func (d *Downloader) TestSite(ctx context.Context, site string) (TestResult, error) {
+// TestSite makes one small request with the current credentials - or, given
+// typed values, with those over the saved ones, on a throwaway copy of the site
+// (nothing is saved and the site in use doesn't change: a login dialog's Test).
+func (d *Downloader) TestSite(ctx context.Context, site string, values map[string]string) (TestResult, error) {
 	st, ok := d.all()[site]
 	if !ok {
 		return TestResult{}, fmt.Errorf("%w: %q", ErrUnknownSite, site)
 	}
-	if st.Client.Manifest().Auth.Required && !st.Client.HasCredentials() {
+	client, engine := st.Client, st.Engine
+	if len(values) > 0 {
+		m := client.Manifest()
+		creds := map[string]string{}
+		if d.SecretsPath != "" {
+			d.credMu.Lock()
+			secrets, err := plugin.LoadSecrets(d.SecretsPath)
+			d.credMu.Unlock()
+			if err != nil {
+				return TestResult{}, fmt.Errorf("reading the credentials file: %w", err)
+			}
+			for k, v := range secrets[site] {
+				creds[k] = v
+			}
+		}
+		for f, v := range values {
+			if !slices.Contains(m.Auth.Fields, f) {
+				return TestResult{}, fmt.Errorf("%w: %q", ErrBadField, f)
+			}
+			if v = strings.TrimSpace(v); v != "" {
+				creds[f] = v
+			}
+		}
+		client = client.WithCredentials(creds)
+		var err error
+		if engine, err = plugin.NewEngine(client); err != nil {
+			return TestResult{}, err
+		}
+	}
+	if client.Manifest().Auth.Required && !client.HasCredentials() {
 		return TestResult{Message: "Add the credentials first."}, nil
 	}
-	page, err := st.Engine.Search(ctx, "", 0)
+	page, err := engine.Search(ctx, "", 0)
 	if err != nil {
 		return TestResult{Message: "The site didn't accept the request.", Detail: err.Error()}, nil
 	}

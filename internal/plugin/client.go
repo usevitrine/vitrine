@@ -84,6 +84,17 @@ func NewClient(m Manifest, creds map[string]string) *Client {
 	return c
 }
 
+// WithCredentials is a copy of the client with other credentials and a fresh state (no waits, no pause, a login
+// session of its own) on the same connections: to try typed credentials without touching the client in use.
+func (c *Client) WithCredentials(creds map[string]string) *Client {
+	n := NewClient(c.m, creds)
+	n.solver, n.log, n.tooMany = c.solver, c.log, c.tooMany
+	h := *c.http
+	h.Jar = n.http.Jar
+	n.http = &h
+	return n
+}
+
 // newTransport is the default one with a connection of its own per request (HTTP/1.1): over HTTP/2 every file
 // from a host shared one connection - a CDN throttling it slowed all of them to a crawl, and a retry came back
 // on the same slow connection.
