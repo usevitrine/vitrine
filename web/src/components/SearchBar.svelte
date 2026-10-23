@@ -98,9 +98,9 @@
     else node.removeAttribute('aria-hidden');
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return { duration: 0 };
     return {
-      duration: out ? 120 : 180,
+      duration: 180,
       easing: cubicOut,
-      css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * -8}px) scale(${0.98 + 0.02 * t})`,
+      css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * -8}px) scale(${0.96 + 0.04 * t})`,
     };
   }
 

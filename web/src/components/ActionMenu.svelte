@@ -108,7 +108,7 @@
     node.setAttribute('aria-hidden', 'true');
     if (reduced()) return { duration: 0 };
     if (sheet) return sheetOut(node); // from where a drag left it
-    return { duration: 120, css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * -8}px) scale(${0.98 + 0.02 * t})` };
+    return { duration: 180, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * -8}px) scale(${0.96 + 0.04 * t})` };
   }
   function shade(node: HTMLElement, { out = false } = {}) {
     if (out) node.style.pointerEvents = 'none'; // the page is usable again at once

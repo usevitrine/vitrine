@@ -24,7 +24,12 @@
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   function pop(node: Element, { out = false } = {}) {
     if (reduced()) return { duration: 0 };
-    return { duration: out ? 120 : 180, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: scale(${0.97 + 0.03 * k})` };
+    // (going: as plain as coming - it shrinks and sinks a little as it fades, not just a blink)
+    return {
+      duration: out ? 200 : 220,
+      easing: cubicOut,
+      css: (k: number) => `opacity: ${k}; transform: translateY(${out ? (1 - k) * 8 : 0}px) scale(${0.94 + 0.06 * k})`,
+    };
   }
 </script>
 

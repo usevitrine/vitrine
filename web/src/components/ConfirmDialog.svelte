@@ -58,9 +58,10 @@
     if (sheet) return out ? sheetOut(node) : sheetIn(node);
     if (reduced()) return { duration: 0 };
     return {
-      duration: out ? 120 : 180,
+      duration: out ? 200 : 220,
       easing: cubicOut,
-      css: (t: number) => `opacity: ${t}; transform: translate(-50%, -50%) scale(${0.96 + 0.04 * t})`,
+      // (going: it shrinks and sinks a little as it fades, as plain as coming)
+      css: (t: number) => `opacity: ${t}; transform: translate(-50%, calc(-50% + ${out ? (1 - t) * 8 : 0}px)) scale(${0.94 + 0.06 * t})`,
     };
   }
 </script>

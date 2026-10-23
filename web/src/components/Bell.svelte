@@ -93,7 +93,7 @@
   function grow(node: Element, { out = false } = {}) {
     if (reduced()) return { duration: 0 };
     return {
-      duration: out ? 140 : 240,
+      duration: out ? 200 : 240,
       easing: cubicOut,
       css: (k: number) => `opacity: ${k}; transform: translateY(${(1 - k) * -8}px) scale(${0.94 + 0.06 * k})`,
     };
