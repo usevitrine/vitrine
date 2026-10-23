@@ -36,3 +36,6 @@ examples are written; how decisions are recorded.
 - When a decision is made or changed, update the matching topic doc (and `docs/project/overview.md` if it's a key
   decision). New built behavior goes in the topic's "as built" part, dated.
 - A topic doc that grows past ~300 lines is split further (and `docs/README.md` updated).
+- **`CHANGELOG.md`** (shown in the app: Settings > What's new, built in at build time): every change a user would
+  notice gets a line under `## Unreleased`, in plain words (what it does for them, not how). At a release that
+  heading becomes `## <version> - <date>` in the same commit the tag goes on, and a new `## Unreleased` starts empty.

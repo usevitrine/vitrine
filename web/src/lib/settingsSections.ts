@@ -32,6 +32,7 @@ export const settingsSections = [
   section('settings.section', 'backups', 'archive', 'yellow'),
   section('settings.section', 'stats', 'chart', 'sky'),
   section('settings.section', 'account', 'user', 'lavender'),
+  section('settings.section', 'changelog', 'star', 'pink'),
 ] as const;
 
 // The sections of Tags: the rules first (where Tags opens).

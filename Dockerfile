@@ -8,8 +8,9 @@ WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY web/ ./
-# (the texts: the web app imports ../locales, shared with the server)
+# (the texts: the web app imports ../locales, shared with the server; and the changelog it shows)
 COPY locales/ /src/locales/
+COPY CHANGELOG.md /src/CHANGELOG.md
 RUN npm run build
 
 # 2. The server, embedding the web app.

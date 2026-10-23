@@ -116,3 +116,8 @@ Settings sections and cards: Sites, Library, Download rules, Backups, Stats and 
   its Trash page) and their addresses open the other section; its sites aren't offered for new downloads (`siteOn`).
   Switching on again asks nothing. The first steps start with "What will you use?" (Media, Comics; one at least).
   Tests: `TestSectionOff` (Go), "sections: switching Media off", "first steps" (e2e).
+- **What's new (2026-10-23, the user: "add a changelog somewhere in the app starting with 1.0" ... "it should be its
+  own page")**: Settings > What's new (the last section, a star), also linked from the About card. It shows the
+  repository's CHANGELOG.md, imported raw at build time (lazily: only when the page opens; the Dockerfile copies it
+  into the web build) - a card per version, "Not released yet" for Unreleased, bold lead-ins kept. Keeping it
+  current: docs/project/rules.md.

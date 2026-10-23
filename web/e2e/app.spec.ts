@@ -2987,7 +2987,7 @@ test('sort menu: more orders - file size both ways, number of tags, random (the 
 test('settings: sections - a list on phones (each opens with a back link), side by side on wide screens; listed in the menu', async ({ page }) => {
   await page.goto('/settings');
   const nav = page.getByRole('navigation', { name: 'Settings sections' });
-  await expect(nav.getByRole('button')).toHaveCount(9);
+  await expect(nav.getByRole('button')).toHaveCount(10);
   const wide = (page.viewportSize()?.width ?? 0) >= 900;
   if (wide) {
     // The first section shows beside the list.
@@ -7550,4 +7550,14 @@ test('sections: switching Media off asks first, then whether to delete it all (a
   // (the switch-off's save can leave as the page does - past the routes, to this worker's real server: Media stayed
   // off there and every later test opened on Comics)
   await page.evaluate(() => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaOff: false, comicsOff: false }) }));
+});
+
+test("settings: What's new is a page of its own with the changelog, newest first (built into the app)", async ({ page }) => {
+  await page.goto('/settings/account');
+  await page.locator('.about-links').getByRole('button', { name: 'What’s new' }).click(); // (also in the section list)
+  await expect(page).toHaveURL(/\/settings\/changelog$/);
+  await expect(page.getByRole('heading', { name: /^1\.0\.0/ })).toBeVisible();
+  await expect(page.getByText('The first public release.')).toBeVisible();
+  const heads = await page.locator('.log h2').allTextContents();
+  expect(heads[heads.length - 1]).toMatch(/^1\.0\.0/); // (the oldest last)
 });

@@ -27,6 +27,8 @@
   import Sections from '../components/Sections.svelte';
   import SearchBar from '../components/SearchBar.svelte';
   import Rich from '../components/Rich.svelte';
+  import ChangelogCard from '../components/ChangelogCard.svelte';
+  import { router } from '../lib/router.svelte';
   import { t, num, i18n, languages } from '../lib/i18n.svelte';
 
   let { user, onLoggedOut }: { user: string; onLoggedOut: () => void } = $props();
@@ -331,6 +333,8 @@
             <BackupsCard />
           {:else if current === 'stats'}
             <StatsCard />
+          {:else if current === 'changelog'}
+            <ChangelogCard />
           {:else if current === 'account'}
             <section class="card">
               <div class="card-head"><h2>{t('settings.section.account.label')}</h2></div>
@@ -359,6 +363,7 @@
               <p class="about-line"><strong>Vitrine</strong>{#if stats?.server?.version}&nbsp;<span class="about-ver">{stats.server.version}</span>{/if}</p>
               <p class="hint">{t('settings.about.license')}</p>
               <div class="about-links">
+                <button class="link" onclick={() => router.go('settings', 'changelog')}>{t('settings.about.whatsNew')}</button>
                 <a href="https://github.com/usevitrine/vitrine" target="_blank" rel="noopener noreferrer">{t('settings.about.source')} <Icon name="external" size={14} /></a>
                 <a href="/licenses" target="_blank" rel="noopener">{t('settings.about.thirdParty')} <Icon name="external" size={14} /></a>
               </div>
@@ -457,13 +462,24 @@
     flex-wrap: wrap;
     gap: 6px 18px;
   }
-  .about-links a {
+  .about-links a,
+  .about-links .link {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     color: var(--mauve);
     font-weight: 600;
     text-decoration: none;
+  }
+  /* What's new: a link's look (it opens a dialog, not a page). */
+  .about-links .link {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
   }
   .rules {
     display: grid;
