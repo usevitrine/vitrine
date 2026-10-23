@@ -4,6 +4,7 @@
   import { fly, slide } from 'svelte/transition';
   import { live, bytes } from '../lib/live.svelte';
   import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf } from '../lib/downloadProgress';
+  import { reveal, pop, moved } from '../lib/motion';
   import Stack from '../components/Stack.svelte';
   import { api, type DownloadSearch, type RefreshStatus, type Subscription, type SubGroup, type FailedPost, type RetryJob, type SubLook, type SubPic } from '../lib/api';
   import SiteIcon from '../components/SiteIcon.svelte';
@@ -1163,21 +1164,21 @@
       <span class="site-name">{siteLabel(siteId)}</span>
       <span class="count">{count}</span>
     </button>
-    {#if sitesOff.includes(siteId)}<span class="off-chip" title={t('downloads.offTitle', { what: offWhat })}>{t('notify.status.off')}</span>{/if}
+    {#if sitesOff.includes(siteId)}<span class="off-chip" title={t('downloads.offTitle', { what: offWhat })} transition:pop>{t('notify.status.off')}</span>{/if}
     {@render pausedChip(siteId)}
   </h3>
 {/snippet}
 
 <!-- A site paused by itself (it kept failing to answer): a chip by its name. -->
 {#snippet pausedChip(siteId: string)}
-  {#if sitesPaused[siteId]}<span class="paused-chip" title={t('downloads.pausedTitle')}>{t('downloads.paused')}</span>{/if}
+  {#if sitesPaused[siteId]}<span class="paused-chip" title={t('downloads.pausedTitle')} transition:pop>{t('downloads.paused')}</span>{/if}
 {/snippet}
 
 <!-- ... and at the top of the page: which site, why, when it tries again, and Try now. -->
 {#snippet pausedLine(siteId: string)}
   {@const p = sitesPaused[siteId]}
   {#if p}
-    <div class="paused-line" role="status">
+    <div class="paused-line" role="status" transition:reveal>
       <Icon name="alert" size={16} />
       <span class="paused-text"
         ><span><b>{siteLabel(siteId)}</b> {t('downloads.pausedLine', { time: time(new Date(p.until)) })}</span><span class="paused-why">{p.reason}</span></span>
@@ -1204,7 +1205,7 @@
     {:else}
       <span class="site-label"><span class="site-name">{siteLabel(siteId)}</span></span>
     {/if}
-    {#if offWhat && sitesOff.includes(siteId)}<span class="off-chip" title={t('downloads.offTitle', { what: offWhat })}>{t('notify.status.off')}</span>{/if}
+    {#if offWhat && sitesOff.includes(siteId)}<span class="off-chip" title={t('downloads.offTitle', { what: offWhat })} transition:pop>{t('notify.status.off')}</span>{/if}
     {@render pausedChip(siteId)}
   </h3>
 {/snippet}
@@ -1234,7 +1235,7 @@
         </div>
         {#if !done && speed}<span class="stat speed">{t('downloads.speed', { size: bytes(speed) })}</span>{/if}
       </div>
-      {#if done && r.error}<p class="error small">{r.error}</p>{/if}
+      {#if done && r.error}<p class="error small" transition:reveal>{r.error}</p>{/if}
     </div>
   </div>
 {/snippet}
@@ -1294,13 +1295,13 @@
     </div>
     {#if s.state === 'running' && speedOf(s.id)}<span class="stat speed" title={t('downloads.speedTitle')}>{speedOf(s.id)}</span>{/if}
   </div>
-  {#if s.error}<p class="error small">{s.error}</p>{/if}
+  {#if s.error}<p class="error small" transition:reveal>{s.error}</p>{/if}
   {#if s.state === 'failed' && !s.subscription_id && s.retry_at}
-    <p class="retry small">
+    <p class="retry small" transition:reveal>
       <Icon name="retry" size={13} /> {s.retry_at <= now ? t('downloads.tryingNow') : t('downloads.tryingIn', { span: span(s.retry_at - now) })}{(s.attempts ?? 0) > 1 ? ' ' + t('downloads.attempt', { n: (s.attempts ?? 0) + 1 }) : ''}
     </p>
   {:else if s.state === 'failed' && !s.subscription_id && (s.attempts ?? 0) > 1}
-    <p class="retry small">{t('downloads.gaveUp', { n: s.attempts ?? 0 })}</p>
+    <p class="retry small" transition:reveal>{t('downloads.gaveUp', { n: s.attempts ?? 0 })}</p>
   {/if}
 {/snippet}
 
@@ -1316,7 +1317,7 @@
   {@const fresh = look?.fresh ?? 0}
   {@const gallery = siteInfo.engines[s.site] === 'ehentai'}
   {@const gNow = s.check && gallery ? galleryNow(s.check) : null}
-  <li data-sub={s.id} class:flash={flashSub === s.id} class:swiping={dragging === s.id} {@attach swipe(s)}>
+  <li data-sub={s.id} class:flash={flashSub === s.id} class:swiping={dragging === s.id} {@attach swipe(s)} transition:reveal>
     <!-- Phones: behind the card, what a swipe to the left shows. -->
     <div class="swipe-acts" aria-hidden={swiped !== s.id} inert={swiped !== s.id}>
       <button class="swipe-act" onclick={() => swipeAct(s, 'check')}><Icon name="retry" size={18} />{t('downloads.checkNow')}</button>
@@ -1349,7 +1350,7 @@
                   >{#each c.parts as p, j (j)}{#if j}<span class="or">{t('searchBar.or')}</span>{/if}<span style:color={p.color}>{p.text}</span>{/each}</span
                 >{:else}<span class="qchip" class:neg={c.neg} style:color={c.parts[0].color}>{c.parts[0].text}</span>{/if}{:else}<span class="qchip">{t('push.everything')}</span>{/each}</span>
           {/if}
-          {#if st === 'paused' || st === 'failed'}<span class="state {st}">{stateLabel(st)}</span>{/if}
+          {#if st === 'paused' || st === 'failed'}<span class="state {st}" transition:pop>{stateLabel(st)}</span>{/if}
           {#if fresh}
             <button class="fresh" onclick={() => openFresh(s)} title={t('downloads.freshTitle', { n: fresh })} aria-label={t('downloads.freshTitle', { n: fresh })}>+{num(fresh)}</button>
           {/if}
@@ -1388,9 +1389,9 @@
             {:else if !s.checks && s.check?.state !== 'failed'}<span>{cap(lastCheck(s))}</span>{/if}
           {/if}
         </div>
-        {#if s.error}<p class="error small">{s.error}</p>{/if}
+        {#if s.error}<p class="error small" transition:reveal>{s.error}</p>{/if}
         {#if s.fav_gone}
-          <div class="fav-gone" role="status">
+          <div class="fav-gone" role="status" transition:reveal>
             <span>{t('downloads.favGone', { n: s.fav_gone })}</span>
             <span class="fav-gone-actions">
               <button class="quiet small" onclick={() => favGone(s, 'keep')}>{t('downloads.keep')}</button>
@@ -1439,7 +1440,7 @@
         ]} />
     </div>
     {#if moving?.sub === s.id}
-      <form class="inline-name" onsubmit={(e) => moveToNew(e, s)}>
+      <form class="inline-name" onsubmit={(e) => moveToNew(e, s)} transition:reveal>
         <input bind:value={moving.name} placeholder={t('downloads.newGroupName')} aria-label={t('downloads.newGroupNameFor', { query: named(s) })} maxlength="60" />
         <button type="submit" disabled={!moving.name.trim()}>{t('downloads.createMove')}</button>
         <button type="button" class="quiet" onclick={() => (moving = null)}>{t('common.cancel')}</button>
@@ -1508,7 +1509,7 @@
             <Dropdown value={repeat} options={repeatOptions} onchange={setRepeat} label={t('downloads.repeat')} heading={t('downloads.repeat')} />
           </div>
           {#if repeat !== '0' && !favSearch}
-            <div class="opt group-opt">
+            <div class="opt group-opt" transition:reveal>
               <span class="opt-label">{t('downloads.group')}</span>
               <Dropdown
                 value={formGroup}
@@ -1526,23 +1527,23 @@
           </button>
         </div>
         {#if ownFavs}
-          <label class="add-favs">
+          <label class="add-favs" transition:reveal>
             <input type="checkbox" bind:checked={addToFavs} />
             <span>{t('downloads.addToFavs')}</span>
           </label>
         {/if}
         {#if repeat === '0' && maxPosts}
-          <p class="note hint">{t('downloads.noteOnce', { n: Number(maxPosts) })}</p>
+          <p class="note hint" transition:reveal>{t('downloads.noteOnce', { n: Number(maxPosts) })}</p>
         {/if}
         {#if repeat !== '0'}
-          <p class="note hint">
+          <p class="note hint" transition:reveal>
             {t('downloads.noteSub', { every: every(+repeat), first: maxPosts ? t('downloads.newestN', { n: Number(maxPosts) }) : t('downloads.everyPost') })}{site ? ' ' + t('downloads.fromSite', { site: siteLabel(site) }) : ''}.
           </p>
         {/if}
       </form>
     </section>
 
-    {#if error}<p class="error small">{error}</p>{/if}
+    {#if error}<p class="error small" transition:reveal>{error}</p>{/if}
 
     <!-- What's going on, at a glance: each count a link to where those are (zeros left out). -->
     <div class="summary" role="status">
@@ -1576,11 +1577,11 @@
         <section class="card">
           <div class="card-head">
             <h2>{t('downloads.queue')}</h2>
-            {#if queueSites.length}<p class="hint">{t('downloads.queueHint')}</p>{/if}
+            {#if queueSites.length}<p class="hint" transition:reveal>{t('downloads.queueHint')}</p>{/if}
           </div>
           {#each queueSites as q (q.site)}
             {@const key = 'queue:' + q.site}
-            <div class="site-block queue-site">
+            <div class="site-block queue-site" animate:moved transition:reveal>
               {@render stackHead(key, q.site, q.entries.length, q.entries.length > 1, t('downloads.queueWaits'))}
               <Stack
                 items={q.entries}
@@ -1622,20 +1623,20 @@
               </Stack>
             </div>
           {:else}
-            <p class="quiet-empty">{t('downloads.nothingWaiting')}</p>
+            <p class="quiet-empty" transition:reveal>{t('downloads.nothingWaiting')}</p>
           {/each}
         </section>
 
         <!-- The tag refresh: a line per site (posts read again now and then: sites keep editing tags). -->
         {#if refreshStatus.length}
-          <section class="card slim" id="dl-refresh">
+          <section class="card slim" id="dl-refresh" transition:reveal>
             <div class="card-head">
               <h2>{t('downloads.refresh.title')}</h2>
               <p class="hint">{t('downloads.refresh.hint')}</p>
             </div>
             <ul class="list refresh-list">
               {#each refreshStatus as r (r.site)}
-                <li class="refresh-line">
+                <li class="refresh-line" animate:moved transition:reveal>
                   <span class="refresh-site">{siteLabel(r.site)}</span>
                   <span class="refresh-nums">
                     {#if r.due}{@render stat(r.due, t('downloads.stat.toRefresh'), 'lead')}{/if}
@@ -1658,10 +1659,10 @@
         <section class="card">
           <div class="card-head">
             <h2>{t('stats.subscriptions')}</h2>
-            {#if subs.length}<p class="hint">{t('downloads.subsHint')}</p>{/if}
+            {#if subs.length}<p class="hint" transition:reveal>{t('downloads.subsHint')}</p>{/if}
           </div>
           {#if subs.length >= SUB_TOOLS_FROM || attentionCount}
-            <div class="sub-tools">
+            <div class="sub-tools" transition:reveal>
               {#if subs.length >= SUB_TOOLS_FROM}
                 <label class="sub-filter">
                   <Icon name="search" size={16} />
@@ -1677,14 +1678,14 @@
               {/if}
               {#if attentionCount}
                 <button class="attention-toggle" class:on={attentionOnly} aria-pressed={attentionOnly} onclick={() => (attentionOnly = !attentionOnly)}
-                  ><Icon name="alert" size={14} /> {t('downloads.needsLook')}<span class="tab-count">{num(attentionCount)}</span></button>
+                   transition:pop><Icon name="alert" size={14} /> {t('downloads.needsLook')}<span class="tab-count">{num(attentionCount)}</span></button>
               {/if}
               {#if subs.length >= SUB_TOOLS_FROM}
                 <Dropdown value={subSort} options={subSortOptions} onchange={setSubSort} label={t('downloads.orderSubs')} heading={t('downloads.orderBy')} align="end" />
               {/if}
             </div>
             {#if subFilter.trim()}
-              <p class="hint small sub-count">
+              <p class="hint small sub-count" transition:reveal>
                 {shownSubs.length ? t('downloads.showing', { count: shownSubs.length, n: subs.length }) : t('downloads.noMatch', { filter: subFilter.trim() })}
               </p>
             {/if}
@@ -1699,9 +1700,9 @@
                 {#each site.groups as { g, subs: members } (g.id)}
                   {@const gs = groupStats(g)}
                   {@const open = expanded.includes(g.id) || filtering}
-                  <section class="group" aria-label={t('downloads.groupLabel', { name: g.name })}>
+                  <section class="group" aria-label={t('downloads.groupLabel', { name: g.name })} animate:moved transition:reveal>
                     {#if renaming?.id === g.id}
-                      <form class="inline-name rename" onsubmit={renameGroup}>
+                      <form class="inline-name rename" onsubmit={renameGroup} transition:reveal>
                         <input bind:value={renaming.name} aria-label={t('downloads.newNameFor', { name: g.name })} maxlength="60" />
                         <button type="submit" disabled={!renaming.name.trim()}>{t('tagBrowser.rename')}</button>
                         <button type="button" class="quiet" onclick={() => (renaming = null)}>{t('common.cancel')}</button>
@@ -1725,10 +1726,10 @@
                               <span class="group-name">{g.name}</span>
                               <span class="count">{gs.count}</span>
                             </button>
-                            {#if gs.allPaused && gs.count}<span class="state paused">{t('downloads.state.paused')}</span>{/if}
+                            {#if gs.allPaused && gs.count}<span class="state paused" transition:pop>{t('downloads.state.paused')}</span>{/if}
                           </div>
                           {#if g.interval}
-                            <div class="stats"><span class="stat meta"><Icon name="clock" size={13} /> {cap(every(g.interval))}</span></div>
+                            <div class="stats" transition:reveal><span class="stat meta"><Icon name="clock" size={13} /> {cap(every(g.interval))}</span></div>
                           {/if}
                           <div class="stats">
                             {#if gs.files}{@render stat(gs.files, t('downloads.stat.files', { n: gs.files }))}{/if}
@@ -1762,17 +1763,17 @@
                     {/if}
                     {#if open}
                       {#if members.length}
-                        <ul class="list in-group sub-cards">
+                        <ul class="list in-group sub-cards" transition:reveal>
                           {#each members as s (s.id)}{@render subRow(s)}{/each}
                         </ul>
                       {:else}
-                        <p class="hint small group-empty">{t('downloads.noSubs')}</p>
+                        <p class="hint small group-empty" transition:reveal>{t('downloads.noSubs')}</p>
                       {/if}
                     {/if}
                   </section>
                 {/each}
                 {#if site.loose.length}
-                  {#if site.groups.length}<h4 class="loose-head">{t('downloads.notInGroup')}</h4>{/if}
+                  {#if site.groups.length}<h4 class="loose-head" transition:reveal>{t('downloads.notInGroup')}</h4>{/if}
                   <ul class="list sub-cards">
                     {#each site.loose as s (s.id)}{@render subRow(s)}{/each}
                   </ul>
@@ -1780,7 +1781,7 @@
               {/if}
             {/each}
           {:else}
-            <p class="quiet-empty">{t('downloads.noSubs')}</p>
+            <p class="quiet-empty" transition:reveal>{t('downloads.noSubs')}</p>
           {/if}
         </section>
       </div>
@@ -1788,14 +1789,14 @@
       <div class="panel" id="panel-history" role="tabpanel" aria-labelledby="tab-history" in:panelIn out:panelOut>
         <!-- Failed files, grouped by why: each reason a stack of its own, with Retry all and Dismiss all. -->
         {#if failedPosts.length}
-          <section class="card" id="dl-failed">
+          <section class="card" id="dl-failed" transition:reveal>
             <div class="card-head">
               <h2>{t('downloads.failedFiles')}</h2>
               <p class="hint">{t('downloads.failedFilesHint')}</p>
             </div>
             {#each failedReasons as g (g.reason)}
               {@const key = 'failed:' + g.reason}
-              <div class="site-block reason-block">
+              <div class="site-block reason-block" animate:moved transition:reveal>
                 <div class="reason-head">
                   <div class="reason-title">
                   <h3 class="site-head">
@@ -1828,7 +1829,7 @@
                           {/if}
                           <span class="fp-where">{siteLabel(f.site)} · {f.query ? f.query + ' · ' : ''}{ago(f.at)}</span>
                         </div>
-                        {#if f.error}<p class="error small fp-err">{f.error}</p>{/if}
+                        {#if f.error}<p class="error small fp-err" transition:reveal>{f.error}</p>{/if}
                       </div>
                       <div class="acts">
                         <button class="icon" onclick={() => retryPost(f)} aria-label={t('downloads.retryPost', { post: String(f.post) })} title={t('downloads.retry')}
@@ -1841,7 +1842,7 @@
                 </Stack>
               </div>
             {:else}
-              <p class="quiet-empty">{t('downloads.allRetrying')}</p>
+              <p class="quiet-empty" transition:reveal>{t('downloads.allRetrying')}</p>
             {/each}
           </section>
         {/if}
@@ -1851,25 +1852,25 @@
           <div class="card-head with-action">
             <h2>{t('downloads.finished')}</h2>
             {#if failedCount || doneCount}
-              <div class="head-acts">
+              <div class="head-acts" transition:reveal>
                 {#if failedCount}
-                  <button class="quiet small" onclick={retryFailed}><Icon name="retry" size={15} /> {t('downloads.retryFailed')}</button>
+                  <button class="quiet small" onclick={retryFailed} transition:pop><Icon name="retry" size={15} /> {t('downloads.retryFailed')}</button>
                 {/if}
                 {#if doneCount}
-                  <button class="quiet small" onclick={clearFinished}>{t('downloads.clearFinished')}</button>
+                  <button class="quiet small" onclick={clearFinished} transition:pop>{t('downloads.clearFinished')}</button>
                 {/if}
               </div>
             {/if}
           </div>
           {#if finished.length}
-            {#if finishedEarlier.length}<h3 class="when-head">{t('downloads.today')}</h3>{/if}
+            {#if finishedEarlier.length}<h3 class="when-head" transition:reveal>{t('downloads.today')}</h3>{/if}
             {#each todaySites as g (g.site)}
               {@render finishedSite(g, 'done:')}
             {:else}
-              <p class="quiet-empty">{t('downloads.noneToday')}</p>
+              <p class="quiet-empty" transition:reveal>{t('downloads.noneToday')}</p>
             {/each}
             {#if finishedEarlier.length}
-              <button class="earlier" class:open={earlierOpen} aria-expanded={earlierOpen} onclick={toggleEarlier}>
+              <button class="earlier" class:open={earlierOpen} aria-expanded={earlierOpen} onclick={toggleEarlier} transition:reveal>
                 <Icon name="right" size={16} />
                 <span>{t('downloads.earlier')}</span>
                 <span class="count">{num(finishedEarlier.length)}</span>
@@ -1892,7 +1893,7 @@
 
 {#snippet finishedSite(g: { site: string; list: DownloadSearch[] }, prefix: string)}
   {@const key = prefix + g.site}
-  <div class="site-block">
+  <div class="site-block" transition:reveal>
     {@render stackHead(key, g.site, g.list.length, g.list.length > 1, '')}
     <Stack items={g.list} key={(s) => s.id} bind:open={() => !!unfolded[key], (v) => (unfolded[key] = v)} label={t('downloads.finishedOn', { site: siteLabel(g.site) })}>
       {#snippet card(s: DownloadSearch)}

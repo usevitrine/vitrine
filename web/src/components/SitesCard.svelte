@@ -5,6 +5,7 @@
   import { onMount, untrack } from 'svelte';
   import { slide, fade } from 'svelte/transition';
   import { flip } from 'svelte/animate';
+  import { reveal as appear, pop, moved } from '../lib/motion';
   import { cubicOut } from 'svelte/easing';
   import { api, type SiteInfo, type SiteTest, type PluginInfo, type Installed } from '../lib/api';
   import { sites as siteNames } from '../lib/sites.svelte';
@@ -361,16 +362,16 @@
   {/if}
 
   {#if error}
-    <p class="error small">{error}</p>
+    <p class="error small" transition:appear>{error}</p>
   {:else if loaded && !sites.length}
-    <p class="empty">{t('sites.none')}</p>
+    <p class="empty" transition:appear>{t('sites.none')}</p>
   {/if}
 
   <div class="sites">
     {#each sites as s (s.id)}
       {@const st = status(s)}
       {@const res = tests[s.id]}
-      <article class="site" class:off={s.off}>
+      <article class="site" class:off={s.off} animate:moved transition:appear>
         <header>
           <div class="title">
             <h3>{s.site}</h3>
@@ -383,7 +384,7 @@
         </header>
         {#if updateFor(s.id)}
           {@const u = updateFor(s.id)!}
-          <div class="update" role="status">
+          <div class="update" role="status" transition:appear>
             <span>{s.version ? t('sites.availableHave', { version: u.version ?? '', have: s.version }) : t('sites.available', { version: u.version ?? '' })}</span>
             <button disabled={installing !== null} onclick={() => install(u)} aria-label={t('sites.updateSite', { site: s.site })}>
               {installing === u.id ? t('sites.updating') : t('saved.update')}
@@ -392,19 +393,19 @@
         {/if}
 
         {#if s.fields.length && allSet(s)}
-          <div class="account">
+          <div class="account" transition:appear>
             <Icon name="check" size={16} />
             <span class="grow">{t('sites.credsSavedShort')}</span>
           </div>
         {:else if s.fields.length}
-          <button type="button" class="account open" class:needed={s.required} onclick={() => openLogin(s)}>
+          <button type="button" class="account open" class:needed={s.required} onclick={() => openLogin(s)} transition:appear>
             <Icon name="user" size={16} />
             <span class="grow">{s.required ? t('sites.loginNeeded') : t('sites.loginAvailable')}</span>
             <span class="go">{t('sites.logIn')}</span>
           </button>
         {/if}
         {#if res}
-          <p class="result" class:ok={res.ok} role="status">
+          <p class="result" class:ok={res.ok} role="status" transition:appear>
             <Icon name={res.ok ? 'check' : 'close'} size={16} />
             <span>{res.message}{#if res.detail}<span class="detail">{res.detail}</span>{/if}</span>
           </p>
@@ -426,7 +427,7 @@
         </label>
       {/snippet}
       {#if searchable}
-        <div class="top">
+        <div class="top" transition:appear>
           <label class="find">
             <Icon name="search" size={16} />
             <input
@@ -442,11 +443,11 @@
         </div>
       {/if}
       {#if kinds.length > 1 || (adultCount && !searchable)}
-        <div class="filters">
+        <div class="filters" transition:appear>
           {#if kinds.length > 1}
             <div class="kinds" role="radiogroup" aria-label={t('sites.kind')}>
               {#each ['', ...kinds] as k (k)}
-                <button class="chip" role="radio" aria-checked={pickedKind === k} onclick={() => (kind = k)}>{t(k ? `sites.kinds.${k}` : 'sites.kinds.all')}</button>
+                <button class="chip" role="radio" aria-checked={pickedKind === k} onclick={() => (kind = k)} animate:moved transition:pop>{t(k ? `sites.kinds.${k}` : 'sites.kinds.all')}</button>
               {/each}
             </div>
           {/if}
@@ -454,7 +455,7 @@
         </div>
       {/if}
       {#if shown.length}
-        <ul class="available">
+        <ul class="available" transition:appear>
           {#each shown as p (p.id)}
             <li animate:flip={{ duration: ms(220), easing: cubicOut }} in:fade={{ duration: ms(180), delay: ms(60) }} out:slide={{ duration: ms(200), easing: cubicOut }}>
               <SiteIcon host={p.site} />
@@ -470,16 +471,16 @@
           {/each}
         </ul>
         {#if shown.length < matches.length}
-          <button class="quiet more" onclick={() => (showAll = true)}>{t('sites.showAll', { n: matches.length })}</button>
+          <button class="quiet more" onclick={() => (showAll = true)} transition:appear>{t('sites.showAll', { n: matches.length })}</button>
         {/if}
       {:else if searching || pickedKind}
-        <p class="hint">{adultCount && !showAdult && offerable.some((p) => p.nsfw && (!pickedKind || p.kind === pickedKind) && [p.site, p.name, p.description ?? ''].some((s) => s.toLowerCase().includes(find.trim().toLowerCase()))) ? t('sites.noMatchAdult') : t('sites.noMatch')}</p>
+        <p class="hint" transition:appear>{adultCount && !showAdult && offerable.some((p) => p.nsfw && (!pickedKind || p.kind === pickedKind) && [p.site, p.name, p.description ?? ''].some((s) => s.toLowerCase().includes(find.trim().toLowerCase()))) ? t('sites.noMatchAdult') : t('sites.noMatch')}</p>
       {:else if pluginsError}
-        <p class="hint">{t('sites.listFailed', { error: pluginsError })}</p>
+        <p class="hint" transition:appear>{t('sites.listFailed', { error: pluginsError })}</p>
       {:else if adultCount && !showAdult}
-        <p class="hint">{t('sites.allOthers')}</p>
+        <p class="hint" transition:appear>{t('sites.allOthers')}</p>
       {:else}
-        <p class="hint">{t('sites.all')}</p>
+        <p class="hint" transition:appear>{t('sites.all')}</p>
       {/if}
       <div class="from-file">
         <p class="hint">{t('sites.fromFileHint')}</p>
@@ -512,11 +513,11 @@
       </button>
     </div>
     {#if flareState}
-      <p class="result" class:ok={flareState.ok} role="status">
+      <p class="result" class:ok={flareState.ok} role="status" transition:appear>
         <Icon name={flareState.ok ? 'check' : 'close'} size={16} /><span>{flareState.text}</span>
       </p>
     {:else if !flareSaved}
-      <p class="hint small">{t('sites.flare.notSet')}</p>
+      <p class="hint small" transition:appear>{t('sites.flare.notSet')}</p>
     {/if}
   </form>
   <!-- A site that keeps failing to answer: its downloads pause by themselves until it does. -->
