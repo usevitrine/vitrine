@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { px, settle, sizeOf } from '../lib/motion';
   // A small dialog over everything (Rename, Crop the cover): a dimmed backdrop, a card in the middle that pops in,
   // a heading with a close button; Escape, Back and a press outside close it. Its content brings its own buttons
   // (a ".foot" row is styled here: buttons on the right, a ".spacer" pushing some to the left).
@@ -28,7 +29,7 @@
     return {
       duration: out ? 200 : 220,
       easing: cubicOut,
-      css: (k: number) => `opacity: ${k}; transform: translateY(${out ? (1 - k) * 8 : 0}px) scale(${0.94 + 0.06 * k})`,
+      css: (k: number) => `opacity: ${k}; transform: translateY(${px(out ? (1 - k) * 8 : 0)}) scale(${settle(0.94 + 0.06 * k, sizeOf(node))})`,
     };
   }
 </script>

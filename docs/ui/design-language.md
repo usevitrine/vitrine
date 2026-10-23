@@ -32,6 +32,15 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   `MOTION`; screens and menus keep their page slides. Search chips keep their identity across changes (same text, or
   the same place for an edit), so they glide, pop and change in place. Dialogs leave as plainly as they come (200 ms:
   shrink to 94 %, sink 8 px, fade); menus and panels fade out over 180-200 ms.
+- **No text shift when a motion ends (2026-10-23, user: text "slightly shifts after the opening animation")**: two
+  causes, both fixed. (1) An ease-out spends its last frames moving by fractions of a pixel - text drawn between
+  pixels, then snapping onto them: every transition now moves in whole pixels (,  instead of Svelte's
+  fly; sheets slide by their height in pixels, not %) and a scale is 1 once within half a pixel of the element's
+  size (). (2) Desktop draws a moving layer's text with other smoothing than the page's: what floats (role
+  dialog / alertdialog / menu / listbox, toasts, the tour card) keeps a layer of its own ( -
+  not transform, which would become fixed children's containing block). Measured: the last animation frame vs at
+  rest, pixels that change strongly - 0 for the downloads and bell panels, Downloads tabs, Filters, Saved searches,
+  New download, the login dialog, a confirmation (from 630-11,000 before); a third of a pixel left on a sheet.
 - **Type**: the system font stack (system-ui, -apple-system, Segoe UI, Roboto), line height 1.4.
 - **Words**: American spelling; texts in `locales/` (see ui/languages.md); hints only where a label could mislead, a
   few words.

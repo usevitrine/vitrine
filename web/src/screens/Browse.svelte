@@ -4,8 +4,8 @@
   // comics, marked when the library has them or their download waits, page after page as the end comes near). A tile
   // opens its details in the app's details panel (GalleryPanel: like a comic's), with Download in the panel's header.
   import { onMount } from 'svelte';
-  import { reveal, pop } from '../lib/motion';
-  import { fly, fade } from 'svelte/transition';
+  import { reveal, pop, glide } from '../lib/motion';
+  import { fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { api, type BrowseGallery } from '../lib/api';
   import { openSiteDownload } from '../lib/newDownload.svelte';
@@ -136,7 +136,7 @@
 <div class="browse" style:--lib-pad="{pad}px">
   <header bind:offsetHeight={headH}>
     {#if sites.length}
-      <div in:fly={{ y: -8, duration: 260, easing: cubicOut }}>
+      <div in:glide={{ y: -8, duration: 260, easing: cubicOut }}>
         <SearchBar
           {query}
           sort={results.sort || 'newest'}

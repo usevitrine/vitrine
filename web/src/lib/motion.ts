@@ -11,6 +11,28 @@ import { cubicOut } from 'svelte/easing';
 
 export const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Text must not shift when a motion ends (the user saw it after every opening): an ease-out spends its last frames
+// moving by fractions of a pixel, the text drawn between pixels, then snapping onto them when the motion stops. So
+// moves go in whole pixels, and a scale counts as done once it's within half a pixel of the element's size.
+/** A move in whole pixels. */
+export const px = (v: number) => `${Math.round(v)}px`;
+/** An element's larger side (for settle). */
+export const sizeOf = (node: Element) => {
+  const r = (node as HTMLElement).getBoundingClientRect();
+  return Math.max(r.width, r.height, 1);
+};
+/** A scale that is 1 once the difference is under half a pixel on an element that big. */
+export const settle = (s: number, size: number) => (Math.abs(1 - s) * size < 0.5 ? 1 : s);
+
+/** Like Svelte's fly, in whole pixels: from x / y away (and opacity), to where it is. */
+export function glide(
+  node: Element,
+  { x = 0, y = 0, duration = 200, delay = 0, easing = cubicOut, opacity = 0 }: { x?: number; y?: number; duration?: number; delay?: number; easing?: (t: number) => number; opacity?: number } = {},
+) {
+  if (reduced()) return { duration: 0 };
+  return { duration, delay, easing, css: (t: number, u: number) => `opacity: ${1 - (1 - opacity) * u}; transform: translate(${px(u * x)}, ${px(u * y)})` };
+}
+
 export function reveal(node: Element, { duration = 220, axis = 'y' as 'x' | 'y', delay = 0 } = {}) {
   if (reduced()) return { duration: 0 };
   const s = slide(node, { duration, easing: cubicOut, axis, delay });

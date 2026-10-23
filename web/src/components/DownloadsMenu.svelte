@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { px, settle, sizeOf } from '../lib/motion';
   // The downloads in the top bar (the library): its counter says how many are running or waiting, and the arrow bobs
   // while one downloads. A press opens New download and the downloads going on now - running, then waiting, then
   // paused - each with its progress; one opens the Downloads page.
@@ -85,16 +86,16 @@
     return {
       duration: out ? 200 : 240,
       easing: cubicOut,
-      css: (k: number) => `opacity: ${k}; transform: translateY(${(1 - k) * -8}px) scale(${0.94 + 0.06 * k})`,
+      css: (k: number) => `opacity: ${k}; transform: translateY(${px((1 - k) * -8)}) scale(${settle(0.94 + 0.06 * k, sizeOf(node))})`,
     };
   }
   function slideIn(node: Element, { i = 0 } = {}) {
     if (reduced()) return { duration: 0 };
-    return { delay: 60 + Math.min(i, 8) * 28, duration: 260, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${(1 - k) * 14}px)` };
+    return { delay: 60 + Math.min(i, 8) * 28, duration: 260, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${px((1 - k) * 14)})` };
   }
   function slideOut(node: Element) {
     if (reduced()) return { duration: 0 };
-    return { duration: 180, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${(1 - k) * 24}px)` };
+    return { duration: 180, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${px((1 - k) * 24)})` };
   }
 </script>
 

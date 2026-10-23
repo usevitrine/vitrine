@@ -3,8 +3,8 @@
   import { settingsSections, tagSections } from './lib/settingsSections';
   import { live } from './lib/live.svelte';
   import { onMount, untrack } from 'svelte';
-  import { fade, fly, slide } from 'svelte/transition';
-  import { reveal, pop } from './lib/motion';
+  import { fade, slide } from 'svelte/transition';
+  import { reveal, pop, glide } from './lib/motion';
   import { api, setLoggedOutHandler, type Session, toPlainSignIn } from './lib/api';
   import { router, type Screen } from './lib/router.svelte';
   import Icon from './components/Icon.svelte';
@@ -310,7 +310,7 @@
 
     {#if drawer}
       <div class="backdrop" role="presentation" onclick={() => (drawer = false)} transition:fade={{ duration: 150 }}></div>
-      <nav id="nav-drawer" class="drawer" aria-label={t('menu.main')} {@attach backClose(() => (drawer = false))} transition:fly={{ x: -300, duration: 200, opacity: 1 }}>
+      <nav id="nav-drawer" class="drawer" aria-label={t('menu.main')} {@attach backClose(() => (drawer = false))} transition:glide={{ x: -300, duration: 200, opacity: 1 }}>
         <div class="brand"><Logo size={30} /></div>
         {#each tabs.filter(shown) as tab (tab.id ?? tab.screen)}
           {@const key = tab.id ?? tab.screen}

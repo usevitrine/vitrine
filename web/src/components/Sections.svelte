@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import { glide } from '../lib/motion';
   import type { ComponentProps } from 'svelte';
   import type IconType from './Icon.svelte';
 
@@ -18,8 +19,7 @@
   // shows beside it. Each section has its own address (/<screen>/<id>).
   import { overlayScroll } from '../lib/overlayScroll';
   import { onMount, type Snippet } from 'svelte';
-  import { fly } from 'svelte/transition';
-  import Icon from './Icon.svelte';
+    import Icon from './Icon.svelte';
   import { router, type Screen } from '../lib/router.svelte';
   import { t } from '../lib/i18n.svelte';
 
@@ -55,7 +55,7 @@
 <div class="page" {@attach overlayScroll}>
   <div class="layout" class:wide>
     {#if wide || !current}
-      <nav class="side" aria-label={t('sections.nav', { title })} in:fly={{ x: reduced() || wide ? 0 : -24, duration: wide ? 0 : 200 }}>
+      <nav class="side" aria-label={t('sections.nav', { title })} in:glide={{ x: reduced() || wide ? 0 : -24, duration: wide ? 0 : 200 }}>
         <h1>{title}</h1>
         <ul class="sections">
           {#each sections as s (s.id)}
@@ -76,7 +76,7 @@
     {/if}
     {#if current}
       {#key current}
-        <div class="content" in:fly={{ x: reduced() ? 0 : wide ? 0 : 24, y: wide && !reduced() ? 6 : 0, duration: 200 }}>
+        <div class="content" in:glide={{ x: reduced() ? 0 : wide ? 0 : 24, y: wide && !reduced() ? 6 : 0, duration: 200 }}>
           {#if !wide}
             <button class="back" onclick={() => router.go(screen)}><Icon name="left" size={18} /> {title}</button>
           {/if}

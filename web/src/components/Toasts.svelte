@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { px, settle, sizeOf } from '../lib/motion';
   // The notices that pop up at the bottom of the screen: errors, and those with an action (Undo) - the rest go to
   // the bell (Bell.svelte). A new one rises into place, one going sinks and fades; the others glide.
   import { cubicOut } from 'svelte/easing';
@@ -12,11 +13,11 @@
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   function rise(node: Element) {
     if (reduced()) return { duration: 0 };
-    return { duration: 320, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateY(${(1 - k) * 18}px) scale(${0.96 + 0.04 * k})` };
+    return { duration: 320, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateY(${px((1 - k) * 18)}) scale(${settle(0.96 + 0.04 * k, sizeOf(node))})` };
   }
   function sink(node: Element) {
     if (reduced()) return { duration: 0 };
-    return { duration: 200, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: scale(${0.96 + 0.04 * k})` };
+    return { duration: 200, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: scale(${settle(0.96 + 0.04 * k, sizeOf(node))})` };
   }
 </script>
 
@@ -53,6 +54,7 @@
     pointer-events: none;
   }
   .toast {
+    will-change: opacity; /* (its own layer: no text shift as it lands - see app.css) */
     --kind: var(--green);
     /* (taps go through to what's under it - a phone sheet's items, say - unless it has a button: Undo, Reload) */
     pointer-events: none;

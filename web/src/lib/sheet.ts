@@ -1,3 +1,4 @@
+import { px } from './motion';
 // Phone sheets (menus along the bottom): how they come and go, the same for
 // every one. They slide up from the bottom and back down - from where a drag
 // left them (sheetDrag sets data-dragged) - while the page behind dims and
@@ -17,7 +18,7 @@ export function sheetIn(node: Element, { on = true } = {}) {
   el.style.transform = '';
   el.style.transition = '';
   if (!on || reduced()) return { duration: 0 };
-  return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${(1 - t) * 100}%)` };
+  return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${px((1 - t) * (node as HTMLElement).offsetHeight)})` };
 }
 
 export function sheetOut(node: Element, { on = true } = {}) {
@@ -26,7 +27,7 @@ export function sheetOut(node: Element, { on = true } = {}) {
   node.setAttribute('aria-hidden', 'true');
   if (reduced()) return { duration: 0 };
   const from = Number((node as HTMLElement).dataset.dragged ?? 0);
-  return { duration: 220, easing: cubicOut, css: (t: number) => `transform: translateY(calc(${from * t}px + ${(1 - t) * 100}%))` };
+  return { duration: 220, easing: cubicOut, css: (t: number) => `transform: translateY(${px(from * t + (1 - t) * (node as HTMLElement).offsetHeight)})` };
 }
 
 /** The dimmed page behind a sheet: fades in and out (usable again at once). */

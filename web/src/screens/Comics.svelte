@@ -7,10 +7,9 @@
   // tap opens the reader at /comics/<id>. Comics live only here - their pages are
   // never in the library's grid.
   import { onMount, tick, untrack } from 'svelte';
-  import { reveal, pop } from '../lib/motion';
+  import { reveal, pop, glide } from '../lib/motion';
   import { collections } from '../lib/collections.svelte';
   import ActionMenu from '../components/ActionMenu.svelte';
-  import { fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { fitContain, hero, reducedMotion, type HeroPicture, type Rect } from '../lib/hero';
   import { isRead, isReading } from '../lib/comics';
@@ -468,7 +467,7 @@
   <header bind:offsetHeight={headH}>
     {#if inCollection}
       <!-- A collection's page: its name, Back to all comics, and its menu (rename, take apart, delete). -->
-      <div class="coll-head" in:fly={{ y: -8, duration: 260, easing: cubicOut }}>
+      <div class="coll-head" in:glide={{ y: -8, duration: 260, easing: cubicOut }}>
         <button class="icon" aria-label={t('collections.back')} title={t('collections.back')} onclick={leaveCollection}><Icon name="left" /></button>
         <span class="coll-icon" aria-hidden="true"><Icon name="stack" size={18} /></span>
         <h2>{current?.name ?? ''}</h2>
@@ -486,7 +485,7 @@
         {/if}
       </div>
     {/if}
-    {#if !inCollection}<div in:fly={{ y: -8, duration: 260, easing: cubicOut }}><div class="search-row">
+    {#if !inCollection}<div in:glide={{ y: -8, duration: 260, easing: cubicOut }}><div class="search-row">
       {#if inTrash && trash.comics > 0}
         <button class="empty-trash" aria-label={t('trash.empty')} title={t('trash.empty')} onclick={() => emptyTrash(results)} transition:reveal={{ axis: 'x' }}><Icon name="trash" size={20} /></button>
       {/if}

@@ -1,11 +1,11 @@
 <script lang="ts" generics="T extends string">
+  import { glide } from '../lib/motion';
   // A dropdown in Vitrine's own look (the native one doesn't match the design,
   // least of all on desktop): a trigger button and a floating list. Keyboard:
   // Enter/Space/arrows open it, arrows move, Enter picks, Esc closes.
   import { backClose } from '../lib/backClose';
   import type { Snippet } from 'svelte';
-  import { fly } from 'svelte/transition';
-  import Icon from './Icon.svelte';
+    import Icon from './Icon.svelte';
   import { swallowPress } from '../lib/outside';
 
   let {
@@ -178,7 +178,7 @@
       aria-label={label}
       aria-activedescendant="{id}-{active}"
       onkeydown={onListKey}
-      transition:fly={{ y: -4, duration: 120 }}>
+      transition:glide={{ y: -4, duration: 120 }}>
       {#if heading}<div class="heading">{heading}</div>{/if}
       {#each options as o, i (o.value)}
         <div

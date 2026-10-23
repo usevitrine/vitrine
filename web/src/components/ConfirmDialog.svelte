@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { px, settle, sizeOf } from '../lib/motion';
   // The confirmation before a destructive action (lib/confirm): what goes (a
   // red badge, or the files' pictures), a question, one line, Cancel and the
   // action. A card in the middle on wider screens, a sheet on phones. Escape or
@@ -61,7 +62,7 @@
       duration: out ? 200 : 220,
       easing: cubicOut,
       // (going: it shrinks and sinks a little as it fades, as plain as coming)
-      css: (t: number) => `opacity: ${t}; transform: translate(-50%, calc(-50% + ${out ? (1 - t) * 8 : 0}px)) scale(${0.94 + 0.06 * t})`,
+      css: (t: number) => `opacity: ${t}; transform: translate(-50%, calc(-50% + ${px(out ? (1 - t) * 8 : 0)})) scale(${settle(0.94 + 0.06 * t, sizeOf(node))})`,
     };
   }
 </script>

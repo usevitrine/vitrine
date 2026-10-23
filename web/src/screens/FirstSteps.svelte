@@ -5,8 +5,8 @@
   // Every step can be skipped; where it is is a shared setting (welcome), so it
   // carries on where it was left - on any device - until finished or skipped.
   import { onMount } from 'svelte';
-  import { reveal, pop } from '../lib/motion';
-  import { fly, fade } from 'svelte/transition';
+  import { reveal, pop, glide } from '../lib/motion';
+  import { fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { reducedMotion } from '../lib/hero';
   import { newDownloadDialog } from '../lib/newDownload.svelte';
@@ -47,7 +47,7 @@
   }
   const moving = () => !reducedMotion();
   // (the new one waits for the old one to fade: never both at once, text over text)
-  const stepIn = (node: Element) => fly(node, { x: moving() ? 28 * dir : 0, duration: moving() ? 280 : 0, delay: moving() ? 120 : 0, easing: cubicOut, opacity: 0 });
+  const stepIn = (node: Element) => glide(node, { x: moving() ? 28 * dir : 0, duration: moving() ? 280 : 0, delay: moving() ? 120 : 0, easing: cubicOut, opacity: 0 });
   const stepOut = (node: Element) => fade(node, { duration: moving() ? 120 : 0 });
   const next = () => go(steps[at + 1] ?? 'finished');
   const back = () => at > 0 && go(steps[at - 1]);

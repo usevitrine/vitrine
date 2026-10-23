@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { px, settle, sizeOf } from '../lib/motion';
   // The bell in the top bar: it rings when a notification comes, its counter says how many are unread (red with
   // an error among them). A press opens them - the newest first, the unread lit - with Clear; opening reads them.
   import { cubicOut } from 'svelte/easing';
@@ -95,16 +96,16 @@
     return {
       duration: out ? 200 : 240,
       easing: cubicOut,
-      css: (k: number) => `opacity: ${k}; transform: translateY(${(1 - k) * -8}px) scale(${0.94 + 0.06 * k})`,
+      css: (k: number) => `opacity: ${k}; transform: translateY(${px((1 - k) * -8)}) scale(${settle(0.94 + 0.06 * k, sizeOf(node))})`,
     };
   }
   function slideIn(node: Element, { i = 0 } = {}) {
     if (reduced()) return { duration: 0 };
-    return { delay: 60 + Math.min(i, 8) * 28, duration: 260, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${(1 - k) * 14}px)` };
+    return { delay: 60 + Math.min(i, 8) * 28, duration: 260, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${px((1 - k) * 14)})` };
   }
   function slideOut(node: Element) {
     if (reduced()) return { duration: 0 };
-    return { duration: 180, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${(1 - k) * 24}px)` };
+    return { duration: 180, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${px((1 - k) * 24)})` };
   }
 </script>
 

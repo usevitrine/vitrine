@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { px } from '../lib/motion';
   // The details panel's frame outside the viewer (the Comics page): the same
   // as the viewer's - a column on the right on wide screens (below the top
   // bar; the page makes room for it), a sheet over the bottom three quarters
@@ -47,11 +48,11 @@
       if (out && gone > 0) {
         const from = gone;
         gone = 0;
-        return { duration: 200, easing: cubicOut, css: (k: number) => `transform: translateY(calc(${from * k}px + ${(1 - k) * 100}%))` };
+        return { duration: 200, easing: cubicOut, css: (k: number) => `transform: translateY(${px(from * k + (1 - k) * (node as HTMLElement).offsetHeight)})` };
       }
-      return { duration: 240, easing: cubicOut, css: (k: number) => `transform: translateY(${(1 - k) * 100}%)` };
+      return { duration: 240, easing: cubicOut, css: (k: number) => `transform: translateY(${px((1 - k) * (node as HTMLElement).offsetHeight)})` };
     }
-    return { duration: 240, easing: cubicOut, css: (k: number) => `transform: translateX(${(1 - k) * 100}%)` };
+    return { duration: 240, easing: cubicOut, css: (k: number) => `transform: translateX(${px((1 - k) * (node as HTMLElement).offsetWidth)})` };
   }
 
   // Phones: dragged down from anywhere on it closes it (lib/sheetDrag: a list scrolled down scrolls first).

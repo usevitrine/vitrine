@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import { px, settle, sizeOf } from '../lib/motion';
   import type { ComponentProps } from 'svelte';
   import { place } from '../lib/place';
   import type IconType from './Icon.svelte';
@@ -101,14 +102,14 @@
     el.style.transition = '';
     if (reduced()) return { duration: 0 };
     if (sheet) return sheetIn(node);
-    return { duration: 180, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * -8}px) scale(${0.98 + 0.02 * t})` };
+    return { duration: 180, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${px((1 - t) * -8)}) scale(${settle(0.98 + 0.02 * t, sizeOf(node))})` };
   }
   function menuOut(node: Element) {
     node.setAttribute('inert', ''); // a closing menu can't be pressed or read while it goes
     node.setAttribute('aria-hidden', 'true');
     if (reduced()) return { duration: 0 };
     if (sheet) return sheetOut(node); // from where a drag left it
-    return { duration: 180, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * -8}px) scale(${0.96 + 0.04 * t})` };
+    return { duration: 180, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${px((1 - t) * -8)}) scale(${settle(0.96 + 0.04 * t, sizeOf(node))})` };
   }
   function shade(node: HTMLElement, { out = false } = {}) {
     if (out) node.style.pointerEvents = 'none'; // the page is usable again at once

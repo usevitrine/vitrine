@@ -1,10 +1,10 @@
 <script lang="ts">
   import { overlayScroll } from '../lib/overlayScroll';
   import { onMount, tick, untrack } from 'svelte';
-  import { fly, slide } from 'svelte/transition';
+  import { slide } from 'svelte/transition';
   import { live, bytes } from '../lib/live.svelte';
   import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf } from '../lib/downloadProgress';
-  import { reveal, pop, moved } from '../lib/motion';
+  import { reveal, pop, moved, glide } from '../lib/motion';
   import Stack from '../components/Stack.svelte';
   import { api, type DownloadSearch, type RefreshStatus, type Subscription, type SubGroup, type FailedPost, type RetryJob, type SubLook, type SubPic } from '../lib/api';
   import SiteIcon from '../components/SiteIcon.svelte';
@@ -614,8 +614,8 @@
   // the side of its tab, both in one grid cell (no jump). Reduced motion: at once.
   const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ease = (t: number) => 1 - Math.pow(1 - t, 3);
-  const panelIn = (node: Element) => fly(node, { x: reducedMotion() ? 0 : 24 * tabDir, duration: reducedMotion() ? 0 : 300, delay: reducedMotion() ? 0 : 90, easing: ease, opacity: 0 });
-  const panelOut = (node: Element) => fly(node, { x: reducedMotion() ? 0 : -16 * tabDir, duration: reducedMotion() ? 0 : 160, easing: (t) => t * t, opacity: 0 });
+  const panelIn = (node: Element) => glide(node, { x: reducedMotion() ? 0 : 24 * tabDir, duration: reducedMotion() ? 0 : 300, delay: reducedMotion() ? 0 : 90, easing: ease, opacity: 0 });
+  const panelOut = (node: Element) => glide(node, { x: reducedMotion() ? 0 : -16 * tabDir, duration: reducedMotion() ? 0 : 160, easing: (t) => t * t, opacity: 0 });
   // A tab's count: a new number glides to its width (the tab's name, centered with it, moves smoothly too).
   function easeWidth(node: HTMLElement) {
     let w = node.offsetWidth;

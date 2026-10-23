@@ -2,7 +2,7 @@
   // The search: typed booru-style text turns into chips; every chip can be
   // edited in place. Each change runs the search straight away.
   import { parse, format, chipText, atomText, label, kindOf, balanced, isTitleText, titleTerm, type Chip } from '../lib/query';
-  import { pop as grow, moved } from '../lib/motion';
+  import { pop as grow, moved, px, settle, sizeOf } from '../lib/motion';
   import type { Suggestion } from '../lib/api';
   import TagInput from './TagInput.svelte';
   import { tagColor } from '../lib/namespaces.svelte';
@@ -127,7 +127,7 @@
     return {
       duration: 180,
       easing: cubicOut,
-      css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * -8}px) scale(${0.96 + 0.04 * t})`,
+      css: (t: number) => `opacity: ${t}; transform: translateY(${px((1 - t) * -8)}) scale(${settle(0.96 + 0.04 * t, sizeOf(node))})`,
     };
   }
 

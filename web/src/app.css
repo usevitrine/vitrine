@@ -682,3 +682,13 @@ a {
   }
 }
 
+
+/* What floats over the page (dialogs, menus, lists, panels) stays on a layer of its own: its text is drawn the same
+   while it animates in and after (no shift as the animation ends). Opacity, not transform: no new containing block,
+   so fixed children (a dropdown's list) still place themselves on the screen. */
+[role='dialog'],
+[role='alertdialog'],
+[role='menu'],
+[role='listbox'] {
+  will-change: opacity;
+}

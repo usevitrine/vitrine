@@ -1,6 +1,6 @@
 <script lang="ts">
   import { backClose } from '../lib/backClose';
-  import { pop } from '../lib/motion';
+  import { pop, px } from '../lib/motion';
   import { dragDown } from '../lib/sheetDrag';
   import { Glide, clampZoom as clampFit, zoomAround, pinchScale } from '../lib/zoom';
   import { reducedMotion } from '../lib/hero';
@@ -747,10 +747,10 @@
     if (out && isSheet() && sheetGone > 0) {
       const from = sheetGone;
       sheetGone = 0;
-      return { duration: 200, easing: cubicOut, css: (t: number) => `transform: translateY(calc(${from * t}px + ${(1 - t) * 100}%))` };
+      return { duration: 200, easing: cubicOut, css: (t: number) => `transform: translateY(${px(from * t + (1 - t) * (node as HTMLElement).offsetHeight)})` };
     }
     if (!isSheet()) return { duration: 260, css: () => '' };
-    return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${(1 - t) * 100}%)` };
+    return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${px((1 - t) * (node as HTMLElement).offsetHeight)})` };
   }
   // Phones: dragged down from anywhere on it closes it (lib/sheetDrag: a list scrolled down scrolls first).
   let sheetDragging = $state(false);
