@@ -9,7 +9,7 @@
   import { SvelteSet } from 'svelte/reactivity';
   import { api, type DupeFile, type DupePair } from '../lib/api';
   import { dupes, levels } from '../lib/dupes.svelte';
-  import { formatDuration, formatSize, viewURL } from '../lib/results.svelte';
+  import { formatDuration, formatSize, viewURL, results } from '../lib/results.svelte';
   import { toasts } from '../lib/toast.svelte';
   import Dropdown from '../components/Dropdown.svelte';
   import Icon from '../components/Icon.svelte';
@@ -102,6 +102,7 @@
     try {
       await api.decideDupe(p.a.id, p.b.id, keep);
       last = { pair: p, keep };
+      if (dropped) results.changedElsewhere(); // (the deleted one leaves the library behind now)
     } catch (e) {
       toasts.error((e as Error).message);
     }
@@ -112,6 +113,7 @@
     try {
       await api.undoDupe(p.a.id, p.b.id);
       if (last?.pair === p) last = null;
+      results.changedElsewhere();
       skipped.delete(key(p));
       pairs = [p, ...pairs.filter((x) => key(x) !== key(p))];
       shown = 'a';

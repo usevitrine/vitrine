@@ -73,3 +73,9 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   many of the tags they gave, then files. More than one: "Download from which site?" (`SitePicker`, a card / a phone
   sheet): those sites with their file counts ("2 of 3 tags" for a site that gave only some), then "Other sites";
   Escape or a press outside cancels. One: straight to the form on it; none: the file's site, else the form's own.
+- **Blacklisted tags marked in the details (2026-10-23, the user)**: a tag on the download blacklist has a red
+  crossed-out eye before its name (its tooltip names the entry; its label says "x, on the download blacklist"),
+  matched as the server matches posts - the whole tag or its bare name, `*` patterns included (`lib/blacklist`, the
+  list shared with Tag rules, so a change in either shows in the other at once). Its menu: Remove from blacklist for
+  its own entry; one of a pattern is named ("On the blacklist by ai_*", not removable there - taking it off would let
+  other tags through too).

@@ -159,6 +159,12 @@ export class Results {
    *  blank for a moment (and the grid can animate what changed). */
   focus = { from: 0, to: 0 };
 
+  /** Files were deleted or brought back somewhere else (the blacklist's clean-up, Duplicates): the search runs again
+   *  if it has run - the library stays loaded behind other pages, and showed the gone files until a reload. */
+  changedElsewhere() {
+    if (this.searches > 0) return this.refresh();
+  }
+
   /** Re-runs the current search (e.g. after a delete), keeping positions where possible. */
   refresh() {
     // Random: the same shuffle again (its seed), not a new one.

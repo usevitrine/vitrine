@@ -70,3 +70,6 @@ The near-duplicate finder (perceptual hashes) and the Duplicates screen.
   header's bottom edge (its numbers in the tooltip and for screen readers) - it takes no room. It used to be a line
   above the pictures that slid open and shut; the pictures (a flexible stage) shrank and grew with it, which showed as
   a kept pair's picture shrinking (the user). The empty card and the video bar fade in place for the same reason.
+- **The library follows deletes made elsewhere (2026-10-23, the user: deleted blacklisted files stayed on the media
+  page until a reload)**: the library stays loaded behind other pages; the blacklist's clean-up, Duplicates' Keep A /
+  B and their Undo now run its search again (`results.changedElsewhere()` - only if it has searched).

@@ -4,6 +4,8 @@
   import { onMount } from 'svelte';
   import { reveal, pop, moved } from '../lib/motion';
   import { api, type BlacklistMatches } from '../lib/api';
+  import { blacklist } from '../lib/blacklist.svelte';
+  import { results } from '../lib/results.svelte';
   import { toasts } from '../lib/toast.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import { router } from '../lib/router.svelte';
@@ -16,7 +18,8 @@
   /** Tags offered with a tap (the first steps: common ones), those not in the list yet. */
   let { suggest = [] }: { suggest?: string[] } = $props();
 
-  let tags = $state<string[]>([]);
+  // (the list is shared: lib/blacklist - the details add and take off tags too)
+  const tags = $derived(blacklist.tags ?? []);
   let draft = $state('');
   let matches = $state<BlacklistMatches | null>(null);
   let busy = $state(false);
@@ -30,17 +33,13 @@
   }
 
   onMount(async () => {
-    try {
-      tags = (await api.blacklist()).tags;
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    await blacklist.load(true); // (fresh: another device may have changed it)
     loadMatches();
   });
 
   async function save(next: string[]) {
     try {
-      tags = (await api.setBlacklist(next)).tags;
+      await blacklist.set(next);
       loadMatches();
     } catch (e) {
       toasts.error((e as Error).message);
@@ -89,11 +88,13 @@
             await api.restore(res.ids);
             toasts.show(t('common.restored'), { cat: 'deleted' });
             loadMatches();
+            results.changedElsewhere();
           },
         },
         ms: 12000,
       });
       loadMatches();
+      results.changedElsewhere(); // (the library behind: they go from it now, not at the next reload)
     } catch (e) {
       toasts.error((e as Error).message);
     } finally {

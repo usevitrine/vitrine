@@ -839,7 +839,8 @@
     "removeFromFile": "Remove from this file",
     "removeFromComic": "Remove from this comic",
     "blacklist": "Add to blacklist",
-    "unblacklist": "Remove from blacklist"
+    "unblacklist": "Remove from blacklist",
+    "onBlacklist": "On the blacklist by"
   },
   "tagBrowser": {
     "all": "All",
@@ -2046,7 +2047,9 @@
       "one": "{n} tag won’t be downloaded any more",
       "other": "{n} tags won’t be downloaded any more"
     },
-    "unblacklisted": "{tag} can be downloaded again"
+    "unblacklisted": "{tag} can be downloaded again",
+    "onBlacklist": "on the download blacklist ({entry})",
+    "tagOnBlacklist": "{tag}, on the download blacklist"
   },
   "viewer": {
     "countedFirst": "Counted · the first time for this one",

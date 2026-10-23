@@ -17,7 +17,9 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
   lists, chips, panels - and text no longer shifts as an animation ends.
 - **iPhone**: pages, sheets and the menu keep clear of the screen’s rounded corners at the bottom.
 - **Tags in the details**: press and hold a tag to pick several; "Use" offers searching, downloading or
-  blacklisting them. A tag’s menu can add it to the download blacklist (or take it off).
+  blacklisting them. A tag’s menu can add it to the download blacklist (or take it off), and blacklisted tags are
+  marked with a crossed-out eye.
+- **Deleting files elsewhere** (the blacklist’s clean-up, Duplicates) updates the media page at once, no reload.
 - **Push notifications** for new files say "across N subscriptions" every time.
 - **Duplicates**: the picture no longer starts small and grows when the page opens, or shrinks after you keep one; the “still looking” progress is a thin bar under the heading.
 - **The example compose file** includes FlareSolverr (optional) for sites behind Cloudflare.

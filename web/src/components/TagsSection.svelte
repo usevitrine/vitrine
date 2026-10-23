@@ -8,7 +8,8 @@
   // the site. The panel loads the tags and says how to change them.
   import { onDestroy, untrack } from 'svelte';
   import { reveal, pop, moved } from '../lib/motion';
-  import { api, type FileTag } from '../lib/api';
+  import type { FileTag } from '../lib/api';
+  import { blacklist as bl } from '../lib/blacklist.svelte';
   import { format, parse } from '../lib/query';
   import { toasts } from '../lib/toast.svelte';
   import { copyText } from '../lib/clipboard';
@@ -193,35 +194,28 @@
   }
   const siteOf = (tag: string) => tags.find((x) => x.tag === tag)?.origins.find((o) => o !== 'user' && o !== 'new');
 
-  // ---- The download blacklist (Tags > Tag rules): a tag or the picked ones added in a tap, or one taken off; Undo.
-  let blacklist = $state<string[] | null>(null); // read the first time a menu shows it
-  function loadBlacklist() {
-    if (blacklist === null) api.blacklist().then((r) => (blacklist = r.tags)).catch(() => {});
-  }
+  // ---- The download blacklist (Tags > Tag rules, shared: lib/blacklist): the tags on it are marked; a tag or the
+  // picked ones added in a tap, or one taken off; Undo.
+  bl.load();
   async function setBlacklist(next: string[], said: string) {
-    const before = blacklist ?? [];
+    const before = bl.tags ?? [];
     try {
-      blacklist = (await api.setBlacklist(next)).tags;
-      toasts.show(said, {
-        cat: 'tags',
-        action: { label: t('common.undo'), run: async () => (blacklist = (await api.setBlacklist(before)).tags) },
-      });
+      await bl.set(next);
+      toasts.show(said, { cat: 'tags', action: { label: t('common.undo'), run: () => bl.set(before) } });
     } catch (e) {
       toasts.error((e as Error).message);
     }
   }
-  const blacklisted = (tag: string) => !!blacklist?.includes(tag);
+  const blacklisted = (tag: string) => !!bl.entryFor(tag);
   function blacklistAdd(list: string[]) {
     const add = list.filter((x) => !blacklisted(x));
     if (!add.length) return;
-    setBlacklist([...(blacklist ?? []), ...add], add.length === 1 ? t('details.blacklistedOne', { tag: add[0] }) : t('details.blacklistedN', { n: add.length }));
+    setBlacklist([...(bl.tags ?? []), ...add], add.length === 1 ? t('details.blacklistedOne', { tag: add[0] }) : t('details.blacklistedN', { n: add.length }));
   }
   function blacklistRemove(tag: string) {
-    setBlacklist((blacklist ?? []).filter((x) => x !== tag), t('details.unblacklisted', { tag }));
+    const entry = bl.entryFor(tag);
+    setBlacklist((bl.tags ?? []).filter((x) => x !== entry), t('details.unblacklisted', { tag }));
   }
-  $effect(() => {
-    if (selecting || picked) loadBlacklist();
-  });
 
   /** What the picked tags can be used for: the same menu as a row's ⋯ (a sheet on phones). */
   const pickItems = $derived<MenuItem[]>([
@@ -308,10 +302,14 @@
             class:adding={tg.origins.includes('new')}
             class:removing={toRemove.includes(tg.tag)}
             class:chosen={selecting && chosen.includes(tg.tag)}
-            title={tg.origins.includes('new') ? t('details.notSaved', { tag: tg.tag }) : t('details.tagFrom', { tag: tg.tag, from: tg.origins.join(', ') })} animate:moved transition:pop>
+            class:blocked={blacklisted(tg.tag)}
+            title={(tg.origins.includes('new') ? t('details.notSaved', { tag: tg.tag }) : t('details.tagFrom', { tag: tg.tag, from: tg.origins.join(', ') })) +
+              (blacklisted(tg.tag) ? ' · ' + t('details.onBlacklist', { entry: bl.entryFor(tg.tag) }) : '')}
+            animate:moved
+            transition:pop>
             <button
               class="name"
-              aria-label={splitTag(tg.tag).name}
+              aria-label={blacklisted(tg.tag) ? t('details.tagOnBlacklist', { tag: splitTag(tg.tag).name }) : splitTag(tg.tag).name}
               aria-haspopup={selecting ? undefined : 'menu'}
               aria-expanded={selecting ? undefined : picked?.tag === tg.tag}
               aria-pressed={selecting ? chosen.includes(tg.tag) : undefined}
@@ -326,7 +324,9 @@
                   picked = picked?.tag === tg.tag ? null : { tag: tg.tag, rect: li.getBoundingClientRect(), el: e.currentTarget as HTMLElement };
                 }
               }}
-              >{#each splitTag(tg.tag).name.split('_') as part, k}{#if k}_<wbr />{/if}{part}{/each}</button
+              >{#if blacklisted(tg.tag)}<span class="blocked-mark" aria-hidden="true" transition:pop
+                  ><Icon name="eyeoff" size={13} /></span
+                >{/if}{#each splitTag(tg.tag).name.split('_') as part, k}{#if k}_<wbr />{/if}{part}{/each}</button
             >
             {#if editing}
               {#if toRemove.includes(tg.tag)}
@@ -364,7 +364,7 @@
         }
       : undefined}
     oncopy={copyText}
-    blacklisted={blacklist === null ? undefined : blacklisted(p.tag)}
+    blacklistEntry={bl.tags === null ? undefined : bl.entryFor(p.tag)}
     onblacklist={() => (blacklisted(p.tag) ? blacklistRemove(p.tag) : blacklistAdd([p.tag]))}
     onremove={save ? () => remove(p.tag) : undefined}
     removeText={comics ? t('tagMenu.removeFromComic') : undefined}
@@ -502,6 +502,17 @@
   }
   .tags li.user {
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 55%, transparent);
+  }
+  /* On the download blacklist: a crossed-out eye before the name, the pill dimmed a little (its tooltip says which
+     entry). */
+  .blocked-mark {
+    display: inline-flex;
+    vertical-align: -2px;
+    margin-right: 4px;
+    color: var(--red);
+  }
+  .tags li.blocked {
+    opacity: 0.8;
   }
   .tags li.picked {
     outline: 2px solid var(--c);

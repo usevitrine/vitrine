@@ -5514,7 +5514,8 @@ test('details: pick several tags, then search all of them, any of them, add them
   await use(tags, 'Add them to the blacklist');
   await expect(page.getByText("2 tags won’t be downloaded any more")).toBeVisible();
   expect(black).toEqual(['blue_sky', 'landscape']);
-  await tags.getByRole('button', { name: 'landscape', exact: true }).click();
+  await expect(tags.getByRole('button', { name: 'landscape, on the download blacklist' })).toBeVisible(); // (marked: a crossed-out eye)
+  await tags.getByRole('button', { name: 'landscape, on the download blacklist' }).click();
   await expect(page.getByRole('menuitem', { name: 'Remove from blacklist' })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.unrouteAll({ behavior: 'ignoreErrors' });
@@ -7560,4 +7561,23 @@ test("settings: What's new is a page of its own with the changelog, newest first
   await expect(page.getByText('The first public release.')).toBeVisible();
   const heads = await page.locator('.log h2').allTextContents();
   expect(heads[heads.length - 1]).toMatch(/^1\.0\.0/); // (the oldest last)
+});
+
+test('the blacklist clean-up: deleted files leave the library behind it at once (no reload)', async ({ page }) => {
+  // (mocked: nothing is really deleted - the library is shared by every test)
+  await page.route('**/api/blacklist', (r) => r.fulfill({ json: { tags: ['blue_sky'] } }));
+  await page.route('**/api/blacklist/matches', (r) => r.fulfill({ json: { total: 1, size: 1000, tags: [{ tag: 'blue_sky', files: 1 }] } }));
+  await page.route('**/api/blacklist/delete', (r) => r.fulfill({ json: { deleted: 1, ids: [1] } }));
+  await page.goto('/');
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  // To Tag rules inside the app (the library stays loaded behind it).
+  await page.evaluate(() => {
+    history.pushState({}, '', '/tags/rules');
+    dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await page.getByRole('button', { name: 'Delete them…' }).click();
+  const searched = page.waitForRequest((r) => r.url().includes('/api/search'));
+  await page.getByRole('alertdialog').getByRole('button', { name: /^Delete/ }).click();
+  await searched; // the library's search ran again
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });

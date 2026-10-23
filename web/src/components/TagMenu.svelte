@@ -20,7 +20,7 @@
     ondownload,
     onnamespace,
     oncopy,
-    blacklisted,
+    blacklistEntry,
     onblacklist,
     onremove,
     onclose,
@@ -33,8 +33,9 @@
     ondownload: () => void; // a new download for the tag
     onnamespace?: (ns: string) => void; // into another namespace ("" = general), on every file (none: not offered)
     oncopy: (text: string) => void;
-    /** On the download blacklist (undefined: not known yet - Add is offered). */
-    blacklisted?: boolean;
+    /** The blacklist entry it's on ("" none; undefined: not known yet - Add is offered). Its own entry can be taken
+     *  off here; one of a pattern ("ai_*") is named instead (taking that off would let other tags through too). */
+    blacklistEntry?: string;
     /** Adds the tag to the download blacklist, or takes it off (none: not offered). */
     onblacklist?: () => void;
     onremove?: () => void; // (none: not offered - tags that can't be changed here, e.g. a site's gallery being browsed)
@@ -159,8 +160,13 @@
       <button role="menuitem" onclick={() => pick(() => onsearch('only'))}><Icon name="search" size={18} /> {t('tagMenu.newSearch')}</button>
       <button role="menuitem" onclick={() => pick(ondownload)}><Icon name="download" size={18} /> {t('tagMenu.newDownload')}</button>
       {#if onblacklist}
-        <button role="menuitem" onclick={() => pick(onblacklist)}
-          ><Icon name="eyeoff" size={18} /> {blacklisted ? t('tagMenu.unblacklist') : t('tagMenu.blacklist')}</button>
+        {#if blacklistEntry && blacklistEntry !== tag.toLowerCase() && blacklistEntry !== parts.name.toLowerCase()}
+          <button role="menuitem" disabled
+            ><Icon name="eyeoff" size={18} /> <span class="two">{t('tagMenu.onBlacklist')}<span class="what">{blacklistEntry}</span></span></button>
+        {:else}
+          <button role="menuitem" onclick={() => pick(onblacklist)}
+            ><Icon name="eyeoff" size={18} /> {blacklistEntry ? t('tagMenu.unblacklist') : t('tagMenu.blacklist')}</button>
+        {/if}
       {/if}
     </div>
 
