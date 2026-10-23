@@ -3,7 +3,7 @@
   // device (push notifications are set per device, above). Ones with a button (Undo, Reload) show on screen in any
   // case, as errors do.
   import { noticeKinds, modeOf, type NoticeMode } from '../lib/noticeKinds';
-  import { pop } from '../lib/motion';
+  import { nudge } from '../lib/motion';
   import { settings } from '../lib/settings.svelte';
   import { t } from '../lib/i18n.svelte';
 
@@ -26,7 +26,7 @@
       <h2>{t('noticeKinds.title')}</h2>
       <p class="hint">{t('noticeKinds.hint')}</p>
     </div>
-    {#if changed}<button class="quiet" onclick={() => (settings.noticeModes = {})} transition:pop>{t('noticeKinds.defaults')}</button>{/if}
+    {#if changed}<button class="quiet" onclick={() => (settings.noticeModes = {})} transition:nudge>{t('noticeKinds.defaults')}</button>{/if}
   </div>
   {#each groups as g (g)}
     <h3 class="group">{t(`noticeKinds.groups.${g}`)}</h3>

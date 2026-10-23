@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { reveal, pop, moved } from '../lib/motion';
+  import { reveal, moved, nudge } from '../lib/motion';
   // Actions for the selected files: edit their tags (all their tags with how
   // many have each; add, remove, give a tag to all), refresh tags, delete
   // (with undo), select all, clear. Shown while anything is selected.
@@ -328,7 +328,7 @@
                         class:on={adding}
                         aria-label={adding ? t('selection.dontAddAll', { tag: tg.tag }) : t(sk('addAll'), { tag: tg.tag, n: files })}
                         title={adding ? t(sk('backToSome')) : t(sk('onSome'), { count: tg.count, n: files })}
-                        onclick={() => toggleAll(tg.tag)} transition:pop>{adding ? t('selection.all') : `${num(tg.count)}/${num(files)}`}<Icon name={adding ? 'check' : 'plus'} size={12} /></button>
+                        onclick={() => toggleAll(tg.tag)} transition:nudge>{adding ? t('selection.all') : `${num(tg.count)}/${num(files)}`}<Icon name={adding ? 'check' : 'plus'} size={12} /></button>
                     {/if}
                     {#if removing}
                       <button class="x" aria-label={t('selection.keep', { tag: tg.tag })} title={t('selection.keepIt')} onclick={() => toggleRemove(tg.tag)}><Icon name="undo" size={14} /></button>
@@ -348,7 +348,7 @@
         <span class="small muted">
           {#if changed}{[toAdd.length ? t('selection.toAdd', { n: toAdd.length }) : '', toRemove.length ? t('selection.toRemove', { n: toRemove.length }) : ''].filter(Boolean).join(', ')}{:else}{t('selection.editorHint')}{/if}
         </span>
-        <button class="quiet" onclick={() => (editing = false)} transition:pop>{t('common.cancel')}</button>
+        <button class="quiet" onclick={() => (editing = false)} transition:nudge>{t('common.cancel')}</button>
         <button class="go" onclick={save} disabled={busy || !changed}>{t('common.save')}</button>
       </div>
     </div>
@@ -384,7 +384,7 @@
         <button class="sq" class:wide class:fav-on={allFavorites} aria-label={allFavorites ? t('selection.unfavorite') : t('selection.favorite')} title={allFavorites ? t('fileMenu.unfavorite') : t('fileMenu.favorite')} onclick={favoriteSelected} disabled={busy}
           ><Icon name="heart" size={18} filled={allFavorites} />{@render lbl(allFavorites ? t('selection.short.unfavorite') : t('selection.short.favorite'))}</button>
         {/if}
-        {#if !browsing}<button class="sq danger" class:wide aria-label={inTrash ? t('trash.purge') : t('selection.delete')} title={inTrash ? t('trash.purge') : t('selection.delete')} onclick={remove} disabled={busy} transition:pop><Icon name="trash" size={18} />{@render lbl(inTrash ? t('trash.purge') : t('common.delete'))}</button>{/if}
+        {#if !browsing}<button class="sq danger" class:wide aria-label={inTrash ? t('trash.purge') : t('selection.delete')} title={inTrash ? t('trash.purge') : t('selection.delete')} onclick={remove} disabled={busy} transition:nudge><Icon name="trash" size={18} />{@render lbl(inTrash ? t('trash.purge') : t('common.delete'))}</button>{/if}
       </div>
     </div>
 </div>

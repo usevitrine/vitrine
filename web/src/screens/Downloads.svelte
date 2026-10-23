@@ -4,7 +4,7 @@
   import { slide } from 'svelte/transition';
   import { live, bytes } from '../lib/live.svelte';
   import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf } from '../lib/downloadProgress';
-  import { reveal, pop, moved, glide } from '../lib/motion';
+  import { reveal, moved, glide, nudge } from '../lib/motion';
   import Stack from '../components/Stack.svelte';
   import { api, type DownloadSearch, type RefreshStatus, type Subscription, type SubGroup, type FailedPost, type RetryJob, type SubLook, type SubPic } from '../lib/api';
   import SiteIcon from '../components/SiteIcon.svelte';
@@ -1164,14 +1164,14 @@
       <span class="site-name">{siteLabel(siteId)}</span>
       <span class="count">{count}</span>
     </button>
-    {#if sitesOff.includes(siteId)}<span class="off-chip" title={t('downloads.offTitle', { what: offWhat })} transition:pop>{t('notify.status.off')}</span>{/if}
+    {#if sitesOff.includes(siteId)}<span class="off-chip" title={t('downloads.offTitle', { what: offWhat })} transition:nudge>{t('notify.status.off')}</span>{/if}
     {@render pausedChip(siteId)}
   </h3>
 {/snippet}
 
 <!-- A site paused by itself (it kept failing to answer): a chip by its name. -->
 {#snippet pausedChip(siteId: string)}
-  {#if sitesPaused[siteId]}<span class="paused-chip" title={t('downloads.pausedTitle')} transition:pop>{t('downloads.paused')}</span>{/if}
+  {#if sitesPaused[siteId]}<span class="paused-chip" title={t('downloads.pausedTitle')} transition:nudge>{t('downloads.paused')}</span>{/if}
 {/snippet}
 
 <!-- ... and at the top of the page: which site, why, when it tries again, and Try now. -->
@@ -1205,7 +1205,7 @@
     {:else}
       <span class="site-label"><span class="site-name">{siteLabel(siteId)}</span></span>
     {/if}
-    {#if offWhat && sitesOff.includes(siteId)}<span class="off-chip" title={t('downloads.offTitle', { what: offWhat })} transition:pop>{t('notify.status.off')}</span>{/if}
+    {#if offWhat && sitesOff.includes(siteId)}<span class="off-chip" title={t('downloads.offTitle', { what: offWhat })} transition:nudge>{t('notify.status.off')}</span>{/if}
     {@render pausedChip(siteId)}
   </h3>
 {/snippet}
@@ -1350,7 +1350,7 @@
                   >{#each c.parts as p, j (j)}{#if j}<span class="or">{t('searchBar.or')}</span>{/if}<span style:color={p.color}>{p.text}</span>{/each}</span
                 >{:else}<span class="qchip" class:neg={c.neg} style:color={c.parts[0].color}>{c.parts[0].text}</span>{/if}{:else}<span class="qchip">{t('push.everything')}</span>{/each}</span>
           {/if}
-          {#if st === 'paused' || st === 'failed'}<span class="state {st}" transition:pop>{stateLabel(st)}</span>{/if}
+          {#if st === 'paused' || st === 'failed'}<span class="state {st}" transition:nudge>{stateLabel(st)}</span>{/if}
           {#if fresh}
             <button class="fresh" onclick={() => openFresh(s)} title={t('downloads.freshTitle', { n: fresh })} aria-label={t('downloads.freshTitle', { n: fresh })}>+{num(fresh)}</button>
           {/if}
@@ -1678,7 +1678,7 @@
               {/if}
               {#if attentionCount}
                 <button class="attention-toggle" class:on={attentionOnly} aria-pressed={attentionOnly} onclick={() => (attentionOnly = !attentionOnly)}
-                   transition:pop><Icon name="alert" size={14} /> {t('downloads.needsLook')}<span class="tab-count">{num(attentionCount)}</span></button>
+                   transition:nudge><Icon name="alert" size={14} /> {t('downloads.needsLook')}<span class="tab-count">{num(attentionCount)}</span></button>
               {/if}
               {#if subs.length >= SUB_TOOLS_FROM}
                 <Dropdown value={subSort} options={subSortOptions} onchange={setSubSort} label={t('downloads.orderSubs')} heading={t('downloads.orderBy')} align="end" />
@@ -1726,7 +1726,7 @@
                               <span class="group-name">{g.name}</span>
                               <span class="count">{gs.count}</span>
                             </button>
-                            {#if gs.allPaused && gs.count}<span class="state paused" transition:pop>{t('downloads.state.paused')}</span>{/if}
+                            {#if gs.allPaused && gs.count}<span class="state paused" transition:nudge>{t('downloads.state.paused')}</span>{/if}
                           </div>
                           {#if g.interval}
                             <div class="stats" transition:reveal><span class="stat meta"><Icon name="clock" size={13} /> {cap(every(g.interval))}</span></div>
@@ -1854,10 +1854,10 @@
             {#if failedCount || doneCount}
               <div class="head-acts" transition:reveal>
                 {#if failedCount}
-                  <button class="quiet small" onclick={retryFailed} transition:pop><Icon name="retry" size={15} /> {t('downloads.retryFailed')}</button>
+                  <button class="quiet small" onclick={retryFailed} transition:nudge><Icon name="retry" size={15} /> {t('downloads.retryFailed')}</button>
                 {/if}
                 {#if doneCount}
-                  <button class="quiet small" onclick={clearFinished} transition:pop>{t('downloads.clearFinished')}</button>
+                  <button class="quiet small" onclick={clearFinished} transition:nudge>{t('downloads.clearFinished')}</button>
                 {/if}
               </div>
             {/if}

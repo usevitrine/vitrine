@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { reveal, pop, moved } from '../lib/motion';
+  import { reveal, moved, nudge } from '../lib/motion';
   // Saved searches: save the current search (and its order), run one with a
   // tap; changed after running one, update it in one tap (or save it as a new
   // one); in Edit mode rename, reorder or delete them. Opened from the star in
@@ -205,7 +205,7 @@
   <div class="head">
     <h2><Icon name="star" size={16} filled /> {t('saved.title')}</h2>
     {#if saved.list.length}
-      <button class="quiet small-btn" aria-pressed={editing} onclick={() => (editing = !editing)} transition:pop>{editing ? t('saved.done') : t('saved.edit')}</button>
+      <button class="quiet small-btn" aria-pressed={editing} onclick={() => (editing = !editing)} transition:nudge>{editing ? t('saved.done') : t('saved.edit')}</button>
     {/if}
   </div>
 
@@ -258,7 +258,7 @@
                     else if (e.key === 'ArrowDown' && i < saved.list.length - 1) move(i, i + 1);
                     else return;
                     e.preventDefault();
-                  }} transition:pop><Icon name="grip" size={18} /></button>
+                  }} transition:nudge><Icon name="grip" size={18} /></button>
               {/if}
               <input
                 class="rename"
@@ -274,8 +274,8 @@
             <button class="run" onclick={() => run(s)} data-autofocus={i === 0 && (current || !query.trim()) ? '' : undefined}>
               <span class="top-line">
                 <span class="name">{s.name}</span>
-                {#if sl}<span class="sortl" transition:pop><Icon name="sort" size={13} /> {sl}</span>{/if}
-                {#if saved.newOf[s.id]}<span class="new-pill" title={t('saved.newTitle')} transition:pop>{t('library.new', { n: saved.newOf[s.id] })}</span>{/if}
+                {#if sl}<span class="sortl" transition:nudge><Icon name="sort" size={13} /> {sl}</span>{/if}
+                {#if saved.newOf[s.id]}<span class="new-pill" title={t('saved.newTitle')} transition:nudge>{t('library.new', { n: saved.newOf[s.id] })}</span>{/if}
                 <span class="count">{num(s.count)}</span>
               </span>
               <!-- Its chips: two lines at most ("+N" for the rest - a long search took the whole panel). -->
@@ -308,7 +308,7 @@
           <button class="run" onclick={() => runGroup(g.tag)}>
             <span class="top-line">
               <span class="name"><span class="atom tag" style:--c={tagColor(g.tag)}>{label({ text: g.tag, neg: false })}</span></span>
-              {#if g.new}<span class="new-pill" title={t('saved.newTitle')} transition:pop>{t('library.new', { n: g.new })}</span>{/if}
+              {#if g.new}<span class="new-pill" title={t('saved.newTitle')} transition:nudge>{t('library.new', { n: g.new })}</span>{/if}
               <span class="count">{t('common.tags', { n: g.children })}</span>
             </span>
           </button>

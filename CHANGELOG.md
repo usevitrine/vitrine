@@ -14,7 +14,8 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 - **A slimmer top bar on phones**: just the logo’s V, shorter file counts (159K files); the button that marks new
   files as seen is now a broom beside the search bar.
 - **Smoother everywhere**: things slide, fade and move into place instead of popping in and out - dialogs, menus,
-  lists, chips, panels - and text no longer shifts as an animation ends.
+  lists, chips, panels - and text no longer shifts as an animation ends; buttons and chips that come and go let what’s
+  beside them glide, and the details panel changes smoothly as you move to the next file.
 - **iPhone**: pages, sheets and the menu keep clear of the screen’s rounded corners at the bottom.
 - **Tags in the details**: press and hold a tag to pick several; "Use" offers searching, downloading or
   blacklisting them. A tag’s menu can add it to the download blacklist (or take it off), and blacklisted tags are

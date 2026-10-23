@@ -3,7 +3,7 @@
   // rename it (your own tags) or alias it to another (a sibling - for tags from
   // sites, which a tag refresh would otherwise bring back under the old name).
   import { api, type BrowsedTag, type Relation } from '../lib/api';
-  import { reveal, pop, moved, swap } from '../lib/motion';
+  import { reveal, moved, swap, nudge } from '../lib/motion';
   import { router } from '../lib/router.svelte';
   import { toasts } from '../lib/toast.svelte';
   import { namespaces, nsChoices, moveToNamespace, nsColor, nsLabel, nsRank, splitTag } from '../lib/namespaces.svelte';
@@ -156,7 +156,7 @@
             <button class="row" title={t('tagBrowser.searchFor', { tag: bt.tag })} onclick={() => search(bt.tag)}>
               <span class="name">
                 {#if bt.namespace}<span class="ns">{bt.namespace}:</span>{/if}{st.name}
-                {#if bt.ideal}<span class="ideal" transition:pop>→ {bt.ideal}</span>{/if}
+                {#if bt.ideal}<span class="ideal" transition:nudge>→ {bt.ideal}</span>{/if}
               </span>
               <span class="count">{num(bt.count)}</span>
             </button>

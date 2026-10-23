@@ -5,7 +5,7 @@
   // search: one search for each combination), then once or a subscription (how often, its group). A card in the middle on wider screens, a sheet along the bottom on phones - both above the
   // on-screen keyboard (--kb).
   import { onMount, tick } from 'svelte';
-  import { reveal, pop } from '../lib/motion';
+  import { reveal } from '../lib/motion';
   import { api, type SubGroup } from '../lib/api';
   import { siteLabel, tagQuery, tagsQuery, canOr, sites as siteInfo } from '../lib/sites.svelte';
   import { searchTags, siteSearch, splitSearches, searchWords } from '../lib/siteSearch';
@@ -245,7 +245,10 @@
     {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
     <div class="head">
       {#if trail.length && page !== 'what'}
-        <button type="button" class="icon back" aria-label={t('common.back')} title={t('common.back')} onclick={back} transition:pop><Icon name="left" size={18} /></button>
+        <!-- (its width slides, its gap with it: the title beside it glides instead of jumping) -->
+        <span class="back-slot" transition:reveal={{ axis: 'x' }}
+          ><button type="button" class="icon back" aria-label={t('common.back')} title={t('common.back')} onclick={back}><Icon name="left" size={18} /></button></span
+        >
       {/if}
       <h2>{titles[page]()}</h2>
       <button type="button" class="icon" aria-label={t('sites.close')} title={t('sites.close')} onclick={onclose}><Icon name="close" /></button>
@@ -453,11 +456,17 @@
   .head {
     display: flex;
     align-items: center;
-    gap: 6px;
     min-height: 36px;
   }
-  .back {
+  /* Back: its room (and the space after it) in a slot that slides open and shut. */
+  .back-slot {
+    flex: none;
+    display: flex;
     margin-left: -6px;
+    padding-right: 6px;
+  }
+  .head > :last-child {
+    margin-left: 6px;
   }
   h2 {
     flex: 1;

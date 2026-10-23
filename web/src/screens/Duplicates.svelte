@@ -5,7 +5,7 @@
   // suggested. Keeping one gives it the other's tags and sources and deletes
   // the other (undo from the notice, or within the usual 7 days).
   import { onMount } from 'svelte';
-  import { pop, swap } from '../lib/motion';
+  import { pop, swap, nudge } from '../lib/motion';
   import { SvelteSet } from 'svelte/reactivity';
   import { api, type DupeFile, type DupePair } from '../lib/api';
   import { dupes, levels } from '../lib/dupes.svelte';
@@ -374,13 +374,13 @@
 
 {#snippet badge(side: Side)}
   <span class="badge {side}">{side.toUpperCase()}</span>
-  {#if best?.side === side}<span class="suggested" transition:pop><Icon name="star" size={12} /> {t('dupes.suggested')}</span>{/if}
+  {#if best?.side === side}<span class="suggested" transition:nudge><Icon name="star" size={12} /> {t('dupes.suggested')}</span>{/if}
 {/snippet}
 
 <div class="dupes">
   <header class="head">
     <h1>{t('menu.duplicates')}</h1>
-    {#if loaded && remaining > 0}<span class="count" transition:pop>{t('dupes.toCheck', { n: remaining })}</span>{/if}
+    {#if loaded && remaining > 0}<span class="count" transition:nudge>{t('dupes.toCheck', { n: remaining })}</span>{/if}
     <span class="spacer"></span>
     <Dropdown
       value={String(dupes.level)}
@@ -410,7 +410,7 @@
           <p class="muted">{t('dupes.noneHint')}</p>
           {#if last}{@render undoButton()}{/if}
           {#if dupes.level < 10}
-            <button class="quiet" onclick={() => changeLevel(levels.find((l) => l.value > dupes.level)!.value)} transition:pop>{t('dupes.lessAlike')}</button>
+            <button class="quiet" onclick={() => changeLevel(levels.find((l) => l.value > dupes.level)!.value)} transition:nudge>{t('dupes.lessAlike')}</button>
           {/if}
         {/if}
       </div>

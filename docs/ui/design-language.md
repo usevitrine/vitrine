@@ -23,6 +23,14 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
 - **Placeholders that alternate with something full-height** (an empty result vs the grid, Duplicates' empty card vs
   the pictures, its video bar): fade in place (`in:swap`), never a height slide - a collapsing placeholder squeezed
   what replaced it, so Duplicates' picture started small and grew (the user noticed).
+- **Small things in a row use `nudge`, not `pop`** (2026-10-23, the user: New download's title "jumps back instead of
+  animates" when Back went - "make sure that doesn't happen anywhere else"): pop only scales, so the element takes
+  (or keeps) its full width at once and what's beside it jumps; `nudge` slides its width open and shut as it grows
+  and fades, so neighbors glide (a gap of its own goes in a slot that slides with it, as New download's Back). `pop`
+  stays for what floats (badges on tiles, dots on buttons, spinners).
+- **Content that follows something else (the details as the viewer moves on)** isn't emptied while the next one
+  loads: the old stays until the new arrives, then rows that match stay put and the others slide (`FilePanel`,
+  `ComicPanel`: stale meanwhile - not pressable - and cleared after 250 ms if the answer is slow).
 - **Buttons**: filled (the main action, mauve), `.quiet` (outlined), `.icon` (just an icon), `.danger`; square icon
   buttons in toolbars (the selection bar). **Cards** (`.card`, `.card-head`, `.hint`, `.field`, `.empty`, `.pill`)
   on the screens other than the library (`.page`, centered). Floating controls over a picture: `.float-bar`, `.chip`,

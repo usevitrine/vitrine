@@ -7,7 +7,7 @@
   // tap opens the reader at /comics/<id>. Comics live only here - their pages are
   // never in the library's grid.
   import { onMount, tick, untrack } from 'svelte';
-  import { reveal, pop, glide, swap } from '../lib/motion';
+  import { reveal, glide, swap, nudge } from '../lib/motion';
   import { collections } from '../lib/collections.svelte';
   import ActionMenu from '../components/ActionMenu.svelte';
   import { cubicOut } from 'svelte/easing';
@@ -531,7 +531,7 @@
 {#snippet panelActions()}
   {#if details}
     {@const c = details}
-    <button class="icon delete" aria-label={t('comics.deleteLabel')} title={t('common.delete')} onclick={() => removeComic(c)} transition:pop><Icon name="trash" /></button>
+    <button class="icon delete" aria-label={t('comics.deleteLabel')} title={t('common.delete')} onclick={() => removeComic(c)} transition:nudge><Icon name="trash" /></button>
   {/if}
 {/snippet}
 

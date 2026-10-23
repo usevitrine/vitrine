@@ -5,7 +5,7 @@
   // Tags section as a file's: a tap opens a tag's menu, pick several, edit,
   // read them again from the site). The page gives it the panel's frame.
   import { api, type Comic, type FileTag } from '../lib/api';
-  import { pop } from '../lib/motion';
+  import { nudge } from '../lib/motion';
   import { siteLabel } from '../lib/sites.svelte';
   import { toasts } from '../lib/toast.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
@@ -88,8 +88,12 @@
     }
   }
 
+  // Another comic: its tags replace the last one's in one go (as the file details do: not emptied first - they
+  // collapsed and came back); a slow answer clears them after a moment, and meanwhile they can't be pressed.
   let tags = $state<FileTag[]>([]);
   let loadedFor = 0;
+  let stale = $state(false);
+  let clearTimer = 0;
   async function load(id: number) {
     try {
       const res = await api.comic(id);
@@ -97,12 +101,23 @@
       tags = res.tags;
     } catch (e) {
       toasts.error((e as Error).message);
+    } finally {
+      if (id === comic.id) {
+        clearTimeout(clearTimer);
+        stale = false;
+      }
     }
   }
   $effect(() => {
     if (comic.id !== loadedFor) {
+      const first = loadedFor === 0;
       loadedFor = comic.id;
-      tags = [];
+      clearTimeout(clearTimer);
+      if (first) tags = [];
+      else {
+        stale = true;
+        clearTimer = window.setTimeout(() => stale && (tags = []), 250);
+      }
       load(comic.id);
     }
   });
@@ -170,7 +185,7 @@
       {#if comic.title_alt}<p class="alt">{comic.title_alt}</p>{/if}
       <div class="reads">
         <button onclick={() => onread(false)}><Icon name="book" size={16} /> {isReading(comic) ? t('comics.continueAt', { page: comic.read_page + 1 }) : t('comics.read')}</button>
-        {#if comic.read_page > 0}<button class="quiet" onclick={() => onread(true)} title={t('comics.fromStart')} aria-label={t('comics.fromStart')} transition:pop><Icon name="undo" size={16} /></button>{/if}
+        {#if comic.read_page > 0}<button class="quiet" onclick={() => onread(true)} title={t('comics.fromStart')} aria-label={t('comics.fromStart')} transition:nudge><Icon name="undo" size={16} /></button>{/if}
       </div>
     </div>
   </div>
@@ -258,6 +273,7 @@
     <CropDialog src={comic.cover_url} {crop} onsave={saveCrop} onclose={() => (cropping = false)} />
   {/if}
 
+  <div class="tags-wrap" class:stale aria-busy={stale}>
   <TagsSection
     item={comic.id}
     {tags}
@@ -268,9 +284,14 @@
     }}
     reload={() => load(comic.id)}
     refresh={comic.site && comic.url ? refreshTags : undefined} />
+  </div>
 </div>
 
 <style>
+  /* (the last comic's tags until the new one's arrive: not to be pressed) */
+  .tags-wrap.stale {
+    pointer-events: none;
+  }
   .top {
     display: flex;
     gap: 14px;

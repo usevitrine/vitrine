@@ -44,6 +44,20 @@ export function pop(node: Element, { duration = 200, delay = 0 } = {}) {
   return { duration, delay, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: scale(${0.6 + 0.4 * t})` };
 }
 
+/** pop for something small in a row (a button beside others, a chip after a name): its width opens and closes too,
+ *  so what's beside it glides instead of jumping when it comes or goes. */
+export function nudge(node: Element, { duration = 220, delay = 0 } = {}) {
+  if (reduced()) return { duration: 0 };
+  const inline = getComputedStyle(node).display === 'inline'; // (a width needs a box)
+  const size = sizeOf(node);
+  const s = slide(node, { duration, delay, easing: cubicOut, axis: 'x' });
+  return {
+    ...s,
+    css: (t: number, u: number) =>
+      `${inline ? 'display: inline-block; ' : ''}white-space: nowrap; ${s.css?.(t, u) ?? ''}; opacity: ${t}; transform: scale(${settle(0.6 + 0.4 * t, size)})`,
+  };
+}
+
 export function swap(node: Element, { duration = 160, delay = 0 } = {}) {
   if (reduced()) return { duration: 0 };
   return fade(node, { duration, delay });

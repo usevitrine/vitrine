@@ -2,7 +2,7 @@
   // The search: typed booru-style text turns into chips; every chip can be
   // edited in place. Each change runs the search straight away.
   import { parse, format, chipText, atomText, label, kindOf, balanced, isTitleText, titleTerm, type Chip } from '../lib/query';
-  import { pop as grow, moved, px, settle, sizeOf } from '../lib/motion';
+  import { pop as grow, moved, px, settle, sizeOf, nudge } from '../lib/motion';
   import type { Suggestion } from '../lib/api';
   import TagInput from './TagInput.svelte';
   import { tagColor } from '../lib/namespaces.svelte';
@@ -351,7 +351,7 @@
           editing = null;
           run([]);
           input?.focus();
-        }} transition:grow><Icon name="close" size={18} /></button>
+        }} transition:nudge><Icon name="close" size={18} /></button>
     {:else}
       <span class="lead"><Icon name="search" size={18} /></span>
     {/if}

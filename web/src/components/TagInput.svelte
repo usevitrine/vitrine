@@ -5,7 +5,7 @@
   // suggestions can be marked - from several words typed one after another - and go in together: all of them, or
   // any of them (an OR group).
   import { api, type Suggestion } from '../lib/api';
-  import { pop, moved } from '../lib/motion';
+  import { pop, moved, nudge } from '../lib/motion';
   import { splitTag, tagColor, nsLabel } from '../lib/namespaces.svelte';
   import { t, num } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
@@ -435,7 +435,7 @@
             <button type="button" class="go" onmousedown={(e) => press(e, () => addMarked(false))} ontouchend={(e) => press(e, () => addMarked(false))}>{t('details.allOfThem')}</button>
             {#if anyText}
               <button type="button" class="go" onmousedown={(e) => press(e, () => addMarked(true))} ontouchend={(e) => press(e, () => addMarked(true))}
-                 transition:pop>{t('details.anyOfThem')}</button>
+                 transition:nudge>{t('details.anyOfThem')}</button>
             {/if}
           </span>
         </li>

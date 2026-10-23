@@ -4,7 +4,7 @@
   // search as a chip. Opened from the search bar's filter button, or by
   // tapping a filter chip (then the form opens filled in, and updates it).
   import { backClose } from '../lib/backClose';
-  import { reveal, pop } from '../lib/motion';
+  import { reveal, pop, nudge } from '../lib/motion';
   import { swallowPress, leaving } from '../lib/outside';
   import { onMount, tick } from 'svelte';
   import Dropdown from './Dropdown.svelte';
@@ -343,7 +343,7 @@
     <div class="items" role="group" aria-label={t('settings.section.sites.label')}>
       <button class="item pick-item" class:on={!currentSites.length} aria-pressed={!currentSites.length} onclick={() => setSites([])}>
         <span class="item-text"><span class="item-label">{t('filterMenu.allSites')}</span></span>
-        {#if siteTotal !== null}<span class="meta" transition:pop>{num(siteTotal)}</span>{/if}
+        {#if siteTotal !== null}<span class="meta" transition:nudge>{num(siteTotal)}</span>{/if}
         <span class="tick">{#if !currentSites.length}<Icon name="check" size={16} />{/if}</span>
       </button>
       {#each siteIds as id (id)}
@@ -403,7 +403,7 @@
       <div class="sort-head">
         <h3>{t('filterMenu.sort')}</h3>
         {#if !isDefault}
-          <button class="reset" onclick={() => onsort(pageDefault)} title={t('filterMenu.resetTitle')} transition:pop>{t('filterMenu.reset')}</button>
+          <button class="reset" onclick={() => onsort(pageDefault)} title={t('filterMenu.resetTitle')} transition:nudge>{t('filterMenu.reset')}</button>
         {/if}
       </div>
       <div class="sort-row">
@@ -474,7 +474,7 @@
               aria-label={t('filterMenu.howMany')}
               data-autofocus />
             <Dropdown floating={sheet} value={form.unit} options={timeUnits} onchange={(v) => (form!.unit = v)} label={t('filterMenu.unit')} />
-            {#if form.mode === 'ago'}<span class="word" transition:pop>{t('filterMenu.ago')}</span>{/if}
+            {#if form.mode === 'ago'}<span class="word" transition:nudge>{t('filterMenu.ago')}</span>{/if}
           </div>
         {:else}
           <input type="date" bind:value={form.date} aria-label={t('filterMenu.date')} data-autofocus />

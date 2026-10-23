@@ -1470,14 +1470,14 @@ test('settings: a site login is entered in a dialog from its ⋯ menu, tested, s
   expect(body).not.toContain('e2e-test-key'); // never sent back
   // Saved: the dialog closes, the card says so, and it was tested straight away.
   await expect(dialog).toHaveCount(0);
-  await expect(site.locator('.account')).toContainText('Login saved');
+  await expect(site.locator('.account:not([inert])')).toContainText('Login saved');
   await expect(site.locator('.status')).toHaveText('Not connected');
   await expect(site.getByRole('status')).toContainText("didn't accept");
 
   // After a reload: still saved, still not shown; Change login shows empty boxes marked saved.
   await page.reload();
   await expect(site.locator('.status')).toHaveText('Ready');
-  await expect(site.locator('.account')).toContainText('Login saved');
+  await expect(site.locator('.account:not([inert])')).toContainText('Login saved');
   expect(await page.content()).not.toContain('e2e-test-key');
   await rowMenu(page, 'test-auth.invalid', 'Change login');
   await expect(dialog.locator('.saved')).toHaveCount(2);

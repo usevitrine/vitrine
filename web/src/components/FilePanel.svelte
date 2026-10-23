@@ -3,7 +3,7 @@
   // the searches that found it), its sources (the first one; the rest folded) and its tags (tap to search, × to
   // remove, add new ones). The viewer gives it its header and close button.
   import { api, type FileInfo, type FileLink, type FileSource, type FileTag } from '../lib/api';
-  import { reveal, pop } from '../lib/motion';
+  import { reveal, nudge, moved } from '../lib/motion';
   import { router } from '../lib/router.svelte';
   import { siteLabel } from '../lib/sites.svelte';
   import { formatDuration, formatSize, results } from '../lib/results.svelte';
@@ -37,6 +37,11 @@
   let foundBy = $state<FileSource[]>([]);
   let loadedFor = 0;
 
+  // Another file (the next one in the viewer): its tags and links replace the last one's in one go, the rows that
+  // stay staying put and the others sliding in and out - not emptied first (everything collapsed and came back,
+  // the user saw it). Meanwhile the old ones can't be pressed; a slow answer clears them after a moment.
+  let stale = $state(false);
+  let clearTimer = 0;
   async function load(id: number) {
     try {
       const res = await api.fileTags(id);
@@ -46,15 +51,33 @@
       foundBy = res.sources;
     } catch (e) {
       toasts.error((e as Error).message);
+    } finally {
+      if (id === file.id) {
+        clearTimeout(clearTimer);
+        stale = false;
+      }
     }
   }
 
   $effect(() => {
     if (file.id !== loadedFor) {
+      const first = loadedFor === 0;
       loadedFor = file.id;
-      tags = [];
-      links = [];
       sourcesOpen = false;
+      clearTimeout(clearTimer);
+      if (first) {
+        tags = [];
+        links = [];
+        foundBy = [];
+      } else {
+        stale = true;
+        clearTimer = window.setTimeout(() => {
+          if (!stale) return;
+          tags = [];
+          links = [];
+          foundBy = [];
+        }, 250);
+      }
       load(file.id);
     }
   });
@@ -101,7 +124,7 @@
   );
 </script>
 
-<div class="details">
+<div class="details" class:stale aria-busy={stale}>
   <dl class="facts">
     <div>
       <dt>{t('filter.type.label')}</dt>
@@ -116,13 +139,13 @@
       <dd>{num(file.width)} × {num(file.height)}</dd>
     </div>
     {#if file.duration_ms}
-      <div>
+      <div transition:reveal>
         <dt>{t('filter.duration.label')}</dt>
         <dd>{formatDuration(file.duration_ms)}{#if file.mime.startsWith('video/')}<span class="muted">{' · '}{file.has_audio ? t('details.sound') : t('details.silent')}</span>{/if}</dd>
       </div>
     {/if}
     {#if file.posted_at}
-      <div>
+      <div transition:reveal>
         <dt>{t('filter.uploaded.label')}</dt>
         <dd title={fullDate(file.posted_at)}>{when(file.posted_at)}</dd>
       </div>
@@ -140,7 +163,7 @@
       </dd>
     </div>
     {#if settings.came && file.came}
-      <div class="came-row wide">
+      <div class="came-row wide" transition:reveal>
         <dt>{t('rankings.title')}</dt>
         <dd class="came-dd">
           <span>{t('details.came.times', { n: file.came })}</span>
@@ -160,7 +183,7 @@
       </div>
       <ul class="rows">
         {#each posts as l (l.url)}
-          <li class="row">
+          <li class="row" animate:moved transition:reveal>
             <SiteIcon host={host(l.url)} />
             <span class="what"><span class="q">{t('details.postPage')}</span><span class="sub">{siteLabel(l.site)}</span></span>
             <a class="icon act" href={l.url} target="_blank" rel="noreferrer noopener" aria-label={t('details.openPost')} title={t('details.open')}><Icon name="external" size={17} /></a>
@@ -168,7 +191,7 @@
           </li>
         {/each}
         {#each downloadedBy as f (f.site + f.query)}
-          <li class="row">
+          <li class="row" animate:moved transition:reveal>
             <span class="ic"><Icon name={f.subscription_id ? 'bell' : 'download'} size={17} /></span>
             <span class="what">
               <span class="q">{f.query || t('push.everything')}</span>
@@ -182,7 +205,7 @@
                 onclick={() => {
                   router.focus = 'sub:' + f.subscription_id;
                   router.go('downloads');
-                }} transition:pop><Icon name="right" size={17} /></button>
+                }} transition:nudge><Icon name="right" size={17} /></button>
             {/if}
           </li>
         {/each}
@@ -191,7 +214,7 @@
   {/if}
 
   {#if sources.length}
-    <section aria-label={t('details.sources')}>
+    <section aria-label={t('details.sources')} transition:reveal>
       <div class="head">
         <h3>{t('details.sources')}</h3>
       </div>
@@ -219,6 +242,11 @@
 </div>
 
 <style>
+  /* (the last file's tags and links, until the new one's arrive: not to be pressed) */
+  .details.stale section,
+  .details.stale :global(section) {
+    pointer-events: none;
+  }
   /* (The facts card, rows and headings: lib/details.css; the tags: TagsSection.) */
   /* (a long link's path: one line, ending in …) */
   .path {
