@@ -5,6 +5,7 @@
   // search: one search for each combination), then once or a subscription (how often, its group). A card in the middle on wider screens, a sheet along the bottom on phones - both above the
   // on-screen keyboard (--kb).
   import { onMount, tick } from 'svelte';
+  import { reveal, pop } from '../lib/motion';
   import { api, type SubGroup } from '../lib/api';
   import { siteLabel, tagQuery, tagsQuery, canOr, sites as siteInfo } from '../lib/sites.svelte';
   import { searchTags, siteSearch, splitSearches, searchWords } from '../lib/siteSearch';
@@ -244,7 +245,7 @@
     {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
     <div class="head">
       {#if trail.length && page !== 'what'}
-        <button type="button" class="icon back" aria-label={t('common.back')} title={t('common.back')} onclick={back}><Icon name="left" size={18} /></button>
+        <button type="button" class="icon back" aria-label={t('common.back')} title={t('common.back')} onclick={back} transition:pop><Icon name="left" size={18} /></button>
       {/if}
       <h2>{titles[page]()}</h2>
       <button type="button" class="icon" aria-label={t('sites.close')} title={t('sites.close')} onclick={onclose}><Icon name="close" /></button>
@@ -270,13 +271,13 @@
           {:else if page === 'site'}
             {#if fromTags}<p class="what-tags" title={query}>{searchWords(parse(query))}</p>{/if}
             {#if !loaded || !siteInfo.loaded}
-              <p class="hint">{t('common.loading')}</p>
+              <p class="hint" transition:reveal>{t('common.loading')}</p>
             {:else if !downloadSites.length}
-              <p class="hint">{t('newDl.noSites')}</p>
+              <p class="hint" transition:reveal>{t('newDl.noSites')}</p>
               <button class="quiet" onclick={() => (router.go('settings', 'sites'), onclose())}>{t('downloads.manageSites')}</button>
             {:else}
               {#if useSearch && origins.length}
-                <h3>{t('sitePicker.from')}</h3>
+                <h3 transition:reveal>{t('sitePicker.from')}</h3>
                 <div class="items">
                   {#each origins as c, k (c.site)}
                     <button class="item site" onclick={() => pickSite(c.site)} data-autofocus={k === 0 ? true : undefined}>
@@ -288,7 +289,7 @@
                 </div>
               {/if}
               {#if others.length}
-                {#if useSearch && origins.length}<h3>{t('sitePicker.others')}</h3>{/if}
+                {#if useSearch && origins.length}<h3 transition:reveal>{t('sitePicker.others')}</h3>{/if}
                 <div class="items">
                   {#each others as s, k (s)}
                     <button class="item site" onclick={() => pickSite(s)} data-autofocus={k === 0 && !(useSearch && origins.length) ? true : undefined}>
@@ -316,8 +317,8 @@
                 placeholder={siteInfo.hints[site] ?? t('downloads.searchSite', { site: siteLabel(site) })}
                 autofocus={!matchMedia('(pointer: coarse)').matches}
                 onenter={() => toHow()} />
-              {#if split.length}<p class="hint left">{t('newDl.split', { site: siteLabel(site), n: searches.length })}</p>{/if}
-              {#if left.length}<p class="hint left">{t('newDl.leftOut', { what: searchWords(left) })}</p>{/if}
+              {#if split.length}<p class="hint left" transition:reveal>{t('newDl.split', { site: siteLabel(site), n: searches.length })}</p>{/if}
+              {#if left.length}<p class="hint left" transition:reveal>{t('newDl.leftOut', { what: searchWords(left) })}</p>{/if}
               <div class="foot">
                 <button type="submit" disabled={!ready}>{t('newDl.next')} <Icon name="right" size={16} /></button>
               </div>
@@ -329,7 +330,7 @@
                 <SiteIcon host={siteInfo.hosts[site] ?? ''} /> <span>{label || (searches.length > 1 ? t('newDl.searches', { n: searches.length }) : searches[0])}</span>
               </p>
               {#if searches.length > 1}
-                <ul class="split-list">
+                <ul class="split-list" transition:reveal>
                   {#each searches as s (s)}<li>{s}</li>{/each}
                 </ul>
               {/if}
@@ -339,12 +340,12 @@
               </div>
               <div class="rows">
                 {#if repeat !== '0'}
-                  <div class="row">
+                  <div class="row" transition:reveal>
                     <span class="row-label">{t('downloads.repeat')}</span>
                     <Dropdown floating value={repeat} options={intervalOptions} onchange={(v) => (repeat = v)} label={t('downloads.repeat')} heading={t('downloads.repeat')} />
                   </div>
                   {#if !favSearch}
-                    <div class="row">
+                    <div class="row" transition:reveal>
                       <span class="row-label">{t('downloads.group')}</span>
                       <Dropdown
                         floating
@@ -355,7 +356,7 @@
                         heading={t('downloads.addToGroup')} />
                     </div>
                     {#if formGroup === 'new'}
-                      <input class="new-group" bind:value={newGroupName} placeholder={t('downloads.newGroupExample')} aria-label={t('downloads.newGroupLabel')} maxlength="60" />
+                      <input class="new-group" bind:value={newGroupName} placeholder={t('downloads.newGroupExample')} aria-label={t('downloads.newGroupLabel')} maxlength="60"  transition:reveal/>
                     {/if}
                   {/if}
                 {/if}

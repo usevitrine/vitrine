@@ -4,6 +4,7 @@
   // search as a chip. Opened from the search bar's filter button, or by
   // tapping a filter chip (then the form opens filled in, and updates it).
   import { backClose } from '../lib/backClose';
+  import { reveal, pop } from '../lib/motion';
   import { swallowPress, leaving } from '../lib/outside';
   import { onMount, tick } from 'svelte';
   import Dropdown from './Dropdown.svelte';
@@ -342,7 +343,7 @@
     <div class="items" role="group" aria-label={t('settings.section.sites.label')}>
       <button class="item pick-item" class:on={!currentSites.length} aria-pressed={!currentSites.length} onclick={() => setSites([])}>
         <span class="item-text"><span class="item-label">{t('filterMenu.allSites')}</span></span>
-        {#if siteTotal !== null}<span class="meta">{num(siteTotal)}</span>{/if}
+        {#if siteTotal !== null}<span class="meta" transition:pop>{num(siteTotal)}</span>{/if}
         <span class="tick">{#if !currentSites.length}<Icon name="check" size={16} />{/if}</span>
       </button>
       {#each siteIds as id (id)}
@@ -402,7 +403,7 @@
       <div class="sort-head">
         <h3>{t('filterMenu.sort')}</h3>
         {#if !isDefault}
-          <button class="reset" onclick={() => onsort(pageDefault)} title={t('filterMenu.resetTitle')}>{t('filterMenu.reset')}</button>
+          <button class="reset" onclick={() => onsort(pageDefault)} title={t('filterMenu.resetTitle')} transition:pop>{t('filterMenu.reset')}</button>
         {/if}
       </div>
       <div class="sort-row">
@@ -460,7 +461,7 @@
       {#if isTime(form.id)}
         <Dropdown floating={sheet} value={form.mode} options={timeModes} onchange={(v) => (form!.mode = v)} label={t('filter.group.when')} />
         {#if form.mode === 'last' || form.mode === 'ago'}
-          <div class="row">
+          <div class="row" transition:reveal>
             <input
               class="num"
               type="number"
@@ -473,7 +474,7 @@
               aria-label={t('filterMenu.howMany')}
               data-autofocus />
             <Dropdown floating={sheet} value={form.unit} options={timeUnits} onchange={(v) => (form!.unit = v)} label={t('filterMenu.unit')} />
-            {#if form.mode === 'ago'}<span class="word">{t('filterMenu.ago')}</span>{/if}
+            {#if form.mode === 'ago'}<span class="word" transition:pop>{t('filterMenu.ago')}</span>{/if}
           </div>
         {:else}
           <input type="date" bind:value={form.date} aria-label={t('filterMenu.date')} data-autofocus />
@@ -535,7 +536,7 @@
       {:else if tagFilter(form.id)}
         <div class="choices" role="group" aria-label={fi(form.id).label}>
           {#if tagChoices === null}
-            <p class="hint">{t('common.loading')}</p>
+            <p class="hint" transition:reveal>{t('common.loading')}</p>
           {:else}
             {#each tagChoices as c, k (c.value)}
               <button
@@ -547,7 +548,7 @@
                 {#if form.values.includes(c.value)}<Icon name="check" size={14} />{/if}{c.label}{#if c.meta}<span class="choice-n">{c.meta}</span>{/if}
               </button>
             {:else}
-              <p class="hint">{t('filterMenu.noneYet')}</p>
+              <p class="hint" transition:reveal>{t('filterMenu.noneYet')}</p>
             {/each}
           {/if}
         </div>
@@ -561,7 +562,7 @@
       {/if}
 
       <div class="foot">
-        <span class="preview" aria-live="polite">{#if preview}<span class="chip-preview">{preview}</span>{/if}</span>
+        <span class="preview" aria-live="polite">{#if preview}<span class="chip-preview" transition:pop>{preview}</span>{/if}</span>
         <button type="submit" disabled={!text}>{editing ? t('saved.update') : t('filterMenu.add')}</button>
       </div>
     </form>

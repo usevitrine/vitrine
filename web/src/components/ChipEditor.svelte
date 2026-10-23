@@ -5,6 +5,7 @@
   // remove it. Like a tag's menu in the details: a menu under the chip, a
   // sheet along the bottom on phones. Edits apply on Enter and on closing.
   import { backClose } from '../lib/backClose';
+  import { reveal, pop } from '../lib/motion';
   import { kindOf, titleTerm,type Atom, type Chip } from '../lib/query';
   import { nsColor, nsLabel, splitTag } from '../lib/namespaces.svelte';
   import { copyText } from '../lib/clipboard';
@@ -152,7 +153,7 @@
 
     <div class="edit">
       {#each atoms as a, i (i)}
-        {#if i > 0}<span class="or">{t('chip.or')}</span>{/if}
+        {#if i > 0}<span class="or" transition:pop>{t('chip.or')}</span>{/if}
         <div class="row">
           <!-- One tag: Exclude below says it; a group's alternatives each have their own. -->
           {#if atoms.length > 1}<button
@@ -161,7 +162,7 @@
             title={a.neg ? t('chip.excludedTap') : t('chip.includedTap')}
             aria-label={a.neg ? t('chip.excludedLabel') : t('chip.includedLabel')}
             aria-pressed={a.neg}
-            onclick={() => toggle(i)}><Icon name={a.neg ? 'minus' : 'plus'} size={18} /></button>{/if}
+            onclick={() => toggle(i)} transition:pop><Icon name={a.neg ? 'minus' : 'plus'} size={18} /></button>{/if}
           <TagInput
             bind:value={a.text}
             comics={comics}
@@ -170,7 +171,7 @@
             onenter={apply} />
           {#if atoms.length > 1}
             <button class="icon" title={t('chip.removeAlt')} aria-label={t('chip.removeAlt')} onclick={() => removeAtom(i)}
-              ><Icon name="close" size={18} /></button>
+               transition:pop><Icon name="close" size={18} /></button>
           {/if}
         </div>
       {/each}
@@ -199,7 +200,7 @@
 
     {#if single && parts && single.text.trim()}
       {@const text = single.text.trim()}
-      <div class="group" role="group" aria-label={t('tagMenu.copy')}>
+      <div class="group" role="group" aria-label={t('tagMenu.copy')} transition:reveal>
         <button class="item" onclick={() => copyText(text)}>
           <Icon name="copy" size={18} />
           <span class="two">{t('tagMenu.copy')}<span class="what">{text}</span></span>
