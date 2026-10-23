@@ -456,6 +456,19 @@
   .spacer {
     flex: 1;
   }
+  /* Phones: just the mark (the V) - the bar is crowded with the screen's controls, downloads and the bell. */
+  @media (max-width: 639px) {
+    .home :global(.name) {
+      display: none;
+    }
+  }
+  @media (max-width: 379px) {
+    .topbar {
+      gap: 2px;
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+  }
   .menu-button {
     width: var(--control-h);
     height: var(--control-h);

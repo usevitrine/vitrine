@@ -129,11 +129,12 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   current downloads with a counter on the icon"): the Library's download icon (`DownloadsMenu`, left of the bell)
   has a peach counter - downloads running or waiting (not paused) - and its arrow bobs while one downloads. A press
   opens a panel like the bell's (grows out of it; press outside / Escape / Back closes): "Downloads" + "All >" (the
-  Downloads page), **New download** (full width; the dialog below, with the search in the bar), then what is going on
+  Downloads page) and "+ New download" beside it (small links in the heading - the user: "i hate the massive new download
+  button"; the dialog below, with the search in the bar), then what is going on
   now - running, waiting, paused (a subscription's check named "the check of x") - each with its site icon, "Downloading
   · 12 files" / Waiting / Paused and the same progress bar as the Downloads page (`lib/downloadProgress`, shared;
-  striped without an estimate); six at most, then "N more"; a row opens the Downloads page. "Nothing downloading" when
-  none. Data: `lib/activeDownloads` (`GET /api/downloads`, read again when the live stream says the queue changed;
+  striped without an estimate); six at most, then "N more"; a row opens the Downloads page. None: a quiet check like the bell's (the user; "Nothing
+  downloading" only for screen readers). Data: `lib/activeDownloads` (`GET /api/downloads`, read again when the live stream says the queue changed;
   polled every 5 s only without it). Phones: the panel spans the top bar with 8 px each side (the bell's too, since).
   The tour's Downloads hint points at it.
 - **New download from the Library (2026-10-22)** (the user: "a download button on the library page that opens a new

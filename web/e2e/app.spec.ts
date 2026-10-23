@@ -2467,7 +2467,7 @@ test('new files: first in the grid with NEW marks, whatever the order; the top b
   await setSettings(page, { seenAt });
   await page.goto('/?sort=imported_asc'); // oldest first - the new ones still come first
   const pill = page.getByRole('button', { name: `Mark the ${newest.length} new files as seen` });
-  await expect(pill).toHaveText(`${newest.length} new`);
+  await expect(pill).toHaveText(''); // (just the broom; how many in its label)
   await expect(page.locator('.tile .new-badge')).toHaveCount(newest.length);
   for (let i = 0; i < newest.length; i++) await expect(page.locator(`.tile[data-i="${i}"] .new-badge`)).toBeVisible(); // first, in the main grid
   expect(Number(await page.locator('.tile[data-i="0"]').getAttribute('data-id'))).toBe(newest[0]); // newest first
@@ -4166,7 +4166,7 @@ test('library: the downloads menu - a counter, New download, what is downloading
   await expect(button).toHaveAccessibleName('Downloads');
   await expect(button.locator('.counter')).toHaveCount(0);
   await button.click();
-  await expect(menu.getByText('Nothing downloading')).toBeVisible();
+  await expect(menu.getByRole('img', { name: 'Nothing downloading' })).toBeVisible(); // (a quiet check, like the bell's)
   await expect(menu.getByRole('button', { name: 'New download' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);

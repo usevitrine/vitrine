@@ -92,6 +92,12 @@ export function num(n: number): string {
   return i18n.numbers.format(n);
 }
 
+/** A number in few characters, the language's way, from 10,000 on (159K, 59.2K, 1.23M); smaller ones in full. */
+export function short(n: number): string {
+  if (n < 10_000) return num(n);
+  return new Intl.NumberFormat(i18n.lang, { notation: 'compact', maximumSignificantDigits: 3 }).format(n);
+}
+
 /** A date written the language's way. */
 export function date(d: Date | number, opts: Intl.DateTimeFormatOptions): string {
   return new Date(d).toLocaleDateString(i18n.lang, opts);

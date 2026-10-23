@@ -424,6 +424,10 @@
       "one": "{n} file",
       "other": "{n} files"
     },
+    "filesShort": {
+      "one": "{x} file",
+      "other": "{x} files"
+    },
     "posOf": "{pos} of {total}",
     "back": "Back",
     "loading": "Loading…",
@@ -1745,7 +1749,6 @@
       "one": "Mark the {n} new file as seen",
       "other": "Mark the {n} new files as seen"
     },
-    "markSeenTitle": "New since you last cleared them - tap to mark all as seen",
     "new": "{n} new",
     "searching": "Searching…",
     "favSearch": "Favorites tag search",

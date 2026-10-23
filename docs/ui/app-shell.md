@@ -100,6 +100,15 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   at once - they're immutable), the saved copy only when the fetch fails (offline); saving and trimming run in the
   background. Cache-first made every thumbnail wait on the Cache API, which does one operation at a time per cache
   (and a trim deleted hundreds one by one): a screenful queued up and arrived together.
+- **A slimmer top bar on phones (2026-10-23, user: "with the two buttons on the right, the files counter ... and the
+  new files button ... it gets cramped")**: under 640 px the logo is just the mark (the V, no "itrine"), the library's
+  file count is shorter from 10,000 on ("159K files",  in lib/i18n: compact notation, 3 significant digits -
+  the full number in its title and for screen readers); under 380 px the bar's gaps and sides are tighter. The
+  new-files chip left the top bar (the user: "move the clear new button to the left of the search bar and have it
+  animate in and out" ... "just the icon" ... "make sure the button is square"): a square accent broom left of the
+  library's search bar, the bar's one-line height (44 / 38 px, like Empty trash in the trash), no text - how many
+  only in its label for screen readers; it and Empty trash slide in and out sideways with their gap. Measured with a
+  159,212 file count and 3 downloads: the bar fits at 393, 360 and 320 px. Desktop: just the broom moved.
 - **The top bar slides away on scroll (2026-10-19)**: scrolling the library grid or a screen's page down (past two
   bar heights) slides the top bar up out of sight - all but the strip under the status bar; scrolling up brings it
   back, and it's always there at the top, on another screen and with the menu open. Since 2026-10-20 the bar floats

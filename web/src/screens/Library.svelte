@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { cubicOut } from 'svelte/easing';
+  import { slide } from 'svelte/transition';
   import { live } from '../lib/live.svelte';
   import { connection } from '../lib/offline.svelte';
   import Welcome from '../components/Welcome.svelte';
@@ -19,7 +21,7 @@
   import { updateBadge } from '../lib/badge';
   import { api } from '../lib/api';
   import { saved } from '../lib/saved.svelte';
-  import { t } from '../lib/i18n.svelte';
+  import { t, short } from '../lib/i18n.svelte';
   import { trash, emptyTrash } from '../lib/trash.svelte';
 
   // The search and its order are kept apart: the order is in the sort menu and
@@ -50,6 +52,7 @@
   // The search bar's height: with the top bar's, the room the grid keeps at its top (both float over it).
   let headH = $state(0);
   let pad = $derived(topbar.h + headH);
+  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // A search started from inside the viewer (a tag tapped) waits until closing
   // the viewer has stepped back in history, so the URL isn't overwritten.
@@ -308,17 +311,14 @@
 
 <!-- Shown in the app's top bar (see lib/topbar): how many files the search found. -->
 {#snippet countControl()}
-  {#if results.fresh > 0 && !inTrash}
-    <button
-      class="new-chip"
-      onclick={markSeen}
-      aria-label={t('library.markSeen', { n: results.fresh })}
-      title={t('library.markSeenTitle')}>
-      {t('library.new', { n: results.fresh })} <Icon name="broom" size={15} />
-    </button>
-  {/if}
-  <span class="count" aria-live="polite"
-    >{#if (results.busy || !results.searches) && !results.total}{t('library.searching')}{:else if !results.error}{t('common.files', { n: results.total })}{/if}</span
+  <!-- (phones: shorter from 10,000 on - "159K files" - the top bar is crowded; the full number stays in the title and for screen readers) -->
+  <span class="count" aria-live="polite" title={results.total ? t('common.files', { n: results.total }) : undefined}
+    >{#if (results.busy || !results.searches) && !results.total}{t('library.searching')}{:else if !results.error && results.total < 10_000}{t(
+        'common.files',
+        { n: results.total },
+      )}{:else if !results.error}<span class="sr-only">{t('common.files', { n: results.total })}</span><span class="long" aria-hidden="true"
+        >{t('common.files', { n: results.total })}</span
+      ><span class="brief" aria-hidden="true">{t('common.filesShort', { n: results.total, x: short(results.total) })}</span>{/if}</span
   >
   {#if !inTrash}<DownloadsMenu {query} />{/if}
 {/snippet}
@@ -327,8 +327,18 @@
   <header bind:offsetHeight={headH}>
     <div class="search-row">
       <!-- The trash: Empty trash as a red button before the search bar (the user's choice: an icon, no label). -->
+      <!-- New files: a broom that marks them seen (just the icon - the user; how many only in its label, for screen readers). Both slide
+           in and out sideways, their gap with them. -->
+      {#if results.fresh > 0 && !inTrash}
+        <div class="slot" transition:slide={{ axis: 'x', duration: reduced() ? 0 : 260, easing: cubicOut }}>
+          <button class="new-chip" onclick={markSeen} aria-label={t('library.markSeen', { n: results.fresh })}
+            ><Icon name="broom" size={20} /></button>
+        </div>
+      {/if}
       {#if inTrash && trash.files > 0}
-        <button class="empty-trash" aria-label={t('trash.empty')} title={t('trash.empty')} onclick={() => emptyTrash(results)}><Icon name="trash" size={20} /></button>
+        <div class="slot" transition:slide={{ axis: 'x', duration: reduced() ? 0 : 260, easing: cubicOut }}>
+          <button class="empty-trash" aria-label={t('trash.empty')} title={t('trash.empty')} onclick={() => emptyTrash(results)}><Icon name="trash" size={20} /></button>
+        </div>
       {/if}
       <div class="search-grow">
         <SearchBar {query} {sort} placeholder={fav ? t('library.favSearch') : inTrash ? t('library.trashSearch') : t('library.search')} defaultSort={defaultSort()} onsearch={search} onsaved={runSaved} onsort={setSort} />
@@ -443,31 +453,40 @@
     overflow-y: auto;
     overscroll-behavior: contain;
   }
-  /* "5 new ×" in the top bar: tap to mark the new files as seen. */
+  /* The top bar's numbers: in full, or shorter on phones (the bar holds the menu, logo, these, downloads and the bell). */
+  .brief {
+    display: none;
+  }
+  @media (max-width: 639px) {
+    .long {
+      display: none;
+    }
+    .brief {
+      display: inline;
+    }
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* The same square as Empty trash, in the accent. */
   .new-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
+    display: grid;
+    place-items: center;
     min-height: 0;
-    height: 26px;
-    padding: 0 6px 0 9px;
-    border-radius: 13px;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
     background: var(--mauve);
     color: var(--crust);
-    font-size: var(--font-small);
-    font-weight: 700;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
   }
-  /* Touch: a bigger target than it looks. */
-  @media (pointer: coarse) {
-    .new-chip {
-      position: relative;
-    }
-    .new-chip::after {
-      content: '';
-      position: absolute;
-      inset: -9px -4px;
+  @media (hover: hover) {
+    .new-chip:hover {
+      background: color-mix(in srgb, var(--mauve) 85%, white);
     }
   }
   .status {
@@ -498,16 +517,28 @@
   /* The search bar, and on the Trash page a red Empty trash button before it, as tall as the bar. */
   .search-row {
     display: flex;
-    gap: 8px;
+  }
+  /* What sits left of the search bar: its gap inside it, so sliding in and out moves the bar smoothly. */
+  .slot {
+    flex: none;
+    display: flex;
+    align-items: flex-start;
+    padding-right: 8px;
+    white-space: nowrap;
   }
   .search-grow {
     flex: 1;
     min-width: 0;
   }
+  /* Square, the search bar's one-line height (its border too), whatever the bar grows to. */
+  .empty-trash,
+  .new-chip {
+    --sq: max(var(--control-h), 38px); /* (44 px on phones; 38 with a mouse, as the bar with its input) */
+    width: var(--sq);
+    height: var(--sq);
+  }
   .empty-trash {
     flex: none;
-    align-self: stretch;
-    width: max(var(--control-h), 40px);
     min-height: 0;
     padding: 0;
     display: grid;

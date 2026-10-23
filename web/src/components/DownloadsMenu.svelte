@@ -121,9 +121,9 @@
     <div class="panel" bind:this={panel} role="dialog" aria-label={t('dlMenu.label')} {@attach backClose(close)} in:grow out:grow={{ out: true }}>
       <header>
         <h2>{t('dlMenu.label')}</h2>
-        <button class="quiet all" onclick={toDownloads}>{t('dlMenu.all')} <Icon name="right" size={15} /></button>
+        <button class="quiet link new" onclick={newDownload}><Icon name="plus" size={15} /> {t('newDl.open')}</button>
+        <button class="quiet link" onclick={toDownloads}>{t('dlMenu.all')} <Icon name="right" size={15} /></button>
       </header>
-      <button class="new" onclick={newDownload}><Icon name="plus" size={18} /> {t('newDl.open')}</button>
       {#if active.list.length}
         <ul>
           {#each active.list.slice(0, SHOWN) as s, i (s.id)}
@@ -148,7 +148,8 @@
           <button class="quiet more" onclick={toDownloads}>{t('dlMenu.more', { n: active.list.length - SHOWN })}</button>
         {/if}
       {:else}
-        <p class="empty" in:slideIn>{t('dlMenu.empty')}</p>
+        <!-- (nothing: a quiet check, no words - like the bell's) -->
+        <div class="empty" role="img" aria-label={t('dlMenu.empty')} in:slideIn><Icon name="check" size={22} /></div>
       {/if}
     </div>
   {/if}
@@ -244,22 +245,17 @@
     font-size: 14px;
     font-weight: 700;
   }
-  .all {
+  /* New download and All: small links in the heading. */
+  .link {
     min-height: 32px;
-    padding: 0 8px 0 10px;
+    padding: 0 8px;
     border: 0;
     font-size: var(--font-small);
     color: var(--mauve);
     gap: 2px;
   }
-  /* New download: the first thing in it, a full-width row. */
-  .new {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    margin: 8px 8px 4px;
-    min-height: 40px;
+  .link.new {
+    gap: 4px;
   }
   ul {
     list-style: none;
@@ -344,11 +340,14 @@
     color: var(--subtext);
   }
   .empty {
+    display: grid;
+    place-items: center;
     margin: 0;
-    padding: 14px 16px 18px;
-    text-align: center;
-    font-size: var(--font-small);
-    color: var(--overlay1);
+    padding: 18px 16px;
+    border: 0; /* (not the dashed box of an empty list elsewhere) */
+    border-radius: 0;
+    background: none;
+    color: var(--overlay0);
   }
   @media (prefers-reduced-motion: reduce) {
     .dl.running .arrow,
