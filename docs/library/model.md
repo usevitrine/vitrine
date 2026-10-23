@@ -56,7 +56,7 @@ Files, tags (one tag set, origins, namespaces), parents and siblings, delete/und
   still has a place in the order.
 - Web client: a sort menu in the top bar (above the search bar) - Newest/Oldest imported, Newest/Oldest uploaded. The sort is kept
   apart from the search (2026-10-14): never a chip; in the URL as its own `?sort=` (only when it differs
-  from the default); a `sort:` typed into the search moves into the menu. Default sort is a setting (Settings > Library,
+  from the default); a `sort:` typed into the search moves into the menu. Default sort is a setting (Settings > Library; Newest uploaded unless picked - since 2026-10-23, the user; was Newest imported -
   per device for now). The client adds `sort:x` to the query only when calling the API. (Superseded: the menu first
   edited a `sort:` chip.) The details panel shows the upload date.
 - **`system:site=` (2026-10-15)**: files that came from a site (`=` / `!=`; plugin ID or the site's address, any

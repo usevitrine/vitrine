@@ -604,12 +604,12 @@ test('sort menu: kept apart from the search, default sort setting', async ({ pag
 
   // A sort typed into the search goes to the menu, not into the chips.
   const input = page.getByPlaceholder(/Tag search/);
-  await input.fill('sort:uploaded');
+  await input.fill('sort:imported');
   await input.press('Enter');
-  await expect.poll(() => new URL(page.url()).searchParams.get('sort')).toBe('uploaded');
+  await expect.poll(() => new URL(page.url()).searchParams.get('sort')).toBe('imported');
   await expect(page.locator('.chip')).toHaveCount(0);
-  expect(await shownSort(page)).toBe('Newest uploaded');
-  expect(await firstId()).toBe(newest); // no upload times: falls back to import time
+  expect(await shownSort(page)).toBe('Newest imported');
+  expect(await firstId()).toBe(newest); // (no upload times in the test library: the same order as the default)
 
   // Default sort from Settings (shared, on the server) applies when nothing else is picked.
   const setSetting = (values: Record<string, unknown>) =>
@@ -620,7 +620,7 @@ test('sort menu: kept apart from the search, default sort setting', async ({ pag
   expect(await shownSort(page)).toBe('Oldest imported');
   await expect(page.getByRole('button', { name: 'Filters', exact: true }).locator('.dot')).toHaveCount(0); // it's the default
   expect(new URL(page.url()).searchParams.get('sort')).toBeNull(); // the default isn't written to the URL
-  await setSetting({ defaultSort: 'imported' });
+  await setSetting({ defaultSort: 'uploaded' });
 });
 
 test('settings are shared through the server; top spacing stays on the device', async ({ page }) => {
@@ -1178,12 +1178,12 @@ test('saved searches: save, run with its order, update after a change, rename, r
   await expect(star).toHaveAttribute('aria-label', /saved as Images/);
   await expect(panel.locator('li', { hasText: 'Images' }).locator('.count')).toHaveText(String(images));
 
-  // Videos, newest uploaded first (the order is saved too).
+  // Videos, newest imported first (not the default) (the order is saved too).
   await page.keyboard.press('Escape');
-  await page.goto('/?q=system:type%3Dvideo&sort=uploaded');
+  await page.goto('/?q=system:type%3Dvideo&sort=imported');
   await star.click();
   await panel.getByRole('button', { name: 'Save' }).click(); // no name typed: named after the search
-  await expect(panel.locator('li', { hasText: 'videos' })).toContainText('Newest uploaded');
+  await expect(panel.locator('li', { hasText: 'videos' })).toContainText('Newest imported');
 
   // Run Images from an empty search: its search, the default order.
   await page.goto('/');
@@ -1197,7 +1197,7 @@ test('saved searches: save, run with its order, update after a change, rename, r
   // Run the video one: the sort comes with it.
   await star.click();
   await panel.getByRole('button', { name: /^videos/ }).click();
-  await expect(page).toHaveURL(/sort=uploaded/);
+  await expect(page).toHaveURL(/sort=imported/);
 
   // Kept on the server: still there after a reload.
   await page.reload();
@@ -2104,7 +2104,7 @@ test('sort: the order opens a Sort by page, an order with two ways opens its own
   await expect(page.getByText(/^26 files/)).toBeVisible();
   await page.getByRole('button', { name: 'Filters', exact: true }).click();
   const pick = page.getByRole('button', { name: /^Sort by/ });
-  await expect(pick).toContainText('Imported');
+  await expect(pick).toContainText('Uploaded');
   await expect(pick).toContainText('Newest first');
   await expect(page.getByRole('button', { name: 'Reset to default' })).toHaveCount(0);
   // Sort by -> Imported -> Oldest first: applied, back on the menu (still open).
@@ -2541,17 +2541,17 @@ test('settings: the default sort is an action menu - a field, then its direction
   test.skip(test.info().project.name === 'desktop-chromium', 'phones (a sheet) and desktop (a menu) are enough');
   await page.goto('/settings/library');
   const field = page.getByRole('button', { name: 'Default sort' });
-  await expect(field).toHaveText(/Newest imported/);
+  await expect(field).toHaveText(/Newest uploaded/);
   await field.click();
   const menu = page.getByRole('menu', { name: 'Default sort' });
-  await expect(menu.getByRole('menuitemradio', { name: /Imported/ })).toHaveAttribute('aria-checked', 'true');
-  await expect(menu.getByRole('menuitemradio', { name: /Imported/ })).toContainText('Newest first');
+  await expect(menu.getByRole('menuitemradio', { name: /Uploaded/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(menu.getByRole('menuitemradio', { name: /Uploaded/ })).toContainText('Newest first');
   await menu.getByRole('menuitemradio', { name: /File size/ }).click();
   await page.getByRole('menu', { name: 'File size' }).getByRole('menuitemradio', { name: 'Smallest first' }).click();
   await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(field).toHaveText(/File size - smallest first/);
   await expect.poll(async () => (await page.evaluate(async () => (await fetch('/api/settings')).json())).defaultSort).toBe('size_asc');
-  await setSettings(page, { defaultSort: 'imported' });
+  await setSettings(page, { defaultSort: 'uploaded' });
 });
 
 test('details: a close button, Escape, a tap outside; phones: a sheet (the standard height) that drags down to close', async ({ page }) => {

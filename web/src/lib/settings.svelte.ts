@@ -48,7 +48,7 @@ class Settings {
   /** The search run when the app opens with no search in the URL. */
   defaultSearch = $state(load('defaultSearch', ''));
   /** The order used unless one is picked: imported, imported_asc, uploaded, uploaded_asc. */
-  defaultSort = $state(load('defaultSort', 'imported'));
+  defaultSort = $state(load('defaultSort', 'uploaded')); // newest uploaded first
   /** The Favorites page's default order: the newest favorite first. */
   favoritesSort = $state(load('favoritesSort', 'favorite'));
   /** The viewer's "I came" button and the Rankings page (off unless turned on). */
