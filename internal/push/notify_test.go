@@ -14,7 +14,7 @@ var en = i18n.For("en-US")
 
 func TestCompose(t *testing.T) {
 	one := Compose([]Event{{Kind: "new", Site: "safebooru.org", Query: "blue_sky", Subscription: true, New: 5}}, en)
-	if len(one) != 1 || one[0].Title != "5 new files" || one[0].Body != "from blue_sky on safebooru.org" || one[0].URL != "/?new=1" {
+	if len(one) != 1 || one[0].Title != "5 new files" || one[0].Body != "across 1 subscription: blue_sky" || one[0].URL != "/?new=1" {
 		t.Fatalf("one: %+v", one)
 	}
 	var many []Event

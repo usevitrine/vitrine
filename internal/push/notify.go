@@ -170,15 +170,16 @@ func Compose(events []Event, l i18n.Lang) []Message {
 			at[k] = len(subs)
 			subs = append(subs, e)
 		}
+		// Always "across N subscriptions: ..." (the user: "1 new file - across 1 subscription"), one or many; a single
+		// subscription without its count (the title says it).
 		m := Message{Title: l.T("push.newFiles", "n", total), URL: "/?new=1"} // the library, new files first
-		if len(subs) == 1 {
-			m.Body = l.T("push.fromOne", "what", what(subs[0]))
-		} else {
-			slices.SortStableFunc(subs, func(a, b Event) int { return cmp.Compare(b.New, a.New) })
-			m.Body = l.T("push.across", "n", len(subs), "list", list(subs, func(e Event) string {
-				return l.T("push.count", "query", query(e), "count", e.New)
-			}))
-		}
+		slices.SortStableFunc(subs, func(a, b Event) int { return cmp.Compare(b.New, a.New) })
+		m.Body = l.T("push.across", "n", len(subs), "list", list(subs, func(e Event) string {
+			if len(subs) == 1 {
+				return query(e)
+			}
+			return l.T("push.count", "query", query(e), "count", e.New)
+		}))
 		out = append(out, m)
 	}
 	if es := by["failed"]; len(es) > 0 {

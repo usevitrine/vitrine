@@ -26,7 +26,7 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
   controls fade in above it; sidebar items change hover at once (a crossfade between neighbors flickered).
 - **Notifications: hourly new files, finished downloads (2026-10-19)**: subscriptions' regular checks no longer
   notify one by one - their new files are summed up at the next full hour ("38 new files", "across 5 subscriptions:
-  a (12) · b (9) ..."; one subscription: "from blue_sky on safebooru.org"; a subscription checked twice in the hour
+  a (12) · b (9) ..."; one subscription too: "across 1 subscription: blue_sky" (2026-10-23, the user: "1 new file - across N subscription(s)"); a subscription checked twice in the hour
   counts once). A new subscription's first check (its initial download) and one-off downloads notify within
   seconds when they finish ("Subscription ready" / "Download finished", with how many new files; several at once:
   "3 subscriptions ready"). Failures and blacklisted tags as before. Stopping Vitrine sends what's waiting
