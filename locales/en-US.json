@@ -832,7 +832,9 @@
     "copy": "Copy",
     "copyBare": "Copy without namespace",
     "removeFromFile": "Remove from this file",
-    "removeFromComic": "Remove from this comic"
+    "removeFromComic": "Remove from this comic",
+    "blacklist": "Add to blacklist",
+    "unblacklist": "Remove from blacklist"
   },
   "tagBrowser": {
     "all": "All",
@@ -2027,18 +2029,22 @@
     "tapToPick": "Tap tags to pick them",
     "stopPicking": "Stop picking",
     "searchAll": "Search all of them",
-    "searchAllTitle": "A new search: files with all of them",
     "allOfThem": "All of them",
     "searchAny": "Search any of them",
-    "searchAnyTitle": "A new search: files with any of them",
     "anyOfThem": "Any of them",
     "addThem": "Add them to the search",
-    "addThemTitle": "Add them to the current search",
     "downloadAll": "Download all of them",
-    "downloadAllTitle": "A new download: posts with all of them",
     "downloadAny": "Download any of them",
-    "downloadAnyTitle": "A new download: posts with any of them (the site's OR search)",
-    "refreshQueued": "Its site isn’t answering: the refresh is queued for when it does"
+    "refreshQueued": "Its site isn’t answering: the refresh is queued for when it does",
+    "use": "Use",
+    "useThem": "Use the picked tags",
+    "blacklistThem": "Add them to the blacklist",
+    "blacklistedOne": "{tag} won’t be downloaded any more",
+    "blacklistedN": {
+      "one": "{n} tag won’t be downloaded any more",
+      "other": "{n} tags won’t be downloaded any more"
+    },
+    "unblacklisted": "{tag} can be downloaded again"
   },
   "viewer": {
     "countedFirst": "Counted · the first time for this one",

@@ -54,6 +54,14 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   chip of its own is replaced); DOWNLOAD - All of them (the form filled with all of them, each written the site's way)
   and Any of them (the site's OR search - only shown where the site the download would use has one: the picked
   tags' site, else the form's last one; `router.downloadDraft` {tags, any}). The button again ends picking.
+  **Since 2026-10-23** (the user: the little dialogue "feels inconsistent with the rest of the site"): the bar is one
+  row like the selection bar - "N picked", a **Use** button (`ActionMenu`: the usual menu, a sheet on phones - Search
+  all of them, Search any of them, Add them to the search, Download all of them, Download any of them, Add them to the
+  blacklist) and × - instead of the grey box of button grids.
+- **The download blacklist from the details (2026-10-23, the user: "quickly add tags to the blacklist in the details
+  panel")**: a tag's menu has Add to blacklist (Remove from blacklist when it's on it); picked tags have Add them to
+  the blacklist. A toast says so ("x won't be downloaded any more") with Undo; the list is read the first time a menu
+  needs it (`GET/POST /api/blacklist`, the same as Tags > Tag rules).
 - **Which site for a new download from tags (2026-10-20)**: a tag's New download (the details' tag menu, a search
   chip) and the picked tags' Download all/any go through `newDownload` (lib/newDownload.svelte.ts): it asks the server
   which sites gave the tags (`GET /api/tags/sites?t=...` -> per tag `[{site, count}]`, live files, most first) and

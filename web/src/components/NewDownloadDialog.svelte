@@ -240,8 +240,8 @@
     }}
     {@attach sheet && sheetDrag(onclose)}
     {@attach backClose(onclose)}
-    in:sheetIn|global={{ on: sheet }}
-    out:sheetOut|global={{ on: sheet }}>
+    in:sheetIn|global={{ on: sheet, desk: 'pop' }}
+    out:sheetOut|global={{ on: sheet, desk: 'pop' }}>
     {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
     <div class="head">
       {#if trail.length && page !== 'what'}
@@ -400,9 +400,12 @@
   .dialog {
     position: fixed;
     z-index: 81;
-    left: 50%;
-    top: var(--view-mid);
-    translate: -50% -50%;
+    /* In the middle of what can be seen (above the keyboard), placed by layout - whole pixels: a translate of -50%
+       left it half a pixel off, and its text shifted as an animation ended. */
+    inset: var(--view-top) 0 var(--kb, 0px);
+    height: fit-content;
+    margin: auto;
+    translate: 0 0; /* (an identity: drawn the same at rest as while it animates in) */
     width: min(460px, calc(100vw - 24px));
     max-height: calc(var(--view-h) - 24px);
     overflow: hidden auto; /* (never sideways: a long search wraps or ends in …) */
@@ -424,8 +427,9 @@
     right: 0;
     top: auto;
     bottom: var(--kb, 0px);
-    translate: none;
     width: auto;
+    height: auto;
+    margin: 0;
     max-height: calc(var(--view-h) - 12px);
     padding: 0 14px calc(18px + var(--bottom-room));
     border-width: 1px 0 0;

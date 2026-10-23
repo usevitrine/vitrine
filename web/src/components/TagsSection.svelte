@@ -1,19 +1,20 @@
 <script lang="ts">
   // The Tags section of the details panels (a library file's, a comic's): tags
   // grouped by namespace; a tap opens the tag's menu (search with it, exclude
-  // it, download it, move it to another namespace, copy, remove); several can
-  // be picked at once and searched or downloaded together; the pencil edits
+  // it, download it, blacklist it, move it to another namespace, copy, remove); several can
+  // be picked at once and searched, downloaded or blacklisted together (the usual menu); the pencil edits
   // them (nothing is saved until the check), the arrows read them again from
   // the site. The panel loads the tags and says how to change them.
   import { onDestroy, untrack } from 'svelte';
   import { reveal, pop, moved } from '../lib/motion';
-  import type { FileTag } from '../lib/api';
+  import { api, type FileTag } from '../lib/api';
   import { format, parse } from '../lib/query';
   import { toasts } from '../lib/toast.svelte';
   import { copyText } from '../lib/clipboard';
   import { useScope } from '../lib/scope.svelte';
   import TagInput from './TagInput.svelte';
   import TagMenu from './TagMenu.svelte';
+  import ActionMenu, { type MenuItem } from './ActionMenu.svelte';
   import Icon from './Icon.svelte';
   import { moveToNamespace, nsColor, nsLabel, nsRank, splitTag } from '../lib/namespaces.svelte';
   import { newDownload } from '../lib/newDownload.svelte';
@@ -181,6 +182,55 @@
   }
   const siteOf = (tag: string) => tags.find((x) => x.tag === tag)?.origins.find((o) => o !== 'user' && o !== 'new');
 
+  // ---- The download blacklist (Tags > Tag rules): a tag or the picked ones added in a tap, or one taken off; Undo.
+  let blacklist = $state<string[] | null>(null); // read the first time a menu shows it
+  function loadBlacklist() {
+    if (blacklist === null) api.blacklist().then((r) => (blacklist = r.tags)).catch(() => {});
+  }
+  async function setBlacklist(next: string[], said: string) {
+    const before = blacklist ?? [];
+    try {
+      blacklist = (await api.setBlacklist(next)).tags;
+      toasts.show(said, {
+        cat: 'tags',
+        action: { label: t('common.undo'), run: async () => (blacklist = (await api.setBlacklist(before)).tags) },
+      });
+    } catch (e) {
+      toasts.error((e as Error).message);
+    }
+  }
+  const blacklisted = (tag: string) => !!blacklist?.includes(tag);
+  function blacklistAdd(list: string[]) {
+    const add = list.filter((x) => !blacklisted(x));
+    if (!add.length) return;
+    setBlacklist([...(blacklist ?? []), ...add], add.length === 1 ? t('details.blacklistedOne', { tag: add[0] }) : t('details.blacklistedN', { n: add.length }));
+  }
+  function blacklistRemove(tag: string) {
+    setBlacklist((blacklist ?? []).filter((x) => x !== tag), t('details.unblacklisted', { tag }));
+  }
+  $effect(() => {
+    if (selecting || picked) loadBlacklist();
+  });
+
+  /** What the picked tags can be used for: the same menu as a row's ⋯ (a sheet on phones). */
+  const pickItems = $derived<MenuItem[]>([
+    { label: t('details.searchAll'), icon: 'search', run: () => useChosen('all') },
+    { label: t('details.searchAny'), icon: 'or', disabled: chosen.length < 2, run: () => useChosen('any') },
+    { label: t('details.addThem'), icon: 'plus', run: () => useChosen('add') },
+    { label: t('details.downloadAll'), icon: 'download', run: () => useChosen('download') },
+    { label: t('details.downloadAny'), icon: 'download', disabled: chosen.length < 2, run: () => useChosen('download-any') },
+    {
+      label: t('details.blacklistThem'),
+      icon: 'eyeoff',
+      disabled: chosen.every(blacklisted),
+      run: () => {
+        const list = [...chosen];
+        endSelecting();
+        blacklistAdd(list);
+      },
+    },
+  ]);
+
   function useChosen(how: 'all' | 'any' | 'add' | 'download' | 'download-any') {
     const list = [...chosen];
     if (!list.length) return;
@@ -291,21 +341,9 @@
   {/each}
   {#if selecting}
     <div class="pick-bar" role="toolbar" aria-label={t('details.picked')} transition:reveal>
-      <div class="pick-head">
-        <span class="pick-n">{chosen.length ? t('details.nPicked', { n: chosen.length }) : t('details.tapToPick')}</span>
-        <button class="icon pick-x" aria-label={t('details.stopPicking')} title={t('saved.done')} onclick={endSelecting}><Icon name="close" size={16} /></button>
-      </div>
-      <span class="pick-label">{t('tagMenu.search')}</span>
-      <div class="pick-row">
-        <button class="quiet" onclick={() => useChosen('all')} disabled={!chosen.length} aria-label={t('details.searchAll')} title={t('details.searchAllTitle')}>{t('details.allOfThem')}</button>
-        <button class="quiet" onclick={() => useChosen('any')} disabled={chosen.length < 2} aria-label={t('details.searchAny')} title={t('details.searchAnyTitle')}>{t('details.anyOfThem')}</button>
-        <button class="quiet" onclick={() => useChosen('add')} disabled={!chosen.length} aria-label={t('details.addThem')} title={t('details.addThemTitle')}>{t('tagMenu.addToSearch')}</button>
-      </div>
-      <span class="pick-label">{t('backups.download')}</span>
-      <div class="pick-row">
-        <button class="quiet" onclick={() => useChosen('download')} disabled={!chosen.length} aria-label={t('details.downloadAll')} title={t('details.downloadAllTitle')}>{t('details.allOfThem')}</button>
-        <button class="quiet" onclick={() => useChosen('download-any')} disabled={chosen.length < 2} aria-label={t('details.downloadAny')} title={t('details.downloadAnyTitle')}>{t('details.anyOfThem')}</button>
-      </div>
+      <span class="pick-n">{chosen.length ? t('details.nPicked', { n: chosen.length }) : t('details.tapToPick')}</span>
+      <ActionMenu label={t('details.useThem')} title={t('details.nPicked', { n: chosen.length })} icon="more" quiet text={t('details.use')} items={pickItems} disabled={!chosen.length} />
+      <button class="icon pick-x" aria-label={t('details.stopPicking')} title={t('saved.done')} onclick={endSelecting}><Icon name="close" size={18} /></button>
     </div>
   {/if}
 </section>
@@ -323,6 +361,8 @@
         }
       : undefined}
     oncopy={copyText}
+    blacklisted={blacklist === null ? undefined : blacklisted(p.tag)}
+    onblacklist={() => (blacklisted(p.tag) ? blacklistRemove(p.tag) : blacklistAdd([p.tag]))}
     onremove={save ? () => remove(p.tag) : undefined}
     removeText={comics ? t('tagMenu.removeFromComic') : undefined}
     onclose={(refocus) => {
@@ -395,59 +435,31 @@
   .tags li.removing .name {
     text-decoration: line-through;
   }
+  /* Picking: one row like the selection bar - how many, Use (the usual menu: search, download, blacklist), ×. */
   .pick-bar {
     position: sticky;
     bottom: 0;
-    display: grid;
-    gap: 6px;
-    margin-top: 12px;
-    padding: 0 10px 10px;
-    border-radius: 12px;
-    overflow: hidden;
-    background: var(--surface0);
-    box-shadow: 0 -6px 18px rgb(0 0 0 / 0.35);
-  }
-  /* The bar's header: how many are picked; × ends picking. */
-  .pick-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin: 0 -10px 4px;
-    padding: 6px 6px 6px 12px;
-    border-bottom: 1px solid var(--surface1);
+    gap: 6px;
+    margin-top: 12px;
+    padding: 6px 6px 6px 14px;
+    border-radius: 12px;
+    background: var(--crust);
+    border: 1px solid var(--surface0);
+    box-shadow: 0 -6px 18px rgb(0 0 0 / 0.35);
   }
   .pick-n {
-    font-size: var(--font);
+    flex: 1;
+    min-width: 0;
     font-weight: 700;
     color: var(--text);
-  }
-  .pick-x {
-    width: 30px;
-    min-width: 30px;
-    min-height: 30px;
-  }
-  /* Two rows (search, download) of equal buttons in three columns, each under a small heading. */
-  .pick-label {
-    margin-top: 2px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--overlay1);
-  }
-  .pick-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-  }
-  .pick-row button {
-    min-width: 0;
-    min-height: 34px;
-    padding: 0 6px;
-    font-size: var(--font-small);
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .pick-x {
+    flex: none;
   }
   /* Without the × (not editing), the name keeps even padding. */
   .tags li:not(:has(.x)) .name {

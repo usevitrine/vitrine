@@ -20,6 +20,8 @@
     ondownload,
     onnamespace,
     oncopy,
+    blacklisted,
+    onblacklist,
     onremove,
     onclose,
     removeText = t('tagMenu.removeFromFile'),
@@ -31,6 +33,10 @@
     ondownload: () => void; // a new download for the tag
     onnamespace?: (ns: string) => void; // into another namespace ("" = general), on every file (none: not offered)
     oncopy: (text: string) => void;
+    /** On the download blacklist (undefined: not known yet - Add is offered). */
+    blacklisted?: boolean;
+    /** Adds the tag to the download blacklist, or takes it off (none: not offered). */
+    onblacklist?: () => void;
     onremove?: () => void; // (none: not offered - tags that can't be changed here, e.g. a site's gallery being browsed)
     onclose: (refocus?: boolean) => void;
     removeText?: string; // (a comic's: "Remove from this comic")
@@ -104,8 +110,8 @@
     data-sheet={sheet ? '' : undefined}
     {@attach sheet && sheetDrag(onclose)}
     {@attach backClose(onclose)}
-    in:sheetIn={{ on: sheet }}
-    out:sheetOut={{ on: sheet }}
+    in:sheetIn={{ on: sheet, desk: 'drop' }}
+    out:sheetOut={{ on: sheet, desk: 'drop' }}
     bind:this={menu}
     role="menu"
     tabindex="-1"
@@ -152,6 +158,10 @@
       {/if}
       <button role="menuitem" onclick={() => pick(() => onsearch('only'))}><Icon name="search" size={18} /> {t('tagMenu.newSearch')}</button>
       <button role="menuitem" onclick={() => pick(ondownload)}><Icon name="download" size={18} /> {t('tagMenu.newDownload')}</button>
+      {#if onblacklist}
+        <button role="menuitem" onclick={() => pick(onblacklist)}
+          ><Icon name="eyeoff" size={18} /> {blacklisted ? t('tagMenu.unblacklist') : t('tagMenu.blacklist')}</button>
+      {/if}
     </div>
 
     <div class="group" role="group" aria-label={t('tagMenu.copy')}>

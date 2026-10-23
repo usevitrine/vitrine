@@ -61,9 +61,12 @@
   .dialog {
     position: fixed;
     z-index: 81;
-    left: 50%;
-    top: var(--view-mid); /* (above the keyboard: app.css) */
-    translate: -50% -50%;
+    /* In the middle of what can be seen (above the keyboard), placed by layout - whole pixels: a translate of -50%
+       left it half a pixel off, and its text shifted as an animation ended. */
+    inset: var(--view-top) 0 var(--kb, 0px);
+    height: fit-content;
+    margin: auto;
+    translate: 0 0; /* (an identity: drawn the same at rest as while it animates in) */
     width: min(var(--w), calc(100vw - 24px));
     max-height: calc(var(--view-h) - 24px);
     display: flex;

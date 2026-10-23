@@ -5421,7 +5421,7 @@ test('the menu scrolls when it is taller than the window', async ({ page }) => {
   await expect(page).toHaveURL(/\/settings\/account/);
 });
 
-test('details: pick several tags, then search all of them, any of them, add them to the search, or start a new download with them', async ({ page }) => {
+test('details: pick several tags, then search all of them, any of them, add them to the search, start a new download or blacklist them (the usual menu); a tag menu blacklists it', async ({ page }) => {
   const openPanel = async (q: string) => {
     await page.goto('/?q=' + encodeURIComponent(q));
     await page.locator('.tile[data-i="0"]').click();
@@ -5435,6 +5435,11 @@ test('details: pick several tags, then search all of them, any of them, add them
     await expect(tags.getByText('2 picked')).toBeVisible();
     await expect(tags.getByRole('button', { name: 'blue_sky', exact: true })).toHaveAttribute('aria-pressed', 'true');
   };
+  // The bar's Use: the usual menu (a sheet on phones).
+  const use = async (tags: ReturnType<typeof page.getByRole>, item: string) => {
+    await tags.getByRole('button', { name: 'Use the picked tags' }).click();
+    await page.getByRole('menuitem', { name: item }).click();
+  };
   // The bar's × ends picking (the tags open their menus again).
   let tags = await openPanel('blue_sky');
   await pick(tags);
@@ -5443,22 +5448,22 @@ test('details: pick several tags, then search all of them, any of them, add them
   await expect(tags.getByRole('button', { name: 'blue_sky', exact: true })).not.toHaveAttribute('aria-pressed');
   // Any of them: one OR group.
   await pick(tags);
-  await tags.getByRole('button', { name: 'Search any of them' }).click();
+  await use(tags, 'Search any of them');
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('( blue_sky ~ landscape )');
   // All of them, as a new search.
   tags = await openPanel('blue_sky');
   await pick(tags);
-  await tags.getByRole('button', { name: 'Search all of them' }).click();
+  await use(tags, 'Search all of them');
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('blue_sky landscape');
   // Added to the current search (blue_sky, already a chip there, is replaced - not doubled).
   tags = await openPanel('system:type=image blue_sky');
   await pick(tags);
-  await tags.getByRole('button', { name: 'Add them to the search' }).click();
+  await use(tags, 'Add them to the search');
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('system:type=image blue_sky landscape');
   // A new download: both, written the site's way (the form is filled in; nothing starts).
   tags = await openPanel('blue_sky');
   await pick(tags);
-  await tags.getByRole('button', { name: 'Download all of them' }).click();
+  await use(tags, 'Download all of them');
   const dlg = newDl(page);
   await dlg.getByRole('button', { name: 'safebooru.org' }).click();
   await expect(dlg.getByRole('combobox', { name: 'Search on the site' })).toHaveValue('blue_sky landscape');
@@ -5466,12 +5471,35 @@ test('details: pick several tags, then search all of them, any of them, add them
   // Any of them, as a download: the site's OR search (written its way) - a site without one: a search each.
   tags = await openPanel('blue_sky');
   await pick(tags);
-  await tags.getByRole('button', { name: 'Download any of them' }).click();
+  await use(tags, 'Download any of them');
   await dlg.getByRole('button', { name: 'safebooru.org' }).click();
   await expect(dlg).toContainText('2 searches, one for each combination');
   await dlg.getByRole('button', { name: 'Back' }).click();
   await dlg.getByRole('button', { name: 'test-down.invalid' }).click();
   await expect(dlg.getByRole('combobox', { name: 'Search on the site' })).toHaveValue('( blue_sky ~ landscape )');
+  await page.keyboard.press('Escape');
+
+  // The blacklist in a tap (mocked: shared by every test): a tag's menu adds it (Undo takes it off), the picked ones too.
+  let black: string[] = [];
+  await page.route('**/api/blacklist', async (r) => {
+    if (r.request().method() === 'POST') black = r.request().postDataJSON().tags;
+    await r.fulfill({ json: { tags: black } });
+  });
+  tags = await openPanel('blue_sky');
+  await tags.getByRole('button', { name: 'blue_sky', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Add to blacklist' }).click();
+  await expect(page.getByText("blue_sky won’t be downloaded any more")).toBeVisible();
+  expect(black).toEqual(['blue_sky']);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(() => black).toEqual([]);
+  await pick(tags);
+  await use(tags, 'Add them to the blacklist');
+  await expect(page.getByText("2 tags won’t be downloaded any more")).toBeVisible();
+  expect(black).toEqual(['blue_sky', 'landscape']);
+  await tags.getByRole('button', { name: 'landscape', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Remove from blacklist' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 test('masonry grid: justified rows - tiles in their files\' shapes, the order reading left to right, row by row; opening one still works', async ({ page }) => {

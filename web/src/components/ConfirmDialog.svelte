@@ -62,7 +62,7 @@
       duration: out ? 200 : 220,
       easing: cubicOut,
       // (going: it shrinks and sinks a little as it fades, as plain as coming)
-      css: (t: number) => `opacity: ${t}; transform: translate(-50%, calc(-50% + ${px(out ? (1 - t) * 8 : 0)})) scale(${settle(0.94 + 0.06 * t, sizeOf(node))})`,
+      css: (t: number) => `opacity: ${t}; transform: translateY(${px(out ? (1 - t) * 8 : 0)}) scale(${settle(0.94 + 0.06 * t, sizeOf(node))})`,
     };
   }
 </script>
@@ -126,9 +126,12 @@
   .dialog {
     position: fixed;
     z-index: 71;
-    left: 50%;
-    top: var(--view-mid); /* (above the keyboard: app.css) */
-    transform: translate(-50%, -50%);
+    /* In the middle of what can be seen (above the keyboard), placed by layout - whole pixels: a translate of -50%
+       left it half a pixel off, and its text shifted as an animation ended. */
+    inset: var(--view-top) 0 var(--kb, 0px);
+    height: fit-content;
+    margin: auto;
+    translate: 0 0; /* (an identity: drawn the same at rest as while it animates in) */
     width: min(380px, calc(100vw - 32px));
     max-height: calc(var(--view-h) - 24px);
     overflow-y: auto;
@@ -149,7 +152,8 @@
     top: auto;
     bottom: var(--kb, 0px); /* (just above the on-screen keyboard: a word to type) */
     width: auto;
-    transform: none;
+    height: auto;
+    margin: 0;
     padding: 0 20px calc(26px + var(--bottom-room));
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
