@@ -66,3 +66,7 @@ The near-duplicate finder (perceptual hashes) and the Duplicates screen.
   (`error`) takes no part; the wait never lasts more than 4 s (`HOLD_MAX`, a safety net: 1.5 s made the slow one
   seek-thrash again on a slow connection); a new element's join gives up after a second. Not reproduced here
   (desktop browsers load the test videos paused too); the library is ~all H.264 (13.8k of 13.9k videos).
+- **Still looking (2026-10-23)**: while the library is being looked through, the progress is a thin bar along the
+  header's bottom edge (its numbers in the tooltip and for screen readers) - it takes no room. It used to be a line
+  above the pictures that slid open and shut; the pictures (a flexible stage) shrank and grew with it, which showed as
+  a kept pair's picture shrinking (the user). The empty card and the video bar fade in place for the same reason.

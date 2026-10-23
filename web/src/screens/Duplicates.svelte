@@ -5,7 +5,7 @@
   // suggested. Keeping one gives it the other's tags and sources and deletes
   // the other (undo from the notice, or within the usual 7 days).
   import { onMount } from 'svelte';
-  import { reveal, pop, swap } from '../lib/motion';
+  import { pop, swap } from '../lib/motion';
   import { SvelteSet } from 'svelte/reactivity';
   import { api, type DupeFile, type DupePair } from '../lib/api';
   import { dupes, levels } from '../lib/dupes.svelte';
@@ -384,14 +384,15 @@
       value={String(dupes.level)}
       options={levels.map((l) => ({ ...l, value: String(l.value) }))}
       onchange={(v) => changeLevel(Number(v))} label={t('dupes.howAlike')} heading={t('dupes.showPairs')} align="end" />
+    <!-- Still looking through the library: a thin bar along the header's bottom edge - it takes no room, so the
+         pictures below never resize as it comes and goes; the numbers in its tooltip and for screen readers. -->
+    {#if checking && progress.total > 0}
+      {@const looking = t('dupes.looking', { checked: progress.checked, n: progress.total })}
+      <div class="progress" role="progressbar" aria-label={looking} aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100} title={looking} transition:swap>
+        <span style:width="{percent}%"></span>
+      </div>
+    {/if}
   </header>
-
-  {#if checking && progress.total > 0}
-    <div class="progress" role="status" transition:reveal>
-      <div class="bar"><span style:width="{percent}%"></span></div>
-      <span class="muted">{t('dupes.looking', { checked: progress.checked, n: progress.total })}</span>
-    </div>
-  {/if}
 
   {#if !loaded}
     <div class="nothing" in:swap></div>
@@ -509,6 +510,7 @@
     margin: 0 auto;
   }
   .head {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -529,17 +531,16 @@
     flex: 1;
   }
   .progress {
-    display: grid;
-    gap: 6px;
-    font-size: 13px;
-  }
-  .bar {
-    height: 4px;
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    bottom: -6px;
+    height: 3px;
     border-radius: 2px;
     background: var(--surface0);
     overflow: hidden;
   }
-  .bar span {
+  .progress span {
     display: block;
     height: 100%;
     background: var(--mauve);

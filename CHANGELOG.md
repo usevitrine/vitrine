@@ -19,7 +19,7 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 - **Tags in the details**: press and hold a tag to pick several; "Use" offers searching, downloading or
   blacklisting them. A tag’s menu can add it to the download blacklist (or take it off).
 - **Push notifications** for new files say "across N subscriptions" every time.
-- **Duplicates**: the picture no longer starts small and grows when the page opens.
+- **Duplicates**: the picture no longer starts small and grows when the page opens, or shrinks after you keep one; the “still looking” progress is a thin bar under the heading.
 - **The example compose file** includes FlareSolverr (optional) for sites behind Cloudflare.
 
 ## 1.0.0 - 2026-10-23
