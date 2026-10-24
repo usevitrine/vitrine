@@ -5443,9 +5443,10 @@ test('details: pick several tags, then search all of them, any of them, add them
     await expect(tags.getByText('2 picked')).toBeVisible();
     await expect(tags.getByRole('button', { name: 'blue_sky', exact: true })).toHaveAttribute('aria-pressed', 'true');
   };
-  // The bar's Use: the usual menu (a sheet on phones).
+  // The bar: Search and Download open the usual menu (a sheet on phones) with their ways; Blacklist adds them at once.
   const use = async (tags: ReturnType<typeof page.getByRole>, item: string) => {
-    await tags.getByRole('button', { name: 'Use the picked tags' }).click();
+    if (item === 'Add them to the blacklist') return tags.getByRole('button', { name: item }).click();
+    await tags.getByRole('button', { name: item.startsWith('Download') ? 'Download the picked tags' : 'Search with the picked tags' }).click();
     await page.getByRole('menuitem', { name: item }).click();
   };
   // The bar's × ends picking (the tags open their menus again); so does unpicking the last one; a right-click starts it too.

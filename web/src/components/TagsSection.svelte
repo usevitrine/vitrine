@@ -219,24 +219,33 @@
     setBlacklist((bl.tags ?? []).filter((x) => x !== entry), t('details.unblacklisted', { tag }));
   }
 
-  /** What the picked tags can be used for: the same menu as a row's ⋯ (a sheet on phones). */
-  const pickItems = $derived<MenuItem[]>([
+  /** The picked tags: Search and Download open the usual menu (a sheet on phones) with their ways; Blacklist adds
+   *  them at once (Undo in its toast). */
+  const searchItems = $derived<MenuItem[]>([
     { label: t('details.searchAll'), icon: 'search', run: () => useChosen('all') },
     { label: t('details.searchAny'), icon: 'or', disabled: chosen.length < 2, run: () => useChosen('any') },
     { label: t('details.addThem'), icon: 'plus', run: () => useChosen('add') },
-    { label: t('details.downloadAll'), icon: 'download', run: () => useChosen('download') },
-    { label: t('details.downloadAny'), icon: 'download', disabled: chosen.length < 2, run: () => useChosen('download-any') },
-    {
-      label: t('details.blacklistThem'),
-      icon: 'eyeoff',
-      disabled: chosen.every(blacklisted),
-      run: () => {
-        const list = [...chosen];
-        endSelecting();
-        blacklistAdd(list);
-      },
-    },
   ]);
+  const downloadItems = $derived<MenuItem[]>([
+    { label: t('details.downloadAll'), icon: 'download', run: () => useChosen('download') },
+    { label: t('details.downloadAny'), icon: 'or', disabled: chosen.length < 2, run: () => useChosen('download-any') },
+  ]);
+  function blacklistChosen() {
+    const list = [...chosen];
+    endSelecting();
+    blacklistAdd(list);
+  }
+  // The buttons' strip scrolls sideways when the panel is too narrow for them (soft edges where there's more).
+  let fades = $state({ l: false, r: false });
+  function edges(e: Event) {
+    const el = e.currentTarget as HTMLElement;
+    fades = { l: el.scrollLeft > 1, r: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 };
+  }
+  const watchEdges = (el: HTMLElement) => {
+    const ro = new ResizeObserver(() => edges({ currentTarget: el } as unknown as Event));
+    ro.observe(el);
+    return () => ro.disconnect();
+  };
 
   function useChosen(how: 'all' | 'any' | 'add' | 'download' | 'download-any') {
     const list = [...chosen];
@@ -347,7 +356,13 @@
   {#if selecting}
     <div class="pick-bar" role="toolbar" aria-label={t('details.picked')} transition:reveal>
       <span class="pick-n">{chosen.length ? t('details.nPicked', { n: chosen.length }) : t('details.tapToPick')}</span>
-      <ActionMenu label={t('details.useThem')} title={t('details.nPicked', { n: chosen.length })} icon="more" quiet text={t('details.use')} items={pickItems} disabled={!chosen.length} />
+      <div class="pick-acts" class:fade-l={fades.l} class:fade-r={fades.r} onscroll={edges} {@attach watchEdges}>
+        <ActionMenu label={t('details.searchThem')} title={t('details.nPicked', { n: chosen.length })} icon="search" quiet text={t('tagMenu.search')} items={searchItems} disabled={!chosen.length} />
+        <ActionMenu label={t('details.downloadThem')} title={t('details.nPicked', { n: chosen.length })} icon="download" quiet text={t('backups.download')} items={downloadItems} disabled={!chosen.length} />
+        <button class="quiet" aria-label={t('details.blacklistThem')} disabled={!chosen.length || chosen.every(blacklisted)} onclick={blacklistChosen}
+          ><Icon name="eyeoff" size={18} /> {t('details.blacklist')}</button
+        >
+      </div>
       <button class="icon pick-x" aria-label={t('details.stopPicking')} title={t('saved.done')} onclick={endSelecting}><Icon name="close" size={18} /></button>
     </div>
   {/if}
@@ -380,6 +395,7 @@
 <style>
   section {
     display: grid;
+    grid-template-columns: minmax(0, 1fr); /* (never wider than the panel: the pick bar's strip scrolls instead) */
     gap: 10px;
   }
   .head {
@@ -438,21 +454,66 @@
   }
   /* Picking: one row like the selection bar - how many, Use (the usual menu: search, download, blacklist), ×. */
   .pick-bar {
+    min-width: 0;
     position: sticky;
     bottom: 0;
     display: flex;
     align-items: center;
     gap: 6px;
     margin-top: 12px;
-    padding: 6px 6px 6px 14px;
+    padding: 3px 3px 3px 12px; /* (slim: its buttons a little under a control's height) */
     border-radius: 12px;
     background: var(--crust);
     border: 1px solid var(--surface0);
     box-shadow: 0 -6px 18px rgb(0 0 0 / 0.35);
   }
-  .pick-n {
-    flex: 1;
+  /* Search, Download, Blacklist: right-aligned when they fit, else a strip that scrolls sideways (snapping to
+     buttons; soft edges where there's more), as the selection bar's. */
+  .pick-acts {
+    flex: 1 1 auto;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    padding: 2px 0;
+    --fl: 0px;
+    --fr: 0px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fl), #000 calc(100% - var(--fr)), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 var(--fl), #000 calc(100% - var(--fr)), transparent);
+  }
+  .pick-acts::-webkit-scrollbar {
+    display: none;
+  }
+  .pick-acts.fade-l {
+    --fl: 24px;
+  }
+  .pick-acts.fade-r {
+    --fr: 24px;
+  }
+  .pick-acts > :first-child {
+    margin-left: auto;
+  }
+  .pick-acts > :global(*) {
+    flex: none;
+    scroll-snap-align: start;
+    min-height: 0;
+    height: calc(var(--control-h) - 10px);
+    padding-block: 0;
+  }
+  /* Blacklist: the same as the two menu buttons beside it (their text small and bold) */
+  .pick-acts > button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--font-small);
+    font-weight: 600;
+  }
+  .pick-n {
+    flex: none; /* (whole: the buttons scroll instead) */
     font-weight: 700;
     color: var(--text);
     white-space: nowrap;
@@ -461,6 +522,9 @@
   }
   .pick-x {
     flex: none;
+    min-height: 0;
+    height: calc(var(--control-h) - 10px);
+    width: calc(var(--control-h) - 10px);
   }
   /* Without the × (not editing), the name keeps even padding. */
   .tags li:not(:has(.x)) .name {
@@ -525,9 +589,9 @@
     background: var(--c);
     box-shadow: none;
   }
+  /* (the same weight as unpicked: bolder text was wider, and a tag at a row's end jumped to the next line) */
   .tags li.chosen .name {
     color: var(--crust);
-    font-weight: 600;
   }
   .tags button {
     background: none;

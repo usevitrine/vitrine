@@ -17,8 +17,7 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
   lists, chips, panels - and text no longer shifts as an animation ends; buttons and chips that come and go let what’s
   beside them glide, and the details panel changes smoothly as you move to the next file.
 - **iPhone**: pages, sheets and the menu keep clear of the screen’s rounded corners at the bottom.
-- **Tags in the details**: press and hold a tag to pick several; "Use" offers searching, downloading or
-  blacklisting them. A tag’s menu can add it to the download blacklist (or take it off), and blacklisted tags are
+- **Tags in the details**: press and hold a tag to pick several, then Search, Download or Blacklist them. A tag’s menu can add it to the download blacklist (or take it off), and blacklisted tags are
   marked with a crossed-out eye.
 - **Blacklist**: an entry with a namespace (“creator:x”) now also stops downloads of posts tagged x - sites send
   bare tags, so such entries let files through before; adding from the details adds the bare tag.

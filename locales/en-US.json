@@ -2038,8 +2038,6 @@
     "downloadAll": "Download all of them",
     "downloadAny": "Download any of them",
     "refreshQueued": "Its site isn’t answering: the refresh is queued for when it does",
-    "use": "Use",
-    "useThem": "Use the picked tags",
     "blacklistThem": "Add them to the blacklist",
     "blacklistedOne": "{tag} won’t be downloaded any more",
     "blacklistedN": {
@@ -2053,7 +2051,10 @@
       "one": "{n} more source",
       "other": "{n} more sources"
     },
-    "fewerSources": "Show fewer"
+    "fewerSources": "Show fewer",
+    "searchThem": "Search with the picked tags",
+    "downloadThem": "Download the picked tags",
+    "blacklist": "Blacklist"
   },
   "viewer": {
     "countedFirst": "Counted · the first time for this one",
