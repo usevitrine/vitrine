@@ -59,6 +59,9 @@ type Config struct {
 	// ReleasesURL is where the daily update check asks for the latest release (default: GitHub's API for
 	// usevitrine/vitrine); "off" never asks.
 	ReleasesURL string `toml:"releases_url"`
+	// ChangelogURL is where a new release's CHANGELOG.md is read from (%s: its tag; default: the repository's on
+	// GitHub) - Settings > Updates shows what's new in it.
+	ChangelogURL string `toml:"changelog_url"`
 }
 
 // envKeys maps each environment variable to the field it sets.
@@ -77,6 +80,7 @@ func (c *Config) envKeys() map[string]*string {
 		"VITRINE_WATCHTOWER_URL":   &c.WatchtowerURL,
 		"VITRINE_WATCHTOWER_TOKEN": &c.WatchtowerToken,
 		"VITRINE_RELEASES_URL":     &c.ReleasesURL,
+		"VITRINE_CHANGELOG_URL":    &c.ChangelogURL,
 	}
 }
 

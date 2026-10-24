@@ -106,7 +106,7 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	}
 	handler.SetBackups(backup.New(filepath.Join(c.DataDir, "meta.db"), c.BackupDir), stopServe)
 	go handler.RunDailyBackups(ctx)
-	handler.SetUpdates(server.UpdateConfig{ReleasesURL: c.ReleasesURL, UserAgent: userAgent(), WatchtowerURL: c.WatchtowerURL, WatchtowerToken: c.WatchtowerToken})
+	handler.SetUpdates(server.UpdateConfig{ReleasesURL: c.ReleasesURL, ChangelogURL: c.ChangelogURL, UserAgent: userAgent(), WatchtowerURL: c.WatchtowerURL, WatchtowerToken: c.WatchtowerToken})
 	go handler.RunUpdateChecks(ctx)
 	go handler.RunRenditionsAhead(ctx)
 	pusher, err := push.Open(ctx, d, log)

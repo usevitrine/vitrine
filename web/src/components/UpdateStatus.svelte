@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Vitrine's updates, in Settings > Account > About: up to date or the newer version (its page on GitHub), Check
+  // Vitrine's updates, at the top of Settings > Updates (its state shared with the page: bind:info): up to date or the newer version (its page on GitHub), Check
   // now, and with Watchtower set up an Update button - a backup, then Watchtower recreates the container on the new
   // image, followed full screen (lib/updater, components/Updater). Without Watchtower: how to update by hand.
   // The daily check can be switched off (shared: the server does it).
@@ -13,7 +13,7 @@
   import { t } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
 
-  let info = $state<UpdateState | null>(null);
+  let { info = $bindable(null) }: { info?: UpdateState | null } = $props();
   let checking = $state(false);
 
   onMount(async () => {

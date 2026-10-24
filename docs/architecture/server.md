@@ -135,8 +135,9 @@ waits before the server comes back up and fades the site back into view". `inter
   API for the latest release (`releases_url`, default `api.github.com/repos/usevitrine/vitrine/releases/latest`;
   "off" never asks - the end-to-end test servers) - only with the shared setting `updateCheck` (missing = on;
   Settings > Account > About). A newer `vX.Y.Z` than this program: `GET /api/update` says so (`newer`, `latest`,
-  `page`), and the bell gets a notice, once per version (kind `release`, the notice kind "A new Vitrine release",
-  leading to Settings > Account). Development builds (`dev`, the dev server's `test-...`) are never behind.
+  `page`, and `changelog`: that release's CHANGELOG.md, read from `changelog_url` - default the repository's on GitHub
+  at the tag, raw.githubusercontent.com; a failure there still offers the update), and the bell gets a notice, once per version (kind `release`, the notice kind "A new Vitrine release",
+  leading to Settings > Updates). Development builds (`dev`, the dev server's `test-...`) are never behind.
   `POST /api/update/check` is "Check now".
 - **The Update button** (only with `watchtower_url` + `watchtower_token`: Watchtower's HTTP API, the
   `nickfedor/watchtower` fork - containrrr's is archived - with `WATCHTOWER_HTTP_API_ENDPOINTS=update` and that
@@ -160,4 +161,8 @@ waits before the server comes back up and fades the site back into view". `inter
   (e2e, the API mocked).
 - compose.example.yaml has the Watchtower service (optional) and the two Vitrine variables; config.example.toml
   documents `watchtower_url`, `watchtower_token`, `releases_url`.
-
+- **Settings > Updates** (2026-10-24, the user: "The update section should be on its own update page with the change
+  log and if possible it gets the changes for the new version"): in place of What's new - the version installed and
+  UpdateStatus (up to date / the newer one, Release notes, Update, Check now, the daily check), then the newer
+  release's versions after this one (`lib/changelog.ts` reads both changelogs; `newerThan`), each card marked New,
+  then the installed changelog (ChangelogCard). About keeps the version and a link here.

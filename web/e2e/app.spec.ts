@@ -7552,10 +7552,10 @@ test('sections: switching Media off asks first, then whether to delete it all (a
   await page.evaluate(() => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaOff: false, comicsOff: false }) }));
 });
 
-test("settings: What's new is a page of its own with the changelog, newest first (built into the app)", async ({ page }) => {
+test('settings: Updates is a page of its own with the changelog, newest first (built into the app)', async ({ page }) => {
   await page.goto('/settings/account');
-  await page.locator('.about-links').getByRole('button', { name: 'What’s new' }).click(); // (also in the section list)
-  await expect(page).toHaveURL(/\/settings\/changelog$/);
+  await page.locator('.about-links').getByRole('button', { name: 'Updates' }).click(); // (also in the section list)
+  await expect(page).toHaveURL(/\/settings\/updates$/);
   await expect(page.getByRole('heading', { name: /^1\.0\.0/ })).toBeVisible();
   await expect(page.getByText('The first public release.')).toBeVisible();
   const heads = await page.locator('.log h2').allTextContents();
@@ -7581,12 +7581,12 @@ test('the blacklist clean-up: deleted files leave the library behind it at once 
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
-test('updates: a newer release in Settings > Account, Update runs the full-screen updater through its steps and fades back in on the new version; a failure says why and closes', async ({ page }) => {
+test('updates: a newer release in Settings > Updates with the changes in it, Update runs the full-screen updater through its steps and fades back in on the new version; a failure says why and closes', async ({ page }) => {
   let current = 'v1.0.1';
   let step = '';
   let error = '';
   let away = false;
-  const state = () => ({ current, latest: 'v9.9.9', page: 'https://github.com/usevitrine/vitrine/releases/tag/v9.9.9', newer: current !== 'v9.9.9', checked_at: Date.now(), error: '', check: true, can_update: true, updating: step, update_error: error });
+  const state = () => ({ current, latest: 'v9.9.9', page: 'https://github.com/usevitrine/vitrine/releases/tag/v9.9.9', newer: current !== 'v9.9.9', checked_at: Date.now(), error: '', check: true, can_update: true, updating: step, update_error: error, changelog: current === 'v9.9.9' ? '' : '# Changelog\n\n## 9.9.9 - 2026-11-01\n\n- **Shiny**: something new\n\n## 1.0.1 - 2026-10-24\n\n- **Old**: installed already\n' });
   await page.route('**/api/update', (r) => {
     if (r.request().method() === 'POST') {
       step = 'backup';
@@ -7595,8 +7595,12 @@ test('updates: a newer release in Settings > Account, Update runs the full-scree
     if (away) return r.fulfill({ status: 502, body: 'Bad Gateway' }); // (being recreated)
     return r.fulfill({ json: state() });
   });
-  await page.goto('/settings/account');
+  await page.goto('/settings/updates');
   await expect(page.getByText('Version v9.9.9 is out')).toBeVisible();
+  // What's new in it (its changelog, only the versions after this one), above the installed changes.
+  const news = page.locator('section', { hasText: 'Shiny' });
+  await expect(news.getByRole('heading', { name: /New.*9\.9\.9/ })).toBeVisible();
+  await expect(page.getByText('installed already')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Release notes' })).toHaveAttribute('href', /releases\/tag\/v9\.9\.9/);
   await page.getByRole('button', { name: 'Update to v9.9.9' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Update', exact: true }).click();
@@ -7617,7 +7621,7 @@ test('updates: a newer release in Settings > Account, Update runs the full-scree
 
   // A failure: says why (the server's reason), the old version still runs, Close.
   current = 'v1.0.1';
-  await page.goto('/settings/account');
+  await page.goto('/settings/updates');
   await page.getByRole('button', { name: 'Update to v9.9.9' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Update', exact: true }).click();
   step = '';

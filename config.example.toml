@@ -67,3 +67,8 @@
 # updating is a docker compose pull.
 # watchtower_url = "http://watchtower:8080"
 # watchtower_token = "a long random string"
+
+# Where a new release's CHANGELOG.md is read from, for Settings > Updates
+# (%s: the release's tag).
+# Default: the repository's on GitHub (raw.githubusercontent.com)
+# changelog_url = "https://example.com/vitrine/%s/CHANGELOG.md"

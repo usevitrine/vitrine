@@ -4,8 +4,9 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 
 ## Unreleased
 
-- **Updates**: Vitrine tells you when a new version is out (Settings > Account > About, and the bell; it checks
-  GitHub once a day and can be told not to). With Watchtower set up (see the example compose file), Update installs
+- **Updates**: a page of its own (Settings > Updates, in place of What’s new) - Vitrine tells you when a new
+  version is out (and the bell does; it checks GitHub once a day and can be told not to) and shows what’s new in
+  it above the changes so far. With Watchtower set up (see the example compose file), Update installs
   it from there: a backup first, then a full-screen updater follows each step and fades the app back in on the new
   version.
 

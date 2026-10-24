@@ -1,47 +1,21 @@
 <script lang="ts">
-  // Settings > What's new (its own page): the repository's CHANGELOG.md (built into the app, read when the page
-  // opens), a card per version - "Unreleased" first while changes wait for the next release - its lines as a list.
+  // A changelog as a card per version: the installed one's (the repository's CHANGELOG.md, built into the app, read
+  // when it shows) - "Unreleased" first while changes wait for the next release - or given versions (a newer
+  // release's, Settings > Updates: marked new). Each version's lines as a list.
   import { reveal } from '../lib/motion';
+  import { readChangelog, type ChangelogVersion } from '../lib/changelog';
   import { t } from '../lib/i18n.svelte';
+  import Icon from './Icon.svelte';
 
-  type Part = { text: string; bold: boolean };
-  type Version = { title: string; intro: string[]; items: Part[][] };
-  let versions = $state<Version[] | null>(null);
+  let { given = null }: { given?: ChangelogVersion[] | null } = $props();
+  let builtIn = $state<ChangelogVersion[] | null>(null);
   let failed = $state(false);
-
-  /** "**A** b" -> [{A, bold}, {b}]. */
-  const parts = (s: string): Part[] => s.split(/\*\*(.+?)\*\*/).map((text, i) => ({ text, bold: i % 2 === 1 })).filter((p) => p.text);
-
-  /** The changelog's "## version" sections: their plain lines and their "- " items (a wrapped item's lines joined). */
-  function read(md: string): Version[] {
-    const out: Version[] = [];
-    let item: string | null = null;
-    const flush = () => {
-      if (item !== null && out.length) out[out.length - 1].items.push(parts(item));
-      item = null;
-    };
-    for (const raw of md.split('\n')) {
-      const line = raw.trimEnd();
-      if (line.startsWith('## ')) {
-        flush();
-        out.push({ title: line.slice(3), intro: [], items: [] });
-      } else if (!out.length) continue;
-      else if (line.startsWith('- ')) {
-        flush();
-        item = line.slice(2);
-      } else if (item !== null && line.startsWith('  ')) item += ' ' + line.trim();
-      else if (line.trim()) {
-        flush();
-        out[out.length - 1].intro.push(line.trim());
-      } else flush();
-    }
-    flush();
-    return out;
-  }
+  let versions = $derived(given ?? builtIn);
 
   $effect(() => {
+    if (given) return;
     import('../../../CHANGELOG.md?raw')
-      .then((m) => (versions = read(m.default)))
+      .then((m) => (builtIn = readChangelog(m.default)))
       .catch(() => (failed = true));
   });
 </script>
@@ -52,7 +26,7 @@
   {:else if versions}
     {#each versions as v (v.title)}
       <section class="card" transition:reveal>
-        <h2>{v.title === 'Unreleased' ? t('changelog.unreleased') : v.title}</h2>
+        <h2>{#if given}<span class="new"><Icon name="download" size={14} /> {t('updates.newIn')}</span>{/if}{v.title === 'Unreleased' ? t('changelog.unreleased') : v.title}</h2>
         {#each v.intro as p, i (i)}<p class="intro">{p}</p>{/each}
         <ul>
           {#each v.items as it, i (i)}
@@ -76,6 +50,22 @@
   h2 {
     margin: 0;
     color: var(--mauve);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+  }
+  /* (a newer release's: not installed yet) */
+  .new {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--green);
+    background: color-mix(in srgb, var(--green) 14%, transparent);
   }
   .intro {
     margin: 0;

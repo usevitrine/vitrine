@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -46,18 +47,22 @@ func TestUpdateCheck(t *testing.T) {
 		if r.Header.Get("User-Agent") != "Vitrine/test" {
 			t.Errorf("User-Agent %q", r.Header.Get("User-Agent"))
 		}
+		if r.URL.Path == "/changelog/v1.0.2" {
+			io.WriteString(w, "# Changelog\n\n## 1.0.2 - 2026-11-01\n\n- **Something new**\n")
+			return
+		}
 		writeJSON(w, 200, map[string]string{"tag_name": tag, "html_url": "https://github.com/usevitrine/vitrine/releases/tag/" + tag})
 	}))
 	defer gh.Close()
 	e.h.SetInfo(Info{Version: "v1.0.1"})
-	e.h.SetUpdates(UpdateConfig{ReleasesURL: gh.URL, UserAgent: "Vitrine/test"})
+	e.h.SetUpdates(UpdateConfig{ReleasesURL: gh.URL, ChangelogURL: gh.URL + "/changelog/%s", UserAgent: "Vitrine/test"})
 
 	var st struct {
-		Current, Latest, Page string
-		Newer, Check          bool
-		CanUpdate             bool `json:"can_update"`
+		Current, Latest, Page, Changelog string
+		Newer, Check                     bool
+		CanUpdate                        bool `json:"can_update"`
 	}
-	if code := e.call("POST", "/api/update/check", map[string]any{}, &st); code != 200 || st.Latest != "v1.0.2" || !st.Newer || !st.Check || st.CanUpdate {
+	if code := e.call("POST", "/api/update/check", map[string]any{}, &st); code != 200 || st.Latest != "v1.0.2" || !st.Newer || !st.Check || st.CanUpdate || !strings.Contains(st.Changelog, "## 1.0.2") {
 		t.Fatalf("check: %d %+v", code, st)
 	}
 	e.h.checkForUpdate(context.Background())
@@ -73,7 +78,7 @@ func TestUpdateCheck(t *testing.T) {
 	// Up to date: not newer.
 	tag = "v1.0.1"
 	e.call("POST", "/api/update/check", map[string]any{}, &st)
-	if st.Newer {
+	if st.Newer || st.Changelog != "" {
 		t.Fatalf("same version called newer: %+v", st)
 	}
 	if code := e.call("POST", "/api/settings", map[string]any{"updateCheck": false}, nil); code != 200 {

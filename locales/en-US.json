@@ -548,9 +548,9 @@
         "label": "Account",
         "hint": "Log out"
       },
-      "changelog": {
-        "label": "What’s new",
-        "hint": "The changes in each version"
+      "updates": {
+        "label": "Updates",
+        "hint": "New versions and what changed"
       }
     },
     "title": "Settings",
@@ -661,7 +661,7 @@
       "license": "Free software under the GNU Affero General Public License v3 or later.",
       "source": "Source code",
       "thirdParty": "Third-party licenses",
-      "whatsNew": "What’s new"
+      "whatsNew": "Updates"
     }
   },
   "tags": {
@@ -2457,6 +2457,8 @@
       "download": "Downloading the new version",
       "restart": "Restarting",
       "start": "Starting the new version"
-    }
+    },
+    "installed": "Vitrine {version}",
+    "newIn": "New"
   }
 }

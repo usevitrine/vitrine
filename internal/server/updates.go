@@ -17,8 +17,9 @@ import (
 )
 
 // Updates: once a day the server asks GitHub for Vitrine's latest release (the setting updateCheck; missing = on).
-// A newer one than this program: GET /api/update says so (Settings > Account > About) and the bell gets a notice,
-// once per version (kind "release"). Development builds (a version that isn't vX.Y.Z) never call one newer.
+// A newer one than this program: GET /api/update says so (Settings > Updates) with that version's CHANGELOG.md (the
+// repository's at its tag: the page shows what's new in it), and the bell gets a notice, once per version (kind
+// "release"). Development builds (a version that isn't vX.Y.Z) never call one newer.
 //
 // The Update button: with Watchtower set up (watchtower_url + watchtower_token: its HTTP API, the update endpoint on),
 // POST /api/update starts the update and answers at once; the page follows it on GET /api/update ("updating": the
@@ -31,12 +32,16 @@ import (
 // ReleasesURL is GitHub's API address for the latest release.
 const ReleasesURL = "https://api.github.com/repos/usevitrine/vitrine/releases/latest"
 
+// ChangelogURL is where a release's CHANGELOG.md is (%s: its tag).
+const ChangelogURL = "https://raw.githubusercontent.com/usevitrine/vitrine/%s/CHANGELOG.md"
+
 // UpdateImage is the image Watchtower is asked to update (the official one; any tag).
 const UpdateImage = "ghcr.io/usevitrine/vitrine"
 
 // UpdateConfig is how the server checks for and installs updates.
 type UpdateConfig struct {
 	ReleasesURL     string // "" = ReleasesURL; "off" = never ask (tests)
+	ChangelogURL    string // "" = ChangelogURL (%s: the tag)
 	UserAgent       string
 	WatchtowerURL   string // "" = no Update button
 	WatchtowerToken string
@@ -50,6 +55,7 @@ type updates struct {
 	page   string // its page on GitHub
 	at     int64  // when it was last asked (Unix ms)
 	err    string // why the last check failed
+	log    string // the newer release's CHANGELOG.md ("" = none, or it couldn't be read)
 	// The update under way: its step ("backup", "download"; "" = none) and why the last one failed.
 	step, stepErr string
 }
@@ -65,6 +71,9 @@ func (u *updates) config() UpdateConfig {
 func (s *Server) SetUpdates(c UpdateConfig) {
 	if c.ReleasesURL == "" {
 		c.ReleasesURL = ReleasesURL
+	}
+	if c.ChangelogURL == "" {
+		c.ChangelogURL = ChangelogURL
 	}
 	if s.updates != nil { // (set again: the new settings, the routes are there)
 		s.updates.mu.Lock()
@@ -121,7 +130,15 @@ func (s *Server) checkForUpdate(ctx context.Context) {
 		s.log.Warn("checking for an update", "err", err)
 		return
 	}
-	u.latest, u.page, u.err = tag, page, ""
+	u.mu.Unlock()
+	changelog := ""
+	if newerVersion(tag, s.info.Version) {
+		if changelog, err = u.fetchChangelog(ctx, tag); err != nil {
+			s.log.Warn("reading the new version's changelog", "version", tag, "err", err) // (the update is still offered)
+		}
+	}
+	u.mu.Lock()
+	u.latest, u.page, u.err, u.log = tag, page, "", changelog
 	u.mu.Unlock()
 	if newerVersion(tag, s.info.Version) && !s.notices.has("release", tag) {
 		s.notices.put(library.Notice{At: time.Now().UnixMilli(), Kind: "release", Query: tag})
@@ -156,6 +173,26 @@ func (u *updates) fetchLatest(ctx context.Context) (tag, page string, err error)
 		return "", "", fmt.Errorf("the latest release has no version number (%q)", rel.Tag)
 	}
 	return rel.Tag, rel.Page, nil
+}
+
+// fetchChangelog reads a release's CHANGELOG.md (at most 1 MB).
+func (u *updates) fetchChangelog(ctx context.Context, tag string) (string, error) {
+	cfg := u.config()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf(cfg.ChangelogURL, url.PathEscape(tag)), nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", cfg.UserAgent)
+	res, err := u.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("answered %s", res.Status)
+	}
+	b, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	return string(b), err
 }
 
 // parseVersion reads "v1.2.3" (or "1.2.3"); anything else (dev, test-abc123, a pre-release) isn't one.
@@ -200,6 +237,7 @@ func (s *Server) updateStateJSON(ctx context.Context) map[string]any {
 		"latest":       u.latest,
 		"page":         u.page,
 		"newer":        newerVersion(u.latest, s.info.Version),
+		"changelog":    u.log, // (only a newer release's)
 		"checked_at":   u.at,
 		"error":        u.err,
 		"check":        check,

@@ -18,7 +18,7 @@ export interface Notice {
   cat: string; // the kind of notice (lib/noticeKinds)
   at: number; // Unix ms
   read: boolean;
-  to?: 'downloads' | 'settings'; // where it leads (a download's: the Downloads page; a new release's: Settings > Account)
+  to?: 'downloads' | 'settings'; // where it leads (a download's: the Downloads page; a new release's: Settings > Updates)
   sub?: string;
 }
 
@@ -95,7 +95,7 @@ class Notices {
   private make(e: ServerNotice): Notice {
     const w = word(e);
     const to = e.kind === 'app' ? undefined : e.kind === 'release' ? 'settings' : 'downloads';
-    return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to, sub: e.kind === 'release' ? 'account' : undefined };
+    return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to, sub: e.kind === 'release' ? 'updates' : undefined };
   }
 
   /** The list as the server has it (at the start, and whenever the live stream opens again). */

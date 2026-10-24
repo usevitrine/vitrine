@@ -226,6 +226,7 @@ export interface UpdateState {
   can_update: boolean; // Watchtower is set up: the Update button
   updating: '' | 'backup' | 'download'; // an update under way: its step on the server
   update_error: string; // why the last update failed
+  changelog: string; // a newer release's CHANGELOG.md ("" = none, or it couldn't be read)
 }
 
 export interface BackupInfo {
