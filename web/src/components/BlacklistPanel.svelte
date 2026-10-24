@@ -86,7 +86,7 @@
           label: t('common.undo'),
           run: async () => {
             await api.restore(res.ids);
-            toasts.show(t('common.restored'), { cat: 'deleted' });
+            toasts.show(t('trash.restored', { n: res.ids.length }), { cat: 'deleted' });
             loadMatches();
             results.changedElsewhere();
           },

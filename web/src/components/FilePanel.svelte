@@ -14,7 +14,7 @@
   import '../lib/details.css';
   import Icon from './Icon.svelte';
   import SiteIcon from './SiteIcon.svelte';
-  import { t, num } from '../lib/i18n.svelte';
+  import { itemName, t, num } from '../lib/i18n.svelte';
   import { when, shortDate, fullDate, host } from '../lib/when';
 
   let { file, onsearch }: { file: FileInfo; onsearch: (q: string) => void } = $props();
@@ -88,7 +88,7 @@
       const { found, queued } = await api.refreshFile(id);
       // (a paused site - it kept failing to answer: queued for when it does)
       if (queued && !found) toasts.show(t('details.refreshQueued'), { cat: 'refreshed' });
-      else toasts.show(found ? t('details.refreshed') : t('details.gone'), { cat: 'refreshed', kind: found ? 'done' : 'info' });
+      else toasts.show(found ? t('details.refreshed', { what: itemName(id) }) : t('details.gone'), { cat: 'refreshed', kind: found ? 'done' : 'info' });
       if (id === file.id) load(id);
     } catch (e) {
       toasts.error((e as Error).message);

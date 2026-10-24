@@ -1,10 +1,7 @@
 package push
 
 import (
-	"cmp"
 	"context"
-	"fmt"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -129,110 +126,50 @@ func (n *Notifier) send(events []Event) {
 	}
 }
 
-// Compose turns events into notifications in a language: one per kind.
+// Compose turns events into notifications in a language: one per kind. They say what happened and how many - never
+// a site, a tag, a search or an error's text (the user: nothing "that could be explicit"; a push passes through the
+// browser maker's push service and shows on a locked screen). Tapping one opens the page that has the names.
 func Compose(events []Event, l i18n.Lang) []Message {
 	by := map[string][]Event{}
 	for _, e := range events {
 		by[e.Kind] = append(by[e.Kind], e)
 	}
-	query := func(e Event) string {
-		if e.Query == "" {
-			return l.T("push.everything")
-		}
-		return clip(e.Query, 60)
-	}
-	what := func(e Event) string { return l.T("push.on", "query", query(e), "site", e.Site) }
-	// list joins up to five items: "a (3) · b (2) · c (1) and 2 more".
-	list := func(es []Event, f func(Event) string) string {
-		var parts []string
-		for i, e := range es {
-			if i == 5 {
-				return strings.Join(parts, " · ") + " " + l.T("push.andMore", "n", len(es)-5)
-			}
-			parts = append(parts, f(e))
-		}
-		return strings.Join(parts, " · ")
-	}
 	var out []Message
 	if es := by["new"]; len(es) > 0 {
-		// An hour's checks: one line per subscription (it may have been checked
-		// more than once), the most files first.
-		var subs []Event
-		at := map[string]int{}
+		// An hour's checks: how many new files, from how many subscriptions (one may have been checked more than once).
+		subs := map[string]bool{}
 		total := 0
 		for _, e := range es {
 			total += e.New
-			k := e.Site + "\x00" + e.Query
-			if i, ok := at[k]; ok {
-				subs[i].New += e.New
-				continue
-			}
-			at[k] = len(subs)
-			subs = append(subs, e)
+			subs[e.Site+"\x00"+e.Query] = true
 		}
-		// Always "across N subscriptions: ..." (the user: "1 new file - across 1 subscription"), one or many; a single
-		// subscription without its count (the title says it).
-		m := Message{Title: l.T("push.newFiles", "n", total), URL: "/?new=1"} // the library, new files first
-		slices.SortStableFunc(subs, func(a, b Event) int { return cmp.Compare(b.New, a.New) })
-		m.Body = l.T("push.across", "n", len(subs), "list", list(subs, func(e Event) string {
-			if len(subs) == 1 {
-				return query(e)
-			}
-			return l.T("push.count", "query", query(e), "count", e.New)
-		}))
-		out = append(out, m)
+		out = append(out, Message{Title: l.T("push.newFiles", "n", total), Body: l.T("push.fromSubs", "n", len(subs)), URL: "/?new=1"}) // the library, new files first
 	}
 	if es := by["failed"]; len(es) > 0 {
-		m := Message{URL: "/downloads"}
-		if len(es) == 1 {
-			e := es[0]
-			m.Title = l.T("push.downloadStopped")
-			if e.Subscription {
-				m.Title = l.T("push.checkFailed")
-			}
-			m.Body = what(e) + ": " + clip(e.Error, 140)
-		} else {
+		m := Message{URL: "/downloads", Body: l.T("push.seeWhy")}
+		switch {
+		case len(es) > 1:
 			m.Title = l.T("push.downloadsFailed", "n", len(es))
-			m.Body = list(es, query)
+		case es[0].Subscription:
+			m.Title = l.T("push.checkFailed")
+		default:
+			m.Title = l.T("push.downloadStopped")
 		}
 		out = append(out, m)
 	}
 	// A site that kept failing to answer (its downloads wait), or answers again: one notification per site.
-	for _, e := range by["paused"] {
-		out = append(out, Message{URL: "/downloads", Title: l.T("push.sitePaused", "site", e.Site), Body: l.T("push.sitePausedBody", "error", clip(e.Error, 140))})
+	for range by["paused"] {
+		out = append(out, Message{URL: "/downloads", Title: l.T("push.sitePaused"), Body: l.T("push.sitePausedBody")})
 	}
-	for _, e := range by["back"] {
-		out = append(out, Message{URL: "/downloads", Title: l.T("push.siteBack", "site", e.Site), Body: l.T("push.siteBackBody")})
+	for range by["back"] {
+		out = append(out, Message{URL: "/downloads", Title: l.T("push.siteBack"), Body: l.T("push.siteBackBody")})
 	}
 	if es := by["blacklisted"]; len(es) > 0 {
-		// Files already in the library that got a blacklisted tag: the blacklist
-		// (Tags > Tag rules) shows them, with Show them / Delete them.
-		m := Message{URL: "/tags/rules", Title: l.T("push.blacklisted", "n", len(es))}
-		count := map[string]int{}
-		var tags []string
-		for _, e := range es {
-			if count[e.Tag] == 0 {
-				tags = append(tags, e.Tag)
-			}
-			count[e.Tag]++
-		}
-		slices.SortStableFunc(tags, func(a, b string) int { return cmp.Compare(count[b], count[a]) })
-		var parts []string
-		for i, t := range tags {
-			if i == 5 {
-				parts = append(parts, l.T("push.andMore", "n", len(tags)-5))
-				break
-			}
-			if count[t] > 1 {
-				t = fmt.Sprintf("%s (%d)", t, count[t])
-			}
-			parts = append(parts, t)
-		}
-		m.Body = l.T("push.blacklistedBody", "tags", strings.Join(parts, " · "))
-		out = append(out, m)
+		// Files already in the library that got a blacklisted tag: the blacklist (Tags > Tag rules) shows them.
+		out = append(out, Message{URL: "/tags/rules", Title: l.T("push.blacklisted", "n", len(es)), Body: l.T("push.blacklistedBody")})
 	}
-	// Finished: one-off downloads, and new subscriptions' first checks (their
-	// initial downloads), each their own notification.
+	// Finished: one-off downloads, and new subscriptions' first checks (their initial downloads), each their own
+	// notification - how many, and how many new files in all.
 	var oneOff, first []Event
 	for _, e := range by["done"] {
 		if e.First {
@@ -245,13 +182,11 @@ func Compose(events []Event, l i18n.Lang) []Message {
 		if len(es) == 0 {
 			return
 		}
-		m := Message{URL: "/downloads", Title: title(len(es))}
-		if len(es) == 1 {
-			m.Body = what(es[0]) + ": " + l.T("push.newFiles", "n", es[0].New)
-		} else {
-			m.Body = list(es, func(e Event) string { return l.T("push.countNew", "query", query(e), "count", e.New) })
+		total := 0
+		for _, e := range es {
+			total += e.New
 		}
-		out = append(out, m)
+		out = append(out, Message{URL: "/downloads", Title: title(len(es)), Body: l.T("push.newFiles", "n", total)})
 	}
 	appendDone(first, func(n int) string { return l.T("push.subsReady", "n", n) })
 	appendDone(oneOff, func(n int) string { return l.T("push.downloadsDone", "n", n) })

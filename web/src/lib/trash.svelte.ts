@@ -8,7 +8,7 @@ import { router } from './router.svelte';
 import { confirmAction } from './confirm.svelte';
 import { toasts } from './toast.svelte';
 import { formatSize } from './results.svelte';
-import { t } from './i18n.svelte';
+import { itemName, t } from './i18n.svelte';
 
 class Trash {
   /** A trash page is showing (its words: "Deleted" for the modified order). */
@@ -55,7 +55,8 @@ export async function restoreFiles(results: Refreshable, ids: number[]) {
     toasts.error((e as Error).message);
     return false;
   }
-  toasts.show(t(ofComics(results) ? 'trash.restoredComics' : 'trash.restored', { n: ids.length }), { cat: 'deleted', kind: 'done' });
+  const restoredWords = ids.length === 1 ? t('trash.restoredOne', { what: itemName(ids[0], ofComics(results)) }) : t(ofComics(results) ? 'trash.restoredComics' : 'trash.restored', { n: ids.length });
+  toasts.show(restoredWords, { cat: 'deleted', kind: 'done' });
   await Promise.all([results.refresh(), trash.load()]);
   return true;
 }
@@ -76,7 +77,7 @@ export async function purgeFiles(results: Refreshable, ids: number[], thumbs: st
     toasts.error((e as Error).message);
     return false;
   }
-  toasts.show(t(comics ? 'trash.purgedComics' : 'trash.purged', { n: ids.length }), { cat: 'deleted', kind: 'removed' });
+  toasts.show(ids.length === 1 ? t('trash.purgedOne', { what: itemName(ids[0], comics) }) : t(comics ? 'trash.purgedComics' : 'trash.purged', { n: ids.length }), { cat: 'deleted', kind: 'removed' });
   await Promise.all([results.refresh(), trash.load()]);
   return true;
 }

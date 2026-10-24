@@ -15,7 +15,7 @@
   import { isRead, isReading } from '../lib/comics';
   import type { Comic } from '../lib/api';
   import { router } from '../lib/router.svelte';
-  import { t, num } from '../lib/i18n.svelte';
+  import { itemName, t, num } from '../lib/i18n.svelte';
   import { live } from '../lib/live.svelte';
   import { comicsScope, provideScope } from '../lib/scope.svelte';
   import { topbar } from '../lib/topbar.svelte';
@@ -355,7 +355,7 @@
     }
     if (openID === c.id) closeReader();
     details = null;
-    toasts.show(t('comics.deletedOne'), { cat: 'deleted',
+    toasts.show(t('common.deletedOne', { what: itemName(c.id, true) }), { cat: 'deleted',
       kind: 'removed',
       action: {
         label: t('common.undo'),

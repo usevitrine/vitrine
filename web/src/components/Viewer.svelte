@@ -25,7 +25,7 @@
   import FilePanel from './FilePanel.svelte';
   import Icon from './Icon.svelte';
   import { setFavorite } from '../lib/favorites';
-  import { t, num } from '../lib/i18n.svelte';
+  import { itemName, t, num } from '../lib/i18n.svelte';
 
   let {
     index = $bindable(0),
@@ -171,7 +171,7 @@
     try {
       const res = await api.climax(f.id);
       results.patch(f.id, { came: res.count });
-      toasts.show(res.count === 1 ? t('viewer.countedFirst') : t('viewer.counted', { n: res.count }), { cat: 'came',
+      toasts.show(t(res.count === 1 ? 'viewer.countedFirst' : 'viewer.counted', { what: itemName(f.id), n: res.count }), { cat: 'came',
         action: {
           label: t('common.undo'),
           run: async () => {
@@ -862,7 +862,7 @@
       toasts.error((e as Error).message);
       return;
     }
-    toasts.show(t('grid.deleted'), { cat: 'deleted',
+    toasts.show(t('common.deletedOne', { what: itemName(f.id) }), { cat: 'deleted',
       kind: 'removed',
       action: {
         label: t('common.undo'),

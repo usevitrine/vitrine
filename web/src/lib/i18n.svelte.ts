@@ -118,6 +118,9 @@ export function dateTime(d: Date | number, opts: Intl.DateTimeFormatOptions): st
  * plural text picks its form by vars.n. A missing text shows its key (and
  * `npm run i18n:check` catches it before that).
  */
+/** One item as notices name it: "file #1234", "comic #56" (the user: one item by its ID, more by their count). */
+export const itemName = (id: number, comic = false) => t(comic ? 'common.comicId' : 'common.fileId', { id });
+
 export function t(key: string, vars?: Record<string, string | number>): string {
   const lang = i18n.lang;
   let v = texts[lang]?.[key] ?? texts[MAIN][key];

@@ -297,7 +297,8 @@
     try {
       const res = await api.climaxPage(c.id, p);
       setCount(res.count);
-      toasts.show(res.count === 1 ? t('viewer.countedFirst') : t('viewer.counted', { n: res.count }), { cat: 'came',
+      const what = t('common.pageOfComic', { page: p + 1, id: c.id });
+      toasts.show(t(res.count === 1 ? 'viewer.countedFirst' : 'viewer.counted', { what, n: res.count }), { cat: 'came',
         action: {
           label: t('common.undo'),
           run: async () => {

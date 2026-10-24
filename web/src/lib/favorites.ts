@@ -3,7 +3,7 @@
 // runs again if it depends on favorites (system:favorite, sort:favorite).
 import { results as libraryResults, type Results } from './results.svelte';
 import { toasts } from './toast.svelte';
-import { t } from './i18n.svelte';
+import { itemName, t } from './i18n.svelte';
 
 const dependsOnFavorites = (results: Results) => results.scope === 'favorites' || /system:(favou?rite|fav)/i.test(results.query) || results.sort.startsWith('favorite');
 
@@ -22,7 +22,7 @@ export async function setFavorite(ids: number[], on: boolean, quiet = false, res
   const leaves = !on && dependsOnFavorites(results);
   if (!quiet || ids.length > 1 || leaves) {
     const n = ids.length;
-    const text = n === 1 ? t(on ? 'favorites.added' : 'favorites.removed') : t(on ? 'favorites.addedN' : 'favorites.removedN', { n });
+    const text = n === 1 ? t(on ? 'favorites.added' : 'favorites.removed', { what: itemName(ids[0]) }) : t(on ? 'favorites.addedN' : 'favorites.removedN', { n });
     toasts.show(text, { cat: 'favorites',
       kind: on ? 'done' : 'removed',
       action: leaves ? { label: t('common.undo'), run: () => setFavorite(ids, true, true, results) } : undefined,

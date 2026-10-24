@@ -18,7 +18,7 @@
   import Icon from './Icon.svelte';
   import SiteIcon from './SiteIcon.svelte';
   import '../lib/details.css';
-  import { t, num } from '../lib/i18n.svelte';
+  import { itemName, t, num } from '../lib/i18n.svelte';
   import { when, fullDate, host } from '../lib/when';
 
   let {
@@ -67,7 +67,7 @@
       title = value || original;
       siteTitle = value && value !== original ? original : undefined;
       // (Undo: the title it had - the user's own before, or the site's.)
-      toasts.show(value ? t('comics.renamed') : t('comics.titleBack'), { cat: 'comicEdits',
+      toasts.show(value ? t('comics.renamed', { what: itemName(comic.id, true) }) : t('comics.titleBack'), { cat: 'comicEdits',
         kind: 'done',
         action: { label: t('common.undo'), run: () => rename(hadOwn ? before : null) },
       });
@@ -127,7 +127,7 @@
     const id = comic.id;
     try {
       const { found } = await api.comicsRefresh([id]);
-      toasts.show(found ? t('details.refreshed') : t('details.gone'), { cat: 'refreshed', kind: found ? 'done' : 'info' });
+      toasts.show(found ? t('details.refreshed', { what: itemName(id, true) }) : t('details.gone'), { cat: 'refreshed', kind: found ? 'done' : 'info' });
       if (id === comic.id) load(id);
       onchanged();
     } catch (e) {
@@ -275,6 +275,7 @@
 
   <div class="tags-wrap" class:stale aria-busy={stale}>
   <TagsSection
+    comic
     item={comic.id}
     {tags}
     {onsearch}

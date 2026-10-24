@@ -9,6 +9,10 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
   it above the changes so far. With Watchtower set up (see the example compose file), Update installs
   it from there: a backup first, then a full-screen updater follows each step and fades the app back in on the new
   version.
+- **Notifications**: pop-ups stack by kind like the Downloads page (newest in front, the rest peeking out behind;
+  point at or tap a stack to fan it out), sit just above the bottom of the screen and come and go smoothly; the bell
+  stacks the same way. A notice about one file or comic names it (“Deleted file #1234”); several just say how many.
+  Push notifications no longer show site names, tags or searches - only what happened and how many.
 - **Downloads**: a download's line is shorter - "57,734/72,588" (posts gone through, out of the limit you picked or
   the site's count), then icons with counts for new, had, blacklisted and the rest. A limit now counts every post
   gone through, blacklisted ones too, like the line does.

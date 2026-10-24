@@ -5,7 +5,7 @@ import { api, type Collection } from './api';
 import { toasts } from './toast.svelte';
 import { askText } from './prompt.svelte';
 import { confirmAction } from './confirm.svelte';
-import { t } from './i18n.svelte';
+import { itemName, t } from './i18n.svelte';
 
 class Collections {
   list = $state<Collection[]>([]);
@@ -40,7 +40,7 @@ class Collections {
       }
       await api.setCollection(ids, collection);
       const k = this.list.find((x) => x.id === collection);
-      await this.done(t('collections.added', { name: k?.name ?? '', n: ids.length }));
+      await this.done(ids.length === 1 ? t('collections.addedOne', { what: itemName(ids[0], true), name: k?.name ?? '' }) : t('collections.added', { name: k?.name ?? '', n: ids.length }));
       return true;
     } catch (e) {
       toasts.error((e as Error).message);
@@ -51,7 +51,7 @@ class Collections {
   async remove(ids: number[]): Promise<boolean> {
     try {
       await api.setCollection(ids, 0);
-      await this.done(t('collections.removed', { n: ids.length }));
+      await this.done(ids.length === 1 ? t('collections.removedOne', { what: itemName(ids[0], true) }) : t('collections.removed', { n: ids.length }));
       return true;
     } catch (e) {
       toasts.error((e as Error).message);

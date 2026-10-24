@@ -275,7 +275,7 @@ test('tagging from the viewer: the pencil edits (add, remove), the check saves',
   await expect(panel.getByText('1 to add')).toBeVisible();
   expect(await tagsOf()).not.toContain('e2e_tag');
   await panel.getByRole('button', { name: 'Save tags' }).click();
-  await expect(page.getByText('Tags saved (added 1)')).toBeVisible();
+  await expect(page.getByText(/^Saved the tags of file #\d+ \(added 1\)$/)).toBeVisible();
   await expect.poll(tagsOf).toContain('e2e_tag');
   await expect(panel.getByRole('button', { name: 'Edit tags' })).toBeVisible();
   // Remove: × marks it, × again keeps it, × once more and save removes it.
@@ -701,7 +701,7 @@ test('blacklist: add tags, see matching files, show them, delete and undo', asyn
   await expect(page.getByText('Deleted 2 files')).toBeVisible();
   await expect(panel.getByText('No files in the library have these tags.')).toBeVisible();
   await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(page.getByText('Restored')).toBeVisible();
+  await expect(page.getByText('Restored 2 files')).toBeVisible();
   await expect(panel.getByText(/^2\s+files in the library/)).toBeVisible();
   expect(deletes).toHaveLength(1);
   expect(restores).toEqual([{ ids: [101, 102] }]); // (Undo brings back exactly what was deleted)
@@ -4098,7 +4098,7 @@ test('the bell rings for what the downloader did: a subscription check that fail
   await expect(bell).toBeVisible({ timeout: 15000 });
   await bell.click();
   const item = page.getByRole('dialog', { name: 'Notifications' }).locator('.row.error', { hasText: 'bell_sub' }).first();
-  await expect(item).toContainText('Subscription check failed');
+  await expect(item).toContainText('A subscription check failed');
   await expect(item).toContainText('test-down.invalid');
   await item.getByRole('button').click();
   await expect(page).toHaveURL(/\/downloads/);
@@ -6683,7 +6683,7 @@ test('comics: the library\'s search, grid and selection - tags or title, filters
   await addTag.pressSequentially('some_artist');
   await addTag.press('Enter');
   await details.getByRole('button', { name: 'Save tags' }).click();
-  await expect(page.getByText('Tags saved (added 1)')).toBeVisible();
+  await expect(page.getByText(/^Saved the tags of comic #\d+ \(added 1\)$/)).toBeVisible();
   await details.getByRole('button', { name: 'some_artist', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: /^Remove from this comic/ })).toBeVisible();
   await page.getByRole('menuitem', { name: /^New search/ }).click(); // a tag searches the comics
@@ -6709,7 +6709,7 @@ test('comics: the library\'s search, grid and selection - tags or title, filters
   await page.getByRole('menuitem', { name: 'Select' }).click();
   await expect(page.getByText('1 selected')).toBeVisible();
   await page.getByRole('button', { name: 'Mark as read' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Marked 1 comic as read' })).toBeAttached(); // (to the bell)
+  await expect(page.getByRole('status').filter({ hasText: /^Marked comic #\d+ as read$/ })).toBeAttached(); // (to the bell)
   await page.getByRole('button', { name: 'Add selected to favorites' }).click();
   await page.getByRole('button', { name: 'Clear selection' }).click();
   await page.getByRole('button', { name: 'Filters', exact: true }).click();

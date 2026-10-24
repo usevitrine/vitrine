@@ -4,20 +4,14 @@
   "push": {
     "everything": "everything",
     "on": "{query} on {site}",
-    "andMore": "and {n} more",
     "newFiles": {
       "one": "{n} new file",
       "other": "{n} new files"
     },
     "fromOne": "from {what}",
-    "across": {
-      "one": "across {n} subscription: {list}",
-      "other": "across {n} subscriptions: {list}"
-    },
-    "count": "{query} ({count})",
     "countNew": "{query} ({count} new)",
-    "downloadStopped": "Download stopped",
-    "checkFailed": "Subscription check failed",
+    "downloadStopped": "A download stopped",
+    "checkFailed": "A subscription check failed",
     "downloadsFailed": {
       "one": "{n} download failed",
       "other": "{n} downloads failed"
@@ -26,7 +20,7 @@
       "one": "A file got a blacklisted tag",
       "other": "{n} files got blacklisted tags"
     },
-    "blacklistedBody": "{tags} - in the library already, from a tag update",
+    "blacklistedBody": "They were in the library already - see Tag rules",
     "subsReady": {
       "one": "Subscription ready",
       "other": "{n} subscriptions ready"
@@ -44,10 +38,15 @@
       "label": "{browser} on {device}"
     },
     "brave": "{error}. In Brave, turn on \"Use Google services for push messaging\" (brave://settings/privacy), then try again.",
-    "sitePaused": "{site} isn’t answering",
-    "sitePausedBody": "Its downloads wait - Vitrine tries again by itself ({error})",
-    "siteBack": "{site} answers again",
-    "siteBackBody": "Its downloads carry on"
+    "sitePaused": "A site isn’t answering",
+    "sitePausedBody": "Its downloads wait - Vitrine tries again by itself",
+    "siteBack": "A site answers again",
+    "siteBackBody": "Its downloads carry on",
+    "fromSubs": {
+      "one": "from {n} subscription",
+      "other": "from {n} subscriptions"
+    },
+    "seeWhy": "Open Vitrine to see why"
   },
   "filter": {
     "imported": {
@@ -411,7 +410,6 @@
     "delete": "Delete",
     "add": "Add",
     "undo": "Undo",
-    "restored": "Restored",
     "deleteN": "Delete {n}",
     "deletedFiles": {
       "one": "Deleted {n} file",
@@ -437,7 +435,11 @@
     },
     "moreFor": "More for {name}",
     "more": "More",
-    "save": "Save"
+    "save": "Save",
+    "fileId": "file #{id}",
+    "comicId": "comic #{id}",
+    "pageOfComic": "page {page} of comic #{id}",
+    "deletedOne": "Deleted {what}"
   },
   "fileMenu": {
     "view": "View",
@@ -774,7 +776,6 @@
   },
   "grid": {
     "fastScroll": "Fast scroll",
-    "deleted": "Deleted",
     "new": "NEW",
     "making": "Making the thumbnail"
   },
@@ -900,8 +901,8 @@
     }
   },
   "favorites": {
-    "added": "Added to favorites",
-    "removed": "Removed from favorites",
+    "added": "Added {what} to favorites",
+    "removed": "Removed {what} from favorites",
     "addedN": {
       "one": "Added {n} file to favorites",
       "other": "Added {n} files to favorites"
@@ -1838,7 +1839,9 @@
     "keepDays": {
       "one": "kept {n} day",
       "other": "kept {n} days"
-    }
+    },
+    "restoredOne": "Restored {what}",
+    "purgedOne": "Deleted {what} forever"
   },
   "confirm": {
     "typeToConfirm": "Type \"{word}\" to confirm"
@@ -1978,9 +1981,9 @@
       "resetButton": "Reset"
     },
     "added": "added {n}",
-    "tagsSaved": "Tags saved ({changes})",
-    "removedTag": "Removed {tag}",
-    "refreshed": "Tags refreshed from the site",
+    "tagsSaved": "Saved the tags of {what} ({changes})",
+    "removedTag": "Removed {tag} from {what}",
+    "refreshed": "Refreshed the tags of {what} from its site",
     "gone": "The site no longer has this post (tags kept)",
     "typeKind": "{type} {kind}",
     "kind": {
@@ -2054,8 +2057,8 @@
     "blacklist": "Blacklist"
   },
   "viewer": {
-    "countedFirst": "Counted · the first time for this one",
-    "counted": "Counted · {n} times for this one",
+    "countedFirst": "You came to {what} for the first time",
+    "counted": "You came to {what} {n} times",
     "back10": "◂◂ 10 s",
     "forward10": "10 s ▸▸",
     "soundOff": "Sound off",
@@ -2101,7 +2104,6 @@
     "none": "No comics yet",
     "noneHint": "Comics live here, apart from Media. Import a folder of pages or a .cbz on the server: <c>vitrine import-comic /path/to/folder</c>",
     "imported": "Imported",
-    "deletedOne": "Deleted",
     "deletedN": {
       "one": "Deleted {n} comic",
       "other": "Deleted {n} comics"
@@ -2149,7 +2151,7 @@
     },
     "progress": "Progress",
     "rename": "Rename",
-    "renamed": "Renamed",
+    "renamed": "Renamed {what}",
     "titleBack": "The site's title again",
     "inProgress": "Reading",
     "crop": {
@@ -2166,7 +2168,9 @@
       "read": "Read",
       "unread": "Unread",
       "reading": "In progress"
-    }
+    },
+    "markedReadOne": "Marked {what} as read",
+    "markedUnreadOne": "Marked {what} as unread"
   },
   "reader": {
     "pages": "Pages {a}–{b} of {n}",
@@ -2273,7 +2277,9 @@
     },
     "readOf": "{read} of {n} read",
     "back": "Back to all comics",
-    "moreFor": "More for the collection {name}"
+    "moreFor": "More for the collection {name}",
+    "addedOne": "Added {what} to \"{name}\"",
+    "removedOne": "Took {what} out of its collection"
   },
   "noticeKinds": {
     "title": "What goes where",

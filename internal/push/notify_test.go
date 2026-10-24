@@ -12,9 +12,10 @@ import (
 
 var en = i18n.For("en-US")
 
+// Push notifications say what happened and how many - never a site, a tag, a search or an error (the user).
 func TestCompose(t *testing.T) {
 	one := Compose([]Event{{Kind: "new", Site: "safebooru.org", Query: "blue_sky", Subscription: true, New: 5}}, en)
-	if len(one) != 1 || one[0].Title != "5 new files" || one[0].Body != "across 1 subscription: blue_sky" || one[0].URL != "/?new=1" {
+	if len(one) != 1 || one[0].Title != "5 new files" || one[0].Body != "from 1 subscription" || one[0].URL != "/?new=1" {
 		t.Fatalf("one: %+v", one)
 	}
 	var many []Event
@@ -23,19 +24,31 @@ func TestCompose(t *testing.T) {
 	}
 	many = append(many,
 		Event{Kind: "failed", Site: "examplebooru.test", Query: "", Subscription: true, Error: "examplebooru.test: 503 Service Unavailable"},
-		Event{Kind: "done", Site: "safebooru.org", Query: "x", New: 1})
+		Event{Kind: "done", Site: "safebooru.org", Query: "x", New: 1},
+		Event{Kind: "paused", Site: "examplebooru.test", Error: "examplebooru.test: timeout"},
+		Event{Kind: "back", Site: "examplebooru.test"})
 	ms := Compose(many, en)
-	if len(ms) != 3 {
+	if len(ms) != 5 {
 		t.Fatalf("%d messages", len(ms))
 	}
-	if ms[0].Title != "36 new files" || ms[0].Body != "across 7 subscriptions: b (12) · d (8) · g (6) · f (4) · c (3) and 2 more" {
+	if ms[0].Title != "36 new files" || ms[0].Body != "from 7 subscriptions" {
 		t.Fatalf("many new: %+v", ms[0])
 	}
-	if ms[1].Title != "Subscription check failed" || !strings.HasPrefix(ms[1].Body, "everything on examplebooru.test: examplebooru.test: 503") || ms[1].URL != "/downloads" {
+	if ms[1].Title != "A subscription check failed" || ms[1].Body != "Open Vitrine to see why" || ms[1].URL != "/downloads" {
 		t.Fatalf("failed: %+v", ms[1])
 	}
-	if ms[2].Title != "Download finished" || ms[2].Body != "x on safebooru.org: 1 new file" {
-		t.Fatalf("done: %+v", ms[2])
+	if ms[2].Title != "A site isn’t answering" || ms[3].Title != "A site answers again" {
+		t.Fatalf("paused, back: %+v %+v", ms[2], ms[3])
+	}
+	if ms[4].Title != "Download finished" || ms[4].Body != "1 new file" {
+		t.Fatalf("done: %+v", ms[4])
+	}
+	for _, m := range ms {
+		for _, secret := range []string{"safebooru", "examplebooru", "503", "timeout"} {
+			if strings.Contains(m.Title+m.Body, secret) {
+				t.Fatalf("%q says %q: %+v", m.Title, secret, m)
+			}
+		}
 	}
 	if len(Compose(nil, en)) != 0 {
 		t.Fatal("nothing to say")
@@ -44,11 +57,11 @@ func TestCompose(t *testing.T) {
 
 func TestComposeBlacklisted(t *testing.T) {
 	ms := Compose([]Event{{Kind: "blacklisted", Site: "safebooru.org", Tag: "red"}}, en)
-	if len(ms) != 1 || ms[0].Title != "A file got a blacklisted tag" || ms[0].URL != "/tags/rules" || !strings.HasPrefix(ms[0].Body, "red - ") {
+	if len(ms) != 1 || ms[0].Title != "A file got a blacklisted tag" || ms[0].URL != "/tags/rules" || strings.Contains(ms[0].Body, "red") {
 		t.Fatalf("one: %+v", ms)
 	}
 	ms = Compose([]Event{{Kind: "blacklisted", Tag: "red"}, {Kind: "blacklisted", Tag: "ai_*"}, {Kind: "blacklisted", Tag: "ai_*"}}, en)
-	if len(ms) != 1 || ms[0].Title != "3 files got blacklisted tags" || !strings.HasPrefix(ms[0].Body, "ai_* (2) · red - ") {
+	if len(ms) != 1 || ms[0].Title != "3 files got blacklisted tags" || ms[0].Body != "They were in the library already - see Tag rules" {
 		t.Fatalf("three: %+v", ms)
 	}
 }
@@ -60,16 +73,17 @@ func TestComposeHourAndFinished(t *testing.T) {
 		{Kind: "new", Site: "safebooru.org", Query: "red", New: 1},
 		{Kind: "new", Site: "safebooru.org", Query: "blue_sky", New: 4},
 	}, en)
-	if len(ms) != 1 || ms[0].Title != "8 new files" || ms[0].Body != "across 2 subscriptions: blue_sky (7) · red (1)" {
+	if len(ms) != 1 || ms[0].Title != "8 new files" || ms[0].Body != "from 2 subscriptions" {
 		t.Fatalf("hour: %+v", ms)
 	}
-	// Finished: a new subscription's first check, and a one-off download - each their own.
+	// Finished: a new subscription's first check, and one-off downloads - each kind its own, the new files summed.
 	ms = Compose([]Event{
 		{Kind: "done", Site: "safebooru.org", Query: "blue_sky", Subscription: true, First: true, New: 340},
 		{Kind: "done", Site: "safebooru.org", Query: "red", New: 12},
+		{Kind: "done", Site: "safebooru.org", Query: "green", New: 40},
 	}, en)
-	if len(ms) != 2 || ms[0].Title != "Subscription ready" || ms[0].Body != "blue_sky on safebooru.org: 340 new files" ||
-		ms[1].Title != "Download finished" || ms[1].Body != "red on safebooru.org: 12 new files" {
+	if len(ms) != 2 || ms[0].Title != "Subscription ready" || ms[0].Body != "340 new files" ||
+		ms[1].Title != "2 downloads finished" || ms[1].Body != "52 new files" {
 		t.Fatalf("finished: %+v", ms)
 	}
 }

@@ -21,10 +21,11 @@
   import Icon from './Icon.svelte';
   import { moveToNamespace, nsColor, nsLabel, nsRank, splitTag } from '../lib/namespaces.svelte';
   import { newDownload } from '../lib/newDownload.svelte';
-  import { t } from '../lib/i18n.svelte';
+  import { itemName, t } from '../lib/i18n.svelte';
 
   let {
     item,
+    comic = false,
     tags,
     onsearch,
     save,
@@ -32,6 +33,8 @@
     refresh,
   }: {
     item: number; // whose tags (another one: editing and menus end)
+    /** A comic's (its notices say "comic #56"), else a file's. */
+    comic?: boolean;
     tags: FileTag[];
     onsearch: (q: string) => void;
     /** Adds and removes tags (the user's own; a removed site tag goes from this item). None: the tags can't be
@@ -86,7 +89,7 @@
     try {
       await save?.(add, remove);
       const parts = [add.length ? t('details.added', { n: add.length }) : '', remove.length ? t('selection.removedTags', { n: remove.length }) : ''].filter(Boolean);
-      toasts.show(t('details.tagsSaved', { changes: parts.join(', ') }), { cat: 'tags',
+      toasts.show(t('details.tagsSaved', { what: itemName(item, comic), changes: parts.join(', ') }), { cat: 'tags',
         action: {
           label: t('common.undo'),
           run: async () => {
@@ -124,7 +127,7 @@
   async function remove(tag: string) {
     try {
       await save?.([], [tag]);
-      toasts.show(t('details.removedTag', { tag }), { cat: 'tags',
+      toasts.show(t('details.removedTag', { tag, what: itemName(item, comic) }), { cat: 'tags',
         kind: 'removed',
         action: {
           label: t('common.undo'),

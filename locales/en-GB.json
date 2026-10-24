@@ -27,8 +27,8 @@
     "restoreCanceled": "Restore cancelled: the library stays as it is"
   },
   "favorites": {
-    "added": "Added to favourites",
-    "removed": "Removed from favourites",
+    "added": "Added {what} to favourites",
+    "removed": "Removed {what} from favourites",
     "addedN": {
       "one": "Added {n} file to favourites",
       "other": "Added {n} files to favourites"

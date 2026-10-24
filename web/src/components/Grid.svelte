@@ -32,7 +32,7 @@
   import FastScroller from './FastScroller.svelte';
   import { layOut, visible, indexAt as masonryIndexAt } from '../lib/masonry';
   import { handoff, release } from '../lib/videoHandoff';
-  import { t, num } from '../lib/i18n.svelte';
+  import { itemName, t, num } from '../lib/i18n.svelte';
 
   // pad: room at the top of the list for the bars floating over it; inset: how much of
   // the grid they cover now (less once they've slid away).
@@ -1237,7 +1237,7 @@
       return;
     }
     selection.ids.delete(id);
-    toasts.show(t(comics ? 'comics.deletedOne' : 'grid.deleted'), { cat: 'deleted',
+    toasts.show(t('common.deletedOne', { what: itemName(id, comics) }), { cat: 'deleted',
       kind: 'removed',
       action: {
         label: t('common.undo'),

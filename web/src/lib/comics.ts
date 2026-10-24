@@ -1,6 +1,6 @@
 // Small helpers for comics (the Comics page, its grid tiles and selection).
 import { api, type Comic } from './api';
-import { t } from './i18n.svelte';
+import { itemName, t } from './i18n.svelte';
 import { toasts } from './toast.svelte';
 
 // A comic has a read state only once it was left past its cover (stopped on the cover: as if never
@@ -30,7 +30,8 @@ export function cropStyle(crop: number[] | undefined): string | undefined {
 export async function markComicsRead(ids: number[], read: boolean, results: { forget: (id: number) => void; refresh: () => Promise<unknown> }) {
   try {
     await api.comicsRead(ids, read);
-    toasts.show(t(read ? 'comics.markedRead' : 'comics.markedUnread', { n: ids.length }), { cat: 'comicRead', kind: 'done' });
+    const what = itemName(ids[0], true);
+    toasts.show(ids.length === 1 ? t(read ? 'comics.markedReadOne' : 'comics.markedUnreadOne', { what }) : t(read ? 'comics.markedRead' : 'comics.markedUnread', { n: ids.length }), { cat: 'comicRead', kind: 'done' });
     ids.forEach((id) => results.forget(id));
     await results.refresh();
   } catch (e) {
