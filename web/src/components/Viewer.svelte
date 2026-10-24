@@ -675,6 +675,10 @@
   let wheelSum = 0;
   let wheelAt = -Infinity;
   let lastZoomWheel = -Infinity; // the wheel last zoomed (navigation waits until it rests)
+  // A trackpad's natural gestures (2026-10-24, the user): two fingers sideways swipe between files, two fingers on a
+  // zoomed picture move it, a pinch zooms (Ctrl + wheel, above).
+  let gesture = { at: -Infinity, axis: 'y' as 'x' | 'y', pad: false, sum: 0, done: false };
+  let swipeEnd = 0;
   $effect(() => {
     if (!stageEl) return;
     return on(
@@ -687,12 +691,30 @@
           return;
         }
         const now = performance.now();
+        const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
+        const ddx = e.deltaX * unit;
+        const ddy = e.deltaY * unit;
+        // One gesture: events close together (a trackpad's swipe and the glide after the fingers lift). Its way is
+        // the first event's; a trackpad's shows by sideways or small steps (a mouse wheel's are big, whole ones).
+        if (now - gesture.at > 150) {
+          finishMove();
+          gesture = { at: now, axis: Math.abs(ddx) > Math.abs(ddy) ? 'x' : 'y', pad: false, sum: 0, done: false };
+        }
+        gesture.at = now;
+        if (ddx !== 0 || (e.deltaMode === 0 && (Math.abs(ddy) < 40 || !Number.isInteger(ddy)))) gesture.pad = true;
+        // Zoomed, two fingers on a trackpad: the picture moves with them (as on a Mac).
+        if (isZoomed() && gesture.pad) {
+          stopGlide();
+          zoomAnimate = false;
+          zoom = clampZoom({ s: zoom.s, x: zoom.x - ddx, y: zoom.y - ddy });
+          lastZoomWheel = now;
+          return;
+        }
         // Zoomed: the wheel zooms (around the pointer), down to the fit and no
         // further. The same spin then can't carry on into the next file: the
         // wheel has to rest a moment first.
         if (isZoomed()) {
-          const lines = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
-          const s = zoom.s * Math.exp(-e.deltaY * lines * 0.0015);
+          const s = zoom.s * Math.exp(-e.deltaY * unit * 0.0015);
           lastZoomWheel = now;
           if (s <= 1.01) resetZoom();
           else zoomTo(s, e.clientX, e.clientY);
@@ -702,7 +724,29 @@
           lastZoomWheel = now; // still the spin that zoomed out
           return;
         }
-        const px = e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
+        // Sideways (two fingers on a trackpad): the file follows the fingers like a touch swipe; far enough, it goes on
+        // to the next (or the one before) - the rest of the gesture (its glide) then does nothing more; not far enough,
+        // it springs back once the fingers stop. Past the first or last file it gives a little, then back.
+        if (gesture.axis === 'x') {
+          if (gesture.done) return;
+          clearTimeout(swipeEnd);
+          gesture.sum += ddx;
+          const edge = gesture.sum > 0 ? index >= results.total - 1 : index <= 0;
+          animate = false;
+          dx = edge ? -gesture.sum / 4 : -gesture.sum;
+          if (!edge && Math.abs(gesture.sum) >= Math.min(140, width * 0.2)) {
+            gesture.done = true;
+            go(gesture.sum > 0 ? 1 : -1, true);
+            return;
+          }
+          swipeEnd = window.setTimeout(() => {
+            if (moving) return;
+            animate = true;
+            dx = 0;
+          }, 160);
+          return;
+        }
+        const px = ddy;
         if (Math.abs(px) >= 50) {
           wheelSum = 0;
           go(px > 0 ? 1 : -1);

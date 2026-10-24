@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { px, settle, sizeOf } from '../lib/motion';
   // The downloads in the top bar (the library): its counter says how many are running or waiting, and the arrow bobs
   // while one downloads. A press opens New download and the downloads going on now - running, then waiting, then
@@ -65,6 +66,10 @@
     return [...by.entries()].map(([site, list]) => ({ site, list }));
   });
   let unfolded = $state<Record<string, boolean>>({});
+  // Opened again: its stacks folded (the user: a stack left open stayed open the next time).
+  $effect.pre(() => {
+    if (open) untrack(() => (unfolded = {}));
+  });
 
   /** A search too long for its line scrolls to its end and back, again and again (not with reduced motion). */
   const marquee = (box: HTMLElement) => {

@@ -125,6 +125,14 @@ lays them out at the original size.
   on a video plays/pauses it; the controls never hide. Touch: slides, a tap shows/hides the controls, a double tap
   zooms to 100 %. The top bar shows the size (% of its own pixels) and a spinner while the picture (or its full size
   when zoomed) loads; no gradient across the picture - each control has a small dark backing of its own.
+- **Trackpad gestures (2026-10-24, the user: "natural trackpad gestures ... 2 finger swipe to switch between images")**:
+  two fingers sideways (wheel events with deltaX) - the file follows them like a touch swipe (`dx`), past
+  min(140 px, 20 % of the width) it slides on to the next or previous one, and the rest of that gesture (its glide
+  after the fingers lift: events less than 150 ms apart) does nothing more - one file per swipe; short of it, it springs
+  back 160 ms after the last event; past the first or last file it gives a quarter. Zoomed, two fingers move the
+  picture (a trackpad shows by sideways or small/fractional steps; a mouse wheel - big whole steps - still zooms).
+  A pinch is Ctrl + wheel to the browser: zooms around the pointer, as before. Vertical two-finger scrolls still
+  step through files as the wheel does.
 - **Panning and pinching like Photos (2026-10-19)**: a zoomed picture keeps gliding after a flick (the speed of the
   last 100 ms, friction by elapsed time, stopping at the edges; a touch catches it). Pinching smaller than fitted or
   past the most zoom goes on with resistance (down to 0.55x, free under the fingers) and springs back on release

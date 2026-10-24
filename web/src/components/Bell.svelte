@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { px, settle, sizeOf } from '../lib/motion';
   // The bell in the top bar: it rings when a notification comes, its counter says how many are unread (red with
   // an error among them). A press opens them - the newest first, the unread lit - with Clear; opening reads them.
@@ -121,6 +122,10 @@
     return [...by.entries()].map(([key, items]) => ({ key, items }));
   });
   let unfolded = $state<Record<string, boolean>>({});
+  // Opened again: its stacks folded (the user: a stack left open stayed open the next time).
+  $effect.pre(() => {
+    if (open) untrack(() => (unfolded = {}));
+  });
 </script>
 
 <div class="bell-wrap">

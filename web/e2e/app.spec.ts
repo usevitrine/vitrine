@@ -470,6 +470,56 @@ test('desktop: wheel moves, ctrl+wheel zooms, middle-click closes (not while zoo
   await expect(page.locator('.viewer')).toHaveCount(0);
 });
 
+test('desktop: a trackpad - two fingers sideways follow, then go on (one file per swipe, its glide too) or spring back; zoomed, two fingers move the picture', async ({ page }) => {
+  test.skip(isPhone(page), 'desktop only');
+  await page.goto('/?q=system:type%3Dimage');
+  await page.locator('.tile').first().click();
+  await expect(page.getByText(/^1 \/ /)).toBeVisible();
+  const box = (await page.locator('.stage').boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  /** A swipe: small sideways steps a frame apart (positive: fingers to the left, the next file). */
+  const swipe = (steps: number[]) =>
+    page.locator('.stage').evaluate(async (el, steps) => {
+      for (const d of steps) {
+        el.dispatchEvent(new WheelEvent('wheel', { deltaX: d, bubbles: true, cancelable: true }));
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+    }, steps);
+  const slide = page.locator('.viewer .slide[data-slot="1"]');
+  // Short of far enough: it followed, then springs back - still the first.
+  await swipe([10, 10, 10]);
+  await page.waitForTimeout(400);
+  await expect(page.getByText(/^1 \/ /)).toBeVisible();
+  // Far enough, with a long glide after: one file on, not two.
+  await swipe([20, 30, 40, 40, 30, 25, 20, 15, 12, 10, 8, 6, 5, 4, 3, 2, 2, 1, 1]);
+  await expect(page.getByText(/^2 \/ /)).toBeVisible();
+  await page.waitForTimeout(400);
+  await expect(page.getByText(/^2 \/ /)).toBeVisible();
+  // Back the other way.
+  await swipe([-30, -40, -50, -40, -20]);
+  await expect(page.getByText(/^1 \/ /)).toBeVisible();
+  // Before the first file: it gives a little and comes back.
+  await swipe([-30, -40, -50, -40, -20]);
+  await page.waitForTimeout(400);
+  await expect(page.getByText(/^1 \/ /)).toBeVisible();
+  await expect.poll(async () => Math.round((await slide.boundingBox())!.x - box.x)).toBe(0); // (back in place)
+  // Zoomed (a pinch: Ctrl + wheel), two fingers move the picture instead of zooming or going on.
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, -200);
+  await page.keyboard.up('Control');
+  await expect.poll(() => imageScale(page)).toBeGreaterThan(1.5);
+  await page.waitForTimeout(500);
+  const scale = await imageScale(page);
+  const at = () => page.locator('.viewer .slide[data-slot="1"] img').evaluate((el) => el.getBoundingClientRect().left);
+  const before = await at();
+  await page.locator('.stage').evaluate((el) => {
+    for (let k = 0; k < 6; k++) el.dispatchEvent(new WheelEvent('wheel', { deltaX: -10, deltaY: 0, bubbles: true, cancelable: true }));
+  });
+  await expect.poll(at).toBeGreaterThan(before + 20); // fingers to the right: the picture moves right
+  expect(await imageScale(page)).toBeCloseTo(scale, 2);
+  await expect(page.getByText(/^1 \/ /)).toBeVisible();
+});
+
 /** Simulated touch on the grid (Playwright's touchscreen can only tap). */
 async function touchGrid(page: Page, steps: { type: 'down' | 'move' | 'up'; tile: number; wait?: number }[]) {
   for (const s of steps) {
