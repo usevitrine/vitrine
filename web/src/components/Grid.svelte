@@ -1312,7 +1312,9 @@
         style:visibility={hideId !== undefined && results.idAt(tile.i) === hideId ? 'hidden' : undefined}
         style:width="{z ? z.w : tile.p.w}px"
         style:height="{z ? z.h : tile.p.h}px"
-        style:transform="translate({z ? z.x : tile.p.x}px, {z ? z.y : tile.p.y}px)"
+        style:transform="translate({tile.p.x}px, {tile.p.y}px)"
+        style:margin-left={z ? `${z.x - tile.p.x}px` : undefined}
+        style:margin-top={z ? `${z.y - tile.p.y}px` : undefined}
         style:background-image={tile.f?.placeholder ? `url(${placeholderURL(tile.f.placeholder)})` : undefined}
         aria-label={tile.f?.comic ? tile.f.comic.title : tile.f ? `${tile.f.type} ${tile.f.width}×${tile.f.height}` : t('common.loading')}
         aria-pressed={selection.active ? selection.has(tile.f?.id) : undefined}
@@ -1631,12 +1633,17 @@
   }
   /* Zoomed by a hover: the tile itself grows over its neighbors into the file's
      own shape (the thumbnail at once, the video or bigger picture over it once it
-     has a frame), lifting off the grid; it shrinks back when the mouse moves. */
+     has a frame), lifting off the grid; it shrinks back when the mouse moves.
+     It moves by its margins, not its transform: width, height and place then all
+     change in one go (a transform ran on the compositor at once while the size
+     waited for a busy page - the preview starting - so the card first slid up and
+     to the left at the tile's size, then grew: the user's recording, 7 x 11 px). */
   .tile.zoomed,
   .tile.shrinking {
     z-index: 5;
     transition:
-      transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+      margin-left 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+      margin-top 0.34s cubic-bezier(0.22, 1, 0.36, 1),
       width 0.34s cubic-bezier(0.22, 1, 0.36, 1),
       height 0.34s cubic-bezier(0.22, 1, 0.36, 1),
       border-radius 0.34s,

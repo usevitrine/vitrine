@@ -359,3 +359,11 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   transition is `nudge` (its width opens and closes as it scales), not `pop` - with pop its full width was there at
   once, so the typing box jumped aside while the chip was still growing (measured: the box jumped 118 px in one frame;
   now it glides over ~200 ms). The line keeps its end in view while a new chip opens.
+- **The hover card's jump, found (2026-10-24)** (the user's screen recording: sometimes a card first moved up and to
+  the left at the tile's size, then grew - in squares and Rows alike): the zoom moved the tile by its `transform` and
+  grew it by `width`/`height`. The browser animates a transform on the compositor from the first frame, but width and
+  height on the main thread - which was busy now and then (the preview starting, a picture decoding), so the size
+  began a frame or two late while the card had already slid most of the way (the recording: 7 px left, 11 px up, same
+  size). Now a zoomed tile keeps its transform (its place in the grid) and moves by `margin-left`/`margin-top`, so place
+  and size are all layout and change together. Checked with Chrome's screencast (what is painted, not what the page
+  reports) at 6x CPU slowdown: before, a frame where the card moved 18 px at the tile's size; now none.
