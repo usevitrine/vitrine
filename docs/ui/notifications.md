@@ -75,3 +75,7 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
   newest at the bottom (placed by measure as above). At most three stacks (a fourth sends the oldest away), five
   notices in one. Downloader pop-ups pass their kind
   too (`notices.onScreen`).
+- **The bell stacks too (2026-10-24)** (the user: "they should be stacked in the notification bell too"): notices of
+  the same kind (kind of notice and tone) are one Stack at the place of the newest - the newest in front, two peeking
+  out with "+N"; tapping its edges fans it out, "Show less" folds it; one of a kind stays a plain row. The kind's
+  color and the unread tint are on each row (`.row`).

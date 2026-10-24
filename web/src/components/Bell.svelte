@@ -10,6 +10,7 @@
   import { router } from '../lib/router.svelte';
   import { t, num } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
+  import Stack from './Stack.svelte';
 
   const icons = { done: 'check', info: 'info', removed: 'trash', error: 'alert' } as const;
 
@@ -107,6 +108,19 @@
     if (reduced()) return { duration: 0 };
     return { duration: 180, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${px((1 - k) * 24)})` };
   }
+
+  // Notices of the same kind (their kind of notice and tone) as one stack, like the pop-ups and the Downloads page
+  // (the user: "they should be stacked in the notification bell too"): at the place of its newest, the newest in front,
+  // the next two peeking out with "+N"; tapping its edges fans it out. One of a kind stays a plain row.
+  const groups = $derived.by(() => {
+    const by = new Map<string, Notice[]>();
+    for (const n of notices.list) {
+      const k = `${n.cat}|${n.kind}`;
+      by.set(k, [...(by.get(k) ?? []), n]);
+    }
+    return [...by.entries()].map(([key, items]) => ({ key, items }));
+  });
+  let unfolded = $state<Record<string, boolean>>({});
 </script>
 
 <div class="bell-wrap">
@@ -142,12 +156,14 @@
       </header>
       {#if notices.list.length}
         <ul>
-          {#each notices.list as n, i (n.key)}
-            <li class={n.kind} class:lit={lit.has(n.key)} animate:flip={{ duration: 220 }} in:slideIn={{ i }} out:slideOut>
-              {#if n.to}
-                <button class="item" onclick={() => go(n)}>{@render body(n)}</button>
+          {#each groups as g, i (g.key)}
+            <li animate:flip={{ duration: 220 }} in:slideIn={{ i }} out:slideOut>
+              {#if g.items.length === 1}
+                {@render row(g.items[0])}
               {:else}
-                <div class="item">{@render body(n)}</div>
+                <Stack items={g.items} key={(n) => n.key} label={g.items[0].text} bind:open={() => !!unfolded[g.key], (v) => (unfolded[g.key] = v)}>
+                  {#snippet card(n, _)}{@render row(n)}{/snippet}
+                </Stack>
               {/if}
             </li>
           {/each}
@@ -159,6 +175,16 @@
     </div>
   {/if}
 </div>
+
+{#snippet row(n: Notice)}
+  <div class="row {n.kind}" class:lit={lit.has(n.key)}>
+    {#if n.to}
+      <button class="item" onclick={() => go(n)}>{@render body(n)}</button>
+    {:else}
+      <div class="item">{@render body(n)}</div>
+    {/if}
+  </div>
+{/snippet}
 
 {#snippet body(n: Notice)}
   <span class="badge" aria-hidden="true"><Icon name={icons[n.kind]} size={15} /></span>
@@ -313,21 +339,29 @@
     display: grid;
     gap: 2px;
   }
-  li {
+  .row {
     --kind: var(--green);
     border-radius: 10px;
   }
-  li.info {
+  .row.info {
     --kind: var(--blue);
   }
-  li.removed {
+  .row.removed {
     --kind: var(--peach);
   }
-  li.error {
+  .row.error {
     --kind: var(--red);
   }
-  li.lit {
+  .row.lit {
     background: color-mix(in srgb, var(--mauve) 9%, transparent);
+  }
+  /* (a stack's cards: a little room around each) */
+  li :global(.stack) {
+    margin: 2px 0;
+  }
+  /* (folded: room under the peeking edges and their "+N", clear of the next row) */
+  li :global(.stack.many:not(.open)) {
+    margin-bottom: 10px;
   }
   .item {
     display: grid;

@@ -4069,7 +4069,7 @@ test('notices go where their kind is set: Copied on screen (not the bell), a del
   await expect(bell).toBeVisible();
   await bell.click();
   const panel = page.getByRole('dialog', { name: 'Notifications' });
-  await expect(panel.locator('li.removed', { hasText: 'Deleted' }).locator('.badge svg')).toBeVisible();
+  await expect(panel.locator('.row.removed', { hasText: 'Deleted' }).first().locator('.badge svg')).toBeVisible();
   await expect(panel.locator('li', { hasText: 'Copied' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible(); // (opened: read)
   await panel.getByRole('button', { name: 'Clear' }).click();
@@ -4097,7 +4097,7 @@ test('the bell rings for what the downloader did: a subscription check that fail
   const bell = page.getByRole('button', { name: /^Notifications, \d+ unread$/ });
   await expect(bell).toBeVisible({ timeout: 15000 });
   await bell.click();
-  const item = page.getByRole('dialog', { name: 'Notifications' }).locator('li.error', { hasText: 'bell_sub' });
+  const item = page.getByRole('dialog', { name: 'Notifications' }).locator('.row.error', { hasText: 'bell_sub' }).first();
   await expect(item).toContainText('Subscription check failed');
   await expect(item).toContainText('test-down.invalid');
   await item.getByRole('button').click();
