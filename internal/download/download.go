@@ -648,8 +648,14 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 		}
 		r := <-results
 		inflight--
+		rctx := ctx // (recording it)
 		if ctx.Err() != nil {
-			continue // interrupted mid-file: fetched again on resume
+			if r.err != nil || (r.outcome != Downloaded && r.outcome != Already) {
+				continue // interrupted mid-file: fetched again on resume
+			}
+			// In the library before the stop came: recorded as it is (left out, the resume found its file and counted
+			// it "already there" instead of downloaded - CI caught it). The loop still stops: nothing new starts.
+			rctx = context.WithoutCancel(ctx)
 		}
 		p := posts[r.i]
 		var stop errStopSearch
@@ -672,11 +678,11 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 			d.log.Warn("post failed", "site", s.Site, "post", p.ID, "err", r.err)
 		}
 		if favorites && s.SubscriptionID != 0 && r.fileID != 0 && (r.outcome == Downloaded || r.outcome == Already) {
-			d.noteFavMember(ctx, s.SubscriptionID, p.ID, r.fileID)
+			d.noteFavMember(rctx, s.SubscriptionID, p.ID, r.fileID)
 		}
 		if favorite && r.fileID != 0 && (r.outcome == Downloaded || r.outcome == Already) {
 			// (a favorite already keeps the time it became one)
-			if _, err := d.lib.SetFavorite(ctx, []uint32{r.fileID}, true); err != nil {
+			if _, err := d.lib.SetFavorite(rctx, []uint32{r.fileID}, true); err != nil {
 				d.log.Warn("adding to favorites", "site", s.Site, "file", r.fileID, "err", err)
 			}
 		}

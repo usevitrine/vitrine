@@ -1084,7 +1084,8 @@ func TestLicenses(t *testing.T) {
 	if resp.StatusCode != 200 || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
 		t.Fatalf("%d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
 	}
-	for _, want := range []string{"GNU Affero General Public License", "Source code: " + SourceURL, "golang.org/x/crypto", "modernc.org/sqlite", "Feather"} {
+	for _, want := range []string{"GNU Affero General Public License", "Source code: " + SourceURL, "golang.org/x/crypto", "modernc.org/sqlite"} {
+		// (the web app's licenses - Lucide, with its Feather notice; the font - come with the built web app, not here)
 		if !strings.Contains(text, want) {
 			t.Errorf("/licenses lacks %q", want)
 		}
