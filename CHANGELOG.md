@@ -11,6 +11,8 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 - **Downloads menu**: the download button in the top bar shows how many downloads are running or waiting, and opens
   a list of them with their progress, plus New.
 - **Default sort**: newest uploaded first (unless you picked another).
+- **A new look**: the Plus Jakarta Sans font (bundled - nothing is fetched from elsewhere) and a fuller, consistent
+  icon set (Lucide).
 - **Default layout**: Rows (each thumbnail in its file’s shape) on a device that hasn’t picked one.
 - **iPhone**: the library’s last row of thumbnails keeps clear of the home bar and the curved corners.
 - **Searching any of the picked tags** has its own icon (a tilde, the search’s OR) instead of a plus.

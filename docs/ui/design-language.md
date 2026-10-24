@@ -71,7 +71,18 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   not transform, which would become fixed children's containing block). Measured: the last animation frame vs at
   rest, pixels that change strongly - 0 for the downloads and bell panels, Downloads tabs, Filters, Saved searches,
   New download, the login dialog, a confirmation (from 630-11,000 before); a third of a pixel left on a sheet.
-- **Type**: the system font stack (system-ui, -apple-system, Segoe UI, Roboto), line height 1.4.
+- **Type (2026-10-24, the user's pick of Geist / Inter / Plus Jakarta Sans / Manrope)**: Plus Jakarta Sans, the
+  variable font bundled with the app (`@fontsource-variable/plus-jakarta-sans`, imported in main.ts: woff2 files split
+  by script, only the ones a page's text needs are fetched; no outside font service - self-hosted, offline, private),
+  then the system stack (system-ui, -apple-system, Segoe UI, Roboto); line height 1.4. Until then: the system stack.
+  The logo's "itrine" follows it. (Playwright's WebKit on Windows draws the variable font's weights all light; Chromium
+  and real Safari don't.)
+- **Icons (2026-10-24, the user: "a comprehensive icon theme that you are able to reference")**: Lucide (lucide.dev,
+  the `lucide` package): 24x24 strokes, 2 px, round ends - the style the app's own icons already had (Feather's,
+  which Lucide grew from). `Icon.svelte` keeps the app's names (`<Icon name="search" />`), maps each to a Lucide
+  icon and draws its elements; only the icons it names are bundled. Its own where Lucide has nothing that means the
+  same: `or` (a tilde, the search's ~) and `drop`. A new icon: pick it on lucide.dev, add it to the map. Licenses:
+  Lucide ISC (with Feather's MIT), the font OFL 1.1 - both at /licenses (Vite's build.license).
 - **Words**: American spelling; texts in `locales/` (see ui/languages.md); hints only where a label could mislead, a
   few words.
 
