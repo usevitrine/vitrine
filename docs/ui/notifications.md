@@ -63,3 +63,13 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
   (event `notices-state`) and new ones (event `notice`). A kind not set to the bell isn't listed (its notices are
   kept: a setting can change back); a downloader event set to on screen shows there as it comes. Each device's own
   copy of the bell (localStorage) is gone.
+- **Pop-ups reworked (2026-10-24)** (the user: "some appear high up the screen, they animate in and out buggily,
+  notifications of the same type dont stack"): `components/Toasts.svelte` places each pop-up by the ones below it
+  (measured heights, `translate`, gliding), not in a column - one going leaves its place at once (it fades where it
+  was) and the others glide down; a new one rises in at the bottom. They sit 16 px above the bottom of the screen
+  (clear of the iPhone's home bar, `--bottom-room`), above the selection bar only while it shows (it says its height
+  as `--bottom-bar`) - before, always 72 px up, and higher still while one faded. `lib/toast.svelte.ts`: a notice of
+  the same kind (its kind of notice and tone; unnamed: its words) as one showing takes that one's place - the newest
+  words, its time starting again, a count on its icon; one with a button merges only with one with the same button,
+  which then acts for the newest (Undo undoes the last action). At most three show. Downloader pop-ups pass their kind
+  too (`notices.onScreen`).

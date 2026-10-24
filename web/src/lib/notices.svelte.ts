@@ -90,7 +90,7 @@ class Notices {
   private boot = '';
   private readUpTo = 0;
   /** Downloader events set to show on screen: shown as they come (lib/toast, given in by App). */
-  onScreen: ((text: string, kind: ToastKind) => void) | null = null;
+  onScreen: ((text: string, kind: ToastKind, cat: string) => void) | null = null;
 
   private make(e: ServerNotice): Notice {
     const w = word(e);
@@ -128,7 +128,7 @@ class Notices {
       const mode = modeOf(n.cat, settings.noticeModes);
       if (mode === 'bell') ring = true;
       // (a downloader event set to on screen: shown now; the app's own showed where it was done)
-      else if (mode === 'screen' && n.to) this.onScreen?.(n.text, n.kind);
+      else if (mode === 'screen' && n.to) this.onScreen?.(n.text, n.kind, n.cat);
     }
     if (ring) this.rings++;
   }

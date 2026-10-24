@@ -296,11 +296,22 @@
     await markComicsRead(ids, read, results);
     busy = false;
   }
+
+  // Its height for the notices that pop up (Toasts: they sit above it while it shows).
+  const sayHeight = (el: HTMLElement) => {
+    const root = document.documentElement.style;
+    const ro = new ResizeObserver(() => root.setProperty('--bottom-bar', el.offsetHeight + 'px'));
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.removeProperty('--bottom-bar');
+    };
+  };
 </script>
 
 {#snippet lbl(text: string)}{#if wide}<span class="lbl">{text}</span>{/if}{/snippet}
 
-<div class="bar" role="toolbar" aria-label={browsing ? t('browse.selected') : t(sk('label'))} transition:reveal>
+<div class="bar" role="toolbar" aria-label={browsing ? t('browse.selected') : t(sk('label'))} transition:reveal {@attach sayHeight}>
   {#if editing}
     <div class="editor" role="dialog" aria-label={t(sk('editorLabel'))} {@attach backClose(() => (editing = false))} transition:reveal>
       <div class="ed-head">
