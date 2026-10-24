@@ -586,11 +586,10 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 	done := make([]bool, len(posts))
 	next, inflight := 0, 0 // next: the first post not yet behind the resume point
 	ending := ""           // why no more posts start: "done", "stop" or "failed: ..."
-	// max_posts counts files that end up in the library (downloaded or already
-	// there) - not posts skipped as blacklisted, too big, deleted before or
-	// failed. While the posts in flight could reach it, no more start; if some
-	// of them don't count, the search carries on.
-	reached := func() bool { return s.MaxPosts > 0 && s.Downloaded+s.Already >= s.MaxPosts }
+	// max_posts counts the posts gone through - new, had, blacklisted, skipped, deleted before, failed: what the
+	// Downloads page counts against it (the user, 2026-10-24; before, only the files that ended up in the library).
+	// While the posts in flight would reach it, no more start.
+	reached := func() bool { return s.MaxPosts > 0 && s.Handled >= s.MaxPosts }
 	// A user's favorites: a check goes through all of them (a post favorited
 	// since can be older than the newest one the last check saw).
 	favorites := plugin.IsFavorites(s.Query)
@@ -600,7 +599,7 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 		if ending == "" && reached() {
 			ending = "done"
 		}
-		enoughInFlight := s.MaxPosts > 0 && s.Downloaded+s.Already+inflight >= s.MaxPosts
+		enoughInFlight := s.MaxPosts > 0 && s.Handled+inflight >= s.MaxPosts
 		if i == len(posts) && inflight > 0 && inflight < conns && ending == "" && !enoughInFlight && !exhausted {
 			// A connection is free and the page is used up: the next page now, not once its last files are in.
 			if np := more(posts[len(posts)-1].ID); len(np) > 0 {

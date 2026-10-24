@@ -118,7 +118,7 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
 - **Its own group**: a subscription to anyone's favorites goes in its site's "Favorites" group (made the first time;
   also when a favorites search becomes a subscription); the form has no group to pick for it.
 - **Removed on the site**: a favorites subscription keeps which of its posts are in the library (`fav_members`,
-  migration 0023). A complete check (from the newest post, not resumed, not cut short by a file limit) marks the ones it
+  migration 0023). A complete check (from the newest post, not resumed, not cut short by a limit) marks the ones it
   no longer found as gone - unless it found no posts at all (more likely the site failing). The subscription then says
   "N no longer in your favorites" with Keep (not asked again; favorited again, followed again) and Delete (a confirm
   with their pictures; the library's undo window). `GET /api/subscriptions/{id}/fav-gone`, `POST .../fav-gone-delete`,
@@ -249,3 +249,7 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   there; posts skipped as blacklisted, over a download rule, deleted before or failed don't use it up. With parallel
   downloads no new post starts while the ones in flight could reach the limit; if some of them don't count, the search
   carries on. The progress bar shows files / limit; rows say "(up to N files)"; the form explains it under the box.
+- **The limit counts posts gone through (2026-10-24)**: `max_posts` stops a search once its posts gone through
+  (`handled`: new, had, blacklisted, skipped, deleted before, failed) reach it - what the Downloads page counts against
+  it. Before, it counted the files that ended up in the library (new + had), so blacklisted posts didn't use it up
+  (the user changed it: the page's count and the limit should be the same thing). `TestMaxPostsCountsPosts`.

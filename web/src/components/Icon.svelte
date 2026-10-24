@@ -53,6 +53,7 @@
     Share,
     Smartphone,
     SoapDispenserDroplet,
+    Sparkles,
     Split,
     SquarePlus,
     Star,
@@ -127,6 +128,7 @@
     pages: Files,
     crop: Crop,
     broom: BrushCleaning,
+    sparkles: Sparkles, // new files
     drop: SoapDispenserDroplet, // "I came"
     // The app's own (Lucide has no tilde):
     or: [['path', { d: 'M5 14c1.5-2.6 3.6-3.3 6-1.8l2 1.3c2.4 1.5 4.5.8 6-1.8' }]], // a tilde: the search's OR (a ~ b)

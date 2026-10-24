@@ -638,9 +638,8 @@ func TestClearAndReorder(t *testing.T) {
 	}
 }
 
-// The limit counts files that end up in the library: blacklisted posts (and
-// other skips) don't use it up - with one connection or several.
-func TestMaxPostsCountsFiles(t *testing.T) {
+// The limit counts the posts gone through - blacklisted and had ones too - with one connection or several.
+func TestMaxPostsCountsPosts(t *testing.T) {
 	for _, conns := range []int{1, 3} {
 		e := newEnv(t, 25)
 		ctx := context.Background()
@@ -658,7 +657,8 @@ func TestMaxPostsCountsFiles(t *testing.T) {
 		id, _ := e.dl.Add(ctx, "fake", "common", 5)
 		e.dl.RunQueue(ctx, "fake")
 		s, _ := e.dl.Get(ctx, id)
-		if s.State != StateDone || s.Downloaded+s.Already != 5 || s.Already != 1 || s.Blacklisted != 2 || s.Handled != 7 {
+		// 25 blacklisted, 24 new, 23 blacklisted, 22 had, 21 new: five posts, then it stops.
+		if s.State != StateDone || s.Handled != 5 || s.Downloaded != 2 || s.Already != 1 || s.Blacklisted != 2 {
 			t.Fatalf("%d connections: %+v", conns, s)
 		}
 	}

@@ -82,7 +82,7 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
 - **Downloads page redesign (2026-10-15)**: every section is one framed list with rows split by hairlines (no box per
   row; subscriptions in a group sit inside the group's frame, not framed again). A row: title + state pill, progress
   bar, then **stats** - each number bold with its meaning beside it, spaced apart instead of joined by dots
-  ("**612** of ~1,840 posts **540** new **60** had", new in green, failed in red); subscriptions show icon items
+  ("**612** of ~1,840 posts **540** new **60** had" until 2026-10-24, see below; new in green, failed in red); subscriptions show icon items
   (clock "Every 12 hours", retry "Next in 9 h" / "Checked 30 h ago", files, new last check). The drag handle is a
   slim 20 px strip. Actions: icon buttons at the right on wider screens; on phones one **⋯** per row opens a strip of
   labeled pill buttons under it (Pause/Resume, Subscribe, Remove; Check now, the interval, the group, Unsubscribe;
@@ -201,3 +201,13 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   of work on the page, and scrolling the library stalled (the user saw the background at the bottom).
 - **"Subs" on phones (2026-10-24, the user)**: under 640 px the Subscriptions tab says "Subs" (`downloads.subsShort`) to
   save room; the whole word stays for screen readers (visually hidden, not removed), so the tab's name is unchanged.
+- **The count line, 2026-10-24** (the user: "57,734 of ~72,588 posts 41,650 new 2,126 had 13,958 blacklisted up to
+  50,000 files" -> "57,734/72,588" and icons; "Every post gone through", "if the user set limit exceeds the max matched
+  posts on the site, set it to the max", "remove the tilde"): the lead is the posts (a gallery site: galleries) gone
+  through - new, had, blacklisted, skipped, deleted before, failed - out of the goal: the limit picked, the site's count
+  when that's smaller, the site's count without a limit (`goalOf` in lib/downloadProgress). No goal (no limit, the site
+  gives no count): just the number, and a running search's bar is striped. Then each kind as a chip (the user: "put
+  the new, had and blacklisted in chips"; new tinted green, failed red, the rest plain, 6 px apart) - an icon and its count:
+  sparkles (new, green), check (had), trash (deleted before), crossed-out eye (blacklisted), filter (skipped), alert
+  (failed, red) - named when pointed at and for screen readers (a visually hidden "41,650 new"). "up to N files" is gone
+  (the limit is in the lead). The bar is the same count over the same goal (also the top bar's downloads menu).

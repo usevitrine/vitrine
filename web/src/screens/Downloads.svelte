@@ -1,9 +1,9 @@
 <script lang="ts">
   import { overlayScroll } from '../lib/overlayScroll';
-  import { onMount, tick, untrack } from 'svelte';
+  import { onMount, tick, untrack, type ComponentProps } from 'svelte';
   import { slide } from 'svelte/transition';
   import { live, bytes } from '../lib/live.svelte';
-  import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf } from '../lib/downloadProgress';
+  import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf, goalOf } from '../lib/downloadProgress';
   import { reveal, moved, glide, nudge } from '../lib/motion';
   import Stack from '../components/Stack.svelte';
   import { api, type DownloadSearch, type RefreshStatus, type Subscription, type SubGroup, type FailedPost, type RetryJob, type SubLook, type SubPic } from '../lib/api';
@@ -1244,6 +1244,21 @@
   <span class="stat {cls}"><b>{typeof n === 'number' ? num(n) : n}</b> {label}</span>
 {/snippet}
 
+<!-- The lead count: the posts (galleries) gone through, out of the goal - the limit picked (the site's count when
+     that's smaller), else the site's count; none known: just the count (the bar is striped). -->
+{#snippet goalCount(s: DownloadSearch, galleries: boolean)}
+  {@const goal = goalOf(s)}
+  {@const words = goal
+    ? t(galleries ? 'downloads.stat.galleriesOf' : 'downloads.stat.postsOf', { done: num(s.handled), n: goal })
+    : t(galleries ? 'downloads.stat.galleries' : 'downloads.stat.posts', { n: s.handled })}
+  <span class="stat lead" title={goal ? words : undefined}><b>{num(s.handled)}</b>{#if goal}<span class="of">/{num(goal)}</span>{/if}<span class="vh">{goal ? words : ' ' + words}</span></span>
+{/snippet}
+
+<!-- A kind of post, as an icon and its count (its name when pointed at, and for screen readers). -->
+{#snippet iconStat(n: number, icon: ComponentProps<typeof Icon>['name'], label: string, cls = '')}
+  <span class="stat icon-stat {cls}" title="{num(n)} {label}"><Icon name={icon} size={14} /><b>{num(n)}</b><span class="vh"> {label}</span></span>
+{/snippet}
+
 
 <!-- Progress: how far through the estimate; without one (no total from the site,
      no file limit) a running search shows a moving striped bar. -->
@@ -1275,23 +1290,22 @@
       {:else if gal}
         <!-- A search of many galleries: counted by gallery (the one downloading now: which page). -->
         {#if s.handled || s.site_total > 1}
-          {@render stat(s.handled, s.site_total > 0 ? t('downloads.stat.ofGalleries', { n: s.site_total }) : t('downloads.stat.galleries', { n: s.handled }), 'lead')}
+          {@render goalCount(s, true)}
         {:else if s.state === 'queued'}<span class="stat quiet">{t('downloads.notStarted')}</span>{/if}
         {#if g}<span class="stat quiet">{t('downloads.stat.pageOf', { done: num(g.done), pages: num(g.pages) })}</span>{/if}
-      {:else if s.handled || s.site_total}
-        {@render stat(s.handled, s.site_total > 0 ? t('downloads.stat.ofPosts', { n: s.site_total }) : t('downloads.stat.posts', { n: s.handled }), 'lead')}
+      {:else if s.handled || goalOf(s)}
+        {@render goalCount(s, false)}
       {:else if s.state === 'queued'}
         <span class="stat quiet">{t('downloads.notStarted')}</span>
       {/if}
       {#if !(gal && oneGallery(s))}
-        {#if s.downloaded}{@render stat(s.downloaded, t('downloads.stat.new'), 'good')}{/if}
-        {#if s.already}{@render stat(s.already, t('downloads.stat.had'))}{/if}
+        {#if s.downloaded}{@render iconStat(s.downloaded, 'sparkles', t('downloads.stat.new'), 'good')}{/if}
+        {#if s.already}{@render iconStat(s.already, 'check', t('downloads.stat.had'))}{/if}
       {/if}
-      {#if s.deleted}{@render stat(s.deleted, t('downloads.stat.deletedBefore'))}{/if}
-      {#if s.blacklisted}{@render stat(s.blacklisted, t('downloads.stat.blacklisted'))}{/if}
-      {#if s.skipped}{@render stat(s.skipped, t('downloads.stat.skipped'))}{/if}
-      {#if s.failed}{@render stat(s.failed, t('downloads.stat.failed'), 'bad')}{/if}
-      {#if s.max_posts}<span class="stat quiet">{t('downloads.upTo', { n: s.max_posts })}</span>{/if}
+      {#if s.deleted}{@render iconStat(s.deleted, 'trash', t('downloads.stat.deletedBefore'))}{/if}
+      {#if s.blacklisted}{@render iconStat(s.blacklisted, 'eyeoff', t('downloads.stat.blacklisted'))}{/if}
+      {#if s.skipped}{@render iconStat(s.skipped, 'filter', t('downloads.stat.skipped'))}{/if}
+      {#if s.failed}{@render iconStat(s.failed, 'alert', t('downloads.stat.failed'), 'bad')}{/if}
     </div>
     {#if s.state === 'running' && speedOf(s.id)}<span class="stat speed" title={t('downloads.speedTitle')}>{speedOf(s.id)}</span>{/if}
   </div>
@@ -2028,6 +2042,48 @@
   .stat.quiet {
     color: var(--overlay1);
   }
+  /* The lead count's goal ("/50,000"), and a kind of post as an icon and its count. */
+  .stat .of {
+    color: var(--subtext);
+  }
+  /* (as chips - the user: new green, failed red, the rest plain) */
+  .stat.icon-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 9px 1px 7px;
+    border-radius: 999px;
+    background: var(--surface0);
+    line-height: 20px;
+  }
+  .stat.icon-stat :global(svg) {
+    color: var(--overlay1);
+  }
+  .stat.icon-stat.good {
+    background: color-mix(in srgb, var(--green) 14%, transparent);
+  }
+  .stat.icon-stat.good :global(svg) {
+    color: var(--green);
+  }
+  .stat.icon-stat.bad {
+    background: color-mix(in srgb, var(--red) 14%, transparent);
+  }
+  .stat.icon-stat.bad :global(svg) {
+    color: var(--red);
+  }
+  /* (chips closer together than the line's other items: 6 px of its 14) */
+  .stat.icon-stat + .stat.icon-stat {
+    margin-left: -8px;
+  }
+  /* (only for screen readers: what a count is) */
+  .vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   .stat.meta {
     display: inline-flex;
     align-items: center;
@@ -2072,6 +2128,7 @@
     flex: 1;
     min-width: 0;
     display: flex;
+    align-items: center; /* (the lead count level with the chips) */
     gap: 14px;
   }
   .line-stats .speed {

@@ -2608,8 +2608,12 @@ test('downloads on phones: rows keep their actions behind ⋯; numbers say what 
   await page.route('**/api/downloads', (r) => r.fulfill({ json: { sites: ['safebooru'], searches: [s], subscriptions: [sub], groups: [], refresh: [] } }));
   await page.goto('/downloads');
   const queue = page.locator('section.card', { has: page.getByRole('heading', { name: 'Queue' }) });
-  await expect(queue.locator('.line-stats')).toContainText('120 of ~400 posts');
-  await expect(queue.locator('.stat.good')).toHaveText('100 new');
+  // The posts gone through out of the goal (no limit: the site's count), then each kind as an icon and its count.
+  await expect(queue.locator('.stat.lead')).toHaveAttribute('title', '120 of 400 posts');
+  await expect(queue.locator('.stat.lead b')).toHaveText('120');
+  await expect(queue.locator('.stat.lead .of')).toHaveText('/400');
+  await expect(queue.locator('.stat.good')).toHaveAttribute('title', '100 new');
+  await expect(queue.locator('.stat.good b')).toHaveText('100');
   const counts = queue.locator('.counts');
   const one = await counts.evaluate((el) => {
     const kids = [...el.children].map((c) => c.getBoundingClientRect().top);
@@ -4140,7 +4144,7 @@ test('library: the downloads menu - a counter, New download, what is downloading
     id, site: 'test-down', query: `menu_${id}`, state, max_posts: 10, site_total: 0, handled: 0, downloaded: 0, already: 0, deleted: 0, skipped: 0,
     blacklisted: 0, position: id, failed: 0, created_at: 0, ...extra,
   });
-  let searches = [search(1, 'queued'), search(2, 'done'), search(3, 'paused'), search(4, 'running', { downloaded: 4, label: 'A running one' })];
+  let searches = [search(1, 'queued'), search(2, 'done'), search(3, 'paused'), search(4, 'running', { handled: 4, downloaded: 4, label: 'A running one' })];
   // (the menu reads only what's going on: /api/downloads?active=1)
   await page.route('**/api/downloads?active=1', (r) => r.fulfill({ json: { searches: searches.filter((x) => x.state !== 'done'), sites_paused: {} } }));
   await page.goto('/');

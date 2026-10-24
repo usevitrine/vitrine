@@ -1150,16 +1150,8 @@
     "offTitle": "Switched off in Settings > Sites: {what}",
     "noEstimate": "Downloading (no estimate)",
     "notStarted": "Not started",
-    "upTo": {
-      "one": "up to {n} file",
-      "other": "up to {n} files"
-    },
     "speedTitle": "Download speed",
     "stat": {
-      "ofPosts": {
-        "one": "of ~{n} post",
-        "other": "of ~{n} posts"
-      },
       "posts": {
         "one": "post",
         "other": "posts"
@@ -1184,10 +1176,6 @@
         "one": "of {n} page",
         "other": "of {n} pages"
       },
-      "ofGalleries": {
-        "one": "of ~{n} gallery",
-        "other": "of ~{n} galleries"
-      },
       "galleries": {
         "one": "gallery",
         "other": "galleries"
@@ -1209,7 +1197,15 @@
         "other": "new pages"
       },
       "pageOf": "page {done} of {pages}",
-      "hadAll": "had it all"
+      "hadAll": "had it all",
+      "postsOf": {
+        "one": "{done} of {n} post",
+        "other": "{done} of {n} posts"
+      },
+      "galleriesOf": {
+        "one": "{done} of {n} gallery",
+        "other": "{done} of {n} galleries"
+      }
     },
     "tryingNow": "Trying {site} again",
     "tryingIn": "Trying again in {span}",
