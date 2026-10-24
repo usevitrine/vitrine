@@ -2616,10 +2616,14 @@ test('downloads on phones: rows keep their actions behind ⋯; numbers say what 
   await expect(queue.locator('.stat.good b')).toHaveText('100');
   const counts = queue.locator('.counts');
   const one = await counts.evaluate((el) => {
-    const kids = [...el.children].map((c) => c.getBoundingClientRect().top);
-    return new Set(kids.map(Math.round)).size;
+    // (by their middles: the chips are taller than the lead count, all on the one line)
+    const kids = [...el.children].map((c) => {
+      const r = c.getBoundingClientRect();
+      return r.top + r.height / 2;
+    });
+    return Math.max(...kids) - Math.min(...kids) < 2;
   });
-  expect(one).toBe(1); // one line, never wrapping
+  expect(one).toBe(true); // one line, never wrapping
   await page.getByRole('button', { name: 'More for the download blue_sky' }).click();
   await expect(page.getByRole('menuitem', { name: /^Resume/ })).toBeInViewport();
   await page.keyboard.press('Escape');
