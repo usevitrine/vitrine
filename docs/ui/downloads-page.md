@@ -33,7 +33,9 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   first card whole (the queue: the one running, then retries, then the waiting ones), the next two peeking out behind
   it (smaller, their content faded), a "+N" on the edges that unfold it; the site's heading unfolds it too. Unfolded,
   every card glides from its place in the stack to its place in the list (absolutely placed, transforms and heights
-  only, 0.42 s), back on "Show less"; cards coming and going fade and the rest glide. Reduced motion: at once. In the
+  only, 0.42 s), each sliding out from under the one before it (the front card stays on top, folded or not -
+  2026-10-24: with one level for all unfolded, the later cards slid over it), back on "Show less"; cards coming and
+  going fade and the rest glide. Reduced motion: at once. In the
   queue only the waiting downloads have handles (they reorder among themselves; the running one stays in front).
 - **Retries in the queue**: Retry (or Retry all) on a failed file runs in the background (`StartRetry`) - the card
   shows in its site's queue ("Retrying", the file's bytes and speed from the live stream: `FileProgress.key`), then its

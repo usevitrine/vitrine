@@ -2,7 +2,9 @@
   // A stack of cards (a site's downloads, the notices showing at once): folded, the first card shows whole and the
   // next two peek out behind it, a little smaller; their edges unfold it. Unfolded, the cards fan out into a list
   // - each glides from its place in the stack to its place in the list, its content fading in - and fold back
-  // the same way. Cards coming and going fade, the others glide to make room. Every card is absolutely placed
+  // the same way, each under the one before it (the front card stays on top, folded or not: with one level for all
+  // unfolded, the later cards slid out over the front one - the user: they should "slide out from underneath").
+  // Cards coming and going fade, the others glide to make room. Every card is absolutely placed
   // (transforms only: smooth on a phone); the stack's height follows them.
   import type { Snippet } from 'svelte';
   import { cubicOut } from 'svelte/easing';
@@ -138,7 +140,7 @@
       class:lifted={lifted?.(i)}
       style:transform="translate3d(0, {p.y}px, 0) scale({p.scale})"
       style:height={behindFront ? `${p.height}px` : undefined}
-      style:z-index={isOpen ? (lifted?.(i) ? 3 : 1) : 10 - Math.min(p.depth, 9)}
+      style:z-index={lifted?.(i) ? 20 : 10 - Math.min(up ? items.length - 1 - i : i, 9)}
       style:opacity={p.hidden ? 0 : 1}
       aria-hidden={behindFront ? 'true' : undefined}
       inert={behindFront}
