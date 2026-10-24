@@ -380,4 +380,5 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   is the same in reverse, laid out as the card until it's home (`shrinking` lists the tiles on their way back); resting
   again mid-way starts from where it's drawn. The card's animation has the id `card`, which the "tiles still sliding"
   check skips. Checked with Chrome's screencast: the grow is drawn over ~20 frames, the edges move steadily, the
-  picture scales evenly.
+  picture scales evenly. The badges (length, NEW, heart) stay hidden until the tile is home and fade in then: outside
+  `.fit`, the card's stretch drew them out of shape as it shrank (the user: the NEW chip "resizes when i mouse off").

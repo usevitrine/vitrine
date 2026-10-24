@@ -1740,8 +1740,19 @@
   .tile.snap {
     transition: none;
   }
-  .tile.zoomed :is(.badge, .fav-badge, .new-badge) {
+  /* The badges: gone while it's a card, and until it's home - drawn by the card's stretch, a badge shrinking back
+     changed shape (the user: the NEW chip "resizes when i mouse off"); they fade in once it's a tile again. */
+  .tile :is(.badge, .fav-badge, .new-badge) {
+    transition: opacity 0.18s;
+  }
+  .tile:is(.zoomed, .shrinking) :is(.badge, .fav-badge, .new-badge) {
     opacity: 0;
+    transition: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tile :is(.badge, .fav-badge, .new-badge) {
+      transition: none;
+    }
   }
   .tile .zoom-media {
     position: absolute;
