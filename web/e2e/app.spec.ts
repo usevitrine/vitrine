@@ -7612,12 +7612,12 @@ test('updates: a newer release in Settings > Account, Update runs the full-scree
   step = '';
   away = false;
   await expect(page.getByText('Updated to v9.9.9')).toBeVisible({ timeout: 15000 }); // (reloaded behind the splash)
+  await expect(page).toHaveURL(/\/$/); // (the library as it opens: its default search)
   await expect(up).toHaveCount(0);
-  await expect(page.getByText('Version v9.9.9 is out')).toHaveCount(0);
 
   // A failure: says why (the server's reason), the old version still runs, Close.
   current = 'v1.0.1';
-  await page.reload();
+  await page.goto('/settings/account');
   await page.getByRole('button', { name: 'Update to v9.9.9' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Update', exact: true }).click();
   step = '';

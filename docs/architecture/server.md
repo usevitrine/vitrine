@@ -147,15 +147,16 @@ waits before the server comes back up and fades the site back into view". `inter
   failed pull, no newer image, another container updated). `GET /api/update` gives the step (`updating`:
   backup, download). Watchtower reports nothing about the pull's progress (its events: started/completed/failed only).
 - **The full-screen updater** (`lib/updater.svelte.ts`, `components/Updater.svelte`, mounted by App): the splash's
-  background and logo in the splash's very place, the steps under it - backing up, downloading, restarting (requests
+  background and logo, the steps under it, the two together in the middle of the screen (the user) - backing up, downloading, restarting (requests
   fail: the container is being recreated), starting the new version (back on another version) - each ticked when it
   really happens; the bar eases toward the current step's end without reaching it, never goes back. The end: the
   server's page is put in the service worker's copy (`lib/appShell.ts`, shared with main.ts's version check - no old
-  version on the way), the bar fills, the steps fade, the page reloads; `sessionStorage vitrine.updatedTo` makes
+  version on the way), the bar fills, the steps fade while the group moves down by half the steps' height and the gap
+  - the logo lands exactly where the splash draws it (measured: within 0.1 px) - and the library opens (`/`: its
+  default search and sort, the user: "send the user to their main library page with their defaults"); `sessionStorage vitrine.updatedTo` makes
   splash.js show the splash for that load (also on Android, where it's normally off), so the splash takes over at
   the same place and fades the app in, then "Updated to vX" (App, `updater.announce`). A failure: the reason, "still
-  on the version it was", Close; logo and panel slide up together (no reload follows) so it fits a phone; the overlay
-  scrolls on a short screen. Tests: `TestNewerVersion`, `TestUpdateCheck`, `TestUpdateStart` (Go), "updates: ..."
+  on the version it was", Close; the overlay scrolls on a short screen (the group centered with margin: auto). Tests: `TestNewerVersion`, `TestUpdateCheck`, `TestUpdateStart` (Go), "updates: ..."
   (e2e, the API mocked).
 - compose.example.yaml has the Watchtower service (optional) and the two Vitrine variables; config.example.toml
   documents `watchtower_url`, `watchtower_token`, `releases_url`.

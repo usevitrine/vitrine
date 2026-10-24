@@ -1,7 +1,8 @@
 <script lang="ts">
-  // The full-screen updater (lib/updater): the start-up splash's look - its background, its logo in its very place -
-  // with the update's steps and a bar under the logo. At the end the steps fade and the page reloads behind the logo:
-  // the splash takes over where it is and fades the app in, so the reload doesn't show.
+  // The full-screen updater (lib/updater): the start-up splash's look - its background and logo - with the update's
+  // steps and a bar under the logo, the two together in the middle of the screen. At the end the steps fade while the
+  // logo glides to the splash's very place, and the page reloads behind it: the splash takes over where it is and
+  // fades the app in, so the reload doesn't show.
   import { fade } from 'svelte/transition';
   import { updater, updateSteps } from '../lib/updater.svelte';
   import { pop, swap, reveal, reduced } from '../lib/motion';
@@ -11,9 +12,14 @@
   const done = (i: number) => updater.progress >= 1 || updateSteps.indexOf(updater.step) > i;
   const current = (i: number) => !done(i) && updateSteps.indexOf(updater.step) === i;
   const focusOnMount = (el: HTMLElement) => el.focus();
+  const GAP = 28; // (between the logo and the steps)
+  let panelH = $state(0);
 </script>
 
-<div class="updater" class:lifted={!!updater.error} role="dialog" aria-modal="true" aria-labelledby="updater-title" transition:fade={{ duration: reduced() ? 0 : 300 }}>
+<div class="updater" role="dialog" aria-modal="true" aria-labelledby="updater-title" transition:fade={{ duration: reduced() ? 0 : 300 }}>
+  <!-- The logo and the steps, in the middle; leaving, the steps fade and the group moves down by half their height (and
+       the gap), which puts the logo in the middle - where the splash draws it (its shift too). -->
+  <div class="group" class:leaving={updater.leaving} style:--gap="{GAP}px" style:--drop="{(panelH + GAP) / 2}px">
   <!-- (the splash's logo, as in index.html) -->
   <svg class="mark" width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
     <defs><linearGradient id="upd-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cba6f7" /><stop offset="1" stop-color="#f5c2e7" /></linearGradient></defs>
@@ -26,7 +32,7 @@
     </g>
   </svg>
 
-  <div class="panel" class:leaving={updater.leaving}>
+  <div class="panel" bind:offsetHeight={panelH}>
     {#key !!updater.error}
       <h2 id="updater-title" in:swap>{updater.error ? t('updates.failedTitle') : t('updates.title', { version: updater.to })}</h2>
     {/key}
@@ -55,50 +61,47 @@
       <p class="hint" transition:reveal>{t('updates.keepOpen')}</p>
     {/if}
   </div>
+  </div>
 </div>
 
 <style>
-  /* As the splash (index.html): the whole screen, its color, the logo in the middle (shifted as it is). */
+  /* As the splash (index.html): the whole screen, its color. (margin: auto centers the group and still lets a short
+     screen scroll to all of it - the failure's Close stays reachable.) */
   .updater {
     position: fixed;
     inset: 0;
     z-index: 300;
-    display: grid;
-    place-items: center;
+    display: flex;
+    padding: 0 24px; /* (no top/bottom of its own: the middle stays the splash's middle) */
     background: #1e1e2e;
     color: var(--text);
-    /* (a short screen: what is under the logo scrolls - the failure's Close stays reachable) */
     overflow-y: auto;
     overscroll-behavior: contain;
   }
+  .group {
+    margin: auto;
+    padding: calc(24px + var(--bottom-room, 0px)) 0; /* (the same above and below: clear of the home bar, still centered) */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--gap);
+    transition: translate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .group.leaving {
+    translate: 0 calc(var(--drop) + var(--splash-shift, 0px));
+  }
   .mark {
+    flex: none;
     border-radius: 14px;
     opacity: 0.9;
-    transform: translateY(var(--splash-shift, 0px));
-    transition: translate 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
-  /* A failure: no reload follows, so the logo can move - up, with the panel, so the reason and Close fit a phone. */
-  .lifted .mark {
-    translate: 0 calc(-1 * min(140px, 16vh));
-  }
-  .lifted .panel {
-    translate: -50% calc(-1 * min(140px, 16vh));
-  }
-  /* Under the logo, without moving it. */
   .panel {
-    position: absolute;
-    top: calc(50% + 32px + 28px + var(--splash-shift, 0px));
-    left: 50%;
-    translate: -50% 0;
     width: min(340px, calc(100vw - 48px));
     display: grid;
     gap: 14px;
-    padding-bottom: calc(24px + var(--bottom-room, 0px));
-    transition:
-      opacity 0.4s ease-out,
-      translate 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: opacity 0.35s ease-out;
   }
-  .panel.leaving {
+  .leaving .panel {
     opacity: 0;
   }
   h2 {
@@ -194,7 +197,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .bar span,
-    .mark,
+    .group,
     .panel,
     .steps li,
     .dot {

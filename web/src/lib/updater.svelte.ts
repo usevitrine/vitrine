@@ -5,8 +5,9 @@
 // being recreated: requests fail); start is the server back on a new version. Each completes when it really happens.
 // Watchtower says nothing about the pull's progress, so the bar is honest about steps and smooth within one: it eases
 // toward the step's end without reaching it (and never goes back). At the end the page is fetched for the service
-// worker's copy (no old version on the way), the steps fade, and the page reloads behind the same logo: the start-up
-// splash takes over in the very same place and fades the app in (splash.js shows it for this load, also on Android).
+// worker's copy (no old version on the way), the steps fade while the logo glides to the splash's place, and the
+// library opens behind it as it does at the start (its default search and sort): the start-up splash takes over in
+// the very same place and fades the app in (splash.js shows it for this load, also on Android).
 import { api, type UpdateState } from './api';
 import { refreshShell } from './appShell';
 import { toasts } from './toast.svelte';
@@ -108,8 +109,8 @@ class Updater {
       /* no "Updated" message then */
     }
     this.leaving = true;
-    await sleep(450); // (the steps fade: only the logo, where the splash will draw it)
-    location.reload();
+    await sleep(550); // (the steps fade, the logo glides to where the splash will draw it)
+    location.replace('/'); // (the library as it opens: the default search and sort - the user)
   }
 
   private fail(message: string) {
