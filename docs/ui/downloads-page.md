@@ -207,7 +207,7 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   through - new, had, blacklisted, skipped, deleted before, failed - out of the goal: the limit picked, the site's count
   when that's smaller, the site's count without a limit (`goalOf` in lib/downloadProgress). No goal (no limit, the site
   gives no count): just the number, and a running search's bar is striped. Then each kind as a chip (the user: "put
-  the new, had and blacklisted in chips"; new tinted green, failed red, the rest plain, 6 px apart) - an icon and its count:
+  the new, had and blacklisted in chips"; new tinted green, blacklisted and failed red - the user, the rest plain, 6 px apart) - an icon and its count:
   sparkles (new, green), check (had), trash (deleted before), crossed-out eye (blacklisted), filter (skipped), alert
   (failed, red) - named when pointed at and for screen readers (a visually hidden "41,650 new"). "up to N files" is gone
   (the limit is in the lead). The bar is the same count over the same goal (also the top bar's downloads menu).

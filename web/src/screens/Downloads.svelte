@@ -1303,7 +1303,7 @@
         {#if s.already}{@render iconStat(s.already, 'check', t('downloads.stat.had'))}{/if}
       {/if}
       {#if s.deleted}{@render iconStat(s.deleted, 'trash', t('downloads.stat.deletedBefore'))}{/if}
-      {#if s.blacklisted}{@render iconStat(s.blacklisted, 'eyeoff', t('downloads.stat.blacklisted'))}{/if}
+      {#if s.blacklisted}{@render iconStat(s.blacklisted, 'eyeoff', t('downloads.stat.blacklisted'), 'bad')}{/if}
       {#if s.skipped}{@render iconStat(s.skipped, 'filter', t('downloads.stat.skipped'))}{/if}
       {#if s.failed}{@render iconStat(s.failed, 'alert', t('downloads.stat.failed'), 'bad')}{/if}
     </div>
@@ -2046,7 +2046,7 @@
   .stat .of {
     color: var(--subtext);
   }
-  /* (as chips - the user: new green, failed red, the rest plain) */
+  /* (as chips - the user: new green, blacklisted and failed red, the rest plain) */
   .stat.icon-stat {
     display: inline-flex;
     align-items: center;
