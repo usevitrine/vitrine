@@ -1563,9 +1563,9 @@
     <!-- Queue, Subscriptions, History: one at a time (the last one looked at is remembered). -->
     <div class="tabs" id="dl-tabs" role="tablist" aria-label={t('stats.downloads')} bind:this={tabsEl}>
       {#if pill}<span class="tab-pill" class:ready={pillReady} style:width="{pill.w}px" style:transform="translateX({pill.x}px)" aria-hidden="true"></span>{/if}
-      {#each [{ id: 'queue', label: t('downloads.queue'), n: waitingCount + runningCount }, { id: 'subs', label: t('stats.subscriptions'), n: subs.length }, { id: 'history', label: t('downloads.history'), n: failedFileCount + finished.length }] as x (x.id)}
+      {#each [{ id: 'queue', label: t('downloads.queue'), n: waitingCount + runningCount }, { id: 'subs', label: t('stats.subscriptions'), short: t('downloads.subsShort'), n: subs.length }, { id: 'history', label: t('downloads.history'), n: failedFileCount + finished.length }] as x (x.id)}
         <button role="tab" id="tab-{x.id}" aria-selected={tab === x.id} aria-controls="panel-{x.id}" class:on={tab === x.id} onclick={() => setTab(x.id as Tab)}
-          ><span class="tab-label">{x.label}</span>{#if x.n}<span class="tab-num" transition:slide={{ axis: 'x', duration: reducedMotion() ? 0 : 220, easing: ease }}
+          ><span class="tab-label">{#if x.short}<span class="long">{x.label}</span><span class="short" aria-hidden="true">{x.short}</span>{:else}{x.label}{/if}</span>{#if x.n}<span class="tab-num" transition:slide={{ axis: 'x', duration: reducedMotion() ? 0 : 220, easing: ease }}
               ><span class="tab-count" use:easeWidth>{x.n > 99 ? '99+' : num(x.n)}</span></span
             >{/if}</button>
       {/each}
@@ -2698,6 +2698,24 @@
     font-weight: 600;
     white-space: nowrap;
     transition: color 0.2s;
+  }
+  /* Phones: "Subs" for Subscriptions - three tabs and their counts fit (the user); screen readers still hear the whole
+     word (the long one only hidden from sight). */
+  .tab-label .short {
+    display: none;
+  }
+  @media (max-width: 639px) {
+    .tab-label .short {
+      display: inline;
+    }
+    .tab-label .long {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
   }
   .tabs button.on {
     color: var(--text);

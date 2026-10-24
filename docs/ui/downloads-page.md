@@ -199,3 +199,5 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   paused downloads and the paused sites - at most once a second (a change meanwhile read when the second is up).
   It read the whole page (history, subscriptions, groups) on every live change; while downloads ran that was a lot
   of work on the page, and scrolling the library stalled (the user saw the background at the bottom).
+- **"Subs" on phones (2026-10-24, the user)**: under 640 px the Subscriptions tab says "Subs" (`downloads.subsShort`) to
+  save room; the whole word stays for screen readers (visually hidden, not removed), so the tab's name is unchanged.

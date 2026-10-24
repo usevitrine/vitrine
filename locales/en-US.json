@@ -1369,7 +1369,8 @@
     },
     "newestFiles": "The newest files it found",
     "openComic": "Open the comic",
-    "nextRing": "Next check: {when}"
+    "nextRing": "Next check: {when}",
+    "subsShort": "Subs"
   },
   "setup": {
     "skipAll": "Skip setup",
