@@ -113,7 +113,7 @@
     return {
       duration: out ? 200 : 240,
       easing: cubicOut,
-      css: (k: number) => `opacity: ${k}; transform: translateY(${px((1 - k) * -8)}) scale(${settle(0.94 + 0.06 * k, sizeOf(node))})`,
+      css: (k: number) => `opacity: ${k}; transform: translateY(${(1 - k) * -8}px) scale(${settle(0.94 + 0.06 * k, sizeOf(node))})`,
     };
   }
   function slideIn(node: Element, { i = 0 } = {}) {

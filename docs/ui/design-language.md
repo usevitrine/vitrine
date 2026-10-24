@@ -71,6 +71,10 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   not transform, which would become fixed children's containing block). Measured: the last animation frame vs at
   rest, pixels that change strongly - 0 for the downloads and bell panels, Downloads tabs, Filters, Saved searches,
   New download, the login dialog, a confirmation (from 630-11,000 before); a third of a pixel left on a sheet.
+  Exception (2026-10-24, user: text in the Downloads menu "jumps down slightly"): a menu's 8 px drop as it opens
+  (Downloads, the bell, ⋯ menus, search suggestions) moves continuously again - in whole pixels its last pixel came
+  late and on its own, a drop just as it had settled (measured in Chrome's screencast: a last step of 0.85 px after
+  steps of 0.2-0.4; continuous, the steps shrink to 0.05 px, and nothing moves at rest).
 - **Type (2026-10-24, the user's pick of Geist / Inter / Plus Jakarta Sans / Manrope)**: Plus Jakarta Sans, the
   variable font bundled with the app (`@fontsource-variable/plus-jakarta-sans`, imported in main.ts: woff2 files split
   by script, only the ones a page's text needs are fetched; no outside font service - self-hosted, offline, private),

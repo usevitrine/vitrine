@@ -14,6 +14,10 @@ export const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(p
 // Text must not shift when a motion ends (the user saw it after every opening): an ease-out spends its last frames
 // moving by fractions of a pixel, the text drawn between pixels, then snapping onto them when the motion stops. So
 // moves go in whole pixels, and a scale counts as done once it's within half a pixel of the element's size.
+// Not a menu's short drop as it opens (8 px: Downloads, the bell, ⋯ menus, search suggestions): in whole pixels its
+// last pixel came late, on its own - the text dropped a pixel just as it had settled (the user, 2026-10-24: text in
+// the Downloads menu "jumps down slightly"; measured: a last step of 0.85 px after steps of 0.2-0.4). Continuous, it
+// settles by 0.05 px.
 /** A move in whole pixels. */
 export const px = (v: number) => `${Math.round(v)}px`;
 /** An element's larger side (for settle). */
