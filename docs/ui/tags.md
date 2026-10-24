@@ -85,7 +85,7 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   namespace as also matching the bare tag (`Blacklist.Match`) - "creator:x" never stopped a post tagged x before.
 - **The pick bar's buttons (2026-10-24, the user: "instead of the popup saying use, have 3 buttons")**: "N picked",
   then **Search** (the usual menu: all of them, any of them, add them to the search), **Download** (all, any) and
-  **Blacklist** (added at once, Undo in the toast), then ×. The buttons are a strip that scrolls sideways (snapping,
+  **Blacklist** (added at once, Undo in the toast), then ×, in a bar 46 px tall on every screen. The buttons are a strip that scrolls sideways (snapping,
   soft edges) when the panel is too narrow, as the selection bar's; the count stays whole; the Tags section never
   grows wider than the panel (`minmax(0, 1fr)`). A picked tag keeps its weight (bolder text was wider, and a tag at a
   row's end jumped to the next line - the user).

@@ -461,7 +461,9 @@
     align-items: center;
     gap: 6px;
     margin-top: 12px;
-    padding: 3px 3px 3px 12px; /* (slim: its buttons a little under a control's height) */
+    box-sizing: border-box;
+    height: 46px; /* (the same on every screen - the user) */
+    padding: 3px 3px 3px 12px;
     border-radius: 12px;
     background: var(--crust);
     border: 1px solid var(--surface0);
@@ -501,7 +503,7 @@
     flex: none;
     scroll-snap-align: start;
     min-height: 0;
-    height: calc(var(--control-h) - 10px);
+    height: 38px; /* (the bar's 46 less its padding and border) */
     padding-block: 0;
   }
   /* Blacklist: the same as the two menu buttons beside it (their text small and bold) */
@@ -523,8 +525,8 @@
   .pick-x {
     flex: none;
     min-height: 0;
-    height: calc(var(--control-h) - 10px);
-    width: calc(var(--control-h) - 10px);
+    height: 38px;
+    width: 38px;
   }
   /* Without the × (not editing), the name keeps even padding. */
   .tags li:not(:has(.x)) .name {
