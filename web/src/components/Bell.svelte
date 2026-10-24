@@ -143,7 +143,7 @@
     aria-expanded={open}
     onanimationend={() => (ringing = false)}
     onclick={() => (open ? close() : show())}>
-    <span class="swing"><Icon name="bell" size={22} /></span>
+    <span class="swing"><Icon name="bell" size={19} /></span>
     {#if notices.unread}
       {#key notices.unread}
         <span class="unread" class:alarm={notices.alarm} aria-hidden="true">{notices.unread > 99 ? '99+' : num(notices.unread)}</span>
@@ -236,19 +236,20 @@
       transform: rotate(-2deg);
     }
   }
+  /* (on the icon's top right corner; a longer number grows to the right) */
   .unread {
     position: absolute;
-    top: 3px;
-    right: 1px;
-    min-width: 17px;
-    height: 17px;
-    padding: 0 4px;
+    top: calc(50% - 15px);
+    left: calc(50% + 2px);
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
     border-radius: 999px;
     background: var(--mauve);
     color: var(--crust);
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 800;
-    line-height: 17px;
+    line-height: 14px;
     text-align: center;
     box-shadow: 0 0 0 2px var(--mantle);
     animation: pop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);

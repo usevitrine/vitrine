@@ -142,7 +142,7 @@
     aria-haspopup="dialog"
     aria-expanded={open}
     onclick={() => (open = !open)}>
-    <span class="arrow"><Icon name="download" size={22} /></span>
+    <span class="arrow"><Icon name="download" size={19} /></span>
     {#if active.count}
       {#key active.count}
         <span class="counter" aria-hidden="true">{active.count > 99 ? '99+' : num(active.count)}</span>
@@ -228,19 +228,20 @@
       transform: translateY(2px);
     }
   }
+  /* (on the icon's top right corner; a longer number grows to the right) */
   .counter {
     position: absolute;
-    top: 3px;
-    right: 1px;
-    min-width: 17px;
-    height: 17px;
-    padding: 0 4px;
+    top: calc(50% - 15px);
+    left: calc(50% + 2px);
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
     border-radius: 999px;
     background: var(--peach);
     color: var(--crust);
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 800;
-    line-height: 17px;
+    line-height: 14px;
     text-align: center;
     box-shadow: 0 0 0 2px var(--mantle);
     animation: pop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
