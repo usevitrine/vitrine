@@ -28,7 +28,7 @@
   }
   function go(n: Notice) {
     close();
-    if (n.to) router.go(n.to);
+    if (n.to) router.go(n.to, n.sub);
   }
 
   // Screen readers hear what was done that doesn't show (lib/toast), each for a few seconds.

@@ -47,6 +47,8 @@ var settingCheck = map[string]func(json.RawMessage) error{
 	"newFromBulk": isBool,           // one-off downloads, first checks and imports count as new (missing = yes)
 	"backupAuto":  isBool,           // a backup every day (missing = on)
 	"backupKeep":  numberIn(1, 365), // how many backups to keep
+	// Ask GitHub once a day whether a newer Vitrine is out (missing = on).
+	"updateCheck": isBool,
 	// The trash empties itself of files deleted more than this many days ago (0 / missing = never).
 	"trashDays":    numberIn(0, 3650),
 	"newMode":      oneOf("auto", "button"),

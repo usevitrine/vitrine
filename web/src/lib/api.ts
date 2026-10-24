@@ -215,6 +215,19 @@ export interface FileLink {
 }
 
 /** A backup of the library database (Settings > Backups). */
+export interface UpdateState {
+  current: string; // this program's version
+  latest: string; // the newest release ("" = not asked yet)
+  page: string; // its page on GitHub
+  newer: boolean;
+  checked_at: number; // Unix ms (0 = never)
+  error: string; // why the last check failed
+  check: boolean; // the daily check is on (setting updateCheck)
+  can_update: boolean; // Watchtower is set up: the Update button
+  updating: '' | 'backup' | 'download'; // an update under way: its step on the server
+  update_error: string; // why the last update failed
+}
+
 export interface BackupInfo {
   name: string;
   size: number;
@@ -529,6 +542,10 @@ export const api = {
   resumeDownload: (id: number) => post<{ ok: boolean }>(`/api/downloads/${id}/resume`, {}),
   backups: () => get<{ backups: BackupInfo[]; dir: string; auto: boolean; keep: number; pending: boolean; last_error: string }>('/api/backups'),
   createBackup: () => post<{ backup: BackupInfo }>('/api/backups', {}),
+  /** Vitrine's updates: the latest release (asked for once a day), and the Update button (with Watchtower). */
+  updateState: () => get<UpdateState>('/api/update'),
+  checkForUpdate: () => post<UpdateState>('/api/update/check', {}),
+  startUpdate: () => post<{ started: boolean; backup: string }>('/api/update', {}),
   deleteBackup: (name: string) => post<{ ok: boolean }>(`/api/backups/${encodeURIComponent(name)}/delete`, {}),
   restoreBackup: (name: string) => post<{ ok: boolean; pending: boolean }>(`/api/backups/${encodeURIComponent(name)}/restore`, {}),
   /** Stages a backup file (a .db.gz from Download, or a plain meta.db). */

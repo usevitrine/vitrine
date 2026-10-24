@@ -53,3 +53,17 @@
 # it off.
 # Default: <data_dir>/vitrine.sock
 # socket = "/run/vitrine/vitrine.sock"
+
+# Updates: Vitrine asks GitHub once a day whether a newer release is out
+# (Settings > Account > About can switch it off) and shows it there and in the
+# bell. "off" never asks.
+# Default: GitHub's API for usevitrine/vitrine
+# releases_url = "off"
+
+# The Update button: Watchtower's HTTP API (its update endpoint on, with this
+# token - WATCHTOWER_HTTP_API_ENDPOINTS=update, WATCHTOWER_HTTP_API_TOKEN).
+# Update makes a backup, then has Watchtower pull the newest image and
+# recreate Vitrine's container (see compose.example.yaml). Without it,
+# updating is a docker compose pull.
+# watchtower_url = "http://watchtower:8080"
+# watchtower_token = "a long random string"

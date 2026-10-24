@@ -28,6 +28,7 @@
   import SearchBar from '../components/SearchBar.svelte';
   import Rich from '../components/Rich.svelte';
   import ChangelogCard from '../components/ChangelogCard.svelte';
+  import UpdateStatus from '../components/UpdateStatus.svelte';
   import { router } from '../lib/router.svelte';
   import { t, num, i18n, languages } from '../lib/i18n.svelte';
 
@@ -357,10 +358,11 @@
                 <button class="quiet" onclick={() => (settings.welcome = 'sections')}>{t('settings.firstSteps.again')}</button>
               </div>
             </section>
-            <!-- About: the version, the license, the source (the AGPL), the third-party notices. -->
+            <!-- About: the version and its updates, the license, the source (the AGPL), the third-party notices. -->
             <section class="card about">
               <div class="card-head"><h2>{t('settings.about.title')}</h2></div>
               <p class="about-line"><strong>Vitrine</strong>{#if stats?.server?.version}&nbsp;<span class="about-ver">{stats.server.version}</span>{/if}</p>
+              <UpdateStatus />
               <p class="hint">{t('settings.about.license')}</p>
               <div class="about-links">
                 <button class="link" onclick={() => router.go('settings', 'changelog')}>{t('settings.about.whatsNew')}</button>

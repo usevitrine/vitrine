@@ -9,6 +9,7 @@ import { logErrors } from './lib/errorlog';
 import { install } from './lib/install.svelte';
 import { t } from './lib/i18n.svelte';
 import { quietKeyboard } from './lib/privacy';
+import { refreshShell } from './lib/appShell';
 
 logErrors();
 trackKeyboard();
@@ -90,15 +91,8 @@ const ownScript = document.querySelector<HTMLScriptElement>('script[type="module
 async function checkVersion() {
   if (!ownScript.startsWith('/assets/')) return; // (not in development)
   try {
-    const resp = await fetch('/', { cache: 'no-store' });
-    if (!resp.ok) return;
-    const src = (await resp.clone().text()).match(/src="(\/assets\/[^"]+\.js)"/)?.[1];
-    if (!src) return;
-    // The service worker's copy of the page - in its page cache, whatever its version
-    // (vitrine-shell-v2, ...; writing to an old name left the stale copy: a reload loop).
-    const shells = (await caches.keys()).filter((k) => k.startsWith('vitrine-shell-'));
-    for (const k of shells.length ? shells : ['vitrine-shell-v2']) await (await caches.open(k)).put('/', resp.clone());
-    if (src !== ownScript) reloadOnce();
+    const src = await refreshShell();
+    if (src && src !== ownScript) reloadOnce();
   } catch {
     // Offline: checked again next time.
   }

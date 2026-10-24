@@ -22,7 +22,7 @@ function save(key: string, value: unknown) {
 }
 
 /** The settings every device shares (the server's allow-list). */
-const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'cameButton', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst'] as const;
+const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'cameButton', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck'] as const;
 type SharedKey = (typeof shared)[number];
 
 class Settings {
@@ -79,6 +79,8 @@ class Settings {
   checksFirst = $state(load('checksFirst', true));
   /** Where each kind of notice goes (lib/noticeKinds): only the kinds changed from their default. */
   noticeModes = $state<Record<string, string>>(load('noticeModes', {}));
+  /** Ask once a day whether a newer Vitrine is out (the server asks GitHub). */
+  updateCheck = $state(load('updateCheck', true));
   siteCheckDepths = $state<Record<string, number>>(load('siteCheckDepths', {}));
   /** Which push notifications to send (to every device that turned them on). */
   notifyNew = $state(load('notifyNew', true));

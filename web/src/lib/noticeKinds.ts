@@ -41,6 +41,7 @@ export const noticeKinds: NoticeKind[] = [
   { id: 'savedSearches', group: 'settings', mode: 'bell', undo: true },
   { id: 'device', group: 'settings', mode: 'screen' },
   { id: 'update', group: 'app', mode: 'bell', undo: true },
+  { id: 'release', group: 'app', mode: 'bell' }, // a newer Vitrine is out (the server's daily check)
   { id: 'errors', group: 'app', mode: 'screen' },
 ];
 

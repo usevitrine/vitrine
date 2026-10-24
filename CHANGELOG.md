@@ -2,6 +2,13 @@
 
 What changed in each version of Vitrine, newest first. The app shows this too (Settings > What’s new).
 
+## Unreleased
+
+- **Updates**: Vitrine tells you when a new version is out (Settings > Account > About, and the bell; it checks
+  GitHub once a day and can be told not to). With Watchtower set up (see the example compose file), Update installs
+  it from there: a backup first, then a full-screen updater follows each step and fades the app back in on the new
+  version.
+
 ## 1.0.1 - 2026-10-24
 
 - **Adding sites**: the list of sites to add has a search, filters by kind (image boards, galleries, social), shows

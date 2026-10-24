@@ -51,21 +51,32 @@ type Config struct {
 	// status, queue, subs, ...) - no login, only this machine (in Docker: this container) and only users who can
 	// open the file. Defaults to DataDir/vitrine.sock; "off" turns it off.
 	Socket string `toml:"socket"`
+	// WatchtowerURL and WatchtowerToken: Watchtower's HTTP API (its update endpoint on, with that token) - then
+	// Settings has an Update button that has Watchtower pull the newest image and recreate Vitrine's container.
+	// Empty = no button (updating stays a docker compose pull).
+	WatchtowerURL   string `toml:"watchtower_url"`
+	WatchtowerToken string `toml:"watchtower_token"`
+	// ReleasesURL is where the daily update check asks for the latest release (default: GitHub's API for
+	// usevitrine/vitrine); "off" never asks.
+	ReleasesURL string `toml:"releases_url"`
 }
 
 // envKeys maps each environment variable to the field it sets.
 func (c *Config) envKeys() map[string]*string {
 	return map[string]*string{
-		"VITRINE_DATA_DIR":      &c.DataDir,
-		"VITRINE_FILES_DIR":     &c.FilesDir,
-		"VITRINE_LISTEN":        &c.Listen,
-		"VITRINE_FFMPEG":        &c.FFmpeg,
-		"VITRINE_FFPROBE":       &c.FFprobe,
-		"VITRINE_VIPSTHUMBNAIL": &c.VipsThumbnail,
-		"VITRINE_PLUGIN_INDEX":  &c.PluginIndex,
-		"VITRINE_BACKUP_DIR":    &c.BackupDir,
-		"VITRINE_LANGUAGE":      &c.Language,
-		"VITRINE_SOCKET":        &c.Socket,
+		"VITRINE_DATA_DIR":         &c.DataDir,
+		"VITRINE_FILES_DIR":        &c.FilesDir,
+		"VITRINE_LISTEN":           &c.Listen,
+		"VITRINE_FFMPEG":           &c.FFmpeg,
+		"VITRINE_FFPROBE":          &c.FFprobe,
+		"VITRINE_VIPSTHUMBNAIL":    &c.VipsThumbnail,
+		"VITRINE_PLUGIN_INDEX":     &c.PluginIndex,
+		"VITRINE_BACKUP_DIR":       &c.BackupDir,
+		"VITRINE_LANGUAGE":         &c.Language,
+		"VITRINE_SOCKET":           &c.Socket,
+		"VITRINE_WATCHTOWER_URL":   &c.WatchtowerURL,
+		"VITRINE_WATCHTOWER_TOKEN": &c.WatchtowerToken,
+		"VITRINE_RELEASES_URL":     &c.ReleasesURL,
 	}
 }
 

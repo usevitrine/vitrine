@@ -42,6 +42,9 @@ on the internet. The first steps then walk you through storage, sites, the app a
 - `./files` holds the original files: it can be a big, slow disk.
 - Push notifications and installing the app on a phone need HTTPS: put Vitrine behind a reverse proxy (Caddy,
   Traefik, nginx...) with a certificate.
+- Updates: Vitrine tells you when a new version is out (Settings > Account > About, and the bell). With the
+  example's Watchtower service, Update installs it from there; without it, `docker compose pull && docker compose
+  up -d`.
 
 ### Native
 

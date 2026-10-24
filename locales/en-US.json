@@ -2324,7 +2324,8 @@
       "savedSearches": "Saved searches",
       "device": "This device: app installed, notifications off",
       "update": "A new version is ready",
-      "errors": "Errors"
+      "errors": "Errors",
+      "release": "A new Vitrine release"
     },
     "withUndo": "With Undo",
     "withReload": "With Reload"
@@ -2427,5 +2428,35 @@
   "changelog": {
     "unreleased": "Not released yet",
     "failed": "The changelog couldn’t be read."
+  },
+  "updates": {
+    "notice": "Vitrine {version} is out",
+    "available": "Version {version} is out",
+    "upToDate": "Up to date",
+    "checking": "Checking…",
+    "checkNow": "Check now",
+    "checkFailed": "Couldn't check for updates: {error}",
+    "whatsNew": "Release notes",
+    "update": "Update",
+    "confirmTitle": "Update to {version}?",
+    "confirmBody": "Vitrine backs up the library, then restarts on the new version. Running downloads pause for a moment and carry on.",
+    "stillOld": "Vitrine came back on {version} - Watchtower didn't update it. Check Watchtower's log.",
+    "notBack": "Vitrine hasn't come back yet. Check the container.",
+    "howTo": "To update: docker compose pull, then docker compose up -d.",
+    "check": "Check for updates",
+    "checkHint": "Once a day, from GitHub.",
+    "updateTo": "Update to {version}",
+    "updated": "Updated to {version}",
+    "title": "Updating to {version}",
+    "failedTitle": "The update didn't finish",
+    "failedHint": "Vitrine is still on the version it was. Your library is untouched.",
+    "keepOpen": "Keep this page open - it comes back on its own.",
+    "close": "Close",
+    "steps": {
+      "backup": "Backing up your library",
+      "download": "Downloading the new version",
+      "restart": "Restarting",
+      "start": "Starting the new version"
+    }
   }
 }

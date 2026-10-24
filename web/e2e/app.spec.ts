@@ -7580,3 +7580,51 @@ test('the blacklist clean-up: deleted files leave the library behind it at once 
   await searched; // the library's search ran again
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
+
+test('updates: a newer release in Settings > Account, Update runs the full-screen updater through its steps and fades back in on the new version; a failure says why and closes', async ({ page }) => {
+  let current = 'v1.0.1';
+  let step = '';
+  let error = '';
+  let away = false;
+  const state = () => ({ current, latest: 'v9.9.9', page: 'https://github.com/usevitrine/vitrine/releases/tag/v9.9.9', newer: current !== 'v9.9.9', checked_at: Date.now(), error: '', check: true, can_update: true, updating: step, update_error: error });
+  await page.route('**/api/update', (r) => {
+    if (r.request().method() === 'POST') {
+      step = 'backup';
+      return r.fulfill({ status: 202, json: { started: true } });
+    }
+    if (away) return r.fulfill({ status: 502, body: 'Bad Gateway' }); // (being recreated)
+    return r.fulfill({ json: state() });
+  });
+  await page.goto('/settings/account');
+  await expect(page.getByText('Version v9.9.9 is out')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Release notes' })).toHaveAttribute('href', /releases\/tag\/v9\.9\.9/);
+  await page.getByRole('button', { name: 'Update to v9.9.9' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Update', exact: true }).click();
+  const up = page.getByRole('dialog', { name: 'Updating to v9.9.9' });
+  await expect(up).toBeVisible();
+  await expect(up.getByText('Backing up your library')).toBeVisible();
+  const bar = up.getByRole('progressbar');
+  step = 'download';
+  await expect.poll(async () => Number(await bar.getAttribute('aria-valuenow')), { timeout: 5000 }).toBeGreaterThan(12);
+  away = true; // (Watchtower stops it)
+  await expect.poll(async () => Number(await bar.getAttribute('aria-valuenow')), { timeout: 5000 }).toBeGreaterThan(72);
+  current = 'v9.9.9'; // (back on the new version)
+  step = '';
+  away = false;
+  await expect(page.getByText('Updated to v9.9.9')).toBeVisible({ timeout: 15000 }); // (reloaded behind the splash)
+  await expect(up).toHaveCount(0);
+  await expect(page.getByText('Version v9.9.9 is out')).toHaveCount(0);
+
+  // A failure: says why (the server's reason), the old version still runs, Close.
+  current = 'v1.0.1';
+  await page.reload();
+  await page.getByRole('button', { name: 'Update to v9.9.9' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Update', exact: true }).click();
+  step = '';
+  error = 'Watchtower found no newer image (is the new version\'s image out yet?)';
+  const failed = page.getByRole('dialog', { name: "The update didn't finish" });
+  await expect(failed.getByText(/found no newer image/)).toBeVisible({ timeout: 5000 });
+  await failed.getByRole('button', { name: 'Close' }).click();
+  await expect(failed).toHaveCount(0);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});

@@ -19,6 +19,8 @@
   import Bell from './components/Bell.svelte';
   import { notices } from './lib/notices.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
+  import Updater from './components/Updater.svelte';
+  import { updater } from './lib/updater.svelte';
   import PromptDialog from './components/PromptDialog.svelte';
   import NewDownloadDialog from './components/NewDownloadDialog.svelte';
   import { newDownloadDialog } from './lib/newDownload.svelte';
@@ -272,6 +274,7 @@
     void router.sub;
     untrack(() => setAway(false));
   });
+  updater.announce(); // (just updated: says to what)
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && drawer && (drawer = false)} />
@@ -376,6 +379,7 @@
 {/if}
 <Toasts />
 <ConfirmDialog />
+{#if updater.active}<Updater />{/if}
 <PromptDialog />
 <!-- A new download (the Library's download button, a tag's menu, the details' picked tags). -->
 {#if newDownloadDialog.current}

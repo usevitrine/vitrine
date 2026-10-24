@@ -126,3 +126,37 @@ The viewer asks for `?size=<screen>&for=screen`; the server remembers those size
 still images bigger than that, newest first, one at a time (`RunRenditionsAhead`). It stops at 80% of
 `renditions_max_gb`, so copies made ahead never push out viewed ones. Zoom requests (no `for=screen`) don't count.
 About 0.6 MB per copy (WebP).
+
+## Updates: the check and the Update button (2026-10-24)
+The user: "will my personal vitrine get a notification that there's an update" -> "A notification and an update
+button that uses watchtower would be cool" -> "a silky smooth experience ... a full screen client side updater that
+waits before the server comes back up and fades the site back into view". `internal/server/updates.go`.
+- **The check**: once a day (3 min after the start, then hourly checks for a day-old answer) the server asks GitHub's
+  API for the latest release (`releases_url`, default `api.github.com/repos/usevitrine/vitrine/releases/latest`;
+  "off" never asks - the end-to-end test servers) - only with the shared setting `updateCheck` (missing = on;
+  Settings > Account > About). A newer `vX.Y.Z` than this program: `GET /api/update` says so (`newer`, `latest`,
+  `page`), and the bell gets a notice, once per version (kind `release`, the notice kind "A new Vitrine release",
+  leading to Settings > Account). Development builds (`dev`, the dev server's `test-...`) are never behind.
+  `POST /api/update/check` is "Check now".
+- **The Update button** (only with `watchtower_url` + `watchtower_token`: Watchtower's HTTP API, the
+  `nickfedor/watchtower` fork - containrrr's is archived - with `WATCHTOWER_HTTP_API_ENDPOINTS=update` and that
+  token; with only the update endpoint it never polls on its own): `POST /api/update` answers at once and runs in
+  the background - a backup of meta.db (failed: nothing is updated), then `POST /v1/update?image=ghcr.io/usevitrine/vitrine`
+  (synchronous, bounded at 15 min). On success Watchtower recreates this container before it answers (the program
+  is stopped); any answer that comes back is a failure, kept as `update_error` with the reason (a refused token, a
+  failed pull, no newer image, another container updated). `GET /api/update` gives the step (`updating`:
+  backup, download). Watchtower reports nothing about the pull's progress (its events: started/completed/failed only).
+- **The full-screen updater** (`lib/updater.svelte.ts`, `components/Updater.svelte`, mounted by App): the splash's
+  background and logo in the splash's very place, the steps under it - backing up, downloading, restarting (requests
+  fail: the container is being recreated), starting the new version (back on another version) - each ticked when it
+  really happens; the bar eases toward the current step's end without reaching it, never goes back. The end: the
+  server's page is put in the service worker's copy (`lib/appShell.ts`, shared with main.ts's version check - no old
+  version on the way), the bar fills, the steps fade, the page reloads; `sessionStorage vitrine.updatedTo` makes
+  splash.js show the splash for that load (also on Android, where it's normally off), so the splash takes over at
+  the same place and fades the app in, then "Updated to vX" (App, `updater.announce`). A failure: the reason, "still
+  on the version it was", Close; logo and panel slide up together (no reload follows) so it fits a phone; the overlay
+  scrolls on a short screen. Tests: `TestNewerVersion`, `TestUpdateCheck`, `TestUpdateStart` (Go), "updates: ..."
+  (e2e, the API mocked).
+- compose.example.yaml has the Watchtower service (optional) and the two Vitrine variables; config.example.toml
+  documents `watchtower_url`, `watchtower_token`, `releases_url`.
+

@@ -53,6 +53,7 @@ type Server struct {
 	info      Info           // version, where things are stored (Settings > Stats)
 	logs      *logring.Ring  // recent log records (the problem report); nil: none
 	notices   *notices       // the downloader's events for the bell (see notices.go)
+	updates   *updates       // the update check and the Update button (updates.go); nil: off
 	pictures  *pictureCache  // browsing's covers and thumbnail sheets, lately seen (browse.go)
 	browsing  *browseState   // Comics > Browse: search pages lately, covers on their way
 	mux       *http.ServeMux

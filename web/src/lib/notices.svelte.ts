@@ -18,7 +18,8 @@ export interface Notice {
   cat: string; // the kind of notice (lib/noticeKinds)
   at: number; // Unix ms
   read: boolean;
-  to?: 'downloads'; // where it leads (a download's: the Downloads page)
+  to?: 'downloads' | 'settings'; // where it leads (a download's: the Downloads page; a new release's: Settings > Account)
+  sub?: string;
 }
 
 /** A notice as the server sends it: one of the downloader's events (worded here, in this page's language), or
@@ -26,7 +27,7 @@ export interface Notice {
 export interface ServerNotice {
   id: number;
   at: number;
-  kind: 'new' | 'failed' | 'done' | 'blacklisted' | 'paused' | 'back' | 'app';
+  kind: 'new' | 'failed' | 'done' | 'blacklisted' | 'paused' | 'back' | 'app' | 'release';
   site?: string;
   query?: string;
   subscription?: boolean;
@@ -68,6 +69,8 @@ function word(n: ServerNotice): { text: string; kind: ToastKind } {
       return { text: t('downloads.backNotice', { site: n.site ?? '' }), kind: 'done' };
     case 'blacklisted':
       return { text: `${t('push.blacklisted', { n: 1 })}: ${t('push.blacklistedBody', { tags: n.tag ?? '' })}`, kind: 'removed' };
+    case 'release':
+      return { text: t('updates.notice', { version: n.query ?? '' }), kind: 'info' };
   }
 }
 
@@ -91,7 +94,8 @@ class Notices {
 
   private make(e: ServerNotice): Notice {
     const w = word(e);
-    return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to: e.kind === 'app' ? undefined : 'downloads' };
+    const to = e.kind === 'app' ? undefined : e.kind === 'release' ? 'settings' : 'downloads';
+    return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to, sub: e.kind === 'release' ? 'account' : undefined };
   }
 
   /** The list as the server has it (at the start, and whenever the live stream opens again). */

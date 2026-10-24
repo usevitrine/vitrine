@@ -11,6 +11,9 @@ services:
       - 8080:8080
     environment:
       - VITRINE_FILES_DIR=/files   # originals on big storage (omit to keep them in /data/files)
+      # The Update button in Settings > Account (with the watchtower service below; remove both lines without it):
+      - VITRINE_WATCHTOWER_URL=http://watchtower:8080
+      - VITRINE_WATCHTOWER_TOKEN=${WATCHTOWER_TOKEN}
     volumes:
       - ./data:/data               # databases, thumbnails, plugins, secrets.toml - fast storage (SSD)
       - ./files:/files             # original files - can be a big HDD
@@ -28,4 +31,21 @@ services:
     container_name: flaresolverr
     environment:
       - LOG_LEVEL=info
+    restart: unless-stopped
+
+  # Optional: Watchtower, for the Update button (Settings > Account > About). Vitrine checks GitHub once a day for a
+  # new release and offers it; Update makes a backup, then asks Watchtower to pull the new image and recreate the
+  # vitrine container. Watchtower only acts when asked (no schedule) and only on Vitrine's image. Put a long random
+  # token in a .env file next to this one, e.g. WATCHTOWER_TOKEN=<the output of: openssl rand -hex 32>. It needs the
+  # Docker socket, which gives it control of Docker - remove this service (and the two VITRINE_WATCHTOWER lines) if
+  # you'd rather update by hand: docker compose pull && docker compose up -d.
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_HTTP_API_ENDPOINTS=update
+      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_TOKEN}
+      - WATCHTOWER_CLEANUP=true   # removes the old image after updating
     restart: unless-stopped

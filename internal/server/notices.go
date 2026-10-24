@@ -80,6 +80,18 @@ func (n *notices) put(x library.Notice) {
 	}
 }
 
+// has tells whether a notice of a kind about a query is kept already (cleared or not) - an update's, once per version.
+func (n *notices) has(kind, query string) bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	for _, x := range n.list {
+		if x.Kind == kind && x.Query == query {
+			return true
+		}
+	}
+	return false
+}
+
 // after returns the notices after an ID (0: all of them) - not the cleared ones.
 func (n *notices) after(id int64) []library.Notice {
 	n.mu.Lock()

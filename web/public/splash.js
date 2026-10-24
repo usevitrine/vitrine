@@ -7,7 +7,14 @@
   // doesn't count), so it simply stays until the app appears. Lining ours up
   // with it can't be done reliably: it covers the whole screen, bars included,
   // and the page can't tell how tall each bar is (the user saw it jump).
-  if (/Android/.test(navigator.userAgent) && matchMedia('(display-mode: standalone)').matches) {
+  // (Except the load right after an update: the updater drew the splash's logo, and the splash takes over from it.)
+  var updated = false;
+  try {
+    updated = !!sessionStorage.getItem('vitrine.updatedTo');
+  } catch (e) {
+    /* no storage */
+  }
+  if (!updated && /Android/.test(navigator.userAgent) && matchMedia('(display-mode: standalone)').matches) {
     document.documentElement.style.setProperty('--splash-display', 'none');
     return;
   }

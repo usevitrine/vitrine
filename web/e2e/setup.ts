@@ -144,7 +144,7 @@ export default async function setup(config: FullConfig) {
       spawn(bin, ['serve', '-data-dir', dir, '-listen', `127.0.0.1:${PORT0 + i}`], {
         stdio: ['ignore', log, log],
         cwd: root,
-        env: { ...process.env, VITRINE_PLUGIN_INDEX: join(template, 'plugin-index') },
+        env: { ...process.env, VITRINE_PLUGIN_INDEX: join(template, 'plugin-index'), VITRINE_RELEASES_URL: 'off' }, // (no update checks against GitHub)
       }),
     );
   }
