@@ -355,3 +355,7 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   anchored above the keyboard - grows up with it, up to the top of the screen; the list's height is what the sheet can
   still grow by, measured within the sheet (its max-height less the rest). The New download sheet uses it; a card on
   wider screens keeps the floating list.
+- **Search chips come and go by width (2026-10-24)** (the user: "the way a tag chip animates in looks janky"): a chip's
+  transition is `nudge` (its width opens and closes as it scales), not `pop` - with pop its full width was there at
+  once, so the typing box jumped aside while the chip was still growing (measured: the box jumped 118 px in one frame;
+  now it glides over ~200 ms). The line keeps its end in view while a new chip opens.

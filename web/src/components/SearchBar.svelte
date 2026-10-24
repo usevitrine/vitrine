@@ -143,7 +143,16 @@
     void draft;
     const added = chipCount > 0 && n > chipCount;
     chipCount = n;
-    if (chipsEl && (added || document.activeElement === input)) chipsEl.scrollLeft = chipsEl.scrollWidth;
+    if (chipsEl && (added || document.activeElement === input)) {
+      // (and while a new chip opens to its width: the end keeps in view)
+      const el = chipsEl;
+      const until = performance.now() + (added ? 340 : 0);
+      const follow = () => {
+        el.scrollLeft = el.scrollWidth;
+        if (performance.now() < until) requestAnimationFrame(follow);
+      };
+      follow();
+    }
     queueMicrotask(edges);
   });
   // Soft edges where more chips are scrolled out of view.
@@ -363,7 +372,7 @@
     {#each chips as c, i (chipKeys[i])}
       <span
         animate:moved
-        transition:grow
+        transition:nudge
         class="chip"
         data-chip={i}
         class:editing={editing === i}

@@ -2246,6 +2246,7 @@ test('search chips: drag one onto another to make an OR group', async ({ page })
   await expect(page.getByText(/^0 files/)).toBeVisible(); // both tags: nothing has both
   const chips = page.locator('.bar .chip');
   await expect(chips).toHaveCount(3);
+  await page.waitForTimeout(400); // (the chips opened to their widths: where they are now)
   const center = async (i: number) => {
     const b = (await chips.nth(i).locator('.chip-main').boundingBox())!;
     return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
