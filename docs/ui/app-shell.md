@@ -218,11 +218,16 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   was too big - a launcher shows only the middle two thirds of the maskable icon, where the mark (scale 0.72) filled
   70%; now 0.56 (public/icon-maskable.svg -> icon-maskable-512.png with `vips copy "icon-maskable.svg[scale=8]"`; the
   manifest's `v` raised). An installed app keeps its old icon until it's installed again. (2) The system's splash and
-  the app's differed in size: Chromium (Chrome, Brave, Edge) draws its own splash for an installed web app - the
-  manifest's icon at 128dp, 16dp above the middle (24dp on tablets), the name in 24sp sans-serif-condensed 48dp from
-  the bottom (56dp), its `webapp_splash_screen_large` layout. public/splash.js gives the app's splash the same on
-  Android in standalone mode (CSS variables on the root; the name line is in index.html, hidden elsewhere), so
-  nothing moves when the page takes over. (3) The comic reader's swipes started and snapped back: touch-action stops
+  the app's differed in size: Chromium (Chrome, Brave, Edge) draws its own splash for an installed web app - on the
+  whole screen (status and navigation bars included), the manifest's maskable icon drawn flat at 128dp (so the mark is
+  0.56 x 128), 16dp above the middle (24dp on tablets), the name in 24sp sans-serif-condensed 48dp from the bottom
+  (56dp), its `webapp_splash_screen_large` layout (a first try used the plain icon and the page's middle: measured
+  from the user's screen recording, both wrong). public/splash.js gives the app's splash the same on Android in
+  standalone mode (CSS variables on the root; the name line is in index.html, hidden elsewhere; the condensed face is
+  Roboto at `font-stretch: 75%` - the family name doesn't resolve in CSS). The page only gets the screen between the
+  bars and no API says how tall each is (measured on the user's phone: screen 915, page 838, avail/outer/screenY/env/
+  lvh/svh no help) - but a touch does: screenY - clientY is the status bar. The first touch keeps it on the device per
+  orientation (`vitrine.statusBar.portrait`); until then the navigation bar counts as a gesture bar's 24dp. (3) The comic reader's swipes started and snapped back: touch-action stops
   at the nearest box that clips, and the slides and pages clip, so the stage's `touch-action: none` didn't reach the
   page - the browser took the swipe as a scroll and cancelled it (pointercancel). Now on everything in the stage
   (the viewer was fine). Found with real touches (CDP `Input.dispatchTouchEvent` on a Pixel 7 profile); synthetic
