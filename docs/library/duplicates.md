@@ -70,6 +70,11 @@ The near-duplicate finder (perceptual hashes) and the Duplicates screen.
   header's bottom edge (its numbers in the tooltip and for screen readers) - it takes no room. It used to be a line
   above the pictures that slid open and shut; the pictures (a flexible stage) shrank and grew with it, which showed as
   a kept pair's picture shrinking (the user). The empty card and the video bar fade in place for the same reason.
+- **The last pair (2026-10-24, the user: it "still does the thing where the image shrinks before disappearing")**: the
+  Undo button's pop-out is a transition of the pair's own branch, so the branch stayed until it ended - beside the
+  incoming "No duplicates" card, both in the flex column, the pictures squeezed to half their height. Now the pair's
+  parts are one `.pair` that fades out held where it was last seen (absolutely placed at its last noted size - by the
+  time it goes, the card is already beside it), and the card fades in 100 ms later.
 - **The library follows deletes made elsewhere (2026-10-23, the user: deleted blacklisted files stayed on the media
   page until a reload)**: the library stays loaded behind other pages; the blacklist's clean-up, Duplicates' Keep A /
   B and their Undo now run its search again (`results.changedElsewhere()` - only if it has searched).

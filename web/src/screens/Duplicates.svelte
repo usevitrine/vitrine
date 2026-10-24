@@ -5,7 +5,7 @@
   // suggested. Keeping one gives it the other's tags and sources and deletes
   // the other (undo from the notice, or within the usual 7 days).
   import { onMount } from 'svelte';
-  import { pop, swap, nudge } from '../lib/motion';
+  import { pop, swap, nudge, reduced } from '../lib/motion';
   import { SvelteSet } from 'svelte/reactivity';
   import { api, type DupeFile, type DupePair } from '../lib/api';
   import { dupes, levels } from '../lib/dupes.svelte';
@@ -47,6 +47,22 @@
     } catch {
       /* this session only */
     }
+  }
+
+  /** Going: held where it was (out of the flow, so what comes in takes its place at once) as it fades. Its place as
+   *  last seen: by the time it goes, what comes in is already beside it, squeezing it. */
+  let pairAt = '';
+  const notePlace = (el: HTMLElement) => {
+    const note = () => (pairAt = `position: absolute; top: ${el.offsetTop}px; left: ${el.offsetLeft}px; width: ${el.offsetWidth}px; height: ${el.offsetHeight}px;`);
+    const ro = new ResizeObserver(note);
+    ro.observe(el);
+    note();
+    return () => ro.disconnect();
+  };
+  function leave(node: Element) {
+    if (reduced()) return { duration: 0 };
+    const at = pairAt;
+    return { duration: 180, css: (t: number) => `${at} opacity: ${t}; pointer-events: none;` };
   }
 
   // ---- loading
@@ -399,7 +415,7 @@
   {#if !loaded}
     <div class="nothing" in:swap></div>
   {:else if !cur}
-    <div class="nothing" in:swap>
+    <div class="nothing" in:swap={{ delay: 100 }}>
       <div class="empty-card">
         <span class="empty-icon"><Icon name={checking ? 'clock' : 'check'} size={28} /></span>
         {#if checking}
@@ -416,86 +432,91 @@
       </div>
     </div>
   {:else}
-    {#key key(cur)}
-      <div class="stage" class:side={mode === 'side'}>
-        {#if buffering}<span class="buffering spinner" role="status" aria-label={t('common.loading')} transition:pop></span>{/if}
-        {#if mode === 'side'}
-          {#each ['a', 'b'] as const as s (s)}
-            <div class="pane">
-              {@render media(cur[s], s)}
-              <div class="tags-row">{@render badge(s)}</div>
-            </div>
-          {/each}
-        {:else}
-          <button class="pane flip" aria-label={t('dupes.switch')} onclick={() => flip()}>
+    <!-- The pair: when it was the last one, it fades where it is - out of the flow - while "No duplicates" comes in
+         (it stayed in the flow, squeezed to half its height beside the card, until the Undo button's pop-out ended -
+         the user: "the image shrinks before disappearing"). -->
+    <div class="pair" {@attach notePlace} out:leave>
+      {#key key(cur)}
+        <div class="stage" class:side={mode === 'side'}>
+          {#if buffering}<span class="buffering spinner" role="status" aria-label={t('common.loading')} transition:pop></span>{/if}
+          {#if mode === 'side'}
             {#each ['a', 'b'] as const as s (s)}
-              <div class="layer" class:hidden={shown !== s} aria-hidden={shown !== s}>{@render media(cur[s], s)}</div>
+              <div class="pane">
+                {@render media(cur[s], s)}
+                <div class="tags-row">{@render badge(s)}</div>
+              </div>
             {/each}
-            <!-- (a pop on each flip: that it switched shows even when the two look alike) -->
-            {#key shown}<div class="tags-row swapped">{@render badge(shown)}</div>{/key}
-            <span class="hint">{t('dupes.tapToSwitch')}</span>
-          </button>
-        {/if}
-      </div>
-    {/key}
-
-    {#if hasVideo}
-      <!-- One bar for both videos: play/pause, where they are, scrub both. -->
-      <!-- (fades in place: sliding open would make the pictures above shrink while it did) -->
-      <div class="vbar" in:swap>
-        <button class="icon" aria-label={vplaying ? t('dupes.pauseBoth') : t('dupes.playBoth')} title={vplaying ? t('video.pause') : t('video.play')} onclick={togglePlay}
-          ><Icon name={vplaying ? 'pause' : 'play'} size={18} /></button>
-        <input
-          type="range"
-          min="0"
-          max={vdur || 1}
-          step="0.01"
-          value={vt}
-          aria-label={t('dupes.position')}
-          oninput={(e) => scrub(Number((e.currentTarget as HTMLInputElement).value))}
-          onchange={scrubEnd}
-          onpointerup={scrubEnd} />
-        <span class="vtime">{formatDuration(vt * 1000)} / {formatDuration(vdur * 1000)}</span>
-      </div>
-    {/if}
-
-    <div class="bottom">
-      <div class="facts" class:flipping={mode === 'flip'}>
-        {#each ['a', 'b'] as const as s (s)}
-          <button
-            class="card-fact {s}"
-            class:on={mode === 'flip' && shown === s}
-            aria-pressed={mode === 'flip' ? shown === s : undefined}
-            tabindex={mode === 'flip' ? 0 : -1}
-            onclick={() => mode === 'flip' && flip(s)}>
-            <span class="fact-head">{@render badge(s)}</span>
-            {#each rows as r (r.label)}
-              <span class="fact" class:win={r.win === s} title={r.label}>
-                <span class="fact-label">{r.label}</span><span class="fact-value">{r[s]}</span>
-              </span>
-            {/each}
-          </button>
-        {/each}
-      </div>
-      <p class="why muted">
-        {#if variant}{t('dupes.variant')}{/if}
-        {#if same}{t('dupes.same')}{/if}
-        {#if best}{t('dupes.suggestKeep', { side: best.side.toUpperCase(), why: best.why })}{/if}
-        {t('dupes.merge')}
-      </p>
-      <div class="actions">
-        <button class:quiet={best?.side !== 'a'} onclick={() => decide('a')} title={t('dupes.keepATitle')}>{t('dupes.keepA')}</button>
-        <button class:quiet={!variant} onclick={() => decide('both')} title={t('dupes.keepBothTitle')}>{t('dupes.keepBoth')}</button>
-        <button class:quiet={best?.side !== 'b'} onclick={() => decide('b')} title={t('dupes.keepBTitle')}>{t('dupes.keepB')}</button>
-      </div>
-      <div class="sub-actions">
-        <div class="segmented view" role="tablist" aria-label={t('dupes.howCompare')}>
-          <button role="tab" aria-selected={mode === 'flip'} onclick={() => setMode('flip')}>{t('dupes.flip')}</button>
-          <button role="tab" aria-selected={mode === 'side'} onclick={() => setMode('side')}>{t('dupes.side')}</button>
+          {:else}
+            <button class="pane flip" aria-label={t('dupes.switch')} onclick={() => flip()}>
+              {#each ['a', 'b'] as const as s (s)}
+                <div class="layer" class:hidden={shown !== s} aria-hidden={shown !== s}>{@render media(cur[s], s)}</div>
+              {/each}
+              <!-- (a pop on each flip: that it switched shows even when the two look alike) -->
+              {#key shown}<div class="tags-row swapped">{@render badge(shown)}</div>{/key}
+              <span class="hint">{t('dupes.tapToSwitch')}</span>
+            </button>
+          {/if}
         </div>
-        <span class="spacer"></span>
-        {@render undoButton()}
-        <button class="quiet skip" onclick={skip} title={t('dupes.skipTitle')}>{t('setup.skip')} <span class="skip-icon"><Icon name="right" size={16} /></span></button>
+      {/key}
+
+      {#if hasVideo}
+        <!-- One bar for both videos: play/pause, where they are, scrub both. -->
+        <!-- (fades in place: sliding open would make the pictures above shrink while it did) -->
+        <div class="vbar" in:swap>
+          <button class="icon" aria-label={vplaying ? t('dupes.pauseBoth') : t('dupes.playBoth')} title={vplaying ? t('video.pause') : t('video.play')} onclick={togglePlay}
+            ><Icon name={vplaying ? 'pause' : 'play'} size={18} /></button>
+          <input
+            type="range"
+            min="0"
+            max={vdur || 1}
+            step="0.01"
+            value={vt}
+            aria-label={t('dupes.position')}
+            oninput={(e) => scrub(Number((e.currentTarget as HTMLInputElement).value))}
+            onchange={scrubEnd}
+            onpointerup={scrubEnd} />
+          <span class="vtime">{formatDuration(vt * 1000)} / {formatDuration(vdur * 1000)}</span>
+        </div>
+      {/if}
+
+      <div class="bottom">
+        <div class="facts" class:flipping={mode === 'flip'}>
+          {#each ['a', 'b'] as const as s (s)}
+            <button
+              class="card-fact {s}"
+              class:on={mode === 'flip' && shown === s}
+              aria-pressed={mode === 'flip' ? shown === s : undefined}
+              tabindex={mode === 'flip' ? 0 : -1}
+              onclick={() => mode === 'flip' && flip(s)}>
+              <span class="fact-head">{@render badge(s)}</span>
+              {#each rows as r (r.label)}
+                <span class="fact" class:win={r.win === s} title={r.label}>
+                  <span class="fact-label">{r.label}</span><span class="fact-value">{r[s]}</span>
+                </span>
+              {/each}
+            </button>
+          {/each}
+        </div>
+        <p class="why muted">
+          {#if variant}{t('dupes.variant')}{/if}
+          {#if same}{t('dupes.same')}{/if}
+          {#if best}{t('dupes.suggestKeep', { side: best.side.toUpperCase(), why: best.why })}{/if}
+          {t('dupes.merge')}
+        </p>
+        <div class="actions">
+          <button class:quiet={best?.side !== 'a'} onclick={() => decide('a')} title={t('dupes.keepATitle')}>{t('dupes.keepA')}</button>
+          <button class:quiet={!variant} onclick={() => decide('both')} title={t('dupes.keepBothTitle')}>{t('dupes.keepBoth')}</button>
+          <button class:quiet={best?.side !== 'b'} onclick={() => decide('b')} title={t('dupes.keepBTitle')}>{t('dupes.keepB')}</button>
+        </div>
+        <div class="sub-actions">
+          <div class="segmented view" role="tablist" aria-label={t('dupes.howCompare')}>
+            <button role="tab" aria-selected={mode === 'flip'} onclick={() => setMode('flip')}>{t('dupes.flip')}</button>
+            <button role="tab" aria-selected={mode === 'side'} onclick={() => setMode('side')}>{t('dupes.side')}</button>
+          </div>
+          <span class="spacer"></span>
+          {@render undoButton()}
+          <button class="quiet skip" onclick={skip} title={t('dupes.skipTitle')}>{t('setup.skip')} <span class="skip-icon"><Icon name="right" size={16} /></span></button>
+        </div>
       </div>
     </div>
   {/if}
@@ -503,6 +524,7 @@
 
 <style>
   .dupes {
+    position: relative; /* (a pair fading out is held here) */
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -549,6 +571,14 @@
     transition: width 0.4s ease-out;
   }
 
+  /* (the pair's parts, laid out as they were in .dupes) */
+  .pair {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
   .nothing {
     flex: 1;
     display: grid;
