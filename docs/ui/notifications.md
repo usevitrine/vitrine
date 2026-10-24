@@ -68,8 +68,10 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
   (measured heights, `translate`, gliding), not in a column - one going leaves its place at once (it fades where it
   was) and the others glide down; a new one rises in at the bottom. They sit 16 px above the bottom of the screen
   (clear of the iPhone's home bar, `--bottom-room`), above the selection bar only while it shows (it says its height
-  as `--bottom-bar`) - before, always 72 px up, and higher still while one faded. `lib/toast.svelte.ts`: a notice of
-  the same kind (its kind of notice and tone; unnamed: its words) as one showing takes that one's place - the newest
-  words, its time starting again, a count on its icon; one with a button merges only with one with the same button,
-  which then acts for the newest (Undo undoes the last action). At most three show. Downloader pop-ups pass their kind
+  as `--bottom-bar`) - before, always 72 px up, and higher still while one faded. Notices of the same kind (their kind of notice and tone;
+  unnamed: their words) form a stack like the Downloads page's (Stack, building upwards, `hover`, unframed - the
+  user: "the same stack style as on the downloads page"): the newest in front, two peeking out behind with "+N";
+  pointing at it or tapping its edges fans it out, each card with its own Undo. The stacks sit one above another, the
+  newest at the bottom (placed by measure as above). At most three stacks (a fourth sends the oldest away), five
+  notices in one. Downloader pop-ups pass their kind
   too (`notices.onScreen`).

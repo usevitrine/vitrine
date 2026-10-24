@@ -874,9 +874,10 @@ test('downloads: pause, resume, reorder, remove, retry (offline test sites)', as
   await dlTab(page, 'Queue');
   for (const q of ['slow_a', 'slow_b', 'slow_c']) {
     await rowMenu(page, `the download ${q}`, 'Remove');
+    // (said at once - a slow browser takes longer than the notice shows to see the row go)
+    await expect(page.getByText(`Removed "${q}" (its files stay in the library)`)).toBeVisible();
     await expect(item(q)).toHaveCount(0);
   }
-  await expect(page.getByText(/files stay in the library/).first()).toBeVisible();
   await expect(queue.getByText('Nothing waiting.', { exact: false })).toBeVisible();
   expect([a.id, b.id, c.id, d.id].every(Boolean)).toBe(true);
 });

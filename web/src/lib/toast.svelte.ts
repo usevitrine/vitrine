@@ -4,11 +4,10 @@
 // the ones that don't show. Each says what kind it is with an icon and a color: done (the default), information
 // (something started, or nothing happened), removed (something deleted or taken off a list) and errors.
 //
-// On screen, one of the same kind as one showing (its kind of notice and tone) takes that one's place instead of
-// stacking up (the user: "notifications of the same type dont stack"): the newest words, the time starting again, and
-// how many it stands for. One with a button merges with one with the same button, which then acts for the newest (Undo
-// undoes the last action, as one expects - a deleted file before it is still in the trash). At most three show; a
-// fourth sends the oldest away.
+// On screen, notices of the same kind (their kind of notice and tone) form a stack like the Downloads page's (the user:
+// "the same stack style as on the downloads page" - components/Toasts.svelte): the newest in front, the others peeking
+// out behind it; each keeps its own words, time and button. At most three stacks show (a fourth sends the oldest
+// away), at most five notices in one.
 import { notices } from './notices.svelte';
 import { modeOf } from './noticeKinds';
 import { settings } from './settings.svelte';
@@ -22,11 +21,10 @@ export interface Toast {
   action?: { label: string; run: () => void };
   /** What makes two of the same kind (its kind of notice and tone). */
   key: string;
-  /** How many it stands for (merged ones). */
-  count: number;
 }
 
-const MAX = 3;
+const MAX_STACKS = 3;
+const MAX_IN_STACK = 5;
 
 class Toasts {
   list = $state<Toast[]>([]);
@@ -59,18 +57,18 @@ class Toasts {
   private put(text: string, kind: ToastKind, cat: string, action: Toast['action'] | undefined, ms: number) {
     // (a kind of notice not named: its words are its kind)
     const key = `${cat || text}|${kind}`;
-    const same = this.list.find((x) => x.key === key && x.action?.label === action?.label);
-    let id: number;
-    if (same) {
-      id = same.id;
-      this.list = this.list.map((x) => (x.id === id ? { ...x, text, count: x.count + 1, action } : x));
-    } else {
-      id = this.next++;
-      const t: Toast = { id, text, kind, action, key, count: 1 };
-      const kept = [...this.list, t];
-      for (const old of kept.slice(0, Math.max(0, kept.length - MAX))) this.clear(old.id);
-      this.list = kept.slice(-MAX);
+    const id = this.next++;
+    let list = [...this.list, { id, text, kind, action, key }];
+    // Too many: the oldest of its stack, then the oldest stack.
+    const same = list.filter((x) => x.key === key);
+    if (same.length > MAX_IN_STACK) list = list.filter((x) => x.id !== same[0].id);
+    const keys = [...new Set(list.map((x) => x.key))];
+    while (keys.length > MAX_STACKS) {
+      const old = keys.shift();
+      list = list.filter((x) => x.key !== old);
     }
+    for (const x of this.list) if (!list.includes(x)) this.clear(x.id);
+    this.list = list;
     this.clear(id);
     this.timers.set(id, window.setTimeout(() => this.dismiss(id), ms));
   }

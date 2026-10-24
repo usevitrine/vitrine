@@ -1,23 +1,33 @@
 <script lang="ts">
-  // The notices that pop up at the bottom of the screen (lib/toast): the newest at the bottom, the others above it.
-  // Each is placed by the ones below it (measured), not by the page's flow: one going leaves its place at once and
-  // the others glide down into it while it fades where it was (in a column they waited for it, and new ones came in
-  // high up - the user). A new one rises into place. One of the same kind takes the place of the one showing: its
-  // words change, and a count on its icon says how many it stands for.
+  // The notices that pop up at the bottom of the screen (lib/toast). Notices of the same kind form a stack like the
+  // Downloads page's (the user: "the same stack style as on the downloads page" - Stack, building upwards): the newest
+  // in front, the next two peeking out behind it with a "+N"; pointing at it (or tapping its edges) fans it out, each
+  // with its own button. The stacks sit one above another, the newest at the bottom; each is placed by the ones below
+  // it (measured), not by the page's flow - one going leaves its place at once and the others glide down while it
+  // fades where it was (in a column they waited for it, and new ones came in high up - the user).
   import { cubicOut } from 'svelte/easing';
   import { px, settle, sizeOf, reduced } from '../lib/motion';
-  import { toasts, type ToastKind } from '../lib/toast.svelte';
+  import { toasts, type Toast, type ToastKind } from '../lib/toast.svelte';
   import Icon from './Icon.svelte';
+  import Stack from './Stack.svelte';
 
   // Each kind of notice: its icon (the color comes from the stylesheet).
   const icons: Record<ToastKind, 'check' | 'info' | 'trash' | 'alert'> = { done: 'check', info: 'info', removed: 'trash', error: 'alert' };
   const GAP = 8;
 
-  let heights = $state<Record<number, number>>({});
-  /** How far up a notice sits: the heights of the newer ones below it, and their gaps. */
+  // The stacks: notices of one kind together (oldest first), the stack with the newest notice last (at the bottom).
+  const stacks = $derived.by(() => {
+    const by = new Map<string, Toast[]>();
+    for (const x of toasts.list) by.set(x.key, [...(by.get(x.key) ?? []), x]);
+    return [...by.entries()].map(([key, items]) => ({ key, items })).sort((a, b) => a.items[a.items.length - 1].id - b.items[b.items.length - 1].id);
+  });
+  let open = $state<Record<string, boolean>>({});
+
+  let heights = $state<Record<string, number>>({});
+  /** How far up a stack sits: the heights of the newer stacks below it, and their gaps. */
   function lift(i: number): number {
     let y = 0;
-    for (const x of toasts.list.slice(i + 1)) y += (heights[x.id] ?? 0) + GAP;
+    for (const s of stacks.slice(i + 1)) y += (heights[s.key] ?? 0) + GAP;
     return y;
   }
 
@@ -31,29 +41,27 @@
   }
 </script>
 
+{#snippet cardOf(x: Toast)}
+  <div class="toast {x.kind}" class:has-action={!!x.action} role={x.kind === 'error' ? 'alert' : undefined}>
+    <span class="badge" aria-hidden="true"><Icon name={icons[x.kind]} size={16} /></span>
+    <span class="text">{x.text}</span>
+    {#if x.action}
+      <button
+        class="quiet"
+        onclick={() => {
+          x.action!.run();
+          toasts.dismiss(x.id);
+        }}>{x.action.label}</button>
+    {/if}
+  </div>
+{/snippet}
+
 <div class="toasts" aria-live="polite">
-  {#each toasts.list as x, i (x.id)}
-    <div
-      class="toast {x.kind}"
-      class:has-action={!!x.action}
-      role={x.kind === 'error' ? 'alert' : undefined}
-      style:translate="0 {px(-lift(i))}"
-      bind:offsetHeight={heights[x.id]}
-      in:rise
-      out:fadeOut>
-      <span class="badge" aria-hidden="true">
-        <Icon name={icons[x.kind]} size={16} />
-        {#if x.count > 1}{#key x.count}<span class="count">{x.count}</span>{/key}{/if}
-      </span>
-      {#key x.text}<span class="text">{x.text}</span>{/key}
-      {#if x.action}
-        <button
-          class="quiet"
-          onclick={() => {
-            x.action!.run();
-            toasts.dismiss(x.id);
-          }}>{x.action.label}</button>
-      {/if}
+  {#each stacks as s, i (s.key)}
+    <div class="group" style:translate="0 {px(-lift(i))}" bind:offsetHeight={heights[s.key]} in:rise out:fadeOut>
+      <Stack items={s.items} key={(x) => x.id} up hover framed={false} gap={GAP} label={s.items[s.items.length - 1].text} bind:open={() => !!open[s.key], (v) => (open[s.key] = v)}>
+        {#snippet card(x, _)}{@render cardOf(x)}{/snippet}
+      </Stack>
     </div>
   {/each}
 </div>
@@ -70,15 +78,20 @@
     width: min(420px, calc(100% - 24px));
     pointer-events: none;
   }
-  .toast {
+  .group {
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
     transition: translate 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
     will-change: opacity; /* (its own layer: no text shift as it lands - see app.css) */
+  }
+  /* (a stack's edges and "+N" can be tapped to fan it out; its cards let taps through unless they have a button) */
+  .group :global(.unfold) {
+    pointer-events: auto;
+  }
+  .toast {
     --kind: var(--green);
-    /* (taps go through to what's under it - a phone sheet's items, say - unless it has a button: Undo, Reload) */
     pointer-events: none;
     display: flex;
     align-items: center;
@@ -107,7 +120,6 @@
     color: var(--text); /* the badge says it is an error (not the app-wide .error text color) */
   }
   .badge {
-    position: relative;
     flex: none;
     display: grid;
     place-items: center;
@@ -117,40 +129,10 @@
     background: color-mix(in srgb, var(--kind) 18%, transparent);
     color: var(--kind);
   }
-  /* How many the notice stands for (the same kind, merged). */
-  .count {
-    position: absolute;
-    top: -5px;
-    right: -7px;
-    min-width: 17px;
-    height: 17px;
-    padding: 0 4px;
-    box-sizing: border-box;
-    border-radius: 999px;
-    background: var(--kind);
-    color: var(--crust);
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 17px;
-    text-align: center;
-    animation: count-pop 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  @keyframes count-pop {
-    from {
-      transform: scale(0.5);
-      opacity: 0;
-    }
-  }
   .text {
     flex: 1;
     min-width: 0;
     overflow-wrap: anywhere;
-    animation: text-in 0.2s ease-out;
-  }
-  @keyframes text-in {
-    from {
-      opacity: 0.2;
-    }
   }
   .toast button {
     flex: none;
@@ -158,12 +140,8 @@
     border-color: transparent;
   }
   @media (prefers-reduced-motion: reduce) {
-    .toast {
+    .group {
       transition: none;
-    }
-    .count,
-    .text {
-      animation: none;
     }
   }
 </style>
