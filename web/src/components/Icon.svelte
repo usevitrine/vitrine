@@ -30,7 +30,7 @@
     external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
     expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
     shrink: 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5',
-    or: 'M8 12h8M12 8v8',
+    or: 'M5 14c1.5-2.6 3.6-3.3 6-1.8l2 1.3c2.4 1.5 4.5.8 6-1.8', // a tilde: the search's OR (a ~ b)
     split: 'M12 21v-7m0 0-6-6m6 6 6-6M4 4h4v4M20 4h-4v4',
     check: 'M5 12l5 5L20 7',
     undo: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',

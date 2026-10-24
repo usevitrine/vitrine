@@ -90,8 +90,8 @@ class Settings {
   /** Per device. Extra space at the top in the iOS home-screen app, below the
    *  status bar (iOS 27's status bar blurs a strip of the page under it). */
   topSpacing = $state(load('topSpacing', 0));
-  /** Per device. The grid: square tiles, or masonry (each tile in its file's shape). */
-  gridLayout = $state<'squares' | 'masonry'>(load('gridLayout', 'squares'));
+  /** Per device. The grid: masonry ("Rows": each tile in its file's shape; the default), or square tiles. */
+  gridLayout = $state<'squares' | 'masonry'>(load('gridLayout', 'masonry'));
 
   private synced = false; // the server's values have been read: changes go back to it
   /** This device has read the server's settings before (its copy is a good start). */

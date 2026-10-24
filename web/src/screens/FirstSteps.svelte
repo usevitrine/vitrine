@@ -199,7 +199,7 @@
     {:else if step === 'look'}
       <p class="lead">{t('setup.look.lead')}</p>
       <div class="look" role="radiogroup" aria-label={t('settings.grid.tiles')}>
-        {#each [{ id: 'squares' as const, label: t('settings.grid.squares'), hint: t('setup.look.squares') }, { id: 'masonry' as const, label: t('settings.grid.masonry'), hint: t('setup.look.masonry') }] as g (g.id)}
+        {#each [{ id: 'masonry' as const, label: t('settings.grid.masonry'), hint: t('setup.look.masonry') }, { id: 'squares' as const, label: t('settings.grid.squares'), hint: t('setup.look.squares') }] as g (g.id)}
           <button class="look-pick" class:on={settings.gridLayout === g.id} role="radio" aria-checked={settings.gridLayout === g.id} onclick={() => (settings.gridLayout = g.id)}>
             <span class="mini {g.id}" aria-hidden="true"
               >{#each [[0.75, 1.3, 1], [0.6, 1.1, 0.85], [1.4, 0.7, 1]] as col, c (c)}<span class="col">{#each col as r, i (i)}<span class="tile" style:--r={r}></span>{/each}</span>{/each}</span>

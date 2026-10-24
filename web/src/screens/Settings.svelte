@@ -273,7 +273,7 @@
                 <span class="hint">{t('settings.thisDevice')}</span>
               </span>
               <div class="seg" role="radiogroup" aria-labelledby="grid-layout">
-                {#each [['squares', t('settings.grid.squares')], ['masonry', t('settings.grid.masonry')]] as [id, label] (id)}
+                {#each [['masonry', t('settings.grid.masonry')], ['squares', t('settings.grid.squares')]] as [id, label] (id)}
                   <button role="radio" aria-checked={settings.gridLayout === id} class:on={settings.gridLayout === id} onclick={() => (settings.gridLayout = id as 'squares' | 'masonry')}>{label}</button>
                 {/each}
               </div>

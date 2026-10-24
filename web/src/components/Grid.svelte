@@ -318,6 +318,15 @@
       : null,
   );
   let contentH = $derived(layout ? layout.height + GAP : rows * rowH);
+  // Room under the last row: a gap, and on an iPhone clear of the home bar and the screen's curved corners (the last
+  // tiles sat under them - the user). In pixels for the fast scroller.
+  let padBottom = $state(0);
+  $effect(() => {
+    void width;
+    void height;
+    void GAP;
+    if (el) padBottom = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+  });
   let listTop = $derived(scrollTop - pad); // the list's own scroll position (below the room at the top)
   // The tiles that exist: the screen, and beyond it a screen and a half the way it scrolls (half a screen the other
   // way; never less than 3 rows). iOS moves the page itself, ahead of the app: with 3 rows the empty background
@@ -1249,6 +1258,7 @@
   class:fast-on={showFast}
   class:comics
   style:padding-top="{pad}px"
+  style:padding-bottom="calc({GAP}px + var(--bottom-room))"
   class:selecting={selection.active}
   bind:this={el}
   bind:clientWidth={width}
@@ -1428,7 +1438,7 @@
   {#if showFast}
     <!-- Its track starts below the bars as they are when shown (pad), and stays there when they slide away:
          following them, the handle jumped up as the top bar went. -->
-    <FastScroller {el} {scrollTop} contentHeight={contentH - GAP + pad} {height} top={pad} total={results.total} dates={results.dates} bind:dragging={fastDrag} side={fastSide} controls={scrollerId} />
+    <FastScroller {el} {scrollTop} contentHeight={contentH - GAP + pad + padBottom} {height} top={pad} total={results.total} dates={results.dates} bind:dragging={fastDrag} side={fastSide} controls={scrollerId} />
   {/if}
 </div>
 

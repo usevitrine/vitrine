@@ -7,6 +7,14 @@ export const test = base.extend({
   baseURL: async ({}, use, info) => {
     await use(`http://127.0.0.1:${PORT0 + info.parallelIndex}`);
   },
+  // Square tiles unless a test picks the grid itself (most tests were written for them; Rows became the default,
+  // and its own tests pick it).
+  page: async ({ page }, use) => {
+    await page.addInitScript(() => {
+      if (localStorage.getItem('vitrine.gridLayout') === null) localStorage.setItem('vitrine.gridLayout', JSON.stringify('squares'));
+    });
+    await use(page);
+  },
 });
 
 export { expect };

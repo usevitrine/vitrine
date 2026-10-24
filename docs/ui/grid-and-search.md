@@ -290,6 +290,9 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   **Pages shown again** (user: back from Comics the thumbnails just showed): the library and Comics stay mounted while
   hidden; a grid shown again (its height back from 0) - or Comics' first results, opened later in the visit - has the
   tiles on screen appear (`appearAll`); only the app's very first results just show.
+- **Rows is the default layout (2026-10-24, the user)**: a device that never picked starts on Rows (listed first
+  in Settings and the first steps; a device that has used the app keeps the layout it saved). The end-to-end tests
+  start on Squares (e2e/fixtures.ts) unless a test picks one - most were written for squares.
 - **Masonry is now called Rows** in Settings (2026-10-21; the stored value stays `masonry`).
 - **Masonry is justified rows (2026-10-21, user: the order "is insane")**: the column version (file n in column n mod
   cols, each column stacking) drifted apart - columns of different heights put file 32 beside 36 and 39. Now
