@@ -64,6 +64,10 @@ function gapAway(node: Element, axis: 'x' | 'y', ms: number): (t: number) => str
       const flexAlign = (v: string) => (v.includes('center') ? 'center' : v.includes('end') ? 'flex-end' : v.includes('start') ? 'flex-start' : '');
       parent.style.alignItems = flexAlign(ps.justifyItems);
       parent.style.justifyContent = flexAlign(ps.alignContent);
+      // (and no wider than it was: as a flex column its widest content - a strip that scrolls sideways - would
+      // make it grow past its place for the moment, and what's in it overflowed and shifted - the user)
+      parent.style.minWidth = '0';
+      parent.style.maxWidth = parent.getBoundingClientRect().width + 'px';
       parent.style.display = ps.display.startsWith('inline') ? 'inline-flex' : 'flex';
       parent.style.flexDirection = 'column';
     }
@@ -76,6 +80,8 @@ function gapAway(node: Element, axis: 'x' | 'y', ms: number): (t: number) => str
         parent.style.flexDirection = '';
         parent.style.alignItems = '';
         parent.style.justifyContent = '';
+        parent.style.minWidth = '';
+        parent.style.maxWidth = '';
       }
     }, ms + 50);
   }

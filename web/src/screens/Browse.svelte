@@ -200,6 +200,9 @@
     right: 0;
     z-index: 5;
     background: var(--base);
+    /* (and 2px up under the top bar: on screens with fractional pixels - Android - the two edges were rounded apart
+       and the scrolling grid showed through a 1px line between them) */
+    box-shadow: 0 -2px 0 var(--base);
   }
   :global(.bar-sliding) .browse header {
     transition: top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);

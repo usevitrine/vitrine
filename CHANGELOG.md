@@ -12,7 +12,7 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
   a list of them with their progress, plus New.
 - **Default sort**: newest uploaded first (unless you picked another).
 - **A slimmer top bar on phones**: just the logo’s V, shorter file counts (159K files); the button that marks new
-  files as seen is now a broom beside the search bar.
+  files as seen is now an eye beside the search bar.
 - **Smoother everywhere**: things slide, fade and move into place instead of popping in and out - dialogs, menus,
   lists, chips, panels - and text no longer shifts as an animation ends; buttons and chips that come and go let what’s
   beside them glide, and the details panel changes smoothly as you move to the next file.
@@ -25,6 +25,9 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 - **Deleting files elsewhere** (the blacklist’s clean-up, Duplicates) updates the media page at once, no reload.
 - **Push notifications** for new files say "across N subscriptions" every time.
 - **Duplicates**: the picture no longer starts small and grows when the page opens, or shrinks after you keep one; the “still looking” progress is a thin bar under the heading.
+- **Android**: the home-screen icon’s logo is smaller (it was too big in round icons - add the app again to get it),
+  the start-up logo no longer changes size as the app opens, comic pages turn and close with a swipe again, and no
+  thin line shows under the top bar while scrolling.
 - **The example compose file** includes FlareSolverr (optional) for sites behind Cloudflare.
 
 ## 1.0.0 - 2026-10-23

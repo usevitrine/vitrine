@@ -32,7 +32,8 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   these animation issues are anywhere else")**: reveal and nudge slide the gap beside the element away too (a negative
   margin as it closes) - else the height closed but the gap went at once at the end. A flex box takes a negative
   margin back; a grid doesn't (a track never goes below 0), so a single-column grid lays out as the same flex column
-  while something in it moves (its alignment carried over). Measured: the details' Tags glide 166 px with no step at
+  while something in it moves (its alignment carried over, and its width held: as a flex column its widest content - a strip
+  that scrolls sideways - made it grow past its place for a moment, and the details' tags overflowed as picking began). Measured: the details' Tags glide 166 px with no step at
   the end. The details' facts: the ones every file has in one card (fixed layout), the ones only some have (duration,
   uploaded, came) in a second card that slides as a whole - in one two-column grid a fact coming or going moved all
   the ones after it to the other column. Grid tiles sit on whole pixels (their edges rounded): one between pixels was

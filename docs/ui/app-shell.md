@@ -105,10 +105,10 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   file count is shorter from 10,000 on ("159K files", `short()` in lib/i18n: compact notation, 3 significant digits -
   the full number in its title and for screen readers); under 380 px the bar's gaps and sides are tighter. The
   new-files chip left the top bar (the user: "move the clear new button to the left of the search bar and have it
-  animate in and out" ... "just the icon" ... "make sure the button is square"): a square accent broom left of the
+  animate in and out" ... "just the icon" ... "make sure the button is square"): a square accent button left of the
   library's search bar, the bar's one-line height (44 / 38 px, like Empty trash in the trash), no text - how many
   only in its label for screen readers; it and Empty trash slide in and out sideways with their gap. Measured with a
-  159,212 file count and 3 downloads: the bar fits at 393, 360 and 320 px. Desktop: just the broom moved.
+  159,212 file count and 3 downloads: the bar fits at 393, 360 and 320 px. Desktop: just the button moved. Its icon is an eye (marks them seen; a broom until 2026-10-24, the user: "should be an eye instead of a broom").
 - **The top bar slides away on scroll (2026-10-19)**: scrolling the library grid or a screen's page down (past two
   bar heights) slides the top bar up out of sight - all but the strip under the status bar; scrolling up brings it
   back, and it's always there at the top, on another screen and with the menu open. Since 2026-10-20 the bar floats
@@ -214,3 +214,18 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   the library"; picked "Media"): the menu's first section (Media: Everything, Favorites, Trash), its Settings section and
   notice group, the first steps' "Open Media", the Comics empty page. "The library" in other texts still means all of
   it (files and comics); code and URLs keep `library` (`/`, `/favorites`, `/trash`).
+- **Android home-screen app (2026-10-24)** (the user, testing in Brave on Android): (1) the round launcher icon's mark
+  was too big - a launcher shows only the middle two thirds of the maskable icon, where the mark (scale 0.72) filled
+  70%; now 0.56 (public/icon-maskable.svg -> icon-maskable-512.png with `vips copy "icon-maskable.svg[scale=8]"`; the
+  manifest's `v` raised). An installed app keeps its old icon until it's installed again. (2) The system's splash and
+  the app's differed in size: Chromium (Chrome, Brave, Edge) draws its own splash for an installed web app - the
+  manifest's icon at 128dp, 16dp above the middle (24dp on tablets), the name in 24sp sans-serif-condensed 48dp from
+  the bottom (56dp), its `webapp_splash_screen_large` layout. public/splash.js gives the app's splash the same on
+  Android in standalone mode (CSS variables on the root; the name line is in index.html, hidden elsewhere), so
+  nothing moves when the page takes over. (3) The comic reader's swipes started and snapped back: touch-action stops
+  at the nearest box that clips, and the slides and pages clip, so the stage's `touch-action: none` didn't reach the
+  page - the browser took the swipe as a scroll and cancelled it (pointercancel). Now on everything in the stage
+  (the viewer was fine). Found with real touches (CDP `Input.dispatchTouchEvent` on a Pixel 7 profile); synthetic
+  pointer events never show it. (4) A 1px line between the top bar and the search bar while scrolling (fractional
+  pixels: the two edges rounded apart): the library's, comics' and browse headers reach 2px up under the top bar
+  (a box-shadow in their background color).

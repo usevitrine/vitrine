@@ -328,12 +328,12 @@
   <header bind:offsetHeight={headH}>
     <div class="search-row">
       <!-- The trash: Empty trash as a red button before the search bar (the user's choice: an icon, no label). -->
-      <!-- New files: a broom that marks them seen (just the icon - the user; how many only in its label, for screen readers). Both slide
+      <!-- New files: an eye that marks them seen (just the icon - the user; how many only in its label, for screen readers). Both slide
            in and out sideways, their gap with them. -->
       {#if results.fresh > 0 && !inTrash}
         <div class="slot" transition:slide={{ axis: 'x', duration: reduced() ? 0 : 260, easing: cubicOut }}>
           <button class="new-chip" onclick={markSeen} aria-label={t('library.markSeen', { n: results.fresh })}
-            ><Icon name="broom" size={20} /></button>
+            ><Icon name="eye" size={20} /></button>
         </div>
       {/if}
       {#if inTrash && trash.files > 0}
@@ -412,6 +412,9 @@
     right: 0;
     z-index: 5;
     background: var(--base);
+    /* (and 2px up under the top bar: on screens with fractional pixels - Android - the two edges were rounded apart
+       and the scrolling grid showed through a 1px line between them) */
+    box-shadow: 0 -2px 0 var(--base);
   }
   /* (only while the bars slide: not when their heights are first measured) */
   :global(.bar-sliding) header {

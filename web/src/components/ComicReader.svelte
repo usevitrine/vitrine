@@ -1000,6 +1000,11 @@
     touch-action: none;
     overflow: hidden;
   }
+  /* (on everything in it too: touch-action stops at the nearest box that clips - a slide, a page - and on Android the
+     browser took a swipe there as a scroll and cancelled it: the page went back) */
+  .stage :global(*) {
+    touch-action: none;
+  }
   .stage.settling {
     transition: transform 0.22s cubic-bezier(0.25, 0.8, 0.3, 1); /* (TURN_MS) */
   }

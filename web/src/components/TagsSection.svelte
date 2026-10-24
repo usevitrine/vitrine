@@ -359,8 +359,8 @@
       <div class="pick-acts" class:fade-l={fades.l} class:fade-r={fades.r} onscroll={edges} {@attach watchEdges}>
         <ActionMenu label={t('details.searchThem')} title={t('details.nPicked', { n: chosen.length })} icon="search" quiet text={t('tagMenu.search')} items={searchItems} disabled={!chosen.length} />
         <ActionMenu label={t('details.downloadThem')} title={t('details.nPicked', { n: chosen.length })} icon="download" quiet text={t('backups.download')} items={downloadItems} disabled={!chosen.length} />
-        <button class="quiet" aria-label={t('details.blacklistThem')} disabled={!chosen.length || chosen.every(blacklisted)} onclick={blacklistChosen}
-          ><Icon name="eyeoff" size={18} /> {t('details.blacklist')}</button
+        <button class="quiet" aria-label={t('details.blacklistThem')} title={t('details.blacklistThem')} disabled={!chosen.length || chosen.every(blacklisted)} onclick={blacklistChosen}
+          ><Icon name="eyeoff" size={18} /> <span class="text">{t('details.blacklist')}</span></button
         >
       </div>
       <button class="icon pick-x" aria-label={t('details.stopPicking')} title={t('saved.done')} onclick={endSelecting}><Icon name="close" size={18} /></button>
@@ -462,7 +462,9 @@
     gap: 6px;
     margin-top: 12px;
     box-sizing: border-box;
-    height: 46px; /* (the same on every screen - the user) */
+    /* 46 px with a mouse; on touch screens room for full-size buttons (44 px: 46 looked squeezed there - the user) */
+    --pick-btn: 38px;
+    height: calc(var(--pick-btn) + 8px);
     padding: 3px 3px 3px 12px;
     border-radius: 12px;
     background: var(--crust);
@@ -496,14 +498,26 @@
   .pick-acts.fade-r {
     --fr: 24px;
   }
-  .pick-acts > :first-child {
-    margin-left: auto;
+  .pick-acts > :global(:first-child) {
+    margin-left: auto; /* (right-aligned when they fit, beside the ×) */
+  }
+  /* With a mouse: just the icons (each says what it does when pointed at) - all fit, nothing to scroll sideways
+     (scrolling a strip with a mouse is awkward - the user). */
+  @media (hover: hover) and (pointer: fine) {
+    .pick-acts > :global(*) {
+      width: var(--pick-btn);
+      padding-inline: 0;
+      justify-content: center;
+    }
+    .pick-acts :global(.text) {
+      display: none;
+    }
   }
   .pick-acts > :global(*) {
     flex: none;
     scroll-snap-align: start;
     min-height: 0;
-    height: 38px; /* (the bar's 46 less its padding and border) */
+    height: var(--pick-btn); /* (the bar less its padding and border) */
     padding-block: 0;
   }
   /* Blacklist: the same as the two menu buttons beside it (their text small and bold) */
@@ -513,6 +527,12 @@
     gap: 6px;
     font-size: var(--font-small);
     font-weight: 600;
+  }
+  @media (pointer: coarse) {
+    .pick-bar {
+      --pick-btn: var(--control-h);
+      padding-left: 14px;
+    }
   }
   .pick-n {
     flex: none; /* (whole: the buttons scroll instead) */
@@ -525,8 +545,8 @@
   .pick-x {
     flex: none;
     min-height: 0;
-    height: 38px;
-    width: 38px;
+    height: var(--pick-btn);
+    width: var(--pick-btn);
   }
   /* Without the × (not editing), the name keeps even padding. */
   .tags li:not(:has(.x)) .name {
