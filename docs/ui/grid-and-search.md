@@ -367,3 +367,17 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   size). Now a zoomed tile keeps its transform (its place in the grid) and moves by `margin-left`/`margin-top`, so place
   and size are all layout and change together. Checked with Chrome's screencast (what is painted, not what the page
   reports) at 6x CPU slowdown: before, a frame where the card moved 18 px at the tile's size; now none.
+- **The hover card's wobble, and the zoom as a transform (2026-10-24)** (the user, after the margins fix: "when a
+  thumbnail zooms it has a really fast wobble"): growing by width, height and margins laid the card out every frame,
+  each edge snapped to whole pixels on its own, so the picture inside shifted by a pixel either way from frame to frame
+  (measured on the user's recording: 0.5-2 px against a smooth zoom). Now the card is laid out once, at once, as the
+  card (size and place) and drawn from the tile to it by Web Animations on the compositor (`fly` in Grid.svelte): the
+  card scales to the tile's shape (it unfolds to the file's), and inside it `.fit` - the picture, the preview video -
+  is scaled by the opposite of that stretch, so the picture only ever scales evenly, centered, covering the shape (as
+  the tile's own crop at first). Both run on the compositor together (place and size can't come apart, and a busy
+  main thread can't hold them up); a transform isn't snapped; the picture and video are laid out once. The easing is
+  baked into 31 keyframes (the stretch and its opposite don't interpolate as inverses), linear between. Shrinking back
+  is the same in reverse, laid out as the card until it's home (`shrinking` lists the tiles on their way back); resting
+  again mid-way starts from where it's drawn. The card's animation has the id `card`, which the "tiles still sliding"
+  check skips. Checked with Chrome's screencast: the grow is drawn over ~20 frames, the edges move steadily, the
+  picture scales evenly.

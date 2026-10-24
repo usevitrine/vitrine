@@ -6151,7 +6151,8 @@ test('hover zoom: a card waits while the tiles slide (the first row\'s gaps clos
     const w = window as any;
     w.zoomedWhileSliding = false;
     const tick = () => {
-      const sliding = document.getAnimations().some((a) => a.playState === 'running' && !(a instanceof CSSTransition) && ((a.effect as KeyframeEffect)?.target as Element)?.classList.contains('tile'));
+      // (the tiles' own slides - not the card's motion, which is the tile too)
+      const sliding = document.getAnimations().some((a) => a.playState === 'running' && a.id !== 'card' && !(a instanceof CSSTransition) && ((a.effect as KeyframeEffect)?.target as Element)?.classList.contains('tile'));
       if (sliding && document.querySelector('.tile.zoomed')) w.zoomedWhileSliding = true;
       requestAnimationFrame(tick);
     };

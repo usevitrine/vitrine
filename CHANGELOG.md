@@ -4,6 +4,7 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 
 ## Unreleased
 
+- **Hover previews**: a thumbnail zooms into its card smoothly - no more shaking as it grows or shrinks back.
 - **Updates**: a page of its own (Settings > Updates, in place of What’s new) - Vitrine tells you when a new
   version is out (and the bell does; it checks GitHub once a day and can be told not to) and shows what’s new in
   it above the changes so far. With Watchtower set up (see the example compose file), Update installs

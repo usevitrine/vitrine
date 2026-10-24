@@ -16,6 +16,7 @@
   // its tile (muted), unless turned off in Settings.
   import { tick, untrack, type ComponentProps } from 'svelte';
   import { pop } from '../lib/motion';
+  import { cubicBezier } from '../lib/hero';
   import { on } from 'svelte/events';
   import type { FileInfo } from '../lib/api';
   import { placeholderURL, formatDuration, previewURL } from '../lib/results.svelte';
@@ -77,7 +78,7 @@
   // grows there from its place, unfolding to the file's shape).
   type Hover = { i: number; id: number; x: number; y: number; w: number; h: number; lead: number };
   let hover = $state<Hover | null>(null);
-  let shrinking = $state(-1); // the tile shrinking back (above its neighbors until it's home)
+  let shrinking = $state<Hover[]>([]); // tiles shrinking back (above their neighbors until home; laid out as their card till then)
   let snapBack = $state(false); // the viewer took over from the zoomed tile: back without the animation
   // The tile that was hidden (its file open in the viewer or reader) and is back now that the picture landed on it:
   // its overlays (title, chips, badges) fade in rather than appear at once.
@@ -95,7 +96,6 @@
       hiddenWas = now;
     });
   });
-  let shrinkTimer = 0;
   let openTimer = 0;
   let restAt = { x: 0, y: 0 };
   let hoverReady = $state(false); // the preview has a frame to show (fades in then)
@@ -220,7 +220,12 @@
     // From the grid's box into the list's (where the tile is placed).
     // (whole pixels, as the tiles: no snap as it lifts off or lands)
     const h0 = { i, id: f.id, x: Math.round(p.x + left - tileLeft), y: Math.round(p.y + top - tileTop), w: Math.round(w), h: Math.round(h), lead };
+    const from = cardNow(tileEl) ?? p; // (shrinking back: from where it is)
+    shrinking = shrinking.filter((s) => s.i !== i);
     hover = h0;
+    tick().then(() => {
+      if (hover?.i === i && hover.id === h0.id) fly(tileEl, from, h0, h0, p, GROW); // (hover is a proxy of h0)
+    });
     clearTimeout(openTimer);
     openTimer = window.setTimeout(() => {
       if (hover?.i === i) opened = hover;
@@ -228,12 +233,70 @@
   }
   const ZOOM_MS = 340;
 
+  // The card's motion (2026-10-24): laid out at once as the card - its size and place - and drawn from the tile to it
+  // by a transform alone, on the compositor: a scale of the card (to the tile's shape: it unfolds to the file's), and
+  // inside it (.fit) the opposite of its stretch, so the picture only ever scales evenly and stays centered - as the
+  // tile's own crop at first. Growing by width, height and margins (until then) laid it out every frame, each edge
+  // snapped to whole pixels on its own, and the picture inside shook by a pixel either way (the user: "a really fast
+  // wobble"); a transform isn't snapped, and the picture and video are laid out once. (The easing is baked into the
+  // keyframes: the stretch and its opposite don't interpolate as each other's inverse.)
+  type Rect = { x: number; y: number; w: number; h: number };
+  type Motion = { ms: number; ease: [number, number, number, number] };
+  const GROW: Motion = { ms: ZOOM_MS, ease: [0.22, 1, 0.36, 1] };
+  const SHRINK: Motion = { ms: 200, ease: [0.33, 1, 0.68, 1] };
+  const flights = new Map<HTMLElement, { outer: Animation; inner?: Animation; from: Rect; to: Rect; m: Motion }>();
+  const lerp = (a: Rect, b: Rect, e: number): Rect => ({ x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, w: a.w + (b.w - a.w) * e, h: a.h + (b.h - a.h) * e });
+  /** Where a card in motion is drawn now (in the list), if it's moving. */
+  function cardNow(t: HTMLElement): Rect | null {
+    const f = flights.get(t);
+    if (!f) return null;
+    const u = Math.min(1, Math.max(0, Number(f.outer.currentTime ?? 0) / f.m.ms));
+    return lerp(f.from, f.to, cubicBezier(...f.m.ease, u));
+  }
+  function land(t: HTMLElement) {
+    const f = flights.get(t);
+    flights.delete(t);
+    f?.outer.cancel();
+    f?.inner?.cancel();
+  }
+  /** Draws tile t (laid out as card, placed by base) from one place to another; done when it's there. */
+  function fly(t: HTMLElement, from: Rect, to: Rect, card: Rect, base: { x: number; y: number }, m: Motion, done?: () => void) {
+    land(t);
+    if (reducedMotion()) return done?.();
+    const N = 30;
+    const outerK: Keyframe[] = [];
+    const innerK: Keyframe[] = [];
+    for (let k = 0; k <= N; k++) {
+      const r = lerp(from, to, cubicBezier(...m.ease, k / N));
+      const sx = r.w / card.w;
+      const sy = r.h / card.h;
+      const s = Math.max(sx, sy); // (covering the shape it's in, as the tile's picture does)
+      outerK.push({ transform: `translate(${base.x + r.x - card.x}px, ${base.y + r.y - card.y}px) scale(${sx}, ${sy})` });
+      innerK.push({ transform: `scale(${s / sx}, ${s / sy})` });
+    }
+    // (kept at the end until the layout follows - a shrink's card is laid out as the tile only then)
+    const o: KeyframeAnimationOptions = { duration: m.ms, easing: 'linear', fill: 'forwards' };
+    const outer = t.animate(outerK, o);
+    outer.id = 'card';
+    const fit = t.querySelector<HTMLElement>(':scope > .face > .fit');
+    const inner = fit?.animate(innerK, o);
+    flights.set(t, { outer, inner, from, to, m });
+    outer.finished.then(
+      () => {
+        if (flights.get(t)?.outer !== outer) return;
+        if (done) done();
+        tick().then(() => flights.get(t)?.outer === outer && land(t));
+      },
+      () => {},
+    );
+  }
+
   /** The tiles' own slides still running (the first row's gaps closing after a scroll to the top, files arriving, a
    *  re-order): a card waits for them - opened mid-slide it started from the tile's new place while the tile was
    *  still drawn on its way there (the picture jumped to the side, then grew). */
   function slides(): Animation[] {
     if (!el) return [];
-    return el.getAnimations({ subtree: true }).filter((a) => a.playState === 'running' && !(a instanceof CSSTransition) && !(a instanceof CSSAnimation) && ((a.effect as KeyframeEffect | null)?.target as Element | null)?.classList.contains('tile'));
+    return el.getAnimations({ subtree: true }).filter((a) => a.playState === 'running' && a.id !== 'card' && !(a instanceof CSSTransition) && !(a instanceof CSSAnimation) && ((a.effect as KeyframeEffect | null)?.target as Element | null)?.classList.contains('tile'));
   }
 
   /** The tile under a point on screen, if any (not the gaps). */
@@ -261,9 +324,15 @@
   function endHover() {
     clearTimeout(openTimer);
     if (hover) {
-      shrinking = hover.i;
-      clearTimeout(shrinkTimer);
-      shrinkTimer = window.setTimeout(() => (shrinking = -1), 220);
+      const h = hover;
+      const t = el?.querySelector<HTMLElement>(`.tile[data-i="${h.i}"]`);
+      if (t && !snapBack) {
+        // Back to its place from where it's drawn (mid-grow: from there), laid out as the card until it's home.
+        const from = cardNow(t) ?? h;
+        shrinking = [...shrinking.filter((s) => s.i !== h.i), h];
+        const home = place(h.i + lead);
+        fly(t, from, home, h, home, SHRINK, () => (shrinking = shrinking.filter((s) => s.i !== h.i)));
+      } else if (t) land(t);
     }
     opened = null;
     hover = null;
@@ -1296,6 +1365,8 @@
   <div class="sizer" style:height="{Math.max(0, contentH - GAP)}px">
     {#each tiles as tile (tile.i)}
       {@const z = hover?.i === tile.i ? hover : null}
+      {@const back = z ? undefined : shrinking.find((s) => s.i === tile.i)}
+      {@const c = z ?? back}
       <button
         class="tile"
         class:selected={selection.has(tile.f?.id)}
@@ -1304,17 +1375,17 @@
         class:rounded={!!layout}
         class:zoomed={!!z}
         class:landed={landedId !== undefined && results.idAt(tile.i) === landedId}
-        class:shrinking={!z && shrinking === tile.i}
+        class:shrinking={!!back}
         class:snap={snapBack}
         data-i={tile.i}
         data-c={tile.c}
         data-id={results.idAt(tile.i)}
         style:visibility={hideId !== undefined && results.idAt(tile.i) === hideId ? 'hidden' : undefined}
-        style:width="{z ? z.w : tile.p.w}px"
-        style:height="{z ? z.h : tile.p.h}px"
+        style:width="{c ? c.w : tile.p.w}px"
+        style:height="{c ? c.h : tile.p.h}px"
         style:transform="translate({tile.p.x}px, {tile.p.y}px)"
-        style:margin-left={z ? `${z.x - tile.p.x}px` : undefined}
-        style:margin-top={z ? `${z.y - tile.p.y}px` : undefined}
+        style:margin-left={c ? `${c.x - tile.p.x}px` : undefined}
+        style:margin-top={c ? `${c.y - tile.p.y}px` : undefined}
         style:background-image={tile.f?.placeholder ? `url(${placeholderURL(tile.f.placeholder)})` : undefined}
         aria-label={tile.f?.comic ? tile.f.comic.title : tile.f ? `${tile.f.type} ${tile.f.width}×${tile.f.height}` : t('common.loading')}
         aria-pressed={selection.active ? selection.has(tile.f?.id) : undefined}
@@ -1325,6 +1396,8 @@
         <!-- Everything on the tile, clipped to its rounded shape as one (each piece clipped on its own let a sliver of
              the picture show around a comic's dark foot at the corners). -->
         <span class="face">
+        <!-- (the picture: scaled evenly as the card unfolds - see fly) -->
+        <span class="fit">
         {#if tile.f?.comic?.mosaic && tile.f.comic.mosaic.length > 1}
           {@const m = tile.f.comic.mosaic}
           <!-- A collection: its first comics' covers side by side (two), one big and two small (three), or four, the tile in
@@ -1359,6 +1432,37 @@
         {:else if tile.f}
           <!-- Just downloaded: its thumbnail is being made (checked again every few seconds). -->
           <span class="making" role="img" aria-label={t('grid.making')}></span>
+        {/if}
+        {#if z && opened === z && tile.f && !tile.f.comic?.stack}
+          <!-- The video or bigger picture loads once it has grown: decoding a big one
+               while it grows made the animation stutter (the thumbnail shows meanwhile). A collection's card
+               keeps its mosaic (its covers, growing with it). -->
+          {#if tile.f.mime.startsWith('video/') && !settings.hoverPreview}
+            <!-- (videos don't play on hover: Settings; the card shows its thumbnail, grown) -->
+          {:else if tile.f.mime.startsWith('video/')}
+            <video
+              {@attach release}
+              class="zoom-media"
+              class:ready={hoverReady}
+              src={tile.f.url}
+              muted
+              autoplay
+              loop
+              playsinline
+              disablepictureinpicture
+              preload="auto"
+              onplaying={() => (hoverReady = true)}
+              ontimeupdate={(e) => {
+                const v = e.currentTarget;
+                hoverProgress = v.duration ? v.currentTime / v.duration : 0;
+              }}></video>
+          {:else}
+            <img class="zoom-media" class:ready={hoverReady} src={previewURL(tile.f)} style={cropStyle(tile.f.comic?.crop)} alt="" draggable="false" onload={() => (hoverReady = true)} />
+          {/if}
+        {/if}
+        </span>
+        {#if z && opened === z && tile.f && !tile.f.comic?.stack && tile.f.mime.startsWith('video/') && settings.hoverPreview}
+          <span class="preview-line" style:--p={hoverProgress}></span>
         {/if}
         {#if tile.f?.comic}
           {@const c = tile.f.comic}
@@ -1400,34 +1504,6 @@
         {/if}
         {#if tile.f && tile.i < results.pinned}
           <span class="new-badge" transition:pop>{t('grid.new')}</span>
-        {/if}
-        {#if z && opened === z && tile.f && !tile.f.comic?.stack}
-          <!-- The video or bigger picture loads once it has grown: decoding a big one
-               while it grows made the animation stutter (the thumbnail shows meanwhile). A collection's card
-               keeps its mosaic (its covers, growing with it). -->
-          {#if tile.f.mime.startsWith('video/') && !settings.hoverPreview}
-            <!-- (videos don't play on hover: Settings; the card shows its thumbnail, grown) -->
-          {:else if tile.f.mime.startsWith('video/')}
-            <video
-              {@attach release}
-              class="zoom-media"
-              class:ready={hoverReady}
-              src={tile.f.url}
-              muted
-              autoplay
-              loop
-              playsinline
-              disablepictureinpicture
-              preload="auto"
-              onplaying={() => (hoverReady = true)}
-              ontimeupdate={(e) => {
-                const v = e.currentTarget;
-                hoverProgress = v.duration ? v.currentTime / v.duration : 0;
-              }}></video>
-            <span class="preview-line" style:--p={hoverProgress}></span>
-          {:else}
-            <img class="zoom-media" class:ready={hoverReady} src={previewURL(tile.f)} style={cropStyle(tile.f.comic?.crop)} alt="" draggable="false" onload={() => (hoverReady = true)} />
-          {/if}
         {/if}
         {#if selection.active && !unpickable(tile.f)}
           <span class="check" aria-hidden="true" transition:pop>{#if selection.has(tile.f?.id)}<Icon name="check" size={14} />{/if}</span>
@@ -1530,6 +1606,11 @@
     display: block;
     clip-path: inset(0 round var(--r, 0px));
   }
+  .fit {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
   /* Growing, open or shrinking back (or a comic - big, with a dark foot): a layer of its own, so the rounded clip is
      one mask over all of it (else the browser clips each piece and the edges show). */
   .tile:is(.zoomed, .shrinking) .face,
@@ -1601,7 +1682,7 @@
   }
   /* Its picture in: no background of its own behind it (at the rounded edges, antialiased, it showed as a light
      hairline around a comic's dark foot - most on a hover card). */
-  .tile:not(.selected):has(.face > :global(img.in), .mosaic :global(img.in)) {
+  .tile:not(.selected):has(.fit > :global(img.in), .mosaic :global(img.in)) {
     background: none !important;
   }
   /* Back after the viewer or reader closed (the picture landed on it): its overlays fade in. */
@@ -1615,14 +1696,14 @@
   }
   /* A comic's cover: its overlays (title and chips, marks, progress) wait for its picture and fade in with it - a
      picture the browser had shows at once, and the overlay used to be there before any fade. */
-  .tile:has(.face > :global(img:not(.in))) :is(.comic-foot, .comic-status, .comic-progress) {
+  .tile:has(.fit > :global(img:not(.in))) :is(.comic-foot, .comic-status, .comic-progress) {
     opacity: 0;
   }
-  .tile:has(.face > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress) {
+  .tile:has(.fit > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress) {
     animation: overlay-in 0.3s ease-out both;
   }
   @media (prefers-reduced-motion: reduce) {
-    .tile:has(.face > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress) {
+    .tile:has(.fit > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress) {
       animation: none;
     }
   }
@@ -1634,18 +1715,13 @@
   /* Zoomed by a hover: the tile itself grows over its neighbors into the file's
      own shape (the thumbnail at once, the video or bigger picture over it once it
      has a frame), lifting off the grid; it shrinks back when the mouse moves.
-     It moves by its margins, not its transform: width, height and place then all
-     change in one go (a transform ran on the compositor at once while the size
-     waited for a busy page - the preview starting - so the card first slid up and
-     to the left at the tile's size, then grew: the user's recording, 7 x 11 px). */
+     It's laid out as the card at once and drawn there by a transform (fly): place
+     and size in one go, on the compositor, never snapped to pixels. */
   .tile.zoomed,
   .tile.shrinking {
     z-index: 5;
+    transform-origin: 0 0;
     transition:
-      margin-left 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-      margin-top 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-      width 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-      height 0.34s cubic-bezier(0.22, 1, 0.36, 1),
       border-radius 0.34s,
       box-shadow 0.34s;
   }

@@ -153,7 +153,7 @@ export async function hero(opts: {
 }
 
 /** CSS cubic-bezier(x1, y1, x2, y2) at progress t (solved for x by bisection). */
-function cubicBezier(x1: number, y1: number, x2: number, y2: number, t: number): number {
+export function cubicBezier(x1: number, y1: number, x2: number, y2: number, t: number): number {
   const at = (a: number, b: number, u: number) => 3 * a * u * (1 - u) ** 2 + 3 * b * u * u * (1 - u) + u ** 3;
   let lo = 0;
   let hi = 1;
