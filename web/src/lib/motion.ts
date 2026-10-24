@@ -37,11 +37,14 @@ export function glide(
   return { duration, delay, easing, css: (t: number, u: number) => `opacity: ${1 - (1 - opacity) * u}; transform: translate(${px(u * x)}, ${px(u * y)})` };
 }
 
-export function reveal(node: Element, { duration = 220, axis = 'y' as 'x' | 'y', delay = 0 } = {}) {
+/** quick: gone from view early, closing after (rows of a list swapped for others: the ones going don't linger,
+ *  half-seen and squashed, beside the ones coming - the user). */
+export function reveal(node: Element, { duration = 220, axis = 'y' as 'x' | 'y', delay = 0, quick = false } = {}) {
   if (reduced()) return { duration: 0 };
   const s = slide(node, { duration, easing: cubicOut, axis, delay });
   const g = gapAway(node, axis, duration + delay);
-  return { ...s, css: (t: number, u: number) => `${s.css?.(t, u) ?? ''}; opacity: ${Math.min(1, t * 1.4)};${g(t)}` };
+  const fade = (t: number) => (quick ? Math.max(0, (t - 0.2) / 0.8) : Math.min(1, t * 1.4));
+  return { ...s, css: (t: number, u: number) => `${s.css?.(t, u) ?? ''}; opacity: ${fade(t)};${g(t)}` };
 }
 
 // A thing sliding shut in a column (or a row) with a gap: its height closed, but the gap beside it stayed until it

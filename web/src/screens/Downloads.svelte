@@ -600,10 +600,24 @@
   }
   const tabOrder: Tab[] = ['queue', 'subs', 'history'];
   let tabDir = 1; // the way the panels slide: to a tab on the right, from the right
+  let panelsEl = $state<HTMLElement>();
   function setTab(v: Tab) {
     if (v === tab) return;
     tabDir = tabOrder.indexOf(v) > tabOrder.indexOf(tab) ? 1 : -1;
+    const from = panelsEl?.offsetHeight ?? 0;
     tab = v;
+    // The panels' height glides from the old tab's to the new one's (both share a grid cell while one goes and the other
+    // comes: the cell was as tall as the old one, the new one's card stretched to it - a tall empty box - then it
+    // snapped to its size as the old one went, and everything below jumped; the user).
+    if (!reducedMotion())
+      tick().then(() => {
+        const to = panelsEl?.querySelector<HTMLElement>(`#panel-${v}`)?.offsetHeight;
+        if (!panelsEl || !to || Math.abs(to - from) < 1) return;
+        panelsEl.style.overflow = 'clip';
+        panelsEl
+          .animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: 320, easing: 'cubic-bezier(0.2, 0.9, 0.25, 1)' })
+          .finished.finally(() => panelsEl && (panelsEl.style.overflow = ''));
+      });
     try {
       localStorage.setItem('vitrine.downloadsTab', v);
     } catch {
@@ -614,7 +628,7 @@
   // the side of its tab, both in one grid cell (no jump). Reduced motion: at once.
   const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ease = (t: number) => 1 - Math.pow(1 - t, 3);
-  const panelIn = (node: Element) => glide(node, { x: reducedMotion() ? 0 : 24 * tabDir, duration: reducedMotion() ? 0 : 300, delay: reducedMotion() ? 0 : 90, easing: ease, opacity: 0 });
+  const panelIn = (node: Element) => glide(node, { x: reducedMotion() ? 0 : 24 * tabDir, duration: reducedMotion() ? 0 : 300, delay: reducedMotion() ? 0 : 130, easing: ease, opacity: 0 });
   const panelOut = (node: Element) => glide(node, { x: reducedMotion() ? 0 : -16 * tabDir, duration: reducedMotion() ? 0 : 160, easing: (t) => t * t, opacity: 0 });
   // A tab's count: a new number glides to its width (the tab's name, centered with it, moves smoothly too).
   function easeWidth(node: HTMLElement) {
@@ -1585,7 +1599,7 @@
       {/each}
     </div>
 
-    <div class="panels">
+    <div class="panels" bind:this={panelsEl}>
     {#if tab === 'queue'}
       <div class="panel" id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" in:panelIn out:panelOut>
         <section class="card">
@@ -2763,23 +2777,15 @@
     white-space: nowrap;
     transition: color 0.2s;
   }
-  /* Phones: "Subs" for Subscriptions - three tabs and their counts fit (the user); screen readers still hear the whole
-     word (the long one only hidden from sight). */
-  .tab-label .short {
-    display: none;
-  }
-  @media (max-width: 639px) {
-    .tab-label .short {
-      display: inline;
-    }
-    .tab-label .long {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-    }
+  /* "Subs" for Subscriptions (phones first, everywhere since 2026-10-24 - the user); screen readers still hear the
+     whole word (the long one only hidden from sight). */
+  .tab-label .long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .tabs button.on {
     color: var(--text);
@@ -2805,7 +2811,9 @@
   }
   .panels {
     display: grid;
+    align-items: start; /* (the one coming in at its own height, not stretched to the one going) */
     min-width: 0;
+    overflow-clip-margin: 24px; /* (clipped only while its height glides: the cards' shadows still show) */
   }
   .panels > .panel {
     grid-area: 1 / 1; /* (the one leaving and the one coming in, over each other) */

@@ -3,10 +3,7 @@
   // server, never shown again - only whether each is set) and a connection
   // test.
   import { onMount, untrack } from 'svelte';
-  import { slide, fade } from 'svelte/transition';
-  import { flip } from 'svelte/animate';
   import { reveal as appear, pop, moved } from '../lib/motion';
-  import { cubicOut } from 'svelte/easing';
   import { api, type SiteInfo, type SiteTest, type PluginInfo, type Installed } from '../lib/api';
   import { sites as siteNames } from '../lib/sites.svelte';
   import { toasts } from '../lib/toast.svelte';
@@ -109,8 +106,6 @@
   });
   const searching = $derived(searchable && !!find.trim());
   const shown = $derived(searching || showAll ? matches : matches.slice(0, FIRST));
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const ms = (n: number) => (reduced() ? 0 : n);
   const updateFor = (id: string) => plugins.find((p) => p.id === id && p.update);
 
   async function loadPlugins(refresh = false) {
@@ -457,7 +452,11 @@
       {#if shown.length}
         <ul class="available" transition:appear>
           {#each shown as p (p.id)}
-            <li animate:flip={{ duration: ms(220), easing: cubicOut }} in:fade={{ duration: ms(180), delay: ms(60) }} out:slide={{ duration: ms(200), easing: cubicOut }}>
+            <!-- A kind or a search picked: the ones going close as they fade, the new ones open at the same time - the list's
+                 height goes from one to the other, the ones staying move with it. (Gliding - animate - held the ones going
+                 outside the list's flow: drawn below it while the new ones came in at the top, the old cards "remain on the
+                 screen for a while" - the user; fading out first emptied the list and everything below jumped.) -->
+            <li in:appear out:appear={{ duration: 200, quick: true }}>
               <SiteIcon host={p.site} />
               <div class="title">
                 <h3><span class="host">{p.site}</span>{#if p.nsfw}<span class="badge">{t('sites.adult')}</span>{/if}</h3>

@@ -4,6 +4,8 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 
 ## Unreleased
 
+- **Downloads button**: in the top bar on every page, not only the library.
+- **Smoother motion**: stacks unfold from under their front card and fan out a little when pointed at; menus settle without a last-moment jump; Downloads tabs and Add site's kinds switch cleanly (nothing lingering or jumping). The Subscriptions tab is "Subs".
 - **Hover previews**: a thumbnail zooms into its card smoothly - no more shaking as it grows or shrinks back.
 - **Updates**: a page of its own (Settings > Updates, in place of What’s new) - Vitrine tells you when a new
   version is out (and the bell does; it checks GitHub once a day and can be told not to) and shows what’s new in

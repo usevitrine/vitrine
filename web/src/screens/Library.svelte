@@ -7,7 +7,6 @@
   import Welcome from '../components/Welcome.svelte';
   import { onMount, tick, untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
-  import DownloadsMenu from '../components/DownloadsMenu.svelte';
   import { fitContain, hero, rectOf, reducedMotion } from '../lib/hero';
   import { results } from '../lib/results.svelte';
   import { router } from '../lib/router.svelte';
@@ -284,6 +283,9 @@
     });
   }
 
+  $effect(() => {
+    topbar.query = query; // (for the Downloads button in the top bar)
+  });
   onMount(async () => {
     topbar.library = countControl;
     // The screen shows at once; its first search uses the shared settings
@@ -321,7 +323,6 @@
         >{t('common.files', { n: results.total })}</span
       ><span class="brief" aria-hidden="true">{t('common.filesShort', { n: results.total, x: short(results.total) })}</span>{/if}</span
   >
-  {#if !inTrash}<DownloadsMenu {query} />{/if}
 {/snippet}
 
 <div class="library" style:--lib-pad="{pad}px">

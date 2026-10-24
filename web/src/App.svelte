@@ -17,6 +17,7 @@
   import { sites } from './lib/sites.svelte';
   import Toasts from './components/Toasts.svelte';
   import Bell from './components/Bell.svelte';
+  import DownloadsMenu from './components/DownloadsMenu.svelte';
   import { notices } from './lib/notices.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
   import Updater from './components/Updater.svelte';
@@ -308,6 +309,8 @@
       {#if router.screen === 'library' && topbar.library}{@render topbar.library()}{/if}
       {#if router.screen === 'comics' && topbar.comics}{@render topbar.comics()}{/if}
       {#if router.screen === 'browse' && topbar.browse}{@render topbar.browse()}{/if}
+      <!-- (on every page - the user; it was the library's only) -->
+      <DownloadsMenu query={router.screen === 'library' ? topbar.query : ''} />
       <Bell />
     </header>
 

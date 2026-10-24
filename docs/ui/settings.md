@@ -63,7 +63,10 @@ Settings sections and cards: Sites, Library, Download rules, Backups, Stats and 
   plus a search (address, name, description; matches all shown) with the Adult (18+) chip beside it; without the
   search the chip ends the kinds row. Kind chips (All / Image boards / Galleries / Social, from the index's `kind`)
   only when two or more kinds are offered. "No sites match." (+ "Some adult sites do" when hidden ones would). Motion:
-  the panel slides open/closed, rows fade in and move into place when filtering, an installed site slides out (none
+  the panel slides open/closed; a kind or a search picked: the rows going fade at once and close, the new ones open at
+  the same time, the rows staying move with the list's height (2026-10-24 - gliding rows held the ones going outside
+  the list's flow, drawn below it while the new ones came in: the user saw the old cards "remain on the screen";
+  `reveal` with `quick`), an installed site slides out (none
   with reduced motion). Phones: the panel loses its dashed frame so the rows get the width. Same panel in the first
   steps (`SitesCard welcome`).
 - **Stats (2026-10-19)**: Settings > Stats (`StatsCard`, `GET /api/stats?days=&tz=`; read on opening and every

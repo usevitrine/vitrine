@@ -15,6 +15,11 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   as wide as their name and count (equal widths overflowed "Subscriptions 128" on phones; 14 px text under 480 px);
   panels slide like Sort and filters' pages - the leaving one out in 130 ms, the new one in from its tab's side (28 px,
   240 ms after 60 ms), both in one grid cell. No lighter hover layer on the tabs (the pill is the only highlight).
+  2026-10-24 (the user: the cards "remain on the screen for a while" switching tabs): the cell was as tall as the
+  panel going and the new one's card stretched to it - a tall empty box that snapped to its size as the old panel went,
+  everything below jumping. Now the panels align to the top (the new one at its own height) and their height glides
+  from the old tab's to the new one's (320 ms, clipped meanwhile); the new panel starts 130 ms in (the old one's text
+  mostly gone - they overlapped).
   Reduced motion: at once.
 - **Failed files by why**: the error's words pick a reason (not on the site any more, refused by the site, connection
   problems, damaged or unreadable, other - `reasonOf`), each a block with a hint, Retry all and Dismiss all, its posts
@@ -131,7 +136,8 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   in full text color.
 - **The downloads menu in the top bar (2026-10-23)** (the user: "the download button on media should be converted
   into a current downloads dropdown similar to the notifications with a button to add a new download and a list of
-  current downloads with a counter on the icon"): the Library's download icon (`DownloadsMenu`, left of the bell)
+  current downloads with a counter on the icon"): the download icon (`DownloadsMenu`, left of the bell - in the app's top bar on every page since 2026-10-24, the user;
+  it was the Library's; New download offers the library's search while the library shows: `topbar.query`)
   has a peach counter - downloads running or waiting (not paused) - and its arrow bobs while one downloads. A press
   opens a panel like the bell's (grows out of it; press outside / Escape / Back closes): "Downloads" + "All >" (the
   Downloads page) and "+ New" beside it (label: New download; small links in the heading - the user: "i hate the massive new download
@@ -204,8 +210,8 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   paused downloads and the paused sites - at most once a second (a change meanwhile read when the second is up).
   It read the whole page (history, subscriptions, groups) on every live change; while downloads ran that was a lot
   of work on the page, and scrolling the library stalled (the user saw the background at the bottom).
-- **"Subs" on phones (2026-10-24, the user)**: under 640 px the Subscriptions tab says "Subs" (`downloads.subsShort`) to
-  save room; the whole word stays for screen readers (visually hidden, not removed), so the tab's name is unchanged.
+- **"Subs" (2026-10-24, the user)**: the Subscriptions tab says "Subs" (`downloads.subsShort`) - first on phones, then
+  everywhere; the whole word stays for screen readers (visually hidden, not removed), so the tab's name is unchanged.
 - **The count line, 2026-10-24** (the user: "57,734 of ~72,588 posts 41,650 new 2,126 had 13,958 blacklisted up to
   50,000 files" -> "57,734/72,588" and icons; "Every post gone through", "if the user set limit exceeds the max matched
   posts on the site, set it to the max", "remove the tilde"): the lead is the posts (a gallery site: galleries) gone
