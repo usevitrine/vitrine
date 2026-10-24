@@ -81,16 +81,16 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
   color and the unread tint are on each row (`.row`).
 - **Wording, 2026-10-24** (the user: in-app notices "a little more verbose ... if i delete 2 or more files, just say 2
   ... it should say the file/comic id"; push: nothing "that could be explicit such as site names and tag names"):
-  - In-app (pop-ups, the bell): a notice about one item names it by its ID - \`itemName(id, comic)\` in lib/i18n:
+  - In-app (pop-ups, the bell): a notice about one item names it by its ID - `itemName(id, comic)` in lib/i18n:
     "file #1234" / "comic #56", "page 12 of comic #56" for the comic reader's "I came" - e.g. "Deleted file #1234",
     "Restored comic #56", "Added file #1234 to favorites", "You came to file #1234 for the first time" / "... 3 times"
     (the user's words), "Saved the tags of file #1234 (added 1)", "Removed landscape from file #1234", "Refreshed
     the tags of file #1234 from its site", "Renamed comic #56", "Added comic #56 to "Sunsets"". Two or more: the
     count only ("Deleted 2 files"). The blacklist clean-up's Undo says "Restored N files". TagsSection knows whose
-    tags (\`comic\` prop). Site and tag names stay in-app.
-  - Push (internal/push/notify.go \`Compose\`): what happened and how many - "12 new files" / "from 3 subscriptions",
+    tags (`comic` prop). Site and tag names stay in-app.
+  - Push (internal/push/notify.go `Compose`): what happened and how many - "12 new files" / "from 3 subscriptions",
     "A download stopped" / "A subscription check failed" / "3 downloads failed" with "Open Vitrine to see why", "A
     site isn't answering" / "A site answers again", "2 files got blacklisted tags" / "They were in the library
     already - see Tag rules", "2 downloads finished" / "52 new files", "Subscription ready" / "340 new files". No
     site, tag, search or error text (a push goes through the browser maker's push service and shows on a locked
-    screen); \`TestCompose\` checks none slips in. Tapping one opens the page with the names.
+    screen); `TestCompose` checks none slips in. Tapping one opens the page with the names.
