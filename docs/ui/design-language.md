@@ -81,7 +81,7 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   the `lucide` package): 24x24 strokes, 2 px, round ends - the style the app's own icons already had (Feather's,
   which Lucide grew from). `Icon.svelte` keeps the app's names (`<Icon name="search" />`), maps each to a Lucide
   icon and draws its elements; only the icons it names are bundled. Its own where Lucide has nothing that means the
-  same: `or` (a tilde, the search's ~) and `drop`. A new icon: pick it on lucide.dev, add it to the map. Licenses:
+  same: `or` (a tilde, the search's ~); "I came" is Lucide's soap-dispenser-droplet (the user's pick). A new icon: pick it on lucide.dev, add it to the map. Licenses:
   Lucide ISC (with Feather's MIT), the font OFL 1.1 - both at /licenses (Vite's build.license).
 - **Words**: American spelling; texts in `locales/` (see ui/languages.md); hints only where a label could mislead, a
   few words.

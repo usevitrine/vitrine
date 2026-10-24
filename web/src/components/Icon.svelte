@@ -1,6 +1,6 @@
 <script lang="ts">
   // The app's icons: Lucide's (lucide.dev - 24x24 strokes, round ends; only the ones named here are bundled), under
-  // the app's own names, and a few of the app's own where Lucide has nothing that means the same, in the same style.
+  // the app's own names, and one of the app's own where Lucide has nothing that means the same, in the same style.
   import {
     Archive,
     ArrowDownWideNarrow,
@@ -52,6 +52,7 @@
     Settings,
     Share,
     Smartphone,
+    SoapDispenserDroplet,
     Split,
     SquarePlus,
     Star,
@@ -126,9 +127,9 @@
     pages: Files,
     crop: Crop,
     broom: BrushCleaning,
-    // The app's own:
+    drop: SoapDispenserDroplet, // "I came"
+    // The app's own (Lucide has no tilde):
     or: [['path', { d: 'M5 14c1.5-2.6 3.6-3.3 6-1.8l2 1.3c2.4 1.5 4.5.8 6-1.8' }]], // a tilde: the search's OR (a ~ b)
-    drop: [['path', { d: 'M10.31 22.09Q9.5 16.05 10.79 12.1A4.6 4.6 0 1 1 16.5 17.81Q12.36 18.91 10.31 22.09ZM3.75 9.91Q3.42 6.62 4.22 4.46A2.3 2.3 0 1 1 7.14 7.38Q4.88 8.08 3.75 9.91ZM17.67 7.04Q17.41 4.64 17.99 3.06A1.7 1.7 0 1 1 20.14 5.21Q18.49 5.71 17.67 7.04Z' }]], // "I came"
   } satisfies Record<string, IconNode>;
 
   let { name, size = 20, filled = false }: { name: keyof typeof icons; size?: number; filled?: boolean } = $props();
