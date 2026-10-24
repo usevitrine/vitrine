@@ -2,7 +2,7 @@
 
 What changed in each version of Vitrine, newest first. The app shows this too (Settings > What’s new).
 
-## Unreleased
+## 1.0.1 - 2026-10-24
 
 - **Adding sites**: the list of sites to add has a search, filters by kind (image boards, galleries, social), shows
   the first few with "Show all", and slides open, filters and installs smoothly.
