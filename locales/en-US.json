@@ -2383,7 +2383,11 @@
     "more": {
       "one": "{n} more",
       "other": "{n} more"
-    }
+    },
+    "sub": "Sub",
+    "initial": "Initial",
+    "subTitle": "A subscription’s check for new posts",
+    "initialTitle": "A first download"
   },
   "newDl": {
     "open": "New download",

@@ -159,7 +159,7 @@
           {#each groups as g, i (g.key)}
             <li animate:flip={{ duration: 220 }} in:slideIn={{ i }} out:slideOut>
               {#if g.items.length === 1}
-                {@render row(g.items[0])}
+                <div class="solo">{@render row(g.items[0])}</div>
               {:else}
                 <Stack items={g.items} key={(n) => n.key} label={g.items[0].text} bind:open={() => !!unfolded[g.key], (v) => (unfolded[g.key] = v)}>
                   {#snippet card(n, _)}{@render row(n)}{/snippet}
@@ -356,6 +356,14 @@
     background: color-mix(in srgb, var(--mauve) 9%, transparent);
   }
   /* (a stack's cards: a little room around each) */
+  /* One on its own: a card like a stack's (Stack's framed cards - the user) */
+  .solo {
+    margin: 2px 0;
+    border: 1px solid var(--surface0);
+    border-radius: 12px;
+    background: var(--crust);
+    overflow: hidden;
+  }
   li :global(.stack) {
     margin: 2px 0;
   }

@@ -94,3 +94,8 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
     already - see Tag rules", "2 downloads finished" / "52 new files", "Subscription ready" / "340 new files". No
     site, tag, search or error text (a push goes through the browser maker's push service and shows on a locked
     screen); `TestCompose` checks none slips in. Tapping one opens the page with the names.
+- **The downloads menu stacks too (2026-10-24)** (the user): a site's downloads are one Stack (running first, in front);
+  each card: its search as the header (scrolling to its end and back when it's long - `marquee`), a chip "Sub" (a
+  subscription's check) or "Initial" (a first download: a new subscription's first check, or a download once), the
+  posts gone through out of the goal ("12/40", `goalOf` as on the Downloads page; none known: the count and a striped
+  bar) and " · Waiting" / " · Paused". One on its own (here and in the bell) is a card like a stack's (`.solo`).

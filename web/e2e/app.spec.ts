@@ -4158,11 +4158,15 @@ test('library: the downloads menu - a counter, New download, what is downloading
   await expect(button.locator('.counter')).toHaveText('2');
   await button.click();
   const menu = page.getByRole('dialog', { name: 'Downloads' });
-  const rows = menu.locator('li');
+  // One site's downloads as one stack (running first, in front): its search, Sub or Initial, gone through / goal.
+  await expect(menu.locator('li')).toHaveCount(1);
+  const rows = menu.locator('button.item');
   await expect(rows).toHaveCount(3);
   await expect(rows.nth(0)).toContainText('A running one');
-  await expect(rows.nth(0)).toContainText('Downloading · 4 files');
+  await expect(rows.nth(0).locator('.kind')).toHaveText('Initial');
+  await expect(rows.nth(0).locator('.count')).toHaveText('4/10');
   await expect(rows.nth(0).locator('.fill')).toHaveAttribute('style', /width: 40%/);
+  await menu.getByRole('button', { name: /^Show all 3/ }).click();
   await expect(rows.nth(1)).toContainText('menu_1');
   await expect(rows.nth(1)).toContainText('Waiting');
   await expect(rows.nth(2)).toContainText('Paused');

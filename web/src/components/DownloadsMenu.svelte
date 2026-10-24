@@ -2,26 +2,29 @@
   import { px, settle, sizeOf } from '../lib/motion';
   // The downloads in the top bar (the library): its counter says how many are running or waiting, and the arrow bobs
   // while one downloads. A press opens New download and the downloads going on now - running, then waiting, then
-  // paused - each with its progress; one opens the Downloads page.
+  // paused - a site's together as a stack like the Downloads page's (the user); each says its search (scrolling
+  // sideways when it's long), "Sub" (a subscription's check) or "Initial" (a first download), the posts gone through
+  // out of its goal and its progress; one opens the Downloads page.
   import { cubicOut } from 'svelte/easing';
   import { flip } from 'svelte/animate';
   import { backClose } from '../lib/backClose';
   import { swallowPress, leaving } from '../lib/outside';
   import { activeDownloads as active } from '../lib/activeDownloads.svelte';
   import { live } from '../lib/live.svelte';
-  import { measurable, progress } from '../lib/downloadProgress';
+  import { measurable, progress, goalOf } from '../lib/downloadProgress';
   import { openNewDownload } from '../lib/newDownload.svelte';
-  import { sites as siteInfo } from '../lib/sites.svelte';
+  import { sites as siteInfo, siteLabel } from '../lib/sites.svelte';
   import { router } from '../lib/router.svelte';
   import type { DownloadSearch } from '../lib/api';
   import { t, num } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
   import SiteIcon from './SiteIcon.svelte';
+  import Stack from './Stack.svelte';
 
   // query: the search in the bar (New download offers it first).
   let { query }: { query: string } = $props();
 
-  const SHOWN = 6; // more: "N more", to the Downloads page
+  const SHOWN = 6; // sites; more: "N more", to the Downloads page
 
   let open = $state(false);
   let button = $state<HTMLButtonElement>();
@@ -47,13 +50,37 @@
   const shownState = (s: DownloadSearch) => (s.state === 'running' && active.sitesPaused[s.site] ? 'queued' : s.state);
   const gallery = (s: DownloadSearch) => siteInfo.engines[s.site] === 'ehentai';
   const named = (s: DownloadSearch) => s.label || s.query || t('push.everything');
-  const nameOf = (s: DownloadSearch) => (s.subscription_id ? t('downloads.checkOf', { query: named(s) }) : named(s));
-  /** "Downloading · 12 files", "Waiting", "Paused". */
-  function detail(s: DownloadSearch): string {
-    const st = shownState(s);
-    const files = s.downloaded + s.already;
-    return st === 'running' && files ? `${t('downloads.state.running')} · ${t('common.files', { n: files })}` : t(`downloads.state.${st}`);
+  /** A subscription's check ("Sub"), or a first download - a new subscription's first check, or a download once. */
+  const isSub = (s: DownloadSearch) => !!s.subscription_id && !s.first_check;
+  /** "57,734/72,588" - the posts gone through out of the goal (the limit, the site's count; none: the count). */
+  function count(s: DownloadSearch): string {
+    const goal = goalOf(s);
+    return goal ? `${num(s.handled)}/${num(goal)}` : num(s.handled);
   }
+
+  // A site's downloads together (in the list's order: running, waiting, paused), the sites as they come first.
+  const groups = $derived.by(() => {
+    const by = new Map<string, DownloadSearch[]>();
+    for (const s of active.list) by.set(s.site, [...(by.get(s.site) ?? []), s]);
+    return [...by.entries()].map(([site, list]) => ({ site, list }));
+  });
+  let unfolded = $state<Record<string, boolean>>({});
+
+  /** A search too long for its line scrolls to its end and back, again and again (not with reduced motion). */
+  const marquee = (box: HTMLElement) => {
+    const measure = () => {
+      const text = box.firstElementChild as HTMLElement | null;
+      if (!text) return;
+      const over = text.scrollWidth - box.clientWidth;
+      box.classList.toggle('long', over > 2);
+      box.style.setProperty('--shift', `${-over}px`);
+      box.style.setProperty('--dur', `${Math.max(3, over / 25 + 2)}s`);
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    measure();
+    return () => ro.disconnect();
+  };
 
   // A press outside closes it (the press goes no further: nothing opens by accident underneath).
   $effect(() => {
@@ -127,26 +154,20 @@
       </header>
       {#if active.list.length}
         <ul>
-          {#each active.list.slice(0, SHOWN) as s, i (s.id)}
-            {@const st = shownState(s)}
+          {#each groups.slice(0, SHOWN) as g, i (g.site)}
             <li animate:flip={{ duration: 220 }} in:slideIn={{ i }} out:slideOut>
-              <button class="item" onclick={toDownloads}>
-                <SiteIcon host={siteInfo.hosts[s.site] ?? ''} />
-                <span class="text">
-                  <span class="name">{nameOf(s)}</span>
-                  <span class="meta">{detail(s)}</span>
-                  {#if st === 'running' && !measurable(s, live.files)}
-                    <span class="bar striped" role="progressbar" aria-label={t('downloads.noEstimate')}></span>
-                  {:else}
-                    <span class="bar"><span class="fill {st}" style:width="{progress(s, live.files, gallery(s)) * 100}%"></span></span>
-                  {/if}
-                </span>
-              </button>
+              {#if g.list.length === 1}
+                <div class="solo">{@render row(g.list[0])}</div>
+              {:else}
+                <Stack items={g.list} key={(x) => x.id} label={siteLabel(g.site)} bind:open={() => !!unfolded[g.site], (v) => (unfolded[g.site] = v)}>
+                  {#snippet card(x, _)}{@render row(x)}{/snippet}
+                </Stack>
+              {/if}
             </li>
           {/each}
         </ul>
-        {#if active.list.length > SHOWN}
-          <button class="quiet more" onclick={toDownloads}>{t('dlMenu.more', { n: active.list.length - SHOWN })}</button>
+        {#if groups.length > SHOWN}
+          <button class="quiet more" onclick={toDownloads}>{t('dlMenu.more', { n: groups.slice(SHOWN).reduce((n, g) => n + g.list.length, 0) })}</button>
         {/if}
       {:else}
         <!-- (nothing: a quiet check, no words - like the bell's) -->
@@ -155,6 +176,25 @@
     </div>
   {/if}
 </div>
+
+{#snippet row(s: DownloadSearch)}
+  {@const st = shownState(s)}
+  <button class="item" onclick={toDownloads}>
+    <SiteIcon host={siteInfo.hosts[s.site] ?? ''} />
+    <span class="text">
+      <span class="head">
+        <span class="name" title={named(s)} {@attach marquee}><span>{named(s)}</span></span>
+        <span class="kind" class:sub={isSub(s)} title={isSub(s) ? t('dlMenu.subTitle') : t('dlMenu.initialTitle')}>{isSub(s) ? t('dlMenu.sub') : t('dlMenu.initial')}</span>
+      </span>
+      <span class="meta"><span class="count">{count(s)}</span>{#if st !== 'running'}{' · ' + t(`downloads.state.${st}`)}{/if}</span>
+      {#if st === 'running' && !measurable(s, live.files)}
+        <span class="bar striped" role="progressbar" aria-label={t('downloads.noEstimate')}></span>
+      {:else}
+        <span class="bar"><span class="fill {st}" style:width="{progress(s, live.files, gallery(s)) * 100}%"></span></span>
+      {/if}
+    </span>
+  </button>
+{/snippet}
 
 <style>
   .dl-wrap {
@@ -295,11 +335,71 @@
     display: grid;
     gap: 3px;
   }
+  /* The search and its kind: the search scrolls sideways when it's long (soft edge), the chip stays. */
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
   .name {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 600;
+  }
+  .name > span {
+    display: inline-block;
+  }
+  .name:global(.long) {
+    mask-image: linear-gradient(to right, transparent, #000 6px, #000 calc(100% - 14px), transparent);
+  }
+  .name:global(.long) > span {
+    animation: marquee var(--dur, 4s) ease-in-out 0.6s infinite alternate;
+  }
+  @keyframes marquee {
+    0%,
+    15% {
+      transform: translateX(0);
+    }
+    85%,
+    100% {
+      transform: translateX(var(--shift, 0));
+    }
+  }
+  .kind {
+    flex: none;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 17px;
+    color: var(--peach);
+    background: color-mix(in srgb, var(--peach) 16%, transparent);
+  }
+  .kind.sub {
+    color: var(--mauve);
+    background: color-mix(in srgb, var(--mauve) 16%, transparent);
+  }
+  .count {
+    font-variant-numeric: tabular-nums;
+    color: var(--subtext);
+  }
+  /* (a stack's cards: a little room around each, and under the folded edges) */
+  /* One on its own: a card like a stack's (Stack's framed cards - the user) */
+  .solo {
+    margin: 2px 0;
+    border: 1px solid var(--surface0);
+    border-radius: 12px;
+    background: var(--crust);
+    overflow: hidden;
+  }
+  li :global(.stack) {
+    margin: 2px 0;
+  }
+  li :global(.stack.many:not(.open)) {
+    margin-bottom: 10px;
   }
   .meta {
     font-size: 11px;
@@ -353,7 +453,8 @@
   @media (prefers-reduced-motion: reduce) {
     .dl.running .arrow,
     .counter,
-    .bar.striped {
+    .bar.striped,
+    .name:global(.long) > span {
       animation: none;
     }
   }
