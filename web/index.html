@@ -35,11 +35,10 @@
     <title>Vitrine</title>
   </head>
   <body style="margin:0;background:#1e1e2e">
-    <!-- Shown until the app draws its first screen (main.ts removes it). -->
-    <div id="splash" aria-hidden="true" style="position:fixed;inset:0;pointer-events:none;display:grid;place-items:center;background:#1e1e2e;z-index:100">
+    <!-- Shown until the app draws its first screen (main.ts removes it); not on Android (splash.js). -->
+    <div id="splash" aria-hidden="true" style="position:fixed;inset:0;pointer-events:none;display:var(--splash-display, grid);place-items:center;background:#1e1e2e;z-index:100">
       <!-- The icon inline (not a file to fetch): there in the very first frame, as on the launch image. -->
-      <!-- (size, opacity and the name: splash.js sets them to the system's splash on Android) -->
-      <svg width="64" height="64" viewBox="0 0 64 64" style="width:var(--splash-size, 64px);height:var(--splash-size, 64px);border-radius:calc(var(--splash-size, 64px) * 0.21875);opacity:var(--splash-opacity, 0.9);transform:translateY(var(--splash-shift, 0px))">
+      <svg width="64" height="64" viewBox="0 0 64 64" style="border-radius:14px;opacity:0.9;transform:translateY(var(--splash-shift, 0px))">
         <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cba6f7"/><stop offset="1" stop-color="#f5c2e7"/></linearGradient></defs>
         <rect width="64" height="64" rx="14" fill="#1e1e2e"/>
         <g transform="translate(0 -2)">
@@ -49,7 +48,6 @@
         <polygon points="53,14 43,40 32,54" fill="url(#g)"/><polygon points="53,14 43,40 32,54" fill="#1e1e2e" opacity=".28"/>
         </g>
       </svg>
-      <div style="display:var(--splash-name, none);position:absolute;left:0;right:0;bottom:var(--splash-name-bottom, 48px);text-align:center;color:#fff;font:24px sans-serif;font-stretch:75%">Vitrine</div>
     </div>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>

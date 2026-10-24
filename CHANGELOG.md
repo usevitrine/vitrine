@@ -26,7 +26,7 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 - **Push notifications** for new files say "across N subscriptions" every time.
 - **Duplicates**: the picture no longer starts small and grows when the page opens, or shrinks after you keep one; the “still looking” progress is a thin bar under the heading.
 - **Android**: the home-screen icon’s logo is smaller (it was too big in round icons - add the app again to get it),
-  the start-up logo no longer changes size as the app opens, comic pages turn and close with a swipe again, and no
+  the start-up screen goes straight to the app (no second one with a logo of another size), comic pages turn and close with a swipe again, and no
   thin line shows under the top bar while scrolling.
 - **The example compose file** includes FlareSolverr (optional) for sites behind Cloudflare.
 
