@@ -233,3 +233,7 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   pointer events never show it. (4) A 1px line between the top bar and the search bar while scrolling (fractional
   pixels: the two edges rounded apart): the library's, comics' and browse headers reach 2px up under the top bar
   (a box-shadow in their background color).
+- **Trash counts in the menu (2026-10-24, the user)**: Trash shows the deleted files and comics together (a grey
+  count, left of its fold arrow - not the accent of Duplicates', which waits for you), and Media and Comics under it
+  each their own, lined up with it. Read from `lib/trash` each time the menu opens (deletes elsewhere don't update
+  it); a part that's off (Media or Comics) isn't counted.

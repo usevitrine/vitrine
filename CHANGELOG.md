@@ -4,6 +4,9 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 
 ## Unreleased
 
+- **The menu shows what's in the trash**: deleted files and comics together on Trash, each on its own under it.
+- **Duplicates**: the last pair fades away cleanly (it shrank first).
+- **Top bar**: the downloads and bell icons are a little smaller, their counters too.
 - **Trackpad gestures in the viewer**: swipe with two fingers to go to the next or previous file (it follows your fingers), and move a zoomed picture with two fingers; pinch zooms.
 - **The bell and the Downloads menu** open with their stacks folded.
 - **Downloads button**: in the top bar on every page, not only the library.

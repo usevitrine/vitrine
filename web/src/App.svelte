@@ -29,6 +29,7 @@
   import Library from './screens/Library.svelte';
   import Comics from './screens/Comics.svelte';
   import { dupes } from './lib/dupes.svelte';
+  import { trash } from './lib/trash.svelte';
   import Tour from './components/Tour.svelte';
   import { tour } from './lib/tour.svelte';
   import type { Component } from 'svelte';
@@ -69,6 +70,13 @@
   // The navigation lives in a drawer behind the menu button in the top bar (on
   // every device, like hydrus-web), so the screens get the whole width.
   let drawer = $state(false);
+  // The trash's counts in the menu (the user): read each time it opens - deletes elsewhere don't update them.
+  $effect(() => {
+    if (drawer) untrack(() => trash.load());
+  });
+  /** What's in the trash, as the menu shows it: Media's files, Comics' comics (a part that's off: none). */
+  const trashFiles = $derived(settings.mediaOff ? 0 : trash.files);
+  const trashComics = $derived(settings.comicsOff ? 0 : trash.comics);
 
   // The last known session (this device): the app opens on it at once and asks
   // the server in the background (logged out meanwhile: the login screen).
@@ -332,6 +340,7 @@
               <Icon name={tab.icon} size={22} />
               <span id="menu-{key}">{tab.label}</span>
               {#if tab.screen === 'duplicates' && dupes.count}<span class="count-badge" transition:pop>{num(dupes.count)}</span>{/if}
+              {#if tab.id === 'trash' && trashFiles + trashComics}<span class="count-badge quiet" transition:pop>{num(trashFiles + trashComics)}</span>{/if}
             </button>
             {#if tab.subs}
               <button
@@ -352,6 +361,10 @@
                 {@const here = own ? router.screen === own && router.sub === s.sub : router.screen === tab.screen && router.sub === s.sub}
                 <button class="tab sub" class:active={here} aria-current={here ? 'page' : undefined} onclick={() => (own ? goTo(own, s.sub) : goTo(tab.screen, s.sub))}>
                   <span>{s.label}</span>
+                  {#if tab.id === 'trash'}
+                    {@const n = own === 'comics' ? trashComics : trashFiles}
+                    {#if n}<span class="count-badge quiet" transition:pop>{num(n)}</span>{/if}
+                  {/if}
                 </button>
               {/each}
             </div>
@@ -560,6 +573,11 @@
     text-align: center;
     font-variant-numeric: tabular-nums;
   }
+  /* (the trash's: a count, not something waiting for you - grey) */
+  .count-badge.quiet {
+    background: var(--surface0);
+    color: var(--subtext);
+  }
   .tab.active {
     background: var(--surface0);
     color: var(--mauve);
@@ -621,6 +639,10 @@
     padding-left: 24px;
     font-size: var(--font-small);
     border-radius: 0 var(--radius) var(--radius) 0;
+  }
+  /* (a count on a sub-page lines up with its screen's, left of the fold arrow) */
+  .tab.sub:has(.count-badge) {
+    padding-right: calc(var(--control-h) + 4px);
   }
   .tab.sub::before {
     content: "";
