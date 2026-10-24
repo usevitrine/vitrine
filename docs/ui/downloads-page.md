@@ -31,7 +31,10 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
 ## Downloads stacks and the bell (2026-10-21)
 - **Stacks** (`components/Stack.svelte`): each site's queue, finished downloads and failed files fold into a stack - the
   first card whole (the queue: the one running, then retries, then the waiting ones), the next two peeking out behind
-  it (smaller, their content faded), a "+N" on the edges that unfold it; the site's heading unfolds it too. Unfolded,
+  it (smaller, their content faded), a "+N" on the edges that unfold it; the site's heading unfolds it too. A mouse on
+  the edges fans the cards behind out a little (5 px a card; the stack keeps its height) and the chip rides on the last
+  edge, a shade lighter (2026-10-24: it turned the accent and dropped, under a pale box from the buttons' hover layer -
+  the user: "looks weird"). Unfolded,
   every card glides from its place in the stack to its place in the list (absolutely placed, transforms and heights
   only, 0.42 s), each sliding out from under the one before it (the front card stays on top, folded or not -
   2026-10-24: with one level for all unfolded, the later cards slid over it), back on "Show less"; cards coming and

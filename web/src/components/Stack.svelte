@@ -46,6 +46,10 @@
   } = $props();
 
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // A mouse on the peeking edges: the cards behind fan out a little - a hint of the unfold (2026-10-24; the user found
+  // the "+N" chip turning the accent and dropping "weird"). The stack keeps its height (nothing below moves).
+  const TEASE = 5;
+  let teasing = $state(false);
   const many = $derived(items.length > 1);
   const isOpen = $derived(open || !many);
   // The card in front: the first (a list read top-down), or the last when building upwards.
@@ -83,7 +87,8 @@
     items.forEach((_, i) => {
       const depth = up ? items.length - 1 - i : i; // (0 = in front)
       const d = Math.min(depth, 2);
-      const y = up ? (behind - d) * peek : d * peek;
+      const fan = teasing ? d * TEASE : 0;
+      const y = up ? (behind - d) * peek - fan : d * peek + fan;
       out.push({ y, scale: 1 - d * 0.045, height: fh, hidden: depth > 2, depth });
     });
     return out;
@@ -119,6 +124,8 @@
   class:open={isOpen}
   class:many
   class:up
+  class:teasing
+  style:--tease="{TEASE * 2}px"
   style:height="{total}px"
   onpointerenter={(e) => {
     if (!hover || e.pointerType !== 'mouse') return;
@@ -159,7 +166,12 @@
       aria-expanded="false"
       aria-label={t('stack.showAll', { n: items.length, what: label })}
       title={t('stack.showAll', { n: items.length, what: label })}
-      onclick={() => (open = true)}>
+      onpointerenter={(e) => e.pointerType === 'mouse' && !reduced() && (teasing = true)}
+      onpointerleave={() => (teasing = false)}
+      onclick={() => {
+        teasing = false;
+        open = true;
+      }}>
       <span class="more">+{items.length - 1}</span>
     </button>
   {/if}
@@ -264,13 +276,21 @@
     transform: translateY(2px);
     transition:
       background 0.15s,
-      transform 0.2s cubic-bezier(0.2, 0.9, 0.25, 1);
+      transform 0.42s cubic-bezier(0.2, 0.9, 0.25, 1);
+  }
+  /* (fanned out: the chip rides on the last edge) */
+  .stack.teasing .more {
+    transform: translateY(calc(2px + var(--tease)));
+  }
+  .stack.up.teasing .more {
+    transform: translateY(calc(2px - var(--tease)));
   }
   @media (hover: hover) {
+    .stack .unfold:hover:not(:disabled) {
+      background-image: none; /* (not the filled buttons' light layer: a pale box over the edges) */
+    }
     .unfold:hover .more {
-      background: var(--mauve);
-      color: var(--crust);
-      transform: translateY(4px);
+      background: var(--surface2);
     }
   }
   .fold-row {
