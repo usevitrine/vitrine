@@ -4,6 +4,7 @@
   // tags (the same Tags section: a tap opens a tag's menu - search it here, a new download - nothing to edit), and its
   // pages' thumbnails (the site's small ones: nothing against its image limit). The page gives the panel's frame.
   import { tick } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import { reveal, pop } from '../lib/motion';
   import { api, type BrowseGallery, type BrowseThumb, type FileTag } from '../lib/api';
   import { siteLabel } from '../lib/sites.svelte';
@@ -47,6 +48,19 @@
   let busy = $state(false);
   let error = $state('');
   let loadedFor = 0;
+  // The sheets come (the site gives a page's thumbnails as one picture, ~20 to a sheet): each thumbnail waits for its
+  // own sheet - pulsing in its place with its number - and fades in when it's here, not all of them at the end.
+  const sheets = new SvelteSet<string>();
+  const asked = new Set<string>();
+  function fetchSheets(list: BrowseThumb[]) {
+    for (const th of list) {
+      if (asked.has(th.url)) continue;
+      asked.add(th.url);
+      const img = new Image();
+      img.onload = img.onerror = () => sheets.add(th.url); // (a failed one: no endless pulse)
+      img.src = image(th.url);
+    }
+  }
   async function more() {
     const g = gallery;
     if (busy) return;
@@ -55,6 +69,7 @@
     try {
       const res = await api.browseThumbs(site, g.id, g.token, next);
       if (g.id !== gallery.id) return;
+      fetchSheets(res.thumbs);
       thumbs = [...thumbs, ...res.thumbs];
       pages = res.pages;
       next++;
@@ -181,7 +196,7 @@
     <div class="thumbs" bind:this={strip} onscroll={onStrip} {@attach wheel} role="list">
       {#each thumbs as th (th.page)}
         {@const k = THUMB_H / th.h}
-        <span class="thumb" style:width="{Math.round(th.w * k)}px" style:height="{THUMB_H}px" role="listitem" aria-label={t('browse.page', { n: th.page + 1 })}>
+        <span class="thumb" class:waiting={!sheets.has(th.url)} style:width="{Math.round(th.w * k)}px" style:height="{THUMB_H}px" role="listitem" aria-label={t('browse.page', { n: th.page + 1 })}>
           <span
             class="sprite"
             style:width="{th.w}px"
@@ -300,8 +315,16 @@
     border-radius: 8px;
     background: var(--surface0);
   }
-  .thumb.placeholder {
+  .thumb.placeholder,
+  .thumb.waiting {
     animation: pulse 1.2s ease-in-out infinite alternate;
+  }
+  /* Its sheet here: the thumbnail fades in over the pulse. */
+  .sprite {
+    transition: opacity 0.25s ease-out;
+  }
+  .thumb.waiting .sprite {
+    opacity: 0;
   }
   @keyframes pulse {
     to {
@@ -309,7 +332,8 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .thumb.placeholder {
+    .thumb.placeholder,
+    .thumb.waiting {
       animation: none;
     }
   }

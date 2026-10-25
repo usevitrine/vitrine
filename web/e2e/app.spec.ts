@@ -6613,6 +6613,70 @@ test('comics: Browse - a new search calls off the one on its way (its request en
   await expect(page.locator('.browse .tile', { hasText: 'Slow result' })).toHaveCount(0); // and never shown
 });
 
+test('comics: a comic card keeps its title, chips and mark as they are while it grows and shrinks (held, not scaled with it)', async ({ page }) => {
+  test.skip(isPhone(page), 'a hover: a mouse');
+  const ids = (await page.request.get('/api/search?q=system:type%3Dimage&limit=1').then((r) => r.json())).ids as number[];
+  const thumb = ((await page.request.get('/api/files?ids=' + ids[0]).then((r) => r.json())).files as { thumb: string }[])[0].thumb;
+  const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://g.test/g/${id}/abcdef0123/`, title: `Gallery ${id}`, category: 'Manga', pages: 10, tags: [], cover: `https://img.g.test/c/${id}.webp`, queued: true });
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
+  await page.route('**/api/browse?*', (r) => r.fulfill({ json: { galleries: [1, 2, 3, 4, 5].map(gallery), total: 5, next: 0 } }));
+  await page.route('**/api/browse/image?*', async (r) => r.fulfill({ response: await page.request.get(thumb) }));
+  await page.goto('/browse');
+  const tile = page.locator('.browse .tile').nth(1);
+  await expect(tile.locator('.fit > img.in')).toHaveCount(1);
+  await page.waitForTimeout(400);
+  // Every frame while it moves: the pages chip's place against the title, its height, the mark's size.
+  const watch = () =>
+    page.evaluate(
+      () =>
+        new Promise<number[][]>((done) => {
+          const out: number[][] = [];
+          const t0 = performance.now();
+          const step = () => {
+            const t = document.querySelectorAll('.browse .tile')[1];
+            const chip = t.querySelector('.comic-chip')!.getBoundingClientRect();
+            const title = t.querySelector('.comic-title')!.getBoundingClientRect();
+            out.push([title.top - chip.top, chip.left - title.left, chip.height, t.querySelector('.comic-status')!.getBoundingClientRect().width]);
+            if (performance.now() - t0 < 500) requestAnimationFrame(step);
+            else done(out);
+          };
+          requestAnimationFrame(step);
+        }),
+    );
+  const spread = (frames: number[][]) => [0, 1, 2, 3].map((k) => Math.max(...frames.map((f) => f[k])) - Math.min(...frames.map((f) => f[k])));
+  const growing = watch();
+  await tile.hover();
+  for (const d of spread(await growing)) expect(d).toBeLessThan(0.5);
+  const shrinking = watch();
+  await page.mouse.move(5, 400);
+  for (const d of spread(await shrinking)) expect(d).toBeLessThan(0.5);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+test('comics: Browse - the details panel\'s pages show as each sheet of them comes (a pulse in their places meanwhile)', async ({ page }) => {
+  const ids = (await page.request.get('/api/search?q=system:type%3Dimage&limit=2').then((r) => r.json())).ids as number[];
+  const thumb = ((await page.request.get('/api/files?ids=' + ids[0]).then((r) => r.json())).files as { thumb: string }[])[0].thumb;
+  const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://g.test/g/${id}/abcdef0123/`, title: `Gallery ${id}`, category: 'Manga', pages: 10, tags: [{ ns: 'female', name: 'blue_sky' }], cover: `https://img.g.test/c/${id}.webp` });
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
+  await page.route('**/api/browse?*', (r) => r.fulfill({ json: { galleries: [1, 2, 3].map(gallery), total: 3, next: 0 } }));
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  await page.route('**/api/browse/image?*', async (r) => {
+    if (r.request().url().includes('sheet')) await held;
+    await r.fulfill({ response: await page.request.get(thumb) });
+  });
+  await page.route('**/api/browse/gallery?*', (r) =>
+    r.fulfill({ json: { thumbs: Array.from({ length: 6 }, (_, i) => ({ page: i, url: `https://img.g.test/sheet${i < 3 ? 1 : 2}.webp`, x: 0, y: 0, w: 100, h: 140 })), pages: 1 } }));
+  await page.goto('/browse');
+  await page.locator('.browse .tile').nth(0).click();
+  await expect(page.getByRole('button', { name: 'Download', exact: true })).toHaveCSS('background-color', 'rgb(203, 166, 247)'); // (purple)
+  await expect(page.locator('.pages .thumb')).toHaveCount(6); // (all there at once, with their numbers)
+  await expect(page.locator('.pages .thumb.waiting')).toHaveCount(6);
+  release();
+  await expect(page.locator('.thumb.waiting')).toHaveCount(0);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('comics: Browse - a new search clears the last one\'s galleries at once (a spinner until the new ones come)', async ({ page }) => {
   const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://gallery.test/g/${id}/abcdef0123/`, title: `Some Comic ${id}`, category: 'Manga', pages: 24, tags: [] });
   await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));

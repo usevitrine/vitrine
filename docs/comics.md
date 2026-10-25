@@ -289,3 +289,12 @@ The comics library (galleries, comic tags, read state, custom titles, cover crop
     thumbnail is a new element now (`{#key}` on its address; a collection's mosaic covers likewise) - the library's grid
     after a new search too. Test: "grid: a new search shows none of the last one's pictures".
 - **Browse: a new search clears at once (2026-10-25)** (the user: "when entering a new tag it should clear the results"): `BrowseResults.search` empties the list as it starts (the page's spinner until the site answers; before, the last search's galleries stayed until the new covers had come). Test: "Browse - a new search clears the last one's galleries at once".
+- **Browse: the pages as they come (2026-10-25)** (the user: "the pages in the details panel has to load every single
+  one of the thumbnails before it shows them, it should show them as they are available"): the site gives a page's
+  thumbnails as one sheet (measured on ExHentai: 20 to a WebP sheet of ~180 KB; WebP can't draw part of itself), so a
+  sheet's thumbnails come together - but every place shows at once with its number, pulsing, and each sheet's
+  thumbnails fade in as it comes (`sheets` in GalleryPanel), a long gallery sheet by sheet. The server starts each
+  sheet the moment it has read the gallery's page (`prefetchSheets`; the browser's request joins it) and reads the
+  next thumbnail page ahead (kept a few minutes: `browseState.thumbs`), so the strip's scrolling finds it ready.
+  Download in the panel's header is the accent filled (the user: "the download button should have a purple
+  background"). Test: "Browse - the details panel's pages show as each sheet of them comes".

@@ -390,3 +390,15 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   and a comic's heart are counter-scaled now (`MARKS` in Grid: the card's inverse scale, each about its own corner),
   as the picture is - measured: the mark stays 22 px (21 while it moves: edge smoothing). The motion audit records
   Browse's hover, mouse-off, preview, Download (the mark appearing) and a queued tile's hover.
+- **Held, not stretched - everywhere a tile changes shape (2026-10-25)** (the user: "when the thumbnail zooms in the
+  pages icon shifts", "check everywhere for that counter-scale thing. this shouldnt happen anywhere"): the per-corner
+  hold above drifted the pages chip from the title (each held about its own corner). One helper now (`holdInside` in
+  Grid) for every animation that draws a tile in another shape by a transform - the hover card, a row's tiles resizing
+  when the list changes, a collection's comics flying out of and back into its tile (`baked`: the easing baked into
+  the keyframes, timing linear, so a scale and its inverse match frame by frame): the picture scales evenly, covering
+  the tile; the marks, badges and the selection's check keep their size about their corner (the nearer side); a
+  comic's title and chips together about the foot's corner. Measured every frame on a Browse card: the chip stays
+  24.4 px above the title, its height and the mark's 22 px steady (within 0.05 px). Elsewhere a scale is uniform and
+  meant (menus, dialogs, toasts and sheets growing in; a stack's cards behind; the viewer's swipe-down), and the
+  viewer's and reader's hero already holds its picture. Test: "a comic card keeps its title, chips and mark as they
+  are while it grows and shrinks".

@@ -244,7 +244,7 @@
   type Motion = { ms: number; ease: [number, number, number, number] };
   const GROW: Motion = { ms: ZOOM_MS, ease: [0.22, 1, 0.36, 1] };
   const SHRINK: Motion = { ms: 200, ease: [0.33, 1, 0.68, 1] };
-  const flights = new Map<HTMLElement, { outer: Animation; inner?: Animation; marks: Animation[]; from: Rect; to: Rect; m: Motion }>();
+  const flights = new Map<HTMLElement, { outer: Animation; inside: Animation[]; from: Rect; to: Rect; m: Motion }>();
   const lerp = (a: Rect, b: Rect, e: number): Rect => ({ x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, w: a.w + (b.w - a.w) * e, h: a.h + (b.h - a.h) * e });
   /** Where a card in motion is drawn now (in the list), if it's moving. */
   function cardNow(t: HTMLElement): Rect | null {
@@ -257,49 +257,84 @@
     const f = flights.get(t);
     flights.delete(t);
     f?.outer.cancel();
-    f?.inner?.cancel();
-    for (const a of f?.marks ?? []) a.cancel();
+    for (const a of f?.inside ?? []) a.cancel();
   }
 
-  // What's drawn over a card that keeps its size while the card grows or shrinks (a comic's mark and its title and
-  // chips, a favorite's heart), each about the corner it sits in: scaled with the card, they were drawn smaller as it
-  // set off and grew back (the user: "the downloading/downloaded indicator changes sizes briefly").
-  const MARKS: [string, string][] = [
-    [':scope > .face > .comic-status, :scope > .comic-status', '0 0'],
-    [':scope > .face > .comic-foot > *, :scope > .comic-foot > *', '0 100%'],
-    [':scope > .face > .fav-badge.on-comic, :scope > .fav-badge.on-comic', '100% 0'],
-  ];
+  /** cubic-bezier(a, b, c, d) as its numbers. */
+  const bezier = (css: string) => (css.match(/[\d.]+/g) ?? ['0.25', '0.1', '0.25', '1']).slice(0, 4).map(Number) as [number, number, number, number];
+
+  /**
+   * What's inside a tile drawn by a transform that changes its shape (the hover card, a row's resize, a collection's
+   * comics flying out of or into it) keeps its own: the picture scales evenly, covering the tile as at rest, and the
+   * overlays (marks, badges, the selection's check) keep their size, each held about the corner it sits in - a comic's
+   * title and chips together, about the foot's corner. Stretched with the tile, the picture was distorted and the
+   * overlays shrank and grew back, the pages chip drifting from the title (the user: "the downloading/downloaded
+   * indicator changes sizes briefly", "the pages icon shifts" - "this shouldnt happen anywhere").
+   * scales: the tile's (x, y) scale at each keyframe, timed as its own animation (o).
+   */
+  function holdInside(t: HTMLElement, scales: [number, number][], o: KeyframeAnimationOptions): Animation[] {
+    const out: Animation[] = [];
+    const fit = t.querySelector<HTMLElement>(':scope > .face > .fit');
+    if (fit) {
+      out.push(fit.animate(scales.map(([sx, sy]) => {
+        const s = Math.max(sx, sy); // (covering the shape it's in, as the tile's picture does)
+        return { transform: `scale(${s / sx}, ${s / sy})` };
+      }), o));
+    }
+    const inverse = scales.map(([sx, sy]) => ({ transform: `scale(${1 / sx}, ${1 / sy})` }));
+    const hold = (part: HTMLElement, origin: string) => {
+      part.style.transformOrigin = origin;
+      const a = part.animate(inverse, o);
+      a.finished.then(() => (part.style.transformOrigin = ''), () => (part.style.transformOrigin = ''));
+      out.push(a);
+    };
+    const w = t.offsetWidth;
+    const h = t.offsetHeight;
+    for (const mark of t.querySelectorAll<HTMLElement>(':scope > .face > :is(.comic-status, .fav-badge, .new-badge, .badge, .check)')) {
+      // (its corner: the side of the tile it's nearer)
+      hold(mark, `${mark.offsetLeft + mark.offsetWidth / 2 > w / 2 ? '100%' : '0'} ${mark.offsetTop + mark.offsetHeight / 2 > h / 2 ? '100%' : '0'}`);
+    }
+    const foot = t.querySelector<HTMLElement>(':scope > .face > .comic-foot');
+    if (foot) for (const part of foot.children as HTMLCollectionOf<HTMLElement>) hold(part, `${-part.offsetLeft}px ${foot.offsetHeight - part.offsetTop}px`);
+    return out;
+  }
+
+  /** Keyframes (N + 1, for a linear timing: the easing baked in - a shape's scale and the inside's inverse don't ease
+   *  as each other's inverse) from one place and size to another: the tile's transforms and its (x, y) scales. */
+  function baked(from: { x: number; y: number; sx: number; sy: number }, to: { x: number; y: number; sx: number; sy: number }, ease: [number, number, number, number], extra?: (e: number) => Keyframe) {
+    const N = 20;
+    const frames: Keyframe[] = [];
+    const scales: [number, number][] = [];
+    for (let k = 0; k <= N; k++) {
+      const e = cubicBezier(...ease, k / N);
+      const x = from.x + (to.x - from.x) * e;
+      const y = from.y + (to.y - from.y) * e;
+      const sx = from.sx + (to.sx - from.sx) * e;
+      const sy = from.sy + (to.sy - from.sy) * e;
+      frames.push({ ...extra?.(e), transform: `translate(${x}px, ${y}px) scale(${sx}, ${sy})` });
+      scales.push([sx, sy]);
+    }
+    return { frames, scales };
+  }
   /** Draws tile t (laid out as card, placed by base) from one place to another; done when it's there. */
   function fly(t: HTMLElement, from: Rect, to: Rect, card: Rect, base: { x: number; y: number }, m: Motion, done?: () => void) {
     land(t);
     if (reducedMotion()) return done?.();
     const N = 30;
     const outerK: Keyframe[] = [];
-    const innerK: Keyframe[] = [];
-    const markK: Keyframe[] = [];
+    const scales: [number, number][] = [];
     for (let k = 0; k <= N; k++) {
       const r = lerp(from, to, cubicBezier(...m.ease, k / N));
       const sx = r.w / card.w;
       const sy = r.h / card.h;
-      const s = Math.max(sx, sy); // (covering the shape it's in, as the tile's picture does)
       outerK.push({ transform: `translate(${base.x + r.x - card.x}px, ${base.y + r.y - card.y}px) scale(${sx}, ${sy})` });
-      innerK.push({ transform: `scale(${s / sx}, ${s / sy})` });
-      markK.push({ transform: `scale(${1 / sx}, ${1 / sy})` });
+      scales.push([sx, sy]);
     }
     // (kept at the end until the layout follows - a shrink's card is laid out as the tile only then)
     const o: KeyframeAnimationOptions = { duration: m.ms, easing: 'linear', fill: 'forwards' };
     const outer = t.animate(outerK, o);
     outer.id = 'card';
-    const fit = t.querySelector<HTMLElement>(':scope > .face > .fit');
-    const inner = fit?.animate(innerK, o);
-    const marks: Animation[] = [];
-    for (const [sel, origin] of MARKS) {
-      for (const mark of t.querySelectorAll<HTMLElement>(sel)) {
-        mark.style.transformOrigin = origin;
-        marks.push(mark.animate(markK, o));
-      }
-    }
-    flights.set(t, { outer, inner, marks, from, to, m });
+    flights.set(t, { outer, inside: holdInside(t, scales, o), from, to, m });
     outer.finished.then(
       () => {
         if (flights.get(t)?.outer !== outer) return;
@@ -815,8 +850,10 @@
       if (sizeChange) {
         // (rows: a tile's size changes with its row - it grows or shrinks from where it was)
         t.style.transformOrigin = '0 0';
-        t.animate([{ transform: `${tr(ox, oy)} scale(${b.w / p.w}, ${b.h / p.h})` }, { transform: tr(p.x, p.y) }], { duration: MOTION.move, easing: MOTION.ease })
-          .finished.finally(() => (t.style.transformOrigin = ''));
+        const { frames, scales } = baked({ x: ox, y: oy, sx: b.w / p.w, sy: b.h / p.h }, { x: p.x, y: p.y, sx: 1, sy: 1 }, bezier(MOTION.ease));
+        const o: KeyframeAnimationOptions = { duration: MOTION.move, easing: 'linear' };
+        holdInside(t, scales, o);
+        t.animate(frames, o).finished.finally(() => (t.style.transformOrigin = ''));
       } else {
         t.animate([{ transform: tr(ox, oy) }, { transform: tr(p.x, p.y) }], { duration: MOTION.move, easing: MOTION.ease });
       }
@@ -963,15 +1000,10 @@
         const w = a.el.offsetWidth || 1;
         const h = a.el.offsetHeight || 1;
         a.el.style.transformOrigin = '0 0';
-        a.el
-          .animate(
-            [
-              { opacity: 0.4, transform: `${tr(ox, oy)} scale(${from.w / w}, ${from.h / h})` },
-              { opacity: 1, transform: `${tr(x, y)} scale(1)` },
-            ],
-            { duration: 460, delay: Math.min(n++, 12) * 28, easing: ease, fill: 'backwards' },
-          )
-          .finished.finally(() => (a.el.style.transformOrigin = ''));
+        const { frames, scales } = baked({ x: ox, y: oy, sx: from.w / w, sy: from.h / h }, { x, y, sx: 1, sy: 1 }, bezier(ease), (e) => ({ opacity: 0.4 + 0.6 * e }));
+        const o: KeyframeAnimationOptions = { duration: 460, delay: Math.min(n++, 12) * 28, easing: 'linear', fill: 'backwards' };
+        holdInside(a.el, scales, o);
+        a.el.animate(frames, o).finished.finally(() => (a.el.style.transformOrigin = ''));
       }
       return true;
     }
@@ -984,15 +1016,10 @@
     for (const [, g] of [...before].sort((p, q) => p[1].y - q[1].y || p[1].x - q[1].x)) {
       const ghost = ghostOf(g);
       ghost.style.zIndex = '1';
-      ghost
-        .animate(
-          [
-            { opacity: 1, transform: `${tr(g.x - sr.left, g.y - sr.top)} scale(1)` },
-            { opacity: 0, transform: `${tr(tx, ty)} scale(${tw / g.w}, ${th / g.h})` },
-          ],
-          { duration: 420, delay: Math.min(n++, 12) * 22, easing: ease, fill: 'both' },
-        )
-        .finished.finally(() => ghost.remove());
+      const { frames, scales } = baked({ x: g.x - sr.left, y: g.y - sr.top, sx: 1, sy: 1 }, { x: tx, y: ty, sx: tw / g.w, sy: th / g.h }, bezier(ease), (e) => ({ opacity: 1 - e }));
+      const o: KeyframeAnimationOptions = { duration: 420, delay: Math.min(n++, 12) * 22, easing: 'linear', fill: 'both' };
+      holdInside(ghost, scales, o);
+      ghost.animate(frames, o).finished.finally(() => ghost.remove());
     }
     // Its tile takes them in (a small bump); the others come back.
     into.el.animate([{ transform: `${tr(tx, ty)} scale(0.94)`, opacity: 0.5 }, { transform: `${tr(tx, ty)} scale(1.03)`, opacity: 1, offset: 0.7 }, { transform: `${tr(tx, ty)} scale(1)` }], {

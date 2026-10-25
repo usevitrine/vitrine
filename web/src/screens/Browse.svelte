@@ -263,8 +263,16 @@
     height: var(--control-h);
     color: var(--peach);
   }
+  /* Download in the details panel's header: the accent filled (the user: "the download button should have a purple background"). */
   .accent {
-    color: var(--mauve);
+    background: var(--mauve);
+    color: var(--crust);
+  }
+  @media (hover: hover) {
+    .accent:hover {
+      background: color-mix(in srgb, var(--mauve) 85%, white);
+      color: var(--crust);
+    }
   }
   .empty {
     margin: 0 10px;

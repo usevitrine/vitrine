@@ -248,11 +248,31 @@ func (s *Server) prefetchCovers(ctx context.Context, st *download.Site, page plu
 	}
 }
 
+// prefetchSheets gets thumbnail sheets on their way (each once: a sheet holds ~20 thumbnails).
+func (s *Server) prefetchSheets(st *download.Site, thumbs []plugin.GalleryThumb) {
+	seen := map[string]bool{}
+	for _, th := range thumbs {
+		if seen[th.URL] {
+			continue
+		}
+		seen[th.URL] = true
+		u := th.URL
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+			s.pictures.load(ctx, ctx, u, func(ctx context.Context) (picture, error) {
+				b, ct, err := st.Client.Picture(ctx, u)
+				return picture{b, ct}, err
+			})
+		}()
+	}
+}
+
 // browseGallery: GET /api/browse/gallery?site=&id=&token=&p= -> {thumbs: [{page, url, x, y, w, h}], pages}
 // (one page of the gallery's thumbnails; pages: how many such pages).
 func (s *Server) browseThumbs(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	_, be, ok := s.browseSite(w, q.Get("site"))
+	st, be, ok := s.browseSite(w, q.Get("site"))
 	if !ok {
 		return
 	}
@@ -263,12 +283,34 @@ func (s *Server) browseThumbs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("a gallery's id and token are needed"))
 		return
 	}
-	thumbs, pages, err := be.GalleryThumbs(plugin.Foreground(r.Context()), gid, token, p)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, err)
-		return
+	key := fmt.Sprintf("thumbs|%s|%d|%d", q.Get("site"), gid, p)
+	thumbs, pages, ok := s.browsing.thumbs(key)
+	if !ok {
+		var err error
+		thumbs, pages, err = be.GalleryThumbs(plugin.Foreground(r.Context()), gid, token, p)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err)
+			return
+		}
+		s.browsing.keepThumbs(key, thumbs, pages)
 	}
+	// Their sheets on their way at once (the browser asks a moment later and joins), and the next page of them ahead:
+	// the strip's scrolling finds it ready.
+	s.prefetchSheets(st, thumbs)
 	writeJSON(w, http.StatusOK, map[string]any{"thumbs": thumbs, "pages": pages})
+	if p+1 < pages {
+		nkey := fmt.Sprintf("thumbs|%s|%d|%d", q.Get("site"), gid, p+1)
+		if _, _, ok := s.browsing.thumbs(nkey); !ok {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				if nt, np, err := be.GalleryThumbs(ctx, gid, token, p+1); err == nil {
+					s.browsing.keepThumbs(nkey, nt, np)
+					s.prefetchSheets(st, nt)
+				}
+			}()
+		}
+	}
 }
 
 // browseImage: GET /api/browse/image?site=&u= -> a cover or thumbnail sheet from the site (only from its own
@@ -403,8 +445,40 @@ func (c *pictureCache) put(u string, p picture) {
 type browseState struct {
 	mu    sync.Mutex
 	pages map[string]browsePage
-	gen   map[string]context.Context
-	stop  map[string]context.CancelFunc
+	// (a gallery's thumbnail pages, by site, gallery and page)
+	thumbPages map[string]browseThumbs
+	gen        map[string]context.Context
+	stop       map[string]context.CancelFunc
+}
+
+type browseThumbs struct {
+	thumbs []plugin.GalleryThumb
+	pages  int
+	at     time.Time
+}
+
+// thumbs: a gallery's thumbnail page read lately (the next one fetched ahead, the same gallery opened again).
+func (b *browseState) thumbs(key string) ([]plugin.GalleryThumb, int, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	t, ok := b.thumbPages[key]
+	if !ok || time.Since(t.at) > browsePageAge {
+		return nil, 0, false
+	}
+	return t.thumbs, t.pages, true
+}
+
+func (b *browseState) keepThumbs(key string, thumbs []plugin.GalleryThumb, pages int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if len(b.thumbPages) >= 200 {
+		for k, t := range b.thumbPages {
+			if len(b.thumbPages) < 100 || time.Since(t.at) > browsePageAge {
+				delete(b.thumbPages, k)
+			}
+		}
+	}
+	b.thumbPages[key] = browseThumbs{thumbs, pages, time.Now()}
 }
 
 type browsePage struct {
@@ -416,7 +490,7 @@ type browsePage struct {
 const browsePageAge = 3 * time.Minute
 
 func newBrowseState() *browseState {
-	return &browseState{pages: map[string]browsePage{}, gen: map[string]context.Context{}, stop: map[string]context.CancelFunc{}}
+	return &browseState{pages: map[string]browsePage{}, thumbPages: map[string]browseThumbs{}, gen: map[string]context.Context{}, stop: map[string]context.CancelFunc{}}
 }
 
 func (b *browseState) cached(key string) (plugin.Page, bool, bool) {
