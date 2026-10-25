@@ -74,6 +74,10 @@ vitrine config       # where the library lives, which tools were found
 Install [ffmpeg](https://ffmpeg.org) for videos and thumbnails; [libvips](https://www.libvips.org) is optional
 (faster for big images). Settings are described in [`config.example.toml`](config.example.toml).
 
+**Portable** (e.g. a folder on Windows or a USB drive): put a `config.toml` next to the program with
+`data_dir = "data"`. Vitrine then keeps everything in that folder (move or copy it, the library goes with it), a
+double-click starts the server, and `ffmpeg`, `ffprobe` and `vipsthumbnail` placed beside it are used.
+
 ## Command line
 
 While `vitrine serve` runs, the `vitrine` command talks to it through a local socket (no login; only this machine,

@@ -5,8 +5,12 @@ Implementation decisions of the Go server, the HTTP server and its API conventio
 ## Implementation decisions (build step 1, 2026-10-14)
 Made while building items 1-3 of step 1 (repo skeleton, file store, metadata DB); review and change freely.
 - **Config**: TOML file (`github.com/BurntSushi/toml`; unknown keys are an error, so typos show up) + `VITRINE_*`
-  environment variables + command-line flags, in that order of priority. File location: the OS config dir
-  (`~/.config/vitrine/config.toml` etc.) or `VITRINE_CONFIG` / `-config`. Settings so far: `data_dir` (default: the
+  environment variables + command-line flags, in that order of priority. File location: `VITRINE_CONFIG` / `-config`,
+  else a `config.toml` next to the program (portable, 2026-10-25 - the user: "set up the config so all the data is
+  portable"), else the OS config dir (`~/.config/vitrine/config.toml` etc.). A config file's relative paths
+  (data/files/backup dirs, socket, a local plugin index, tools given as a path) are from its folder, not the working
+  directory; tools not set are taken from beside it if there (ffmpeg, ffprobe, vipsthumbnail); environment and flags
+  as given. Portable and started without a command (a double-click) it serves. Settings so far: `data_dir` (default: the
   OS's app-data dir), `files_dir` (default `<data_dir>/files`), `listen` (default `:8080`). Example:
   `config.example.toml`.
 - **Layout**: `cmd/vitrine` (one binary with subcommands: `import`, `config`, `version`; `serve` comes with the HTTP

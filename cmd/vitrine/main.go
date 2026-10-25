@@ -70,8 +70,12 @@ func main() {
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
-		fmt.Fprint(stderr, usage)
-		return flag.ErrHelp
+		// Portable (a config.toml beside the program): started without a command - a double-click - it serves.
+		if config.PortableFile() == "" {
+			fmt.Fprint(stderr, usage)
+			return flag.ErrHelp
+		}
+		args = []string{"serve"}
 	}
 	cmd, args := args[0], args[1:]
 	switch cmd {

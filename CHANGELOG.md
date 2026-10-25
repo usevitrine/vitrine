@@ -4,6 +4,7 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 
 ## Unreleased
 
+- **Portable**: a `config.toml` next to the program makes Vitrine portable - with `data_dir = "data"` everything lives in that folder (move or copy it), a double-click starts the server, and ffmpeg/libvips placed beside it are used. Relative paths in a config file now count from the file's folder, not from where Vitrine was started.
 - **Top bar**: always there - it no longer slides away when you scroll down.
 - **Viewer on phones**: the controls split like a phone's photo app - close, where you are and the details at the top, favorite, I came and full screen along the bottom in reach of your thumb; the size shows a moment while you zoom. Large libraries no longer push the buttons off the screen. A tap right after a swipe - swiping to the next picture, or down to close it - works at once anywhere in the app (the browser ignored it, so it took a second tap).
 

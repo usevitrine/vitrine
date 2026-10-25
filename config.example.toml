@@ -4,7 +4,10 @@
 #   Linux:   ~/.config/vitrine/config.toml
 #   macOS:   ~/Library/Application Support/vitrine/config.toml
 #   Windows: %AppData%\vitrine\config.toml
-# or wherever VITRINE_CONFIG or the -config flag points.
+# or wherever VITRINE_CONFIG or the -config flag points. A config.toml next to the vitrine program comes first:
+# Vitrine then runs portable - relative paths are from that folder (data_dir = "data": everything beside the
+# program), a double-click starts the server, and ffmpeg/ffprobe/vipsthumbnail placed there are used.
+# Relative paths in any config file are from the file's folder.
 #
 # Every setting can also be given as an environment variable: VITRINE_ plus the
 # name in capitals, e.g. VITRINE_DATA_DIR. Environment variables win over this

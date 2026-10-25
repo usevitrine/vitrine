@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -98,5 +99,40 @@ func TestExpandHome(t *testing.T) {
 	}
 	if got := expandHome("/abs/~x"); got != "/abs/~x" {
 		t.Fatalf("expandHome changed %q", got)
+	}
+}
+
+// A config file's relative paths are from its folder (portable: the folder moves with what it points at), wherever
+// Vitrine was started; a tool beside it is used when none is set; names and absolute paths stay as given.
+func TestRelativeToTheConfigsFolder(t *testing.T) {
+	p := writeFile(t, "data_dir = 'data'\nbackup_dir = 'backups'\nffprobe = 'ffprobe'\n")
+	dir := filepath.Dir(p)
+	ffmpeg := "ffmpeg"
+	if runtime.GOOS == "windows" {
+		ffmpeg += ".exe"
+	}
+	if err := os.WriteFile(filepath.Join(dir, ffmpeg), nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(p, env(nil), Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.DataDir != filepath.Join(dir, "data") || c.FilesDir != filepath.Join(dir, "data", "files") || c.BackupDir != filepath.Join(dir, "backups") {
+		t.Fatalf("paths: %q %q %q (folder %q)", c.DataDir, c.FilesDir, c.BackupDir, dir)
+	}
+	if c.FFmpeg != filepath.Join(dir, ffmpeg) {
+		t.Fatalf("ffmpeg beside the config: %q", c.FFmpeg)
+	}
+	if c.FFprobe != "ffprobe" {
+		t.Fatalf("a name stays a name (looked up on PATH): %q", c.FFprobe)
+	}
+	// Environment variables aren't the file's: as given.
+	c, err = Load(p, env(map[string]string{"VITRINE_FILES_DIR": "hdd"}), Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.FilesDir != "hdd" {
+		t.Fatalf("files dir from the environment: %q", c.FilesDir)
 	}
 }

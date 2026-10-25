@@ -97,9 +97,30 @@ func Defaults() Config {
 	}
 }
 
-// DefaultFile is where the config file is looked for when none is given:
-// the OS's usual config directory, e.g. ~/.config/vitrine/config.toml on Linux.
+// PortableFile is a config.toml next to the vitrine program, if there is one: Vitrine then runs portable - that
+// config is used, and its relative paths are from that folder (data_dir = "data": a data folder beside the
+// program), so the folder can be moved or copied with everything in it. "" when there's none.
+func PortableFile() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	if real, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = real
+	}
+	f := filepath.Join(filepath.Dir(exe), "config.toml")
+	if st, err := os.Stat(f); err == nil && !st.IsDir() {
+		return f
+	}
+	return ""
+}
+
+// DefaultFile is where the config file is looked for when none is given: a config.toml next to the program
+// (PortableFile), else the OS's usual config directory, e.g. ~/.config/vitrine/config.toml on Linux.
 func DefaultFile() string {
+	if f := PortableFile(); f != "" {
+		return f
+	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return ""
@@ -133,6 +154,7 @@ func Load(path string, getenv func(string) string, overrides Config) (Config, er
 			if keys := md.Undecoded(); len(keys) > 0 {
 				return Config{}, fmt.Errorf("config file %s: unknown setting %q", path, keys[0].String())
 			}
+			c.fromFolder(filepath.Dir(path))
 		}
 	}
 
@@ -159,6 +181,46 @@ func Load(path string, getenv func(string) string, overrides Config) (Config, er
 		return Config{}, err
 	}
 	return c, nil
+}
+
+// fromFolder makes the config file's relative paths relative to its folder - not to wherever Vitrine was started -
+// so a config's folder can move with what it points at (portable: see PortableFile). Programs given by name alone
+// (ffmpeg) are still looked up on PATH; a portable folder's own copies, beside the config, are used when not set.
+func (c *Config) fromFolder(dir string) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return
+	}
+	at := func(p *string) {
+		if *p != "" && !filepath.IsAbs(*p) && !strings.HasPrefix(*p, "~") && !strings.ContainsAny((*p)[:1], `/\`) { // (rooted - /srv - as given)
+			*p = filepath.Join(abs, *p)
+		}
+	}
+	at(&c.DataDir)
+	at(&c.FilesDir)
+	at(&c.BackupDir)
+	if c.Socket != "off" {
+		at(&c.Socket)
+	}
+	if c.PluginIndex != "" && !strings.Contains(c.PluginIndex, "://") {
+		at(&c.PluginIndex)
+	}
+	for _, tool := range []struct {
+		p    *string
+		name string
+	}{{&c.FFmpeg, "ffmpeg"}, {&c.FFprobe, "ffprobe"}, {&c.VipsThumbnail, "vipsthumbnail"}} {
+		if strings.ContainsAny(*tool.p, `/\`) {
+			at(tool.p) // (a path, not a name)
+		} else if *tool.p == "" {
+			exe := tool.name
+			if runtime.GOOS == "windows" {
+				exe += ".exe"
+			}
+			if st, err := os.Stat(filepath.Join(abs, exe)); err == nil && !st.IsDir() {
+				*tool.p = filepath.Join(abs, exe)
+			}
+		}
+	}
 }
 
 // finish fills derived defaults and checks the result.
