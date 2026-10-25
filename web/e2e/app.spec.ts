@@ -4424,6 +4424,35 @@ test('library: the downloads menu - a counter, New download, what is downloading
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+test('library: the downloads menu counts a gallery by its pages, not as one file', async ({ page }) => {
+  // (a made-up gallery site: the site list and the downloads mocked)
+  await page.route('**/api/sites', async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    body.sites.push({ ...body.sites[0], id: 'gallery-site', site: 'gallery.test', host: 'gallery.test', engine: 'ehentai', off: false });
+    await r.fulfill({ response: res, json: body });
+  });
+  const search = (id: number, state: string, extra = {}) => ({
+    id, site: 'gallery-site', query: `https://gallery.test/g/${id}/abcdef0123/`, label: `Comic ${id}`, state, max_posts: 1, site_total: 1, handled: 0, downloaded: 0,
+    already: 0, deleted: 0, skipped: 0, blacklisted: 0, position: id, failed: 0, created_at: 0, ...extra,
+  });
+  const searches = [
+    search(1, 'paused', { handled: 1, downloaded: 1, pages: 40 }),
+    search(2, 'queued'),
+    search(3, 'queued', { query: 'female:blue_sky', label: '', max_posts: 5, site_total: 5, handled: 2 }),
+  ];
+  await page.route('**/api/downloads?active=1', (r) => r.fulfill({ json: { searches, sites_paused: {} } }));
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Downloads/ }).click();
+  const menu = page.getByRole('dialog', { name: 'Downloads' });
+  await menu.getByRole('button', { name: /^Show all 3/ }).click();
+  const meta = (name: string) => menu.locator('button.item', { hasText: name }).locator('.meta');
+  await expect(meta('Comic 1')).toHaveText('40 new pages · Paused'); // (was "1/1")
+  await expect(meta('Comic 2')).toHaveText('Waiting'); // (was "0/1 · Waiting")
+  await expect(meta('female:blue_sky')).toHaveText('2/5 · Waiting'); // many galleries: by gallery
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('library: the download button - this search or another, the site, the search written its way, once or a subscription', async ({ page }) => {
   const posted: { site: string; query: string; max_posts: number }[] = [];
   await page.route('**/api/downloads', (r) => (r.request().method() === 'POST' ? (posted.push(r.request().postDataJSON()), r.fulfill({ json: { id: 1 } })) : r.continue()));

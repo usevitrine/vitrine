@@ -3,7 +3,7 @@
   import { onMount, tick, untrack, type ComponentProps } from 'svelte';
   import { slide } from 'svelte/transition';
   import { live, bytes } from '../lib/live.svelte';
-  import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf, goalOf } from '../lib/downloadProgress';
+  import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf, goalOf, oneGallery } from '../lib/downloadProgress';
   import { reveal, moved, glide, nudge } from '../lib/motion';
   import Stack from '../components/Stack.svelte';
   import { api, type DownloadSearch, type RefreshStatus, type Subscription, type SubGroup, type FailedPost, type RetryJob, type SubLook, type SubPic } from '../lib/api';
@@ -1162,7 +1162,6 @@
   /** A gallery site's search (its posts are whole galleries - comics - of many pages). */
   const isGallery = (s: DownloadSearch) => siteInfo.engines[s.site] === 'ehentai';
   /** One gallery's download (its link): counted by page - a search of many, by gallery. */
-  const oneGallery = (x: { query: string }) => /\/g\/\d+\/[0-9a-f]+/i.test(x.query);
   // How far a search is (lib/downloadProgress, shared with the top bar's downloads menu).
   const galleryNow = (s: DownloadSearch) => galleryOf(s, live.files);
   const measurable = (s: DownloadSearch) => measurableOf(s, live.files);

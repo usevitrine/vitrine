@@ -448,7 +448,8 @@ func (d *Downloader) finishCheck(s Search, state, msg string) {
 	// For notifications: what the check found, and whether the last one failed too.
 	var downloaded, checks int
 	var failedBefore bool
-	d.db.R.QueryRow("SELECT downloaded FROM searches WHERE id = ?", s.ID).Scan(&downloaded)
+	var pages int
+	d.db.R.QueryRow("SELECT downloaded, pages FROM searches WHERE id = ?", s.ID).Scan(&downloaded, &pages)
 	d.db.R.QueryRow("SELECT error IS NOT NULL, checks FROM subscriptions WHERE id = ?", s.SubscriptionID).Scan(&failedBefore, &checks)
 	err := func() error {
 		tx, err := d.db.W.Begin()
@@ -493,9 +494,9 @@ func (d *Downloader) finishCheck(s Search, state, msg string) {
 	}
 	switch {
 	case state == StateDone && checks == 0: // the first check: its initial download finished
-		d.emit(s, Event{Kind: EventDone, New: downloaded, First: true})
-	case state == StateDone && downloaded > 0:
-		d.emit(s, Event{Kind: EventNewFiles, New: downloaded})
+		d.emit(s, Event{Kind: EventDone, New: downloaded, First: true, Pages: pages})
+	case state == StateDone && (downloaded > 0 || pages > 0):
+		d.emit(s, Event{Kind: EventNewFiles, New: downloaded, Pages: pages})
 	case state == StateFailed && !failedBefore: // not again every hour while it keeps failing
 		d.emit(s, Event{Kind: EventFailed, Error: msg})
 	}

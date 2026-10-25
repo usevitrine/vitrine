@@ -19,6 +19,7 @@ type Event struct {
 	Error        string
 	Tag          string // "blacklisted": the blacklist entry a library file now matches
 	First        bool   // "done": a subscription's first check (its initial download)
+	Pages        int    // a gallery site's: the pages brought in (New counts its galleries)
 }
 
 // Notifier gathers events and sends them as a few notifications (one per
@@ -138,12 +139,10 @@ func Compose(events []Event, l i18n.Lang) []Message {
 	if es := by["new"]; len(es) > 0 {
 		// An hour's checks: how many new files, from how many subscriptions (one may have been checked more than once).
 		subs := map[string]bool{}
-		total := 0
 		for _, e := range es {
-			total += e.New
 			subs[e.Site+"\x00"+e.Query] = true
 		}
-		out = append(out, Message{Title: l.T("push.newFiles", "n", total), Body: l.T("push.fromSubs", "n", len(subs)), URL: "/?new=1"}) // the library, new files first
+		out = append(out, Message{Title: newWhat(es, l), Body: l.T("push.fromSubs", "n", len(subs)), URL: "/?new=1"}) // the library, new files first
 	}
 	if es := by["failed"]; len(es) > 0 {
 		m := Message{URL: "/downloads", Body: l.T("push.seeWhy")}
@@ -182,15 +181,31 @@ func Compose(events []Event, l i18n.Lang) []Message {
 		if len(es) == 0 {
 			return
 		}
-		total := 0
-		for _, e := range es {
-			total += e.New
-		}
-		out = append(out, Message{URL: "/downloads", Title: title(len(es)), Body: l.T("push.newFiles", "n", total)})
+		out = append(out, Message{URL: "/downloads", Title: title(len(es)), Body: newWhat(es, l)})
 	}
 	appendDone(first, func(n int) string { return l.T("push.subsReady", "n", n) })
 	appendDone(oneOff, func(n int) string { return l.T("push.downloadsDone", "n", n) })
 	return out
+}
+
+// newWhat says what events brought: new files, and a gallery site's new pages (its galleries are comics, counted by
+// page - "1 new file" for a gallery of 40 pages said nothing).
+func newWhat(es []Event, l i18n.Lang) string {
+	files, pages := 0, 0
+	for _, e := range es {
+		if e.Pages > 0 {
+			pages += e.Pages
+		} else {
+			files += e.New
+		}
+	}
+	switch {
+	case pages > 0 && files > 0:
+		return l.T("push.newFiles", "n", files) + ", " + l.T("push.newPages", "n", pages)
+	case pages > 0:
+		return l.T("push.newPages", "n", pages)
+	}
+	return l.T("push.newFiles", "n", files)
 }
 
 func clip(s string, n int) string {

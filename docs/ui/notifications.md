@@ -100,3 +100,11 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
   subscription's check) or "Initial" (a first download: a new subscription's first check, or a download once), the
   posts gone through out of the goal ("12/40", `goalOf` as on the Downloads page; none known: the count and a striped
   bar) and " · Waiting" / " · Paused". One on its own (here and in the bell) is a card like a stack's (`.solo`).
+- **A gallery counts by its pages (2026-10-25)** (the user: "the downloader and the notifications still only show 1 file
+  when downloading a multi page gallery"): a gallery site's events carry `Pages` (the search's pages; `New` counts its
+  galleries) - kept with the bell's notices (`notices.pages`, migration 0041). The bell: "40 new pages from ..." /
+  "Download finished: ... (40 new pages)"; push: "40 new pages" (files and pages together: "5 new files, 75 new
+  pages" - `push.newWhat`). The top bar's Downloads menu: one gallery by its pages ("12/40 pages" while it downloads,
+  "40 new pages" after; nothing before it starts - was "0/1"), a search of many galleries by gallery with the page
+  it's on ("2/5 · page 12 of 40"; `lib/downloadProgress`'s `oneGallery`, shared with the Downloads page). Tests:
+  `TestComposeGalleryPages`, "the downloads menu counts a gallery by its pages".

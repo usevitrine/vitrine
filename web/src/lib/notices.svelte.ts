@@ -35,6 +35,7 @@ export interface ServerNotice {
   error?: string;
   tag?: string;
   first?: boolean;
+  pages?: number; // a gallery site's: the pages it brought (new counts galleries)
   text?: string;
   tone?: ToastKind;
   category?: string;
@@ -55,10 +56,11 @@ function word(n: ServerNotice): { text: string; kind: ToastKind } {
   const what = t('push.on', { query: n.query || t('push.everything'), site: n.site ?? '' });
   switch (n.kind) {
     case 'new':
-      return { text: `${t('push.newFiles', { n: n.new ?? 0 })} ${t('push.fromOne', { what })}`, kind: 'done' };
+      // (a gallery site's: its pages - its galleries are comics; "1 new file" for 40 pages said nothing)
+      return { text: `${n.pages ? t('push.newPages', { n: n.pages }) : t('push.newFiles', { n: n.new ?? 0 })} ${t('push.fromOne', { what })}`, kind: 'done' };
     case 'done':
       return {
-        text: `${n.first ? t('push.subsReady', { n: 1 }) : t('push.downloadsDone', { n: 1 })}: ${t('push.countNew', { query: what, count: n.new ?? 0 })}`,
+        text: `${n.first ? t('push.subsReady', { n: 1 }) : t('push.downloadsDone', { n: 1 })}: ${n.pages ? t('push.countPages', { query: what, n: n.pages }) : t('push.countNew', { query: what, count: n.new ?? 0 })}`,
         kind: 'done',
       };
     case 'failed':

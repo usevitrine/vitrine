@@ -825,6 +825,7 @@ type Event struct {
 	Error        string // EventFailed: why
 	Tag          string // EventBlacklisted: the blacklist entry the file now matches
 	First        bool   // EventDone: a subscription's first check (its initial download)
+	Pages        int    // a gallery site's: the pages brought in (New counts its galleries)
 }
 
 const (
@@ -909,12 +910,12 @@ func (d *Downloader) finish(s Search, state, msg string) {
 		d.log.Warn("search failed", "site", s.Site, "query", s.Query, "err", msg)
 	}
 	if err == nil && d.OnEvent != nil {
-		var downloaded int
+		var downloaded, pages int
 		var retrying bool
-		d.db.R.QueryRow("SELECT downloaded, retry_at IS NOT NULL FROM searches WHERE id = ?", s.ID).Scan(&downloaded, &retrying)
+		d.db.R.QueryRow("SELECT downloaded, pages, retry_at IS NOT NULL FROM searches WHERE id = ?", s.ID).Scan(&downloaded, &pages, &retrying)
 		switch {
 		case state == StateDone:
-			d.emit(s, Event{Kind: EventDone, New: downloaded})
+			d.emit(s, Event{Kind: EventDone, New: downloaded, Pages: pages})
 		case !retrying: // gave up trying by itself
 			d.emit(s, Event{Kind: EventFailed, Error: msg})
 		}

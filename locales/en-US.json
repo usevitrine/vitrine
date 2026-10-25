@@ -8,8 +8,16 @@
       "one": "{n} new file",
       "other": "{n} new files"
     },
+    "newPages": {
+      "one": "{n} new page",
+      "other": "{n} new pages"
+    },
     "fromOne": "from {what}",
     "countNew": "{query} ({count} new)",
+    "countPages": {
+      "one": "{query} ({n} new page)",
+      "other": "{query} ({n} new pages)"
+    },
     "downloadStopped": "A download stopped",
     "checkFailed": "A subscription check failed",
     "downloadsFailed": {

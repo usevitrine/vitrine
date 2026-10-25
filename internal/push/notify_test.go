@@ -55,6 +55,21 @@ func TestCompose(t *testing.T) {
 	}
 }
 
+// A gallery site's downloads count pages, not "1 new file" for a gallery of many pages.
+func TestComposeGalleryPages(t *testing.T) {
+	ms := Compose([]Event{{Kind: "done", Site: "galleries.example.test", Query: "x", New: 1, Pages: 40}}, en)
+	if len(ms) != 1 || ms[0].Body != "40 new pages" {
+		t.Fatalf("one gallery: %+v", ms)
+	}
+	ms = Compose([]Event{
+		{Kind: "new", Site: "galleries.example.test", Query: "a", Subscription: true, New: 2, Pages: 75},
+		{Kind: "new", Site: "safebooru.org", Query: "b", Subscription: true, New: 5},
+	}, en)
+	if len(ms) != 1 || ms[0].Title != "5 new files, 75 new pages" {
+		t.Fatalf("files and pages: %+v", ms)
+	}
+}
+
 func TestComposeBlacklisted(t *testing.T) {
 	ms := Compose([]Event{{Kind: "blacklisted", Site: "safebooru.org", Tag: "red"}}, en)
 	if len(ms) != 1 || ms[0].Title != "A file got a blacklisted tag" || ms[0].URL != "/tags/rules" || strings.Contains(ms[0].Body, "red") {

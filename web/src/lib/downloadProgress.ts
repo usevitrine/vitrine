@@ -5,6 +5,9 @@
 import type { DownloadSearch } from './api';
 import type { FileProgress } from './live.svelte';
 
+/** A download of one gallery (its link): counted by its pages. */
+export const oneGallery = (x: { query: string }) => /\/g\/\d+\/[0-9a-f]+/i.test(x.query);
+
 /** The gallery downloading now in a search: its pages stored, out of how many. */
 export function galleryNow(s: DownloadSearch, files: FileProgress[]): { done: number; pages: number } | null {
   const f = files.find((x) => x.search === s.id && x.pages);

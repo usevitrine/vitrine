@@ -137,7 +137,7 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		dl.OnEvent = func(e download.Event) {
 			handler.Notice(e)
 			if notifier != nil {
-				notifier.Add(push.Event{Kind: e.Kind, Site: e.Site, Query: e.Query, Subscription: e.Subscription, New: e.New, Error: e.Error, Tag: e.Tag, First: e.First})
+				notifier.Add(push.Event{Kind: e.Kind, Site: e.Site, Query: e.Query, Subscription: e.Subscription, New: e.New, Error: e.Error, Tag: e.Tag, First: e.First, Pages: e.Pages})
 			}
 		}
 		// FlareSolverr for Cloudflare challenges, if one is set up (Settings > Sites); when a site that keeps

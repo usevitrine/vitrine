@@ -12,7 +12,7 @@
   import { swallowPress, leaving } from '../lib/outside';
   import { activeDownloads as active } from '../lib/activeDownloads.svelte';
   import { live } from '../lib/live.svelte';
-  import { measurable, progress, goalOf } from '../lib/downloadProgress';
+  import { measurable, progress, goalOf, galleryNow, oneGallery } from '../lib/downloadProgress';
   import { openNewDownload } from '../lib/newDownload.svelte';
   import { sites as siteInfo, siteLabel } from '../lib/sites.svelte';
   import { router } from '../lib/router.svelte';
@@ -56,7 +56,15 @@
   /** "57,734/72,588" - the posts gone through out of the goal (the limit, the site's count; none: the count). */
   function count(s: DownloadSearch): string {
     const goal = goalOf(s);
-    return goal ? `${num(s.handled)}/${num(goal)}` : num(s.handled);
+    const posts = goal ? `${num(s.handled)}/${num(goal)}` : num(s.handled);
+    if (!gallery(s)) return posts;
+    // A gallery site: one gallery by its pages (not "0/1"), a search of many by gallery - with the page it's on.
+    const g = galleryNow(s, live.files);
+    if (oneGallery(s)) {
+      if (g) return `${num(g.done)}/${num(g.pages)} ${t('downloads.stat.pages', { n: g.pages })}`;
+      return s.pages ? `${num(s.pages)} ${t('downloads.stat.newPages', { n: s.pages })}` : '';
+    }
+    return g ? `${posts} · ${t('downloads.stat.pageOf', { done: num(g.done), pages: num(g.pages) })}` : posts;
   }
 
   // A site's downloads together (in the list's order: running, waiting, paused), the sites as they come first.
@@ -191,7 +199,7 @@
         <span class="name" title={named(s)} {@attach marquee}><span>{named(s)}</span></span>
         <span class="kind" class:sub={isSub(s)} title={isSub(s) ? t('dlMenu.subTitle') : t('dlMenu.initialTitle')}>{isSub(s) ? t('dlMenu.sub') : t('dlMenu.initial')}</span>
       </span>
-      <span class="meta"><span class="count">{count(s)}</span>{#if st !== 'running'}{' · ' + t(`downloads.state.${st}`)}{/if}</span>
+      <span class="meta"><span class="count">{count(s)}</span>{#if st !== 'running'}{(count(s) ? ' · ' : '') + t(`downloads.state.${st}`)}{/if}</span>
       {#if st === 'running' && !measurable(s, live.files)}
         <span class="bar striped" role="progressbar" aria-label={t('downloads.noEstimate')}></span>
       {:else}
