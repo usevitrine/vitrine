@@ -2,8 +2,9 @@
 
 What changed in each version of Vitrine, newest first. The app shows this too (Settings > What’s new).
 
-## Unreleased
+## 1.0.2 - 2026-10-25
 
+- **Fixes**: a file that finished just as its download was stopped is counted as downloaded (it showed as "had" after resuming); a site behind Cloudflare no longer loses its fresh clearance when several requests are challenged at once.
 - **Phones**: every dropdown opens as a sheet from the bottom, like the other menus.
 - **Pixel-perfect motion**: the details panel opens and closes without the picture snapping aside at the end; bottom sheets no longer leave a dark band behind as they close; search suggestions fade in and out; Settings and Tags sections cross-fade instead of the old one vanishing; a picture fades from its thumbnail to full sharpness; a comic's title fades in as the reader closes, its cover rounding its corners on the way back; pages cross-fade when you go from one to another; Duplicates' next pair fades in; the comic reader closed with Back flies home like its close button.
 - **New download**: the limit is labeled Posts (it counts every post gone through - new, had or blacklisted).
