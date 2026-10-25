@@ -30,6 +30,7 @@
   }
   function go(n: Notice) {
     close();
+    if (n.focus) router.focus = n.focus;
     if (n.to) router.go(n.to, n.sub);
   }
 

@@ -72,7 +72,7 @@ func TestComposeGalleryPages(t *testing.T) {
 
 func TestComposeBlacklisted(t *testing.T) {
 	ms := Compose([]Event{{Kind: "blacklisted", Site: "safebooru.org", Tag: "red"}}, en)
-	if len(ms) != 1 || ms[0].Title != "A file got a blacklisted tag" || ms[0].URL != "/tags/rules" || strings.Contains(ms[0].Body, "red") {
+	if len(ms) != 1 || ms[0].Title != "A file got a blacklisted tag" || ms[0].URL != "/tags/rules?focus=blacklist-delete" || strings.Contains(ms[0].Body, "red") {
 		t.Fatalf("one: %+v", ms)
 	}
 	ms = Compose([]Event{{Kind: "blacklisted", Tag: "red"}, {Kind: "blacklisted", Tag: "ai_*"}, {Kind: "blacklisted", Tag: "ai_*"}}, en)

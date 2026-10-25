@@ -44,6 +44,14 @@ class Router {
   focus = $state<string | null>(null);
 
   constructor() {
+    // Opened with ?focus=x (a tapped push notification starting the app): brought into view, the address tidied.
+    const start = new URL(location.href);
+    const f = start.searchParams.get('focus');
+    if (f) {
+      this.focus = f;
+      start.searchParams.delete('focus');
+      history.replaceState(history.state, '', start.pathname + start.search + start.hash);
+    }
     // A tapped notification while the app is open (see public/sw.js).
     navigator.serviceWorker?.addEventListener('message', (e) => {
       if (e.data?.type === 'open' && typeof e.data.path === 'string') this.openPath(e.data.path);
@@ -81,6 +89,12 @@ class Router {
       this.focus = 'library-top';
       this.go('library');
       return;
+    }
+    // (?focus=x: what to bring into view there - a push notification's: files that got a blacklisted tag, Delete them)
+    const f = u.searchParams.get('focus');
+    if (f) {
+      this.focus = f;
+      u.searchParams.delete('focus');
     }
     if (this.screen === 'library') libraryParams[this.sub] = location.search;
     history.pushState(null, '', u.pathname + u.search);

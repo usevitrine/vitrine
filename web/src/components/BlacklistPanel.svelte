@@ -37,6 +37,20 @@
     loadMatches();
   });
 
+  // Come from a notice about library files that got a blacklisted tag: Delete them brought into view, focused and
+  // lit a moment - what the notice was about (also when this page was open already).
+  let deleteBtn = $state<HTMLButtonElement>();
+  let lit = $state(false);
+  $effect(() => {
+    if (router.focus !== 'blacklist-delete' || !deleteBtn) return;
+    router.focus = null;
+    const el = deleteBtn;
+    el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    el.focus({ preventScroll: true });
+    lit = false;
+    requestAnimationFrame(() => (lit = true));
+  });
+
   async function save(next: string[]) {
     try {
       await blacklist.set(next);
@@ -154,7 +168,7 @@
         </div>
         <div class="actions">
           <button class="quiet" onclick={show}>{t('blacklist.show')}</button>
-          <button class="quiet danger" disabled={busy} onclick={purge}>{t('blacklist.delete')}</button>
+          <button class="quiet danger" class:lit bind:this={deleteBtn} onanimationend={() => (lit = false)} disabled={busy} onclick={purge}>{t('blacklist.delete')}</button>
         </div>
       {/if}
     </div>
@@ -162,6 +176,23 @@
 </section>
 
 <style>
+  /* (brought into view from a notice: a glow that pulses twice and fades) */
+  .lit {
+    animation: lit 1.2s ease-out 2;
+  }
+  @keyframes lit {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--red) 55%, transparent);
+    }
+    100% {
+      box-shadow: 0 0 0 10px color-mix(in srgb, var(--red) 0%, transparent);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lit {
+      animation: none;
+    }
+  }
   .suggest {
     display: flex;
     flex-wrap: wrap;

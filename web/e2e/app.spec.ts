@@ -4344,6 +4344,32 @@ test('notices go where their kind is set: Copied on screen (not the bell), a del
   await expect(panel.getByRole('img', { name: 'No notifications' })).toBeVisible(); // (a quiet check)
 });
 
+test('the bell: files that got a blacklisted tag lead to Tags > Rules, Delete them in view and focused', async ({ page }) => {
+  // (mocked: a notice of that kind, and files the blacklist matches - nothing is deleted)
+  await page.route('**/api/notices', async (r) => {
+    if (r.request().method() !== 'GET') return r.continue();
+    const res = await r.fetch();
+    const body = await res.json();
+    body.notices = [...(body.notices ?? []), { id: 999999, at: Date.now(), kind: 'blacklisted', site: 'safebooru.org', tag: 'red' }];
+    await r.fulfill({ response: res, json: body });
+  });
+  await page.route('**/api/blacklist', (r) => (r.request().method() === 'GET' ? r.fulfill({ json: { tags: ['red'] } }) : r.continue()));
+  await page.route('**/api/blacklist/matches', (r) => r.fulfill({ json: { total: 2, size: 2000, tags: [{ tag: 'red', files: 2 }] } }));
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Notifications/ }).click();
+  const item = page.getByRole('dialog', { name: 'Notifications' }).locator('li', { hasText: 'blacklisted tag' }).first();
+  await item.getByRole('button').click();
+  await expect(page).toHaveURL(/\/tags\/rules$/);
+  const del = page.getByRole('button', { name: /^Delete them/ });
+  await expect(del).toBeFocused();
+  await expect(del).toBeInViewport();
+  // A tapped push notification (its address: ?focus=...) lands the same way; the address tidied.
+  await page.goto('/tags/rules?focus=blacklist-delete');
+  await expect(del).toBeFocused();
+  await expect(page).toHaveURL(/\/tags\/rules$/);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 /** Empties the bell (it's the server's: shared by every device and so by the tests on one server). */
 async function clearBell(page: Page) {
   await page.evaluate(async () => {

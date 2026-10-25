@@ -16,6 +16,7 @@ shows this too (Settings > Updates).
 
 ### Improved
 
+- **Notifications about blacklisted tags** (the bell's and push) take you to Tags > Rules, its Delete them button in view and lit.
 - **Slow connections re-rolled**: a file connection far slower than the site usually gives (a server trickling at 100 KB/s where a fresh connection gets 30 MB/s) is carried on on a fresh connection within 20 seconds.
 - **Comics > Browse**: a gallery's pages show in the details panel as they come (each in its place at once, filling in sheet by sheet), the next ones fetched ahead; Download there is purple; a new search clears the last one's galleries at once (a spinner until the new ones come).
 - **Viewer on phones**: the controls split like a phone's photo app - close, where you are and the details at the top, favorite, I came and full screen along the bottom in reach of your thumb; the size shows a moment while you zoom. Large libraries no longer push the buttons off the screen.

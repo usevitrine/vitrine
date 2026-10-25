@@ -18,8 +18,10 @@ export interface Notice {
   cat: string; // the kind of notice (lib/noticeKinds)
   at: number; // Unix ms
   read: boolean;
-  to?: 'downloads' | 'settings'; // where it leads (a download's: the Downloads page; a new release's: Settings > Updates)
+  to?: 'downloads' | 'settings' | 'tags'; // where it leads (a download's: the Downloads page; a new release's: Settings > Updates; files with a blacklisted tag: Tags > Rules)
   sub?: string;
+  /** Something to bring into view where a tap goes (router.focus). */
+  focus?: string;
 }
 
 /** A notice as the server sends it: one of the downloader's events (worded here, in this page's language), or
@@ -96,8 +98,12 @@ class Notices {
 
   private make(e: ServerNotice): Notice {
     const w = word(e);
-    const to = e.kind === 'app' ? undefined : e.kind === 'release' ? 'settings' : 'downloads';
-    return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to, sub: e.kind === 'release' ? 'updates' : undefined };
+    // Where a tap takes you: a release to Settings > Updates; library files that got a blacklisted tag to Tags > Rules,
+    // its Delete them button brought into view (the user); the rest to Downloads.
+    const to = e.kind === 'app' ? undefined : e.kind === 'release' ? 'settings' : e.kind === 'blacklisted' ? 'tags' : 'downloads';
+    const sub = e.kind === 'release' ? 'updates' : e.kind === 'blacklisted' ? 'rules' : undefined;
+    const focus = e.kind === 'blacklisted' ? 'blacklist-delete' : undefined;
+    return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to, sub, focus };
   }
 
   /** The list as the server has it (at the start, and whenever the live stream opens again). */

@@ -165,7 +165,7 @@ func Compose(events []Event, l i18n.Lang) []Message {
 	}
 	if es := by["blacklisted"]; len(es) > 0 {
 		// Files already in the library that got a blacklisted tag: the blacklist (Tags > Tag rules) shows them.
-		out = append(out, Message{URL: "/tags/rules", Title: l.T("push.blacklisted", "n", len(es)), Body: l.T("push.blacklistedBody")})
+		out = append(out, Message{URL: "/tags/rules?focus=blacklist-delete", Title: l.T("push.blacklisted", "n", len(es)), Body: l.T("push.blacklistedBody")})
 	}
 	// Finished: one-off downloads, and new subscriptions' first checks (their initial downloads), each their own
 	// notification - how many, and how many new files in all.
