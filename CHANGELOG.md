@@ -4,7 +4,7 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 
 ## Unreleased
 
-- **Viewer on phones**: the controls split like a phone's photo app - close, where you are and the details at the top, favorite, I came and full screen along the bottom in reach of your thumb; the size shows a moment while you zoom. Large libraries no longer push the buttons off the screen. A tap on the controls right after swiping to the next picture works at once (it took a second tap).
+- **Viewer on phones**: the controls split like a phone's photo app - close, where you are and the details at the top, favorite, I came and full screen along the bottom in reach of your thumb; the size shows a moment while you zoom. Large libraries no longer push the buttons off the screen. A tap right after a swipe - swiping to the next picture, or down to close it - works at once anywhere in the app (the browser ignored it, so it took a second tap).
 
 ## 1.0.2 - 2026-10-25
 

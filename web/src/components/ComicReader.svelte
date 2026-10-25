@@ -759,7 +759,7 @@
       <button onclick={onclose}>{t('sites.close')}</button>
     </div>
   {:else if mode === 'scroll'}
-    <div class="scroller" bind:this={scroller} onscroll={scrolled} onclick={(e) => !(e.target as HTMLElement).closest('a, button') && toggleChrome()} role="presentation">
+    <div class="scroller" data-tap bind:this={scroller} onscroll={scrolled} onclick={(e) => !(e.target as HTMLElement).closest('a, button') && toggleChrome()} role="presentation">
       {#each pages as f, i (f.id)}
         <div class="strip" data-page={i} style:aspect-ratio="{f.width || 3} / {f.height || 4}">
           {#if f.thumb && !faded[i]}<img class="stand-in" src={f.thumb} alt="" draggable="false" />{/if}

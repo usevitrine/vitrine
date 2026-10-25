@@ -559,6 +559,38 @@ test('desktop: a trackpad - two fingers sideways follow, then go on (one file pe
   await expect(page.locator('.viewer')).toHaveCount(0);
 });
 
+test("phones: after closing the viewer with a swipe down, one tap on the top bar works (the browser drops that tap's click: the app clicks it)", async ({ browser, baseURL }, info) => {
+  test.skip(info.project.name !== 'desktop-chromium', "real touches: Chromium (CDP) on a phone's screen");
+  const ctx = await browser.newContext({ ...devices['Pixel 7'], baseURL, locale: 'en-US' });
+  const page = await ctx.newPage();
+  await login(page);
+  await page.goto('/?q=system:type%3Dimage');
+  await page.locator('.tile').first().waitFor();
+  await page.waitForTimeout(600);
+  const cdp = await ctx.newCDPSession(page);
+  const touch = (type: string, x = 0, y = 0) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  const tap = async (box: { x: number; y: number; width: number; height: number }) => {
+    await touch('touchStart', box.x + box.width / 2, box.y + box.height / 2);
+    await touch('touchEnd');
+  };
+  await tap((await page.locator('.tile').first().boundingBox())!);
+  await expect(page.locator('.viewer')).toBeVisible();
+  await page.waitForTimeout(700);
+  // A quick swipe down: closed (the swipe ends at speed - the browser thinks a fling goes on)
+  await touch('touchStart', 200, 300);
+  for (let k = 1; k <= 8; k++) {
+    await touch('touchMove', 200, 300 + k * 35);
+    await page.waitForTimeout(16);
+  }
+  await touch('touchEnd');
+  await expect(page.locator('.viewer')).toHaveCount(0);
+  await page.waitForTimeout(500);
+  // One tap on the menu button: the menu opens (it took two)
+  await tap((await page.getByRole('button', { name: 'Menu' }).boundingBox())!);
+  await expect(page.locator('#nav-drawer')).toBeVisible();
+  await ctx.close();
+});
+
 test("phones: a tap on the viewer's controls right after a swipe presses it (the browser drops the click of a tap that stops a fling)", async ({ browser, baseURL }, info) => {
   test.skip(info.project.name !== 'desktop-chromium', "real touches: Chromium (CDP) on a phone's screen");
   const ctx = await browser.newContext({ ...devices['Pixel 7'], baseURL, locale: 'en-US' });

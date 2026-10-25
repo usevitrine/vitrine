@@ -237,3 +237,14 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   count, left of its fold arrow - not the accent of Duplicates', which waits for you), and Media and Comics under it
   each their own, lined up with it. Read from `lib/trash` each time the menu opens (deletes elsewhere don't update
   it); a part that's off (Media or Comics) isn't counted.
+- **Taps the browser drops (2026-10-25, the user: after opening a picture and closing it, the top bar's buttons
+  took two taps - "check the entire site")**: a swipe that ends at speed (the viewer swiped to the next picture or
+  down to close, the reader's pages) leaves the browser thinking a fling is under way, and the next tap anywhere only
+  stops it: Chrome and Safari drop its click (measured with real touches: pointerdown and up came, no click).
+  `lib/tapFallback` (installed once in main.ts): a short touch tap (within 10 px, under 0.6 s) on something pressable -
+  a button, link, label, checkbox, a role'd control, or `data-tap` (the menu's backdrop, the search bar's empty
+  space, the reader's scroll view) - waits 350 ms for the browser's click; when none came, and the page didn't cancel
+  the touch (what handles a press itself) and the thing is still under the finger, it gets one like the browser's
+  (detail 1: the grid's tiles, which click only from the keyboard, don't take it). Never while something scrolls: a
+  tap on a list coasting after a flick only stops it, as anywhere on a phone. The viewer's and the reader's bars
+  press at once as the finger lifts (`lib/tapPress`).

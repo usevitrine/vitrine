@@ -368,7 +368,7 @@
          empty space after them starts typing. -->
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions (a bigger target for the input, which has its own keys) -->
     <div class="chips-wrap" class:fade-l={fadeL} class:fade-r={fadeR}>
-    <div class="chips" style:--typed={draft.length} bind:this={chipsEl} onscroll={edges} onclick={(e) => e.target === e.currentTarget && input?.focus()}>
+    <div class="chips" data-tap style:--typed={draft.length} bind:this={chipsEl} onscroll={edges} onclick={(e) => e.target === e.currentTarget && input?.focus()}>
     {#each chips as c, i (chipKeys[i])}
       <span
         animate:moved
