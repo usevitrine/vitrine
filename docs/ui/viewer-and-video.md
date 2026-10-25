@@ -132,6 +132,11 @@ lays them out at the original size.
   a video's own controls as one panel that shows and hides with them. Delete stays in the details only (the user). The
   size (%) shows a moment while you zoom (a pinch, a double tap), then goes - not on opening or going to another file
   (the user). The spinner sits right of close; the top bar is three columns, so where you are stays centered. Wide screens keep the one bar on top.
+- **A tap right after a swipe (2026-10-25, the user: after swiping to the next picture "none of the controls are
+  interactable... until I tap once")**: a swipe that ends at speed leaves the browser thinking a fling is under way,
+  and the next tap only stops it - Chrome and Safari drop its click (measured with real touches: pointerdown/up came,
+  no click). The viewer's and the comic reader's control bars press a button as a finger lifts from it
+  (`lib/tapPress`: a short touch that stayed within 10 px), and swallow the browser's click if it comes after.
 - **Trackpad gestures (2026-10-24, the user: "natural trackpad gestures ... 2 finger swipe to switch between images")**:
   two fingers sideways (wheel events with deltaX) - the file follows them like a touch swipe (`dx`), past
   min(140 px, 20 % of the width) it slides on to the next or previous one, and the rest of that gesture (its glide

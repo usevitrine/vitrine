@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { type Page, devices } from '@playwright/test';
 import { expect, test, login, USER, PASSWORD } from './fixtures';
 
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 0) < 900;
@@ -557,6 +557,41 @@ test('desktop: a trackpad - two fingers sideways follow, then go on (one file pe
   await expect(page.locator('.viewer')).toBeVisible();
   await vertical([-20.5, -30.5, -40.5, -40.5, -30.5]);
   await expect(page.locator('.viewer')).toHaveCount(0);
+});
+
+test("phones: a tap on the viewer's controls right after a swipe presses it (the browser drops the click of a tap that stops a fling)", async ({ browser, baseURL }, info) => {
+  test.skip(info.project.name !== 'desktop-chromium', "real touches: Chromium (CDP) on a phone's screen");
+  const ctx = await browser.newContext({ ...devices['Pixel 7'], baseURL, locale: 'en-US' });
+  const page = await ctx.newPage();
+  await login(page);
+  await page.goto('/?q=system:type%3Dimage');
+  await page.locator('.tile').first().tap();
+  await expect(page.getByText(/^1 \/ /)).toBeVisible();
+  await page.waitForTimeout(800);
+  const cdp = await ctx.newCDPSession(page);
+  const touch = (type: string, x = 0, y = 0) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  // A swipe to the next picture, quick (it ends at speed)...
+  await touch('touchStart', 330, 400);
+  for (let k = 1; k <= 8; k++) {
+    await touch('touchMove', 330 - k * 30, 400);
+    await page.waitForTimeout(16);
+  }
+  await touch('touchEnd');
+  await expect(page.getByText(/^2 \/ /)).toBeVisible();
+  await page.waitForTimeout(500);
+  // ...then one tap on the heart: pressed (it took a second tap)
+  const fav = page.locator('.viewer .actions button.fav');
+  const b = (await fav.boundingBox())!;
+  await touch('touchStart', b.x + b.width / 2, b.y + b.height / 2);
+  await touch('touchEnd');
+  await expect(fav).toHaveAttribute('aria-pressed', 'true');
+  // ...and only once (the browser's own click, when it comes, doesn't press it again)
+  await page.waitForTimeout(500);
+  await expect(fav).toHaveAttribute('aria-pressed', 'true');
+  await touch('touchStart', b.x + b.width / 2, b.y + b.height / 2);
+  await touch('touchEnd');
+  await expect(fav).toHaveAttribute('aria-pressed', 'false');
+  await ctx.close();
 });
 
 test('desktop: a trackpad - a swipe right after another (its glide still arriving) still goes on; the next swipe works without moving the pointer', async ({ page }) => {

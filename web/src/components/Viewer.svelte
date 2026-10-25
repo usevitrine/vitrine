@@ -8,6 +8,7 @@
   import { volume } from '../lib/volume.svelte';
   import { cubicOut } from 'svelte/easing';
   import { cubicBezier } from '../lib/hero';
+  import { tapPress } from '../lib/tapPress';
   // Full-screen viewer over the same result list as the grid: swipe or use
   // the arrow keys to move through every result (no pages), swipe down or
   // Esc to close, tap to show/hide the controls.
@@ -1175,7 +1176,7 @@
     {/if}
 
     <!-- Controls sit in their own layer above the slides (never inside the swipe area). -->
-    <div class="top float-bar" class:split class:hide={!chrome || !entered} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
+    <div class="top float-bar" {@attach tapPress} class:split class:hide={!chrome || !entered} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
       {#if split}
         <!-- Three columns: close and the spinner, where you are (centered whatever comes and goes beside close), the
              details. -->
@@ -1192,7 +1193,7 @@
       {/if}
     </div>
     {#if split || (isVideo && videoEl)}
-      <div class="bottom" class:hide={!chrome || !entered} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
+      <div class="bottom" {@attach tapPress} class:hide={!chrome || !entered} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
         {#if split && cur}
           <!-- (over a video's own controls: one panel, shown and hidden together. Delete stays in the details - the user) -->
           <div class="actions" class:over-video={isVideo && !!videoEl}>{@render actions()}</div>

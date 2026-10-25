@@ -10,6 +10,7 @@
   // stops is saved, and the shelf opens there next time. Each page shows its
   // thumbnail at once while the full picture loads; the next pages load ahead.
   import { onDestroy, onMount, tick, untrack } from 'svelte';
+  import { tapPress } from '../lib/tapPress'; // (a tap after a page swipe: lib/tapPress)
   import { Glide, clampZoom as clampFit, zoomAround, pinchScale } from '../lib/zoom';
   import { on } from 'svelte/events';
   import { api, type Comic, type FileInfo } from '../lib/api';
@@ -861,7 +862,7 @@
 
 
   <!-- As the viewer's: no band across the page, each control on a small dark backing of its own. -->
-  <div class="top float-bar" class:hide={!chrome} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
+  <div class="top float-bar" {@attach tapPress} class:hide={!chrome} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
     <button class="icon" aria-label={t('sites.close')} title={t('reader.closeKey')} onclick={onclose}><Icon name="close" /></button>
     {#if pages.length}<span class="count chip">{counter}</span>{/if}
     {#if percent && mode !== 'scroll' && !ended}<span class="chip pct" title={t('viewer.percentTitle', { n: percent })}>{t('viewer.percent', { n: percent })}</span>{/if}
@@ -927,7 +928,7 @@
   {/if}
 
   {#if pages.length > 1}
-    <div class="bottom" class:hide={!chrome} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
+    <div class="bottom" {@attach tapPress} class:hide={!chrome} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
       <input
         class="slider"
         type="range"
