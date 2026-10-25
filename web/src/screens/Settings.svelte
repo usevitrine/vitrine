@@ -28,7 +28,8 @@
   import SearchBar from '../components/SearchBar.svelte';
   import Rich from '../components/Rich.svelte';
   import UpdatesPage from '../components/UpdatesPage.svelte';
-  import BrowseSearchSetting from '../components/BrowseSearchSetting.svelte';
+  import BrowseSettings from '../components/BrowseSettings.svelte';
+  import ComicsSearchSetting from '../components/ComicsSearchSetting.svelte';
   import { router } from '../lib/router.svelte';
   import { t, num, i18n, languages } from '../lib/i18n.svelte';
 
@@ -162,6 +163,10 @@
             <section class="card" transition:reveal>
               <div class="card-head"><h2>{t('comics.title')}</h2></div>
               <div class="field">
+                <span class="field-label">{t('settings.defaultSearch')}</span>
+                <ComicsSearchSetting />
+              </div>
+              <div class="field">
                 <span class="field-label">{t('settings.defaultSort')}</span>
                 <ActionMenu
                   label={t('settings.comicsSort')}
@@ -169,10 +174,10 @@
                   current={sortLabel(settings.comicsSort, true)}
                   items={sortItems(settings.comicsSort, (v) => (settings.comicsSort = v), true)} />
               </div>
-              <div class="field">
-                <span class="field-label">{t('settings.browseSearch')}</span>
-                <BrowseSearchSetting />
-              </div>
+            </section>
+            <section class="card" transition:reveal>
+              <div class="card-head"><h2>{t('browse.title')}</h2></div>
+              <BrowseSettings />
             </section>
           {/if}
           <section class="card">

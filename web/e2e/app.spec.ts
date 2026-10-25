@@ -2727,9 +2727,9 @@ test('settings: the default search is the library search bar - autocomplete and 
   await page.goto('/settings/library');
   await setSettings(page, { defaultSearch: '' });
   await page.reload();
-  const bar = page.getByRole('group', { name: 'Default search' });
+  const bar = page.getByRole('group', { name: 'Default search', exact: true });
   await expect(bar.getByRole('button', { name: /Saved searches/ })).toHaveCount(0);
-  const input = bar.getByRole('combobox', { name: 'Default search' });
+  const input = bar.getByRole('combobox', { name: 'Default search', exact: true });
   await input.click();
   await input.pressSequentially('blue_s');
   await expect(page.getByRole('option', { name: /blue_sky/ })).toBeVisible();
@@ -6713,10 +6713,37 @@ test('comics: Browse opens with its default search (Settings > Library, Browse s
   }
 });
 
+test('settings: Comics and Browse each have a default search and sort - Comics opens with its search, Browse\'s sort is a field too', async ({ page }) => {
+  // (settings are shared: put back at the end)
+  const put = (v: object) => page.evaluate((v) => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v) }), v);
+  const get = () => page.evaluate(() => fetch('/api/settings').then((r) => r.json()));
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': ['popular', 'top-day'] } } }));
+  await page.goto('/');
+  await put({ comicsSearch: 'system:pages>5' });
+  try {
+    // Comics opens with its default search: only the 12-page comic.
+    await page.goto('/comics');
+    await expect(page.locator('.comics .bar .chip')).toHaveText(['more than 5 pages']);
+    await expect(page.locator('.comics .tile .comic-title')).toHaveText(['Blue Sky Comic']);
+    // Settings: a Comics card and a Browse card, each its default search and sort.
+    await page.goto('/settings/library');
+    await expect(page.getByRole('group', { name: 'Comics default search' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Comics default sort' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Browse default search' })).toBeVisible();
+    await page.getByRole('button', { name: 'Browse default sort' }).click();
+    await page.getByRole('menuitem', { name: 'Top yesterday' }).or(page.getByRole('menuitemradio', { name: 'Top yesterday' })).click();
+    await expect.poll(async () => (await get()).browseSort).toBe('top-day');
+    await expect(page.getByRole('button', { name: 'Browse default sort' })).toContainText('Top yesterday');
+  } finally {
+    await put({ comicsSearch: '', browseSort: 'newest', browseSearch: '' });
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  }
+});
+
 test('settings: Browse search has Browse\'s own filter menu (as on the page)', async ({ page }) => {
   await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
   await page.goto('/settings/library');
-  const field = page.getByRole('group', { name: 'Browse search' });
+  const field = page.getByRole('group', { name: 'Browse default search' });
   await field.getByRole('button', { name: 'Filters', exact: true }).click();
   const menu = page.getByRole('dialog', { name: /filter/i });
   await expect(menu.getByRole('button', { name: /^Rating/ })).toBeVisible(); // (the gallery site's filters: its stars)
@@ -6742,7 +6769,7 @@ test('settings: Browse search has Browse\'s orders too - a site\'s list (no sear
   await put({ browseSearch: 'blue_sky', browseSort: 'newest' });
   try {
     await page.goto('/settings/library');
-    const field = page.getByRole('group', { name: 'Browse search' });
+    const field = page.getByRole('group', { name: 'Browse default search' });
     await field.getByRole('button', { name: 'Filters', exact: true }).click();
     await page.getByRole('button', { name: /^Sort by/ }).click();
     await page.getByRole('button', { name: /^Popular now/ }).click();

@@ -467,6 +467,7 @@
       // (its first search in the shared default order, read a moment ago - as the library's)
       await settings.whenSynced();
       if (!router.param('sort') && !fromURL.sort && !inTrash && !inCollection) sort = DEFAULT_SORT;
+      if (!query && settings.comicsSearch && !fav && !inTrash && !inCollection) query = extractSort(settings.comicsSearch).q; // (its default search)
       search(query);
     }
   });
