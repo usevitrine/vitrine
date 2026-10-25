@@ -15,6 +15,7 @@ import (
 
 	"github.com/usevitrine/vitrine/internal/diskfree"
 	"github.com/usevitrine/vitrine/internal/library"
+	"github.com/usevitrine/vitrine/internal/proc"
 )
 
 // Info is what the server knows about its setup (Settings > Stats).
@@ -182,7 +183,7 @@ func toolVersion(ctx context.Context, path, flag, prefix string) string {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, path, flag).Output()
+	out, err := proc.Hide(exec.CommandContext(ctx, path, flag)).Output()
 	if err != nil && len(out) == 0 {
 		return "found" // (there, but no answer: busy, or no version flag)
 	}

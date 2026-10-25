@@ -2466,5 +2466,19 @@
     },
     "installed": "Vitrine {version}",
     "newIn": "New"
+  },
+  "tray": {
+    "open": "Open Vitrine",
+    "copyAddress": "Copy the address for phones",
+    "copied": "Copied",
+    "openFiles": "Open the files folder",
+    "openLog": "Open the log",
+    "startup": "Start with Windows",
+    "restart": "Restart",
+    "quit": "Quit Vitrine",
+    "starting": "Vitrine is starting…",
+    "stopping": "Vitrine is stopping…",
+    "running": "Vitrine is running at {address}",
+    "failed": "Vitrine couldn't start"
   }
 }

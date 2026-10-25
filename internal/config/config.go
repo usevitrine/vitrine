@@ -29,8 +29,8 @@ type Config struct {
 	FilesDir string `toml:"files_dir"`
 	// Listen is the HTTP listen address.
 	Listen string `toml:"listen"`
-	// Paths to external tools; empty = look them up on PATH. vipsthumbnail
-	// (libvips) is optional - images fall back to ffmpeg without it.
+	// Paths to external tools; empty = the copies shipped with the program (Bundled), else looked up on PATH.
+	// vipsthumbnail (libvips) is optional - images fall back to ffmpeg without it.
 	FFmpeg        string `toml:"ffmpeg"`
 	FFprobe       string `toml:"ffprobe"`
 	VipsThumbnail string `toml:"vipsthumbnail"`
@@ -243,7 +243,42 @@ func (c *Config) finish() error {
 	if c.Socket != "off" {
 		c.Socket = expandHome(c.Socket)
 	}
+	for _, tool := range []struct {
+		p    *string
+		name string
+	}{{&c.FFmpeg, "ffmpeg"}, {&c.FFprobe, "ffprobe"}, {&c.VipsThumbnail, "vipsthumbnail"}} {
+		if *tool.p == "" {
+			*tool.p = Bundled(tool.name)
+		}
+	}
 	return nil
+}
+
+// bundledIn is the tools folder's subfolder each tool ships in (with its libraries).
+var bundledIn = map[string]string{"ffmpeg": "ffmpeg", "ffprobe": "ffmpeg", "vipsthumbnail": "vips"}
+
+// Bundled is a tool shipped with the program - as the Windows installer lays it out: tools\ffmpeg\ffmpeg.exe,
+// tools\vips\vipsthumbnail.exe beside the program, or beside the folder it's in (the command line's bin\vitrine.exe).
+// "" when there's none.
+func Bundled(name string) string {
+	exe, err := os.Executable()
+	if err != nil || bundledIn[name] == "" {
+		return ""
+	}
+	if real, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = real
+	}
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	dir := filepath.Dir(exe)
+	for _, base := range []string{dir, filepath.Dir(dir)} {
+		f := filepath.Join(base, "tools", bundledIn[strings.TrimSuffix(name, ".exe")], name)
+		if st, err := os.Stat(f); err == nil && !st.IsDir() {
+			return f
+		}
+	}
+	return ""
 }
 
 // expandHome turns a leading "~" into the user's home directory.

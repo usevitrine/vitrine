@@ -1,7 +1,7 @@
 <script lang="ts">
   // Vitrine's updates, at the top of Settings > Updates (its state shared with the page: bind:info): up to date or the newer version (its page on GitHub), Check
-  // now, and with Watchtower set up an Update button - a backup, then Watchtower recreates the container on the new
-  // image, followed full screen (lib/updater, components/Updater). Without Watchtower: how to update by hand.
+  // now, and with Watchtower set up (or the Windows installer's Vitrine) an Update button - a backup, then Watchtower recreates the container on the new
+  // image (or the new installer runs), followed full screen (lib/updater, components/Updater). Without Watchtower: how to update by hand.
   // The daily check can be switched off (shared: the server does it).
   import { onMount } from 'svelte';
   import { api, type UpdateState } from '../lib/api';

@@ -11,7 +11,7 @@ Split by topic: open only the files a task needs. Each file starts with what it 
 ## Architecture
 - `architecture/stack-and-storage.md` - tech stack, speed targets and how they're met, storage design.
 - `architecture/server.md` - server implementation decisions, HTTP server and API conventions, signed links,
-  screen-sized copies, Docker image.
+  screen-sized copies, Docker image, the Windows installer and notification-area program.
 - `architecture/search-index.md` - the in-memory search index as built.
 - `architecture/media.md` - probing, thumbnails, previews (ffmpeg, libvips).
 - `architecture/testing.md` - Go tests and the Playwright end-to-end tests.

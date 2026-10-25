@@ -2,12 +2,16 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,6 +32,10 @@ import (
 // and the new one starts (the page sees the new version and reloads into it). The server waits for Watchtower's
 // answer, so a failure (no newer image, a failed pull, a refused token) comes back as "update_error" instead of the
 // page waiting for a restart that never happens. Watchtower says nothing about the pull's progress.
+//
+// Installed with the Windows installer (RunSetup set: the notification-area program), the Update button instead
+// downloads the new release's installer from GitHub (checked against the SHA-256 GitHub gives for it) and hands it to
+// RunSetup, which starts it to update in place without asking and quits Vitrine; the installer starts Vitrine again.
 
 // ReleasesURL is GitHub's API address for the latest release.
 const ReleasesURL = "https://api.github.com/repos/usevitrine/vitrine/releases/latest"
@@ -43,19 +51,24 @@ type UpdateConfig struct {
 	ReleasesURL     string // "" = ReleasesURL; "off" = never ask (tests)
 	ChangelogURL    string // "" = ChangelogURL (%s: the tag)
 	UserAgent       string
-	WatchtowerURL   string // "" = no Update button
+	WatchtowerURL   string // "" = no Update button (unless RunSetup)
 	WatchtowerToken string
+	// SetupName is the release's installer for this computer (%s: the version without its v), and RunSetup runs a
+	// downloaded one: it starts it and stops Vitrine. Both set: the Update button installs it.
+	SetupName string
+	RunSetup  func(path string) error
 }
 
 type updates struct {
 	cfg    UpdateConfig
 	client *http.Client
 	mu     sync.Mutex
-	latest string // the newest release's tag ("" = not known yet)
-	page   string // its page on GitHub
-	at     int64  // when it was last asked (Unix ms)
-	err    string // why the last check failed
-	log    string // the newer release's CHANGELOG.md ("" = none, or it couldn't be read)
+	latest string           // the newest release's tag ("" = not known yet)
+	page   string           // its page on GitHub
+	at     int64            // when it was last asked (Unix ms)
+	err    string           // why the last check failed
+	log    string           // the newer release's CHANGELOG.md ("" = none, or it couldn't be read)
+	assets map[string]asset // the newest release's files, by name
 	// The update under way: its step ("backup", "download"; "" = none) and why the last one failed.
 	step, stepErr string
 }
@@ -121,7 +134,7 @@ func (s *Server) checkForUpdate(ctx context.Context) {
 	if u.config().ReleasesURL == "off" {
 		return
 	}
-	tag, page, err := u.fetchLatest(ctx)
+	tag, page, assets, err := u.fetchLatest(ctx)
 	u.mu.Lock()
 	u.at = time.Now().UnixMilli()
 	if err != nil {
@@ -138,7 +151,7 @@ func (s *Server) checkForUpdate(ctx context.Context) {
 		}
 	}
 	u.mu.Lock()
-	u.latest, u.page, u.err, u.log = tag, page, "", changelog
+	u.latest, u.page, u.err, u.log, u.assets = tag, page, "", changelog, assets
 	u.mu.Unlock()
 	if newerVersion(tag, s.info.Version) && !s.notices.has("release", tag) {
 		s.notices.put(library.Notice{At: time.Now().UnixMilli(), Kind: "release", Query: tag})
@@ -146,33 +159,45 @@ func (s *Server) checkForUpdate(ctx context.Context) {
 	}
 }
 
-func (u *updates) fetchLatest(ctx context.Context) (tag, page string, err error) {
+// asset is a file of a release: where to download it, and its SHA-256 ("sha256:..." as GitHub gives it).
+type asset struct{ url, digest string }
+
+func (u *updates) fetchLatest(ctx context.Context) (tag, page string, assets map[string]asset, err error) {
 	cfg := u.config()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, cfg.ReleasesURL, nil)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", cfg.UserAgent)
 	res, err := u.client.Do(req)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("GitHub answered %s", res.Status)
+		return "", "", nil, fmt.Errorf("GitHub answered %s", res.Status)
 	}
 	var rel struct {
-		Tag  string `json:"tag_name"`
-		Page string `json:"html_url"`
+		Tag    string `json:"tag_name"`
+		Page   string `json:"html_url"`
+		Assets []struct {
+			Name   string `json:"name"`
+			URL    string `json:"browser_download_url"`
+			Digest string `json:"digest"`
+		} `json:"assets"`
 	}
 	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&rel); err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	if _, ok := parseVersion(rel.Tag); !ok {
-		return "", "", fmt.Errorf("the latest release has no version number (%q)", rel.Tag)
+		return "", "", nil, fmt.Errorf("the latest release has no version number (%q)", rel.Tag)
 	}
-	return rel.Tag, rel.Page, nil
+	assets = map[string]asset{}
+	for _, a := range rel.Assets {
+		assets[a.Name] = asset{a.URL, a.Digest}
+	}
+	return rel.Tag, rel.Page, assets, nil
 }
 
 // fetchChangelog reads a release's CHANGELOG.md (at most 1 MB).
@@ -241,7 +266,7 @@ func (s *Server) updateStateJSON(ctx context.Context) map[string]any {
 		"checked_at":   u.at,
 		"error":        u.err,
 		"check":        check,
-		"can_update":   u.cfg.WatchtowerURL != "",
+		"can_update":   u.cfg.canUpdate(),
 		"updating":     u.step,
 		"update_error": u.stepErr,
 	}
@@ -257,11 +282,16 @@ func (s *Server) updateCheckNow(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.updateStateJSON(r.Context()))
 }
 
+// canUpdate: the Update button works (Watchtower, or the installer).
+func (c UpdateConfig) canUpdate() bool {
+	return c.WatchtowerURL != "" || (c.RunSetup != nil && c.SetupName != "")
+}
+
 // updateStart starts the update (see the top of this file) and answers at once.
 func (s *Server) updateStart(w http.ResponseWriter, r *http.Request) {
 	u := s.updates
 	cfg := u.config()
-	if cfg.WatchtowerURL == "" {
+	if !cfg.canUpdate() {
 		writeError(w, http.StatusConflict, errors.New("updating from here needs Watchtower (watchtower_url)"))
 		return
 	}
@@ -302,6 +332,13 @@ func (s *Server) runUpdate(cfg UpdateConfig) {
 	u.mu.Lock()
 	u.step = "download"
 	u.mu.Unlock()
+	if cfg.WatchtowerURL == "" {
+		s.log.Info("update started (installer)", "from", s.info.Version, "backup", backupName)
+		if err := s.runSetup(ctx, cfg); err != nil {
+			fail(err)
+		}
+		return
+	}
 	s.log.Info("update started (Watchtower)", "from", s.info.Version, "backup", backupName)
 
 	q := url.Values{"image": {UpdateImage}, "timeout": {"14m"}}
@@ -338,4 +375,72 @@ func (s *Server) runUpdate(cfg UpdateConfig) {
 	default:
 		fail(errors.New("Watchtower updated another container but not this one"))
 	}
+}
+
+// runSetup downloads the newest release's installer, checks it, and hands it to RunSetup (which stops Vitrine).
+func (s *Server) runSetup(ctx context.Context, cfg UpdateConfig) error {
+	u := s.updates
+	u.mu.Lock()
+	tag, assets := u.latest, u.assets
+	u.mu.Unlock()
+	if !newerVersion(tag, s.info.Version) {
+		return errors.New("no newer version to install (check for updates first)")
+	}
+	name := fmt.Sprintf(cfg.SetupName, strings.TrimPrefix(tag, "v"))
+	a, ok := assets[name]
+	if !ok {
+		return fmt.Errorf("the release %s has no installer %s yet", tag, name)
+	}
+	want, ok := strings.CutPrefix(a.digest, "sha256:")
+	if !ok {
+		return fmt.Errorf("GitHub gave no checksum for %s, so it wasn't installed", name)
+	}
+	dir, err := os.MkdirTemp("", "vitrine-update-")
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(dir, name)
+	if err := u.download(ctx, a.url, path, want); err != nil {
+		os.RemoveAll(dir)
+		return fmt.Errorf("downloading the installer: %w", err)
+	}
+	s.log.Info("installing the update", "version", tag)
+	if err := cfg.RunSetup(path); err != nil {
+		os.RemoveAll(dir)
+		return fmt.Errorf("starting the installer: %w", err)
+	}
+	return nil // (the installer runs; Vitrine stops - the page sees it go and come back on the new version)
+}
+
+// download saves url to path if its SHA-256 is sum (hex).
+func (u *updates) download(ctx context.Context, url, path, sum string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", u.config().UserAgent)
+	res, err := (&http.Client{}).Do(req) // (ctx bounds it)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("answered %s", res.Status)
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	h := sha256.New()
+	_, err = io.Copy(io.MultiWriter(f, h), io.LimitReader(res.Body, 1<<30))
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return err
+	}
+	if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, sum) {
+		return errors.New("its checksum doesn't match the release's")
+	}
+	return nil
 }

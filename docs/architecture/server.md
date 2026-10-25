@@ -103,6 +103,53 @@ but for users, so make sure it's all documented" - the guide is [docs/cli.md](..
   `after` lets `vitrine logs -f` follow along.
 - Tested by `TestLiveCommands` (a real `serve` in the test, the commands through its socket, then offline again).
 
+## Windows installer and notification-area program (2026-10-25)
+The user: "the ready to run version should be an installer where the user can pick the data folders, adds vitrine
+to path, has a launch at startup option, that adds a shortcut to start menu, packages all the libraries, has a
+system tray icon etc." - for this user only ("Just me"), phones allowed by default, Update from the app.
+- **Two programs from one source**: `bin\vitrine.exe` (the command line, the same as the zip's) and `Vitrine.exe`,
+  built with `-ldflags "-X main.gui=1 -H windowsgui"` - no console; `main` then runs `runTray`
+  (`cmd/vitrine/tray_windows.go`, fyne.io/systray - pure Go on Windows, no cgo). Two names because Windows file
+  names ignore case. Both carry the icon and version (go-winres in the release workflow; `cmd/vitrine/vitrine.ico`,
+  made from web/public/icon.svg).
+- **Vitrine.exe** loads the config like `vitrine serve`, holds the mutex `Local\Vitrine` (a second start opens the
+  browser and leaves) and runs `cmdServe` in-process (logs only to the log file). A click on the icon opens the
+  browser; the menu: Open Vitrine, Copy the address for phones (listening on every network: this computer's private
+  IPv4 - the default route's, else the first interface's), Open the files folder, Open the log, Start with Windows
+  (HKCU Run, `"...Vitrine.exe" --background`, as the installer writes it), Restart, Quit. It opens the browser once
+  the port answers, unless started with --background (sign-in, after an update). Restart - the menu's or the web
+  app's (after a restore) - quits and starts the program again (fresh state, like a container restart). `--quit`
+  sets the event `Local\VitrineQuit` and waits for the mutex to go (up to 30 s): the running one stops cleanly.
+  Failing to start (a port in use) says so in a message box. Menu texts: `tray.*` in the locale files
+  (i18n-check reads cmd/ too).
+- **Child processes**: a program without a console would flash a console window for every ffmpeg/ffprobe/vips
+  run - `internal/proc.Hide` sets CREATE_NO_WINDOW on Windows (every exec of a tool goes through it).
+- **Bundled tools**: an empty ffmpeg/ffprobe/vipsthumbnail setting takes `tools\ffmpeg\ffmpeg.exe`,
+  `tools\vips\vipsthumbnail.exe` beside the program or beside its folder (`config.Bundled`), before PATH. Pinned
+  in `packaging/windows/build.sh` by URL and SHA-256: BtbN's LGPL shared build of FFmpeg 8.1.3 (a month-end
+  autobuild - those are kept) and libvips 8.18.7's "web" static build (vipsthumbnail.exe + libvips-42.dll); their
+  licenses, source links (THIRD-PARTY.txt) and libvips' versions.json go in the `licenses` folder. LGPL only - Vitrine
+  needs ffmpeg's WebP encoding and decoding, no GPL parts.
+- **The installer** (`packaging/windows/vitrine.iss`, Inno Setup 6; `build.sh` lays out the files and runs ISCC;
+  the release workflow's `installer` job on windows-latest): per user (`PrivilegesRequired=lowest`) into
+  %LOCALAPPDATA%\Programs\Vitrine, x64 (arm64 Windows runs it emulated). Pages: the folder, "Your library" (library,
+  original files, backups - the latter two follow the first while inside it; default %LOCALAPPDATA%\Vitrine), "Network"
+  (port; phones on the Wi-Fi: `listen = ':PORT'`, else `'127.0.0.1:PORT'`), options (start at sign-in, PATH - HKCU
+  Environment, `bin`; desktop shortcut), ready (lists the choices). It writes %APPDATA%\vitrine\config.toml - where
+  both programs look by default - only when there's none, and remembers the folders in HKCU\Software\Vitrine (for the
+  uninstaller). Phones on: a firewall rule for Vitrine.exe on private networks (netsh, asks for administrator
+  permission once; declined: Windows asks when Vitrine first listens). An update (installed already, or a config
+  exists) skips the library and network pages and doesn't touch Start with Windows (the menu's). Unattended:
+  `/DATADIR= /FILESDIR= /BACKUPDIR= /PORT= /PHONES=0` with Inno's `/VERYSILENT /DIR= /TASKS=` (from PowerShell or
+  cmd - Git Bash turns /SWITCHES into paths). A running Vitrine is stopped with --quit first (CloseApplications off).
+  Uninstalling stops it, removes the PATH entry, the sign-in entry, the firewall rule, and asks (default No) whether
+  to delete the library folder - folders outside it (the originals, backups) are asked about one by one. Not
+  code-signed: SmartScreen warns (unknown publisher).
+- Tested on Windows 11 (2026-10-25): silent install into scratch folders, the server up, the command line finding
+  the bundled tools, --quit, the in-app update, a clean uninstall; the wizard's pages checked by screenshot.
+  Note: the local socket's path must stay under ~108 characters (Windows' AF_UNIX limit) - a very deep data folder
+  turns the socket off.
+
 ## Docker image as built (2026-10-14)
 - `Dockerfile`: build stage `golang:1.27-trixie` (pure Go, `CGO_ENABLED=0`, version via `--build-arg VERSION`), runtime
   `debian:trixie-slim` + `ffmpeg` + `libvips-tools` (~630 MB; a slimmer image - e.g. static ffmpeg, vips without
@@ -163,6 +210,14 @@ waits before the server comes back up and fades the site back into view". `inter
   the same place and fades the app in, then "Updated to vX" (App, `updater.announce`). A failure: the reason, "still
   on the version it was", Close; the overlay scrolls on a short screen (the group centered with margin: auto). Tests: `TestNewerVersion`, `TestUpdateCheck`, `TestUpdateStart` (Go), "updates: ..."
   (e2e, the API mocked).
+- **Installed with the Windows installer** (2026-10-25, the user: "Yes" to updating from the app): Vitrine.exe sets
+  `UpdateConfig.SetupName` (`Vitrine-Setup-%s-x64.exe`) and `RunSetup`, which makes `can_update` true. Update then
+  backs up, downloads that release asset (its URL and SHA-256 come with the latest-release answer: GitHub's `digest`;
+  no digest or a mismatch: not run) to a temp folder and hands it to RunSetup: it starts the installer with
+  `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` and quits Vitrine a second later; the installer waits for it (--quit),
+  updates in place keeping config and library, and starts `Vitrine.exe --background` - the page sees the server go
+  and come back on the new version (the same steps as Watchtower's). Tested end to end on Windows 2026-10-25 with a
+  local stand-in for GitHub (1.0.3 to 1.0.4: ~5 s). Test: `TestUpdateWithInstaller`.
 - compose.example.yaml has the Watchtower service (optional) and the two Vitrine variables; config.example.toml
   documents `watchtower_url`, `watchtower_token`, `releases_url`.
 - **Settings > Updates** (2026-10-24, the user: "The update section should be on its own update page with the change

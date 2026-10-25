@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
+
+	"github.com/usevitrine/vitrine/internal/proc"
 )
 
 // Preview frames for the video player's scrub bar: one WebP "sprite sheet"
@@ -86,7 +88,7 @@ func (t Tools) sprite(ctx context.Context, path, vf string, keyframesOnly bool) 
 	}
 	args = append(args, "-i", path, "-an", "-sn", "-vf", vf, "-frames:v", "1",
 		"-c:v", "libwebp", "-quality", strconv.Itoa(SpriteQuality), "-f", "image2pipe", "pipe:1")
-	cmd := exec.CommandContext(ctx, t.FFmpeg, args...)
+	cmd := proc.Hide(exec.CommandContext(ctx, t.FFmpeg, args...))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()

@@ -27,3 +27,4 @@ about-gpu-*.txt
 
 # your own deploy scripts (your setup) - never commit
 *.local.sh
+/cmd/vitrine/*.syso

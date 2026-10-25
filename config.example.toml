@@ -25,7 +25,8 @@
 # Address the web server listens on.
 # listen = ":8080"
 
-# External tools. Empty = look them up on PATH. ffmpeg and ffprobe are needed
+# External tools. Empty = the copies the Windows installer ships (its tools folder), else
+# looked up on PATH. ffmpeg and ffprobe are needed
 # for thumbnails and video details; vipsthumbnail (libvips) is optional but
 # faster and lighter for images, especially huge ones.
 # ffmpeg = "/usr/bin/ffmpeg"

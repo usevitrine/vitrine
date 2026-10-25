@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/usevitrine/vitrine/internal/proc"
 )
 
 // Info is what probing a file finds out.
@@ -94,7 +96,7 @@ func (t Tools) Probe(ctx context.Context, path string, typ Type) (Info, error) {
 		args = append(args, "-count_packets")
 	}
 	args = append(args, "--", path)
-	cmd := exec.CommandContext(ctx, t.FFprobe, args...)
+	cmd := proc.Hide(exec.CommandContext(ctx, t.FFprobe, args...))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()

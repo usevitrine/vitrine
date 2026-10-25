@@ -1,10 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -148,4 +152,71 @@ func TestUpdateStart(t *testing.T) {
 	if e.call("GET", "/api/backups", nil, &list); len(list.Backups) < 2 {
 		t.Fatalf("a backup before each update: %d", len(list.Backups))
 	}
+}
+
+// Installed with the Windows installer: Update downloads the release's installer, checks its SHA-256 against
+// GitHub's, and hands it to RunSetup - a mismatch never gets that far.
+func TestUpdateWithInstaller(t *testing.T) {
+	e := newEnv(t)
+	e.loginAs("me", "correct horse")
+	setup := []byte("MZ pretend installer")
+	sum := sha256.Sum256(setup)
+	digest := "sha256:" + hex.EncodeToString(sum[:])
+	var gh *httptest.Server
+	gh = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/download/Vitrine-Setup-1.0.2-x64.exe" {
+			w.Write(setup)
+			return
+		}
+		writeJSON(w, 200, map[string]any{"tag_name": "v1.0.2", "assets": []map[string]string{
+			{"name": "Vitrine-Setup-1.0.2-x64.exe", "browser_download_url": gh.URL + "/download/Vitrine-Setup-1.0.2-x64.exe", "digest": digest},
+		}})
+	}))
+	defer gh.Close()
+	e.h.SetInfo(Info{Version: "v1.0.1"})
+	var ran atomic.Value
+	cfg := UpdateConfig{ReleasesURL: gh.URL, ChangelogURL: gh.URL + "/changelog/%s", SetupName: "Vitrine-Setup-%s-x64.exe",
+		RunSetup: func(path string) error {
+			b, err := os.ReadFile(path)
+			if err != nil || !bytes.Equal(b, setup) {
+				t.Errorf("RunSetup got %q (%v)", b, err)
+			}
+			ran.Store(path)
+			return nil
+		}}
+	e.h.SetUpdates(cfg)
+	var st struct {
+		Updating    string
+		UpdateError string `json:"update_error"`
+		CanUpdate   bool   `json:"can_update"`
+	}
+	if e.call("POST", "/api/update/check", map[string]any{}, &st); !st.CanUpdate {
+		t.Fatalf("no Update button with the installer: %+v", st)
+	}
+	wait := func(done func() bool) {
+		t.Helper()
+		for i := 0; i < 100 && !done(); i++ {
+			time.Sleep(50 * time.Millisecond)
+			e.call("GET", "/api/update", nil, &st)
+		}
+	}
+
+	digest = "sha256:" + strings.Repeat("0", 64) // (a file that isn't the release's)
+	e.call("POST", "/api/update/check", map[string]any{}, &st)
+	if code := e.call("POST", "/api/update", map[string]any{}, nil); code != http.StatusAccepted {
+		t.Fatalf("start: %d", code)
+	}
+	wait(func() bool { return st.UpdateError != "" })
+	if !strings.Contains(st.UpdateError, "checksum") || ran.Load() != nil {
+		t.Fatalf("a wrong checksum: %+v", st)
+	}
+
+	digest = "sha256:" + hex.EncodeToString(sum[:])
+	e.call("POST", "/api/update/check", map[string]any{}, &st)
+	e.call("POST", "/api/update", map[string]any{}, nil)
+	wait(func() bool { return ran.Load() != nil })
+	if ran.Load() == nil || st.UpdateError != "" {
+		t.Fatalf("installer not run: %+v", st)
+	}
+	os.RemoveAll(filepath.Dir(ran.Load().(string)))
 }

@@ -62,6 +62,16 @@ on the internet. The first steps then walk you through storage, sites, the app a
   example's Watchtower service, Update installs it from there; without it, `docker compose pull && docker compose
   up -d`.
 
+### Windows
+
+Download `Vitrine-Setup-<version>-x64.exe` from the [latest release](https://github.com/usevitrine/vitrine/releases/latest)
+and run it - no administrator needed. It asks where to keep your library (the databases and thumbnails, the
+original files, the backups: each can go on its own drive), the port, and whether phones on your Wi-Fi may open
+Vitrine, and comes with ffmpeg and libvips. Vitrine then runs in the notification area (by the clock): click its
+icon to open it in your browser; its menu has the address for your phone, your files, Start with Windows, Restart
+and Quit. The `vitrine` command is on your `PATH` (optional), and Settings > Updates installs new versions. Windows
+may warn that the installer is from an unknown publisher (it isn't code-signed): More info > Run anyway.
+
 ### Native
 
 Download the binary for your system (Linux, Windows, macOS; amd64 and arm64), put it on your `PATH`, and run:

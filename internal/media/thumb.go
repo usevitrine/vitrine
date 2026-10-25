@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/usevitrine/vitrine/internal/proc"
 	"golang.org/x/image/webp"
 )
 
@@ -67,7 +68,7 @@ func (t Tools) ffmpegThumb(ctx context.Context, path string, seek float64, tw, t
 		"-vf", fmt.Sprintf("scale=%d:%d:flags=lanczos", tw, th),
 		"-c:v", "libwebp", "-quality", strconv.Itoa(quality),
 		"-f", "image2pipe", "pipe:1")
-	cmd := exec.CommandContext(ctx, t.FFmpeg, args...)
+	cmd := proc.Hide(exec.CommandContext(ctx, t.FFmpeg, args...))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
@@ -84,9 +85,9 @@ func (t Tools) vipsThumb(ctx context.Context, path string, tw, th, quality int) 
 	}
 	defer os.RemoveAll(dir)
 	out := filepath.Join(dir, "t.webp")
-	cmd := exec.CommandContext(ctx, t.VipsThumbnail, path,
+	cmd := proc.Hide(exec.CommandContext(ctx, t.VipsThumbnail, path,
 		"--size", fmt.Sprintf("%dx%d", tw, th),
-		"-o", out+fmt.Sprintf("[Q=%d,strip]", quality))
+		"-o", out+fmt.Sprintf("[Q=%d,strip]", quality)))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {

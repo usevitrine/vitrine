@@ -20,6 +20,17 @@ import (
 // version is set at build time with -ldflags "-X main.version=v1.2.3".
 var version = "dev"
 
+// gui is set ("1", -ldflags "-X main.gui=1 -H windowsgui") in the Windows installer's Vitrine.exe: a program without
+// a console that runs the server from the notification area (tray_windows.go).
+var gui string
+
+// setupName and runSetup are the installer update (set by the notification-area program): the release's installer
+// for this computer (%s: the version) and how a downloaded one is run - see server.UpdateConfig.
+var (
+	setupName string
+	runSetup  func(path string) error
+)
+
 const usage = `Vitrine - a fast, self-hosted media library.
 
 Usage:
@@ -58,6 +69,9 @@ Run "vitrine <command> -h" for a command's flags.
 `
 
 func main() {
+	if gui != "" {
+		os.Exit(runTray(os.Args[1:]))
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr); err != nil {

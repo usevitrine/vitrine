@@ -73,7 +73,7 @@ function walk(d, exts, out = []) {
   }
   return out;
 }
-const sources = [...walk(join(root, 'web', 'src'), ['.svelte', '.ts']), ...walk(join(root, 'internal'), ['.go'])];
+const sources = [...walk(join(root, 'web', 'src'), ['.svelte', '.ts']), ...walk(join(root, 'internal'), ['.go']), ...walk(join(root, 'cmd'), ['.go'])];
 for (const file of sources) {
   const src = readFileSync(file, 'utf8');
   for (const m of src.matchAll(/(?<![\w.])t\(\s*'([\w.-]+)'|(?<![\w.])t\(\s*"([\w.-]+)"|\.T\(\s*"([\w.-]+)"/g)) {
