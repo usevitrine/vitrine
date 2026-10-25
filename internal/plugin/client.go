@@ -509,14 +509,28 @@ func (c *Client) Picture(ctx context.Context, rawURL string) ([]byte, string, er
 	if !c.m.allows(u.Hostname()) {
 		return nil, "", fmt.Errorf("%s: %s is not one of the plugin's domains", c.m.Site, u.Hostname())
 	}
-	c.picsOnce.Do(func() { c.pics = make(chan struct{}, 16) })
+	// At most 8 at once (as a browser does): a page of covers all at once opened as many TLS handshakes, which came
+	// back in bursts of timeouts (through a VPN).
+	c.picsOnce.Do(func() { c.pics = make(chan struct{}, 8) })
 	select {
 	case c.pics <- struct{}{}:
 	case <-ctx.Done():
 		return nil, "", ctx.Err()
 	}
 	defer func() { <-c.pics }()
-	resp, err := c.send(ctx, u, c.m.Referer)
+	// A network failure that may pass (a handshake timed out, the connection dropped) is tried again twice.
+	var resp *http.Response
+	for attempt := 0; ; attempt++ {
+		resp, err = c.send(ctx, u, c.m.Referer)
+		if err == nil || ctx.Err() != nil || attempt == 2 {
+			break
+		}
+		select {
+		case <-time.After(time.Duration(attempt+1) * 500 * time.Millisecond):
+		case <-ctx.Done():
+			return nil, "", ctx.Err()
+		}
+	}
 	if err != nil {
 		return nil, "", err
 	}

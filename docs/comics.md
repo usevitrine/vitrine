@@ -276,3 +276,15 @@ The comics library (galleries, comic tags, read state, custom titles, cover crop
   waiting mark, the progress line) stay hidden until its picture has loaded and fade in with it - every time, a picture
   the browser already had too (before, only after the reader closed, and only within 400 ms). The marks are 22 px
   (were 30) with 13 px icons.
+- **Browse: broken covers, old covers, endless spinners (2026-10-25)** (the user: "searching comics, just spinners
+  forever", "broken thumbnails, thumbnails having old titles on them", desktop only). Measured on the main instance:
+  searches answered in 0.1-2.5 s and covers in ~60 ms - but in bursts every picture fetch from ExHentai's picture host
+  failed with a TLS handshake timeout (598 requests in one hour, many sharing one failed fetch). Fixed:
+  - `Client.Picture` tries a network failure again twice (0.5 s, 1 s) and fetches at most 8 at once per site (was 16:
+    a page of covers opened as many handshakes at once, through the VPN);
+  - the grid retries a failed thumbnail four times (1, 2, 4, 8 s; was three, 1-3 s), then stops its spinner
+    (`img.failed`) - before, a thumbnail that never came spun for good;
+  - "old titles": tiles are kept by place, so a new search gave a tile's `<img>` another address - Chrome keeps the
+    last picture shown until the new one has come (Safari blanks it: desktop only), for good when it fails. Each
+    thumbnail is a new element now (`{#key}` on its address; a collection's mosaic covers likewise) - the library's grid
+    after a new search too. Test: "grid: a new search shows none of the last one's pictures".

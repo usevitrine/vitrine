@@ -476,17 +476,23 @@
 
   // A thumbnail that failed to load (many asked at once after a long jump) is
   // asked again - a few times, a moment apart - instead of staying a blur.
+  // A thumbnail that failed is asked for again a few times, waiting longer each time (a site's pictures - Browse - can
+  // fail in bursts); still failing, it stops spinning (`failed`) - shown again when the tile comes back.
+  const thumbWaits = [1000, 2000, 4000, 8000];
   function retryThumb(e: Event) {
     const img = e.currentTarget as HTMLImageElement;
     const tries = Number(img.dataset.tries ?? 0);
-    if (tries >= 3) return;
+    if (tries >= thumbWaits.length) {
+      img.classList.add('failed');
+      return;
+    }
     img.dataset.tries = String(tries + 1);
     const src = img.getAttribute('src');
     window.setTimeout(() => {
       if (!img.isConnected || !src) return;
       img.removeAttribute('src');
       img.setAttribute('src', src);
-    }, 1000 * (tries + 1));
+    }, thumbWaits[tries]);
   }
 
   // The fast scroller, whenever the results scroll at all (2026-10-22: it was from three screens on, the browser's own
@@ -1410,7 +1416,7 @@
           <!-- A collection: its first comics' covers side by side (two), one big and two small (three), or four, the tile in
                the tallest cover's shape (the server shapes it); each cover - its crop when it has one - filling its cell. -->
           <span class="mosaic n{m.length}" aria-hidden="true">
-            {#each m as cover, ci (ci)}
+            {#each m as cover, ci (ci + ' ' + cover.thumb)}
               {@const shape = cover.w && cover.h ? (cover.w * (cover.crop?.[2] ?? 1)) / (cover.h * (cover.crop?.[3] ?? 1)) : 0}
               <span class="cell"
                 ><span class="frame" style:--shape={shape || undefined}
@@ -1422,6 +1428,9 @@
           <!-- (flicking past: the color preview only, unless this thumbnail has been seen - see trackSpeed) -->
           {#if !flinging || seenThumbs.has(tile.f.thumb)}
             {@const u = tile.f.thumb}
+            <!-- (a new element for each picture: a tile given another file - a new search - shows none of the last one's,
+                 which Chrome kept showing until the new one came, for good if it failed) -->
+            {#key u}
             <img
               src={u}
               alt=""
@@ -1435,6 +1444,7 @@
               onerror={retryThumb} />
             <!-- Still on its way after a moment (e.g. after a long jump): a small spinner over the preview. -->
             <span class="waiting" aria-hidden="true"></span>
+            {/key}
           {/if}
         {:else if tile.f}
           <!-- Just downloaded: its thumbnail is being made (checked again every few seconds). -->
@@ -1663,7 +1673,8 @@
       making 0.8s linear infinite,
       waiting-in 0.2s ease-out 0.5s forwards;
   }
-  img:global(.in) + .waiting {
+  img:global(.in) + .waiting,
+  img:global(.failed) + .waiting {
     display: none;
   }
   @keyframes waiting-in {

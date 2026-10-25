@@ -2206,6 +2206,23 @@ test('details: a very long tag wraps inside the panel', async ({ page }, info) =
   }, [id, long] as const);
 });
 
+test('grid: a new search shows none of the last one\'s pictures while its own come (or fail)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  const shown = page.locator('.tile .fit > img.in');
+  await expect.poll(() => shown.count()).toBeGreaterThan(3);
+  // Every thumbnail fails from now on (a site's pictures in a bad moment): the new search's tiles stay empty - not
+  // the last search's pictures (Chrome kept them on the reused <img> until the new one came).
+  await page.route('**/thumbs/**', (r) => r.fulfill({ status: 502, body: '' }));
+  await page.getByRole('combobox', { name: 'Search' }).fill('system:type=video');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/^\d+ files?\b/)).not.toHaveText(/^26 files/);
+  // (a file in both searches keeps its own picture, loaded: fine - a shown picture that didn't load is the last one's)
+  await page.waitForTimeout(600);
+  expect(await shown.evaluateAll((els) => els.filter((el) => !(el as HTMLImageElement).naturalWidth).length)).toBe(0);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('search: the Animated and New filters (no form: added at once)', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText(/^26 files/)).toBeVisible();
