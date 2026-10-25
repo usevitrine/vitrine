@@ -341,7 +341,7 @@
     </header>
 
     {#if drawer}
-      <div class="backdrop" role="presentation" data-tap onclick={() => (drawer = false)} transition:fade={{ duration: 150 }}></div>
+      <div class="backdrop" role="presentation" onclick={() => (drawer = false)} transition:fade={{ duration: 150 }}></div>
       <nav id="nav-drawer" class="drawer" aria-label={t('menu.main')} {@attach backClose(() => (drawer = false))} transition:glide={{ x: -300, duration: 200, opacity: 1 }}>
         <div class="brand"><Logo size={30} /></div>
         {#each tabs.filter(shown) as tab (tab.id ?? tab.screen)}

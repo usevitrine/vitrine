@@ -10,10 +10,10 @@ import { install } from './lib/install.svelte';
 import { t } from './lib/i18n.svelte';
 import { quietKeyboard } from './lib/privacy';
 import { refreshShell } from './lib/appShell';
-import { fixDroppedTaps } from './lib/tapFallback';
+import { ownTouches } from './lib/ownTouches';
 
 logErrors();
-fixDroppedTaps(); // (a tap after a swipe that ended at speed: the browser drops its click - lib/tapFallback)
+ownTouches(); // (the app's own swipes: the browser takes no fling from them - lib/ownTouches)
 trackKeyboard();
 registerServiceWorker();
 install.start(); // (the browser's install offer comes early)
