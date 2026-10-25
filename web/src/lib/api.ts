@@ -100,6 +100,7 @@ export interface SearchResult {
   pinned?: number; // of them, how many are first (the New section)
   comics?: number; // the Comics page: the comics found (total counts a collection as one tile)
   shapes?: string; // with shapes=1: every file's width/height x 1024, in order (base64 of uint16s, little-endian)
+  found?: Record<string, number>; // with find=: where those files are in the list
 }
 
 export interface FileInfo {
@@ -445,9 +446,9 @@ export const api = {
   newCount: (q: string, since: number, bulk = true, scope: Scope = '') =>
     get<{ new: number }>(`/api/new?since=${since}&q=${encodeURIComponent(q)}${bulk ? '' : '&new_bulk=0'}${sc(scope)}`),
   /** collection (comics): that collection's comics only; else a collection's comics fold into its tile. */
-  search: (q: string, limit: number, signal?: AbortSignal, fresh?: { since: number; pin: boolean; order: string; bulk: boolean }, shapes = false, scope: Scope = '', collection = 0) =>
+  search: (q: string, limit: number, signal?: AbortSignal, fresh?: { since: number; pin: boolean; order: string; bulk: boolean }, shapes = false, scope: Scope = '', collection = 0, find: number[] = []) =>
     get<SearchResult>(
-      `/api/search?limit=${limit}&q=${encodeURIComponent(q)}${shapes ? '&shapes=1' : ''}${sc(scope)}${collection ? '&collection=' + collection : ''}` +
+      `/api/search?limit=${limit}&q=${encodeURIComponent(q)}${shapes ? '&shapes=1' : ''}${sc(scope)}${collection ? '&collection=' + collection : ''}${find.length ? '&find=' + find.join(',') : ''}` +
         (fresh?.since ? `&new_since=${fresh.since}&pin=${fresh.pin ? 1 : 0}&new_sort=${encodeURIComponent(fresh.order)}${fresh.bulk ? '' : '&new_bulk=0'}` : ''),
       signal,
     ),

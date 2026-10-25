@@ -422,11 +422,15 @@
     if (merging || document.visibilityState !== 'visible') return;
     merging = true;
     try {
-      await results.merge(null, (shift) => {
-        if (shift <= 0) return;
-        if (selection.anchor !== null) selection.anchor += shift;
-        grid?.addAtTop(shift);
-      });
+      await results.merge(
+        null,
+        (shift) => {
+          if (shift <= 0) return;
+          if (selection.anchor !== null) selection.anchor += shift;
+          grid?.addAtTop(shift);
+        },
+        grid?.firstOnScreen() ?? null, // (new comics can land anywhere in most orders: the first on screen stays)
+      );
       await results.reloadDetails(); // (pages and covers change while a gallery comes in: in place)
       lastTake = Date.now();
     } finally {

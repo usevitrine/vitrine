@@ -186,17 +186,18 @@
     if (merging) return;
     merging = true;
     try {
-      const shownId = viewing !== null ? results.idAt(viewing) : undefined;
-      // The list, the viewer's position and the grid's rows change in one step.
-      await results.merge(viewing, (shift) => {
-        if (shift <= 0) return;
-        if (selection.anchor !== null) selection.anchor += shift;
-        if (viewing !== null) {
-          const at = shownId !== undefined ? results.indexOf(shownId) : -1;
-          viewing = at >= 0 ? at : Math.min(viewing + shift, results.total - 1);
-        }
-        grid?.addAtTop(shift);
-      });
+      // The list, the viewer's position and the grid's rows change in one step - by the files themselves: the open
+      // one wherever it is now, the grid by the first tile on screen (new files can land anywhere in most orders).
+      await results.merge(
+        viewing,
+        (shift, kept) => {
+          if (viewing !== null) viewing = kept >= 0 ? kept : Math.min(viewing + Math.max(0, shift), results.total - 1);
+          if (shift <= 0) return;
+          if (selection.anchor !== null) selection.anchor += shift;
+          grid?.addAtTop(shift);
+        },
+        grid?.firstOnScreen() ?? null,
+      );
     } finally {
       merging = false;
     }

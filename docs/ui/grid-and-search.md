@@ -193,6 +193,12 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   search or order closes the gaps. The viewer stays on its file (its index follows it); a tap opens the file the tile
   showed when pressed (`indexOf`), even if the list changed meanwhile. Fixes: with newest-first and downloads
   running, taps opened the neighboring file and the open file changed by itself.
+- **In any order, by the files themselves (2026-10-25, user: "this bug still happens in other sorting situations")**:
+  in oldest first, uploaded, size, random... new files land anywhere, so "how far did the first file move" said
+  nothing moved while everything after them had. `merge(keep, onShift(shift, kept), anchor)` now asks the search
+  where the open file and the **first tile on screen** (`grid.firstOnScreen()`) are in the new list (`find=<ids>`,
+  up to 8, answered as `found: {id: index}`): the viewer goes to its file's new index, and the grid adds as many rows
+  above as the anchor moved (files arriving below the screen move nothing on it). Comics the same.
 - **Arrivals without hiccups (2026-10-18)**: `results.merge(keep, onShift)` swaps in the new list, moves the viewer
   to its file and adds the grid's rows in one step (a search hook: `prepare` fetches the IDs around the open file's
   new position first, `commit` runs before anything renders), so the details panel never sees another file for a

@@ -13,8 +13,10 @@ const FIRST = 500; // IDs sent with the search itself
 
 /** Lets a caller take part in replacing the list (see merge). */
 interface SearchHook {
-  prepare?: (res: { result: string; total: number; ids: number[] }) => Promise<[number, number[]][]>;
+  prepare?: (res: { result: string; total: number; ids: number[]; found?: Record<string, number> }) => Promise<[number, number[]][]>;
   commit?: () => void;
+  /** Files whose places in the new list the hook wants (the search's find=). */
+  find?: number[];
 }
 
 export class Results {
@@ -91,7 +93,7 @@ export class Results {
         pin: true,
         order: settings.newOrder,
         bulk: settings.newFromBulk,
-      }, settings.gridLayout === 'masonry' || this.index === 'comics', this.searched, this.index === 'comics' ? this.collection : 0);
+      }, settings.gridLayout === 'masonry' || this.index === 'comics', this.searched, this.index === 'comics' ? this.collection : 0, hook?.find ?? []);
       if (gen !== this.gen) return;
       const extra = (await (hook?.prepare ?? ((res) => this.focusSlices(res)))(res)) ?? [];
       if (gen !== this.gen) return;
@@ -185,24 +187,34 @@ export class Results {
   }
   private seed = 0;
 
-  /** Takes in files that arrived since the search ran (it runs again) and
-   *  returns how many came in ahead of the old first file - new files always
-   *  go first (pinned as new, or the newest-first order puts them there). */
-  async merge(keep: number | null = null, onShift: (shift: number) => void = () => {}): Promise<number> {
+  /**
+   * Takes in files that arrived since the search ran (it runs again) without moving anything: by the files
+   * themselves, wherever new ones land - at the top (newest first, or pinned as new) or anywhere in another order
+   * (oldest first, uploaded, size, random...: the first file stayed where it was, so "how far did the first move"
+   * said nothing moved while everything after the new ones had - the open file changed by itself, the user).
+   * keep: the open file's position; anchor: the first on screen's. onShift gets how many came in ahead of the
+   * anchor (rows for the grid to add above) and where the open file is now (-1: gone).
+   */
+  async merge(keep: number | null = null, onShift: (shift: number, kept: number) => void = () => {}, anchor: number | null = null): Promise<number> {
     const first = this.idAt(0);
     const before = this.total;
+    const anchorAt = anchor ?? 0;
+    const anchorId = this.idAt(anchorAt) ?? first;
+    const keepId = keep !== null ? this.idAt(keep) : undefined;
     let shift = 0;
+    let kept = keep ?? -1;
     const sort = this.sort === 'random' && this.seed ? `random_${this.seed}` : this.sort;
     await this.search(this.query, sort, {
-      // Before the new list is shown: how far everything moved, and the IDs
-      // around the position `keep` (the open file's) will move to - so the
-      // viewer never shows a blank or another file for a moment.
+      find: [anchorId, keepId].filter((x): x is number => x !== undefined),
+      // Before the new list is shown: how far the anchor moved, and the IDs around where the open file is now - so
+      // the viewer never shows a blank or another file for a moment.
       prepare: async (res) => {
-        if (first === undefined) return [];
-        const at = res.ids.indexOf(first);
-        shift = at >= 0 ? at : Math.max(0, res.total - before);
+        if (anchorId === undefined) return [];
+        const at = res.found?.[anchorId] ?? res.ids.indexOf(anchorId);
+        shift = at >= 0 ? at - (anchor === null ? 0 : anchorAt) : Math.max(0, res.total - before);
         if (keep === null) return [];
-        const want = keep + shift;
+        kept = keepId !== undefined ? (res.found?.[keepId] ?? -1) : -1;
+        const want = kept >= 0 ? kept : keep + shift;
         const n = Math.floor(want / SLICE);
         if (n === 0 || want >= res.total) return [];
         try {
@@ -211,7 +223,7 @@ export class Results {
           return [];
         }
       },
-      commit: () => onShift(shift),
+      commit: () => onShift(shift, kept),
     });
     return shift;
   }

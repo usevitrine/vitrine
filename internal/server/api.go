@@ -188,6 +188,27 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		"new":     newCount,          // files imported after new_since
 		"pinned":  pinned,            // of them, how many are at the front (pin=1)
 	}
+	// find=<ids>: where those files are in this list (files that arrived since the last search can land anywhere in
+	// an order other than newest first: the page keeps the open file and what's on screen by them, not by how far the
+	// first file moved).
+	if f := r.URL.Query().Get("find"); f != "" {
+		want := map[uint32]bool{}
+		for _, s := range strings.Split(f, ",") {
+			if n, err := strconv.ParseUint(strings.TrimSpace(s), 10, 32); err == nil && len(want) < 8 {
+				want[uint32(n)] = true
+			}
+		}
+		found := map[string]int{}
+		for i, id := range res.IDs {
+			if want[id] {
+				found[strconv.FormatUint(uint64(id), 10)] = i
+				if len(found) == len(want) {
+					break
+				}
+			}
+		}
+		out["found"] = found
+	}
 	if comics >= 0 {
 		out["comics"] = comics // (total: the tiles, a collection one)
 	}

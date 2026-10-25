@@ -1527,15 +1527,19 @@ test('viewer opens out of its thumbnail and closes back into it', async ({ page 
 });
 
 // Two files "arrive" at the top: the server's answer, reordered (the last two
-// files moved to the front, as a newest-first search gets new downloads).
-async function arriveTwo(page: import('@playwright/test').Page) {
+// files moved to the front, as a newest-first search gets new downloads). at: where they land instead - another order
+// puts new files anywhere (oldest first, uploaded, size, random).
+async function arriveTwo(page: import('@playwright/test').Page, at = 0) {
   let arrived = false;
   await page.route('**/api/search?*', async (route) => {
     const res = await route.fetch();
     const body = await res.json();
     if (arrived) {
       const ids: number[] = body.ids;
-      body.ids = [...ids.slice(-2), ...ids.slice(0, -2)];
+      const rest = ids.slice(0, -2);
+      body.ids = [...rest.slice(0, at), ...ids.slice(-2), ...rest.slice(at)];
+      // (where asked-for files are now, as the server would say: the made-up order's)
+      if (body.found) for (const id of Object.keys(body.found)) body.found[id] = body.ids.indexOf(Number(id));
     }
     await route.fulfill({ response: res, json: body });
   });
@@ -1607,6 +1611,40 @@ test('a file being viewed stays on screen when files arrive', async ({ page }) =
   await expect(page.getByText('6 / 26')).toBeVisible(); // the same file, now two places later
   expect(await page.locator('.viewer .slide[data-slot="1"] img:not(.under)').getAttribute('style')).toBe(src);
   await expect.poll(() => new URL(page.url()).searchParams.get('i')).toBe('5');
+});
+
+// Another order (oldest first, uploaded, size, random): new files land anywhere - the open file and what's on screen
+// stay all the same (the open file changed by itself, the user: "this bug still happens in other sorting situations").
+test('in another order, files arriving ahead of the open one: the viewer stays on its file', async ({ page }) => {
+  const arrive = await arriveTwo(page, 2); // (two new files at places 3 and 4: the first file stays first)
+  await page.goto('/');
+  await page.locator('.tile').nth(5).click();
+  await expect(page.getByText('6 / 26')).toBeVisible();
+  const src = await page.locator('.viewer .slide[data-slot="1"] img:not(.under)').getAttribute('style');
+  await arrive();
+  await expect(page.getByText('8 / 26')).toBeVisible(); // the same file, two places later
+  expect(await page.locator('.viewer .slide[data-slot="1"] img:not(.under)').getAttribute('style')).toBe(src);
+});
+
+test('in another order, files arriving above what\'s on screen: nothing on screen moves, a tap opens that file', async ({ page }) => {
+  await page.setViewportSize({ width: 400, height: 700 }); // 3 columns, it scrolls
+  const arrive = await arriveTwo(page, 2); // (above the tiles on screen, below the first file)
+  await page.goto('/');
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  const grid = page.locator('#grid-scroller');
+  await grid.evaluate((el) => (el.scrollTop = 300));
+  await page.waitForTimeout(300);
+  const tile = page.locator('.tile[data-i="9"]');
+  await expect(tile).toBeInViewport();
+  const id = await tile.getAttribute('data-id');
+  const before = (await tile.boundingBox())!;
+  await arrive();
+  const same = page.locator(`.tile[data-id="${id}"]`);
+  await expect(same).toHaveAttribute('data-i', '11');
+  await expect.poll(async () => Math.round((await same.boundingBox())!.y)).toBe(Math.round(before.y));
+  expect(Math.round((await same.boundingBox())!.x)).toBe(Math.round(before.x));
+  await same.click();
+  await expect(page.getByText('12 / 26')).toBeVisible();
 });
 
 test('the details stay open and where they were scrolled when files arrive', async ({ page }) => {

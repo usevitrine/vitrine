@@ -747,6 +747,14 @@
     }
   }
 
+  /** The position of the first file on screen (not the rows kept ready above it): what arrivals are counted against -
+   *  new files ahead of it go in as rows above, so it and everything after it stay where they are on screen. */
+  export function firstOnScreen(): number {
+    if (!el || !rowH) return 0;
+    if (layout) return visible(layout, Math.max(0, listTop), Math.max(0, listTop) + 1)[0] ?? 0;
+    return Math.max(0, Math.floor(Math.max(0, listTop) / rowH) * cols - lead);
+  }
+
   /** Whether the grid is scrolled to the very top (new files can be added there without moving anything). */
   export function atTop() {
     return !el || el.scrollTop < (rowH || 100) / 2;

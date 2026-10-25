@@ -181,6 +181,33 @@ func TestCrossSiteRefused(t *testing.T) {
 	}
 }
 
+// find=<ids>: where those files are in the search's list (the page keeps the open file and what's on screen by them
+// when files arrive - in an order other than newest first, new ones land anywhere).
+func TestSearchFind(t *testing.T) {
+	e := newEnv(t)
+	e.loginAs("me", "correct horse")
+	ctx := context.Background()
+	var ids []uint32
+	for i := 0; i < 4; i++ {
+		f, err := e.lib.Import(ctx, bytes.NewReader(pngBytes(t, 64+i, 48, byte(i))))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, f.ID)
+	}
+	var res struct {
+		IDs   []uint32       `json:"ids"`
+		Found map[string]int `json:"found"`
+	}
+	path := fmt.Sprintf("/api/search?q=sort:imported_asc&find=%d,%d,999999", ids[2], ids[0])
+	if code := e.call("GET", path, nil, &res); code != 200 {
+		t.Fatalf("search: %d", code)
+	}
+	if len(res.Found) != 2 || res.Found[fmt.Sprint(ids[2])] != 2 || res.Found[fmt.Sprint(ids[0])] != 0 {
+		t.Fatalf("found %v in %v (want %d at 2, %d at 0; one not in it: left out)", res.Found, res.IDs, ids[2], ids[0])
+	}
+}
+
 func TestSearchFilesTags(t *testing.T) {
 	e := newEnv(t)
 	e.loginAs("me", "correct horse")
