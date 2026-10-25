@@ -21,6 +21,7 @@
   import Icon from './Icon.svelte';
   import SiteIcon from './SiteIcon.svelte';
   import Stack from './Stack.svelte';
+  import { scrollsWhenFull } from '../lib/scrollsWhenFull';
 
   // query: the search in the bar (New download offers it first).
   let { query }: { query: string } = $props();
@@ -166,7 +167,7 @@
         <button class="quiet link" onclick={toDownloads}>{t('dlMenu.all')} <Icon name="right" size={15} /></button>
       </header>
       {#if active.list.length}
-        <ul>
+        <ul {@attach scrollsWhenFull}>
           {#each groups.slice(0, SHOWN) as g, i (g.site)}
             <li animate:flip={{ duration: 220 }} in:slideIn={{ i }} out:slideOut>
               {#if g.list.length === 1}
@@ -316,10 +317,13 @@
     list-style: none;
     margin: 0;
     padding: 4px;
-    overflow-y: auto;
+    overflow: hidden; /* (scrolls only when its rows don't fit: scrollsWhenFull) */
     overscroll-behavior: contain;
     display: grid;
     gap: 2px;
+  }
+  ul:global(.full) {
+    overflow-y: auto;
   }
   .item {
     display: grid;

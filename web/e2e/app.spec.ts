@@ -4516,6 +4516,49 @@ test('library: the downloads menu - a counter, New download, what is downloading
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+// A download coming in while the menu is open (a site's first, sliding in; one more on a site, making a stack): no
+// scrollbar for a moment (the user: "a scrollbar appears and i dont know why") - it scrolls only when its rows don't fit.
+test('library: the downloads menu shows no scrollbar as downloads come in, and scrolls once they fill it', async ({ page }) => {
+  const search = (id: number, site: string) => ({
+    id, site, query: `menu_${id}`, state: 'queued', max_posts: 10, site_total: 0, handled: 0, downloaded: 0, already: 0, deleted: 0, skipped: 0,
+    blacklisted: 0, position: id, failed: 0, created_at: 0,
+  });
+  let searches = [search(1, 'test-down')];
+  await page.route('**/api/events', (r) => r.abort()); // (no live line: the menu looks again every 5 s)
+  await page.route('**/api/downloads?active=1', (r) => r.fulfill({ json: { searches, sites_paused: {} } }));
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Downloads/ }).click();
+  const menu = page.getByRole('dialog', { name: 'Downloads' });
+  await expect(menu.locator('li')).toHaveCount(1);
+  // Every frame from now on: could the list scroll (either way)?
+  await page.evaluate(() => {
+    const w = window as unknown as { scrolled: string[] };
+    w.scrolled = [];
+    const look = () => {
+      const ul = document.querySelector<HTMLElement>('[role="dialog"] ul');
+      if (ul) {
+        const cs = getComputedStyle(ul);
+        if (cs.overflowY !== 'hidden' && ul.scrollHeight > ul.clientHeight + 1) w.scrolled.push(`down ${ul.scrollHeight}/${ul.clientHeight}`);
+        if (cs.overflowX !== 'hidden' && ul.scrollWidth > ul.clientWidth + 1) w.scrolled.push(`across ${ul.scrollWidth}/${ul.clientWidth}`);
+      }
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  });
+  searches = [search(1, 'test-down'), search(2, 'safebooru'), search(3, 'test-down')];
+  await expect(menu.locator('li')).toHaveCount(2, { timeout: 8000 });
+  await page.waitForTimeout(700); // (the slides and the stack growing)
+  expect(await page.evaluate(() => (window as unknown as { scrolled: string[] }).scrolled)).toEqual([]);
+  // Rows that don't fit: it scrolls.
+  await page.setViewportSize({ width: 1000, height: 420 });
+  searches = Array.from({ length: 6 }, (_, i) => search(10 + i, `site-${i}`));
+  await expect(menu.locator('li')).toHaveCount(6, { timeout: 8000 });
+  await expect(menu.locator('ul')).toHaveCSS('overflow-y', 'auto');
+  const ul = menu.locator('ul');
+  expect(await ul.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('library: the downloads menu counts a gallery by its pages, not as one file', async ({ page }) => {
   // (a made-up gallery site: the site list and the downloads mocked)
   await page.route('**/api/sites', async (r) => {

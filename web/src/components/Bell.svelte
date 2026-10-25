@@ -12,6 +12,7 @@
   import { t, num } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
   import Stack from './Stack.svelte';
+  import { scrollsWhenFull } from '../lib/scrollsWhenFull';
 
   const icons = { done: 'check', info: 'info', removed: 'trash', error: 'alert' } as const;
 
@@ -161,7 +162,7 @@
         {/if}
       </header>
       {#if notices.list.length}
-        <ul>
+        <ul {@attach scrollsWhenFull}>
           {#each groups as g, i (g.key)}
             <li animate:flip={{ duration: 220 }} in:slideIn={{ i }} out:slideOut>
               {#if g.items.length === 1}
@@ -341,10 +342,13 @@
     list-style: none;
     margin: 0;
     padding: 4px;
-    overflow-y: auto;
+    overflow: hidden; /* (scrolls only when its rows don't fit: scrollsWhenFull) */
     overscroll-behavior: contain;
     display: grid;
     gap: 2px;
+  }
+  ul:global(.full) {
+    overflow-y: auto;
   }
   .row {
     --kind: var(--green);

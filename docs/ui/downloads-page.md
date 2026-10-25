@@ -212,6 +212,10 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   paused downloads and the paused sites - at most once a second (a change meanwhile read when the second is up).
   It read the whole page (history, subscriptions, groups) on every live change; while downloads ran that was a lot
   of work on the page, and scrolling the library stalled (the user saw the background at the bottom).
+- **No scrollbar as downloads come in (2026-10-25, user)**: the menu's list (and the bell's) scrolls only when its
+  rows' own boxes don't fit (`lib/scrollsWhenFull.ts`: `overflow: hidden`, `.full` = `overflow-y: auto`). A row
+  sliding in from the side stuck out 10 px (a scrolling list scrolls sideways too) and a stack's new card stood below
+  the stack while it grew to hold it - each showed a scrollbar for a moment.
 - **"Subs" (2026-10-24, the user)**: the Subscriptions tab says "Subs" (`downloads.subsShort`) - first on phones, then
   everywhere; the whole word stays for screen readers (visually hidden, not removed), so the tab's name is unchanged.
 - **The count line, 2026-10-24** (the user: "57,734 of ~72,588 posts 41,650 new 2,126 had 13,958 blacklisted up to
