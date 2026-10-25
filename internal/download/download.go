@@ -1109,8 +1109,8 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 			limit = rules.VideoBytes
 		}
 		f, modified, err = d.fetchFile(ctx, st, st.Client.Manifest().FileFetchURL(u, fp.ID), limit, bulk) // (as the site links it: see FileQuery)
-		if ctx.Err() != nil {
-			return Failed, 0, ctx.Err()
+		if err != nil && ctx.Err() != nil {
+			return Failed, 0, ctx.Err() // (stopped mid-file: fetched again on resume)
 		}
 		if err == nil || errors.Is(err, library.ErrDeleted) || i == len(urls)-1 {
 			break
@@ -1128,7 +1128,9 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 		return Failed, 0, err
 	}
 	fp.Posted = refinePosted(fp.Posted, modified)
-	if err := d.lib.SetSitePost(ctx, f.ID, st.ID, sitePost(fp)); err != nil {
+	// In the library now: finished whatever comes (a stop just after the import left it unrecorded - the resume found
+	// its file and counted it "already there" instead of downloaded; CI, on its slower machines).
+	if err := d.lib.SetSitePost(context.WithoutCancel(ctx), f.ID, st.ID, sitePost(fp)); err != nil {
 		return Failed, f.ID, err
 	}
 	if f.New {

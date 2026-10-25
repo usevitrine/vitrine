@@ -400,7 +400,9 @@ func TestFileStall(t *testing.T) {
 			case <-stop:
 			case <-r.Context().Done():
 			}
-			return
+			// (dropped without an answer: returning sent an empty 200, and on CI's slow race run the client got that -
+			// "no answer: <nil>")
+			panic(http.ErrAbortHandler)
 		}
 		w.Header().Set("Content-Length", "1000")
 		w.Write(make([]byte, 400))
