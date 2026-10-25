@@ -1,5 +1,7 @@
 # Vitrine
 
+![The library in Rows: a search bar over a justified grid of pictures](docs/images/library.webp)
+
 A fast, self-hosted **media library with a built-in downloader and its own web app**, a lean alternative to
 [Hydrus](https://github.com/hydrusnetwork/hydrus) for people who use their library through a browser - on a phone
 as much as on a desktop.
@@ -7,8 +9,6 @@ as much as on a desktop.
 One program stores your files, keeps their tags (with parents and siblings), searches them in milliseconds, makes
 thumbnails, downloads from booru-style and gallery sites through plugins, and serves a phone-first web app you can
 add to your home screen.
-
-![The library in Rows: a search bar over a justified grid of pictures](docs/images/library.webp)
 
 ## What it does
 
