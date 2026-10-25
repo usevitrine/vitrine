@@ -1,7 +1,6 @@
 package download
 
 import (
-	"runtime"
 	"bytes"
 	"context"
 	"crypto/md5"
@@ -16,6 +15,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
