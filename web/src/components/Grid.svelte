@@ -244,7 +244,7 @@
   type Motion = { ms: number; ease: [number, number, number, number] };
   const GROW: Motion = { ms: ZOOM_MS, ease: [0.22, 1, 0.36, 1] };
   const SHRINK: Motion = { ms: 200, ease: [0.33, 1, 0.68, 1] };
-  const flights = new Map<HTMLElement, { outer: Animation; inside: Animation[]; from: Rect; to: Rect; m: Motion }>();
+  const flights = new Map<HTMLElement, { outer: Animation | Steps; inside: Animation[]; from: Rect; to: Rect; m: Motion }>();
   const lerp = (a: Rect, b: Rect, e: number): Rect => ({ x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, w: a.w + (b.w - a.w) * e, h: a.h + (b.h - a.h) * e });
   /** Where a card in motion is drawn now (in the list), if it's moving. */
   function cardNow(t: HTMLElement): Rect | null {
@@ -266,15 +266,15 @@
   /**
    * What's inside a tile drawn by a transform that changes its shape (the hover card, a row's resize, a collection's
    * comics flying out of or into it) keeps its own: the picture scales evenly, covering the tile as at rest, and the
-   * overlays (marks, badges, the selection's check) keep their size, each held about the corner it sits in - a comic's
-   * title and chips together, about the foot's corner. Stretched with the tile, the picture was distorted and the
+   * overlays (marks, badges, the selection's check) keep their size, each held about the tile's corner it's nearest - a
+   * comic's foot (its gradient, title and chips) about the bottom left. Stretched with the tile, the picture was distorted and the
    * overlays shrank and grew back, the pages chip drifting from the title (the user: "the downloading/downloaded
    * indicator changes sizes briefly", "the pages icon shifts" - "this shouldnt happen anywhere").
    * scales: the tile's (x, y) scale at each keyframe, timed as its own animation (o).
    */
   function holdInside(t: HTMLElement, scales: [number, number][], o: KeyframeAnimationOptions): Animation[] {
     const out: Animation[] = [];
-    const fit = t.querySelector<HTMLElement>(':scope > .face > .fit');
+    const { fit, parts } = insides(t);
     if (fit) {
       out.push(fit.animate(scales.map(([sx, sy]) => {
         const s = Math.max(sx, sy); // (covering the shape it's in, as the tile's picture does)
@@ -282,12 +282,20 @@
       }), o));
     }
     const inverse = scales.map(([sx, sy]) => ({ transform: `scale(${1 / sx}, ${1 / sy})` }));
-    const hold = (part: HTMLElement, origin: string) => {
+    for (const { el: part, origin } of parts) {
       part.style.transformOrigin = origin;
       const a = part.animate(inverse, o);
       a.finished.then(() => (part.style.transformOrigin = ''), () => (part.style.transformOrigin = ''));
       out.push(a);
-    };
+    }
+    return out;
+  }
+
+  /** What holdInside holds in tile t: its picture, and its overlays each with the point in its own box of the tile's
+   *  corner it's held about. */
+  function insides(t: HTMLElement): { fit: HTMLElement | null; parts: { el: HTMLElement; origin: string }[] } {
+    const parts: { el: HTMLElement; origin: string }[] = [];
+    const hold = (el: HTMLElement, origin: string) => parts.push({ el, origin });
     // Each is held about the tile's own corner (not its own, nor the foot's - those sit a few pixels in, or a pixel
     // out: drawn smaller with the tile, that gap came back as it landed, a nudge of the chip). Places in the tile's
     // own pixels (a transform on it now: undone by its drawn-to-laid-out ratio).
@@ -305,8 +313,47 @@
       at(mark, (r.left + r.width / 2 - tr.left) / k > w / 2 ? w : 0, (r.top + r.height / 2 - tr.top) / k > h / 2 ? h : 0);
     }
     const foot = t.querySelector<HTMLElement>(':scope > .face > .comic-foot');
-    if (foot) for (const part of foot.children as HTMLCollectionOf<HTMLElement>) at(part, 0, h); // (the title and chips together)
-    return out;
+    // (the foot whole - its gradient too, which drawn shorter with the card grew back as it landed; wider than the
+    // card while it's drawn smaller, it's clipped by the face)
+    if (foot) at(foot, 0, h);
+    return { fit: t.querySelector<HTMLElement>(':scope > .face > .fit'), parts };
+  }
+
+  /**
+   * An animation played frame by frame on the page (requestAnimationFrame): the hover card's. Played by the compositor,
+   * a scale draws its element as an image rendered once - a comic's title and chips, held at their size inside the
+   * card, came out soft while it moved and stepped as it landed (the user: "it still shifts"); redrawn every frame they
+   * stay as sharp as at rest. currentTime, finished and cancel as an Animation's; kept at its end until cancelled.
+   */
+  class Steps {
+    currentTime = 0;
+    readonly finished: Promise<void>;
+    private raf = 0;
+    private end!: () => void;
+    private fail!: (e: unknown) => void;
+    private clear: () => void;
+    constructor(ms: number, frame: (u: number) => void, clear: () => void) {
+      this.clear = clear;
+      this.finished = new Promise<void>((resolve, reject) => {
+        this.end = resolve;
+        this.fail = reject;
+      });
+      this.finished.catch(() => {});
+      frame(0);
+      const t0 = performance.now();
+      const step = (now: number) => {
+        this.currentTime = Math.min(ms, Math.max(0, now - t0));
+        frame(this.currentTime / ms);
+        if (this.currentTime >= ms) this.end();
+        else this.raf = requestAnimationFrame(step);
+      };
+      this.raf = requestAnimationFrame(step);
+    }
+    cancel() {
+      cancelAnimationFrame(this.raf);
+      this.clear();
+      this.fail(new DOMException('cancelled', 'AbortError'));
+    }
   }
 
   /** Keyframes (N + 1, for a linear timing: the easing baked in - a shape's scale and the inside's inverse don't ease
@@ -330,21 +377,30 @@
   function fly(t: HTMLElement, from: Rect, to: Rect, card: Rect, base: { x: number; y: number }, m: Motion, done?: () => void) {
     land(t);
     if (reducedMotion()) return done?.();
-    const N = 30;
-    const outerK: Keyframe[] = [];
-    const scales: [number, number][] = [];
-    for (let k = 0; k <= N; k++) {
-      const r = lerp(from, to, cubicBezier(...m.ease, k / N));
+    const { fit, parts } = insides(t);
+    for (const { el, origin } of parts) el.style.transformOrigin = origin;
+    // By the translate and scale properties (the tile's own transform - its place - is left alone): they come before
+    // it, so the scale scales its translate(base) too - the translate takes that back.
+    const frame = (u: number) => {
+      const r = lerp(from, to, cubicBezier(...m.ease, u));
       const sx = r.w / card.w;
       const sy = r.h / card.h;
-      outerK.push({ transform: `translate(${base.x + r.x - card.x}px, ${base.y + r.y - card.y}px) scale(${sx}, ${sy})` });
-      scales.push([sx, sy]);
-    }
+      t.style.translate = `${base.x + r.x - card.x - sx * base.x}px ${base.y + r.y - card.y - sy * base.y}px`;
+      t.style.scale = `${sx} ${sy}`;
+      if (fit) {
+        const s = Math.max(sx, sy); // (covering the shape it's in, as the tile's picture does)
+        fit.style.scale = `${s / sx} ${s / sy}`;
+      }
+      for (const { el } of parts) el.style.scale = `${1 / sx} ${1 / sy}`;
+    };
+    const clear = () => {
+      t.style.translate = t.style.scale = '';
+      if (fit) fit.style.scale = '';
+      for (const { el } of parts) el.style.scale = el.style.transformOrigin = '';
+    };
     // (kept at the end until the layout follows - a shrink's card is laid out as the tile only then)
-    const o: KeyframeAnimationOptions = { duration: m.ms, easing: 'linear', fill: 'forwards' };
-    const outer = t.animate(outerK, o);
-    outer.id = 'card';
-    flights.set(t, { outer, inside: holdInside(t, scales, o), from, to, m });
+    const outer = new Steps(m.ms, frame, clear);
+    flights.set(t, { outer, inside: [], from, to, m });
     outer.finished.then(
       () => {
         if (flights.get(t)?.outer !== outer) return;
@@ -1963,7 +2019,9 @@
     white-space: nowrap;
     font-size: 13px;
     font-weight: 650;
-    line-height: 1.3;
+    /* (whole pixels, the chip's too: the foot's parts then sit on whole pixels - at 1.3 (16.9 px) they sat between
+       pixels, drawn one way at rest and another while the card moved, so the icon stepped as a hover zoom ended) */
+    line-height: 17px;
     mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent);
   }
   .comic-title > span {
@@ -2019,6 +2077,7 @@
     background: rgb(255 255 255 / 0.12);
     font-size: 11px;
     font-weight: 600;
+    line-height: 16px; /* (20 px tall: its 12 px icon centered on whole pixels too) */
     color: var(--text);
     font-variant-numeric: tabular-nums;
   }

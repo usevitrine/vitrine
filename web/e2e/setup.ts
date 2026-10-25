@@ -18,8 +18,13 @@ const media = join(work, 'media'); // kept between runs (the same every time)
 const template = join(work, 'template');
 const bin = join(work, process.platform === 'win32' ? 'vitrine.exe' : 'vitrine');
 
+// An empty config of the tests' own for every vitrine run: never the machine's (an installed Vitrine's - its files_dir:
+// the test library's originals went into the user's own library folder, 2026-10-25).
+const testConfig = join(work, 'config.toml');
+const env = { ...process.env, VITRINE_CONFIG: testConfig };
+
 const run = (cmd: string, args: string[], cwd = root) =>
-  execFileSync(cmd, args, { stdio: ['ignore', 'ignore', 'inherit'], cwd, shell: process.platform === 'win32' && cmd === 'npm' });
+  execFileSync(cmd, args, { stdio: ['ignore', 'ignore', 'inherit'], cwd, env, shell: process.platform === 'win32' && cmd === 'npm' });
 
 function makeMedia() {
   if (existsSync(join(media, 'portrait.mp4'))) return;
@@ -129,6 +134,7 @@ async function healthy(port: number, server: ChildProcess) {
 export default async function setup(config: FullConfig) {
   const workers = config.workers;
   mkdirSync(work, { recursive: true });
+  writeFileSync(testConfig, "# (the tests' own: empty)\n");
   run('npm', ['run', 'build', '--silent'], web); // the app, into internal/server/web (embedded)
   run('go', ['build', '-o', bin, './cmd/vitrine']);
   makeMedia();
@@ -144,7 +150,7 @@ export default async function setup(config: FullConfig) {
       spawn(bin, ['serve', '-data-dir', dir, '-listen', `127.0.0.1:${PORT0 + i}`], {
         stdio: ['ignore', log, log],
         cwd: root,
-        env: { ...process.env, VITRINE_PLUGIN_INDEX: join(template, 'plugin-index'), VITRINE_RELEASES_URL: 'off' }, // (no update checks against GitHub)
+        env: { ...env, VITRINE_PLUGIN_INDEX: join(template, 'plugin-index'), VITRINE_RELEASES_URL: 'off' }, // (no update checks against GitHub)
       }),
     );
   }

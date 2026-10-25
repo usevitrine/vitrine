@@ -40,3 +40,8 @@ had started.
   happens, not polled for; a state the app reaches eventually (two videos in step after a flip) is polled for until it
   holds, not read once after a fixed wait. Waits are 10 s for something to show, 45 s per test (`playwright.config.ts`):
   six browsers at once made the 5 s default run out now and then.
+- **Never the machine's settings (2026-10-25)**: the end-to-end setup gives every `vitrine` it runs - the template's
+  import, tags, comics and settings, and each worker's server - an empty config of its own (`VITRINE_CONFIG` = the work
+  folder's config.toml). With only `-data-dir` given, an installed Vitrine's files_dir (%APPDATA%\vitrine\config.toml)
+  was used: the test library's 41 originals were copied into the author's own library folder. The Go command tests do
+  the same (`runCmd`).

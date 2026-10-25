@@ -403,3 +403,16 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   viewer's and reader's hero already holds its picture. Test: "a comic card keeps its title, chips and mark as they
   are while it grows and shrinks".
   - **About the tile's own corners (2026-10-25)** (the user: "the pages icon ... still shifts after hover zooming", the Comics page): held about the foot's corner (a pixel outside the tile) or a mark's own (5 px in), that gap was drawn smaller with the card and came back as it landed - the chip nudged ~0.13 px and went from soft to sharp (more on a bigger zoom). Everything is held about the tile's corners now (its place in the tile's own pixels): measured, the chip stays exactly where it rests (10.00, 37.89 from the corner) through the shrink, within 0.05 px as the grow starts. The test checks the place from the corner too (0.1 px).
+  - **Sharp while it moves, the gradient held too (2026-10-25)** (the user: "the gradient on the thumbnail shifts after
+    hover zooming", "is that the best you can do with the icon? because it still shifts"). Three causes, measured in
+    recorded frames: (1) the foot's gradient still scaled with the card (drawn shorter, back as it landed) - the whole
+    foot is held now (wider than the card while it's drawn smaller: clipped by the face); (2) the title's line height
+    (13 px x 1.3 = 16.9) and the chip's height (19.39) put the foot's parts between pixels even at rest, drawn one way at
+    rest and another in motion - now 17 px and a 20 px chip (its 12 px icon on whole pixels too): every part rests on
+    whole pixels; (3) played by the compositor, a scale draws the card as an image rendered once - the held title and
+    chips came out soft while it moved (52-88 near-white pixels a frame against 141 at rest) and sharpened as it landed.
+    The hover card is played frame by frame on the page now (`Steps`: requestAnimationFrame, the translate and scale
+    properties - the tile's own transform, its place, left alone): every frame is drawn at its real size (115-133),
+    a frame every ~16 ms (none dropped). Rows resizing and collections' morphs, many tiles at once, stay on the
+    compositor (holdInside). At rest the card's foot is pixel-identical before and after a zoom at 100%, 125% and 150%
+    display scaling.
