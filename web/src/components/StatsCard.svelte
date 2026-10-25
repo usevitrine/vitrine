@@ -100,7 +100,7 @@
   </section>
 {:else}
   <section class="card" transition:reveal>
-    <div class="card-head"><h2>{t('settings.section.library.label')}</h2></div>
+    <div class="card-head"><h2>{t('menu.library')}</h2></div>
     <div class="tiles">
       <div class="tile"><b>{n(st.files)}</b><span>{t('stats.tile.files', { n: st.files })}</span></div>
       <div class="tile"><b>{formatSize(st.bytes)}</b><span>{t('stats.tile.inAll')}</span></div>

@@ -41,7 +41,7 @@
 
   provideScope(comicsScope);
   const { results, selection } = comicsScope;
-  // Its default order: the setting (Settings > Media, "Comics sort"); the page opens in it, as the library does.
+  // Its default order: the setting (Settings > Library, "Comics sort"); the page opens in it, as the library does.
   const DEFAULT_SORT = $derived(settings.comicsSort || 'imported');
 
   const here = () => router.screen === 'comics';

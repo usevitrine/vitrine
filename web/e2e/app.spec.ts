@@ -2727,9 +2727,9 @@ test('settings: the default search is the library search bar - autocomplete and 
   await page.goto('/settings/library');
   await setSettings(page, { defaultSearch: '' });
   await page.reload();
-  const bar = page.getByRole('group', { name: 'Default search' });
+  const bar = page.getByRole('group', { name: 'Media search' });
   await expect(bar.getByRole('button', { name: /Saved searches/ })).toHaveCount(0);
-  const input = bar.getByRole('combobox', { name: 'Default search' });
+  const input = bar.getByRole('combobox', { name: 'Media search' });
   await input.click();
   await input.pressSequentially('blue_s');
   await expect(page.getByRole('option', { name: /blue_sky/ })).toBeVisible();
@@ -2762,10 +2762,10 @@ test('settings: the default search is the library search bar - autocomplete and 
 test('settings: the default sort is an action menu - a field, then its direction', async ({ page }) => {
   test.skip(test.info().project.name === 'desktop-chromium', 'phones (a sheet) and desktop (a menu) are enough');
   await page.goto('/settings/library');
-  const field = page.getByRole('button', { name: 'Default sort' });
+  const field = page.getByRole('button', { name: 'Media sort' });
   await expect(field).toHaveText(/Newest uploaded/);
   await field.click();
-  const menu = page.getByRole('menu', { name: 'Default sort' });
+  const menu = page.getByRole('menu', { name: 'Media sort' });
   await expect(menu.getByRole('menuitemradio', { name: /Uploaded/ })).toHaveAttribute('aria-checked', 'true');
   await expect(menu.getByRole('menuitemradio', { name: /Uploaded/ })).toContainText('Newest first');
   await menu.getByRole('menuitemradio', { name: /File size/ }).click();
@@ -3215,13 +3215,13 @@ test('settings: sections - a list on phones (each opens with a back link), side 
   const wide = (page.viewportSize()?.width ?? 0) >= 900;
   if (wide) {
     // The first section shows beside the list.
-    await expect(page.getByRole('heading', { name: 'Media', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Library', exact: true })).toBeVisible();
     await nav.getByRole('button', { name: /^Backups/ }).click();
     await expect(page).toHaveURL(/\/settings\/backups$/);
     await expect(nav).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Backups' })).toBeVisible();
   } else {
-    await expect(page.getByRole('heading', { name: 'Media', exact: true })).toHaveCount(0); // just the list
+    await expect(page.getByRole('heading', { name: 'Library', exact: true })).toHaveCount(0); // just the list
     await nav.getByRole('button', { name: /^Download rules/ }).click();
     await expect(page).toHaveURL(/\/settings\/rules$/);
     await expect(nav).toHaveCount(0);
@@ -6692,6 +6692,27 @@ test('comics: Browse - a page whose galleries are all blacklisted (hidden by the
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+test('comics: Browse opens with its default search (Settings > Library, Browse search)', async ({ page }) => {
+  // (settings are shared: put back at the end)
+  const set = (v: string) => page.evaluate((v) => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ browseSearch: v }) }), v);
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
+  const asked: string[] = [];
+  await page.route('**/api/browse?*', (r) => {
+    asked.push(new URL(r.request().url()).searchParams.get('q') ?? '');
+    return r.fulfill({ json: { galleries: [], total: 0, next: 0 } });
+  });
+  await page.goto('/');
+  await set('blue_sky');
+  try {
+    await page.goto('/browse');
+    await expect.poll(() => asked[0]).toContain('blue_sky');
+    await expect(page.locator('.browse .bar .chip')).toHaveText(['blue_sky']);
+  } finally {
+    await set('');
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  }
+});
+
 test('comics: Browse - a new search clears the last one\'s galleries at once (a spinner until the new ones come)', async ({ page }) => {
   const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://gallery.test/g/${id}/abcdef0123/`, title: `Some Comic ${id}`, category: 'Manga', pages: 24, tags: [] });
   await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
@@ -6998,7 +7019,7 @@ test('comics: the reader handles like the viewer - i, L, a swipe up shows the de
   await expect(page).toHaveURL(/\/comics$/);
 });
 
-test('comics: its own default order (Settings > Media, Comics sort), the page opening in it', async ({ page }) => {
+test('comics: its own default order (Settings > Library, Comics sort), the page opening in it', async ({ page }) => {
   // (settings are shared: put back at the end)
   const set = (v: string) => page.evaluate((v) => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comicsSort: v }) }), v);
   await page.goto('/');

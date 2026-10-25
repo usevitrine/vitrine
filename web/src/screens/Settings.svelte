@@ -145,6 +145,15 @@
                   current={sortLabel(settings.comicsSort, true)}
                   items={sortItems(settings.comicsSort, (v) => (settings.comicsSort = v), true)} />
               </div>
+              <div class="field" transition:reveal>
+                <span class="field-label">{t('settings.browseSearch')}</span>
+                <SearchBar
+                  plain
+                  label={t('settings.browseSearch')}
+                  placeholder={t('settings.browseSearchPlaceholder')}
+                  query={settings.browseSearch}
+                  onsearch={(q) => (settings.browseSearch = q)} />
+              </div>
             {/if}
             <div class="field">
               <span class="field-label">{t('settings.newOrder.label')}</span>

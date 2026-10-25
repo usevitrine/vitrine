@@ -22,7 +22,7 @@ function save(key: string, value: unknown) {
 }
 
 /** The settings every device shares (the server's allow-list). */
-const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'cameButton', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck'] as const;
+const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'browseSearch', 'cameButton', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck'] as const;
 type SharedKey = (typeof shared)[number];
 
 class Settings {
@@ -53,6 +53,8 @@ class Settings {
   favoritesSort = $state(load('favoritesSort', 'favorite'));
   /** The Comics page's default order (its own: read, title, pages...); newest added first. */
   comicsSort = $state(load('comicsSort', 'imported'));
+  /** Comics > Browse's search when it opens ('': the site's newest galleries). */
+  browseSearch = $state(load('browseSearch', ''));
   /** The viewer's "I came" button and the Rankings page (off unless turned on). */
   cameButton = $state(load('cameButton', false));
   /** The app's sections, Media and Comics: either can be switched off (never both; lib/sections). */

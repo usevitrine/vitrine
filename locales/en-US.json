@@ -531,8 +531,8 @@
   "settings": {
     "section": {
       "library": {
-        "label": "Media",
-        "hint": "Default search and order, new files"
+        "label": "Library",
+        "hint": "Default searches and orders, new files, the trash"
       },
       "sites": {
         "label": "Sites",
@@ -588,12 +588,14 @@
       "hint": "Every device. Automatic: each browser's language.",
       "auto": "Automatic: {language}"
     },
-    "defaultSearch": "Default search",
+    "defaultSearch": "Media search",
     "defaultSearchHint": "When the app opens without one.",
     "defaultSearchPlaceholder": "Tags or filters",
-    "defaultSort": "Default sort",
+    "defaultSort": "Media sort",
     "favoritesSort": "Favorites sort",
     "comicsSort": "Comics sort",
+    "browseSearch": "Browse search",
+    "browseSearchPlaceholder": "Tags: the newest galleries if none",
     "bulkNew": "Bulk downloads count as new",
     "bulkNewHint": "One-off downloads, first checks and imports. Off: only regular checks.",
     "tagsInUse": {

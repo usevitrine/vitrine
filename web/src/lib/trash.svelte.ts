@@ -1,6 +1,6 @@
 // The trash (Menu > Trash: Media at /trash, Comics at /comics/trash): deleted files and comics stay restorable until
 // removed for good - chosen ones, a page's everything (Empty trash, a word to type first), or after the days set in
-// Settings > Media. Each has its own search index on the server (scope trash, comics_trash); the library's and the
+// Settings > Library. Each has its own search index on the server (scope trash, comics_trash); the library's and the
 // Comics page's grid, search bar and viewer show them, their Delete becoming Restore and Delete forever (lib/results'
 // scope 'trash').
 import { api } from './api';

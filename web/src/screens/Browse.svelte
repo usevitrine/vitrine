@@ -13,6 +13,7 @@
   import type { BrowseResults } from '../lib/browse.svelte';
   import { siteLabel, sites as siteInfo } from '../lib/sites.svelte';
   import { router } from '../lib/router.svelte';
+  import { settings } from '../lib/settings.svelte';
   import { topbar } from '../lib/topbar.svelte';
   import { t, num } from '../lib/i18n.svelte';
   import { namespaces } from '../lib/namespaces.svelte';
@@ -82,7 +83,10 @@
     loaded = true;
     if (!sites.length) return;
     results.site = sites.includes(lastSite()) ? lastSite() : sites[0];
-    if (results.searches === 0) search('');
+    if (results.searches === 0) {
+      await settings.whenSynced();
+      search(settings.browseSearch); // (its default search: Settings > Library)
+    }
   });
 
   // The site's own tags while typing (not only those the library knows), grouped as a download will group them.
