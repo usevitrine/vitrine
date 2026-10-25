@@ -11,7 +11,7 @@ services:
       - 8080:8080
     environment:
       - VITRINE_FILES_DIR=/files   # originals on big storage (omit to keep them in /data/files)
-      # The Update button in Settings > Account (with the watchtower service below; remove both lines without it):
+      # The Update button in Settings > Updates (with the watchtower service below; remove both lines without it):
       - VITRINE_WATCHTOWER_URL=http://watchtower:8080
       - VITRINE_WATCHTOWER_TOKEN=${WATCHTOWER_TOKEN}
     volumes:
@@ -33,7 +33,7 @@ services:
       - LOG_LEVEL=info
     restart: unless-stopped
 
-  # Optional: Watchtower, for the Update button (Settings > Account > About). Vitrine checks GitHub once a day for a
+  # Optional: Watchtower, for the Update button (Settings > Updates). Vitrine checks GitHub once a day for a
   # new release and offers it; Update makes a backup, then asks Watchtower to pull the new image and recreate the
   # vitrine container. Watchtower only acts when asked (no schedule) and only on Vitrine's image. Put a long random
   # token in a .env file next to this one, e.g. WATCHTOWER_TOKEN=<the output of: openssl rand -hex 32>. It needs the

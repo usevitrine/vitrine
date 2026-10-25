@@ -134,7 +134,7 @@ waits before the server comes back up and fades the site back into view". `inter
 - **The check**: once a day (3 min after the start, then hourly checks for a day-old answer) the server asks GitHub's
   API for the latest release (`releases_url`, default `api.github.com/repos/usevitrine/vitrine/releases/latest`;
   "off" never asks - the end-to-end test servers) - only with the shared setting `updateCheck` (missing = on;
-  Settings > Account > About). A newer `vX.Y.Z` than this program: `GET /api/update` says so (`newer`, `latest`,
+  Settings > Updates). A newer `vX.Y.Z` than this program: `GET /api/update` says so (`newer`, `latest`,
   `page`, and `changelog`: that release's CHANGELOG.md, read from `changelog_url` - default the repository's on GitHub
   at the tag, raw.githubusercontent.com; a failure there still offers the update), and the bell gets a notice, once per version (kind `release`, the notice kind "A new Vitrine release",
   leading to Settings > Updates). Development builds (`dev`, the dev server's `test-...`) are never behind.
