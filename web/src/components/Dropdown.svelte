@@ -322,12 +322,12 @@
   .backdrop {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    z-index: 89; /* (over the dialogs too, as the floating list) */
     background: rgb(17 17 27 / 0.5);
   }
   .menu.sheet {
     position: fixed;
-    z-index: 61;
+    z-index: 90;
     left: 0;
     right: 0;
     top: auto;

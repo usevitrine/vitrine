@@ -50,10 +50,11 @@
   }
 
   /** Going: held where it was (out of the flow, so what comes in takes its place at once) as it fades. Its place as
-   *  last seen: by the time it goes, what comes in is already beside it, squeezing it. */
-  let pairAt = '';
+   *  last seen: by the time it goes, what comes in is already beside it, squeezing it. (The pair when it was the last
+   *  one; the pictures when the next pair comes - they were swapped at once, seen in a motion recording.) */
+  const placeOf = new WeakMap<Element, string>();
   const notePlace = (el: HTMLElement) => {
-    const note = () => (pairAt = `position: absolute; top: ${el.offsetTop}px; left: ${el.offsetLeft}px; width: ${el.offsetWidth}px; height: ${el.offsetHeight}px;`);
+    const note = () => placeOf.set(el, `position: absolute; top: ${el.offsetTop}px; left: ${el.offsetLeft}px; width: ${el.offsetWidth}px; height: ${el.offsetHeight}px;`);
     const ro = new ResizeObserver(note);
     ro.observe(el);
     note();
@@ -61,7 +62,7 @@
   };
   function leave(node: Element) {
     if (reduced()) return { duration: 0 };
-    const at = pairAt;
+    const at = placeOf.get(node) ?? '';
     return { duration: 180, css: (t: number) => `${at} opacity: ${t}; pointer-events: none;` };
   }
 
@@ -437,7 +438,7 @@
          the user: "the image shrinks before disappearing"). -->
     <div class="pair" {@attach notePlace} out:leave>
       {#key key(cur)}
-        <div class="stage" class:side={mode === 'side'}>
+        <div class="stage" class:side={mode === 'side'} {@attach notePlace} out:leave in:swap={{ delay: 60 }}>
           {#if buffering}<span class="buffering spinner" role="status" aria-label={t('common.loading')} transition:pop></span>{/if}
           {#if mode === 'side'}
             {#each ['a', 'b'] as const as s (s)}
@@ -573,6 +574,7 @@
 
   /* (the pair's parts, laid out as they were in .dupes) */
   .pair {
+    position: relative; /* (pictures going are held here) */
     flex: 1;
     min-height: 0;
     display: flex;

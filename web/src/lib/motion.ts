@@ -11,15 +11,13 @@ import { cubicOut } from 'svelte/easing';
 
 export const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// Text must not shift when a motion ends (the user saw it after every opening): an ease-out spends its last frames
-// moving by fractions of a pixel, the text drawn between pixels, then snapping onto them when the motion stops. So
-// moves go in whole pixels, and a scale counts as done once it's within half a pixel of the element's size.
-// Not a menu's short drop as it opens (8 px: Downloads, the bell, ⋯ menus, search suggestions): in whole pixels its
-// last pixel came late, on its own - the text dropped a pixel just as it had settled (the user, 2026-10-24: text in
-// the Downloads menu "jumps down slightly"; measured: a last step of 0.85 px after steps of 0.2-0.4). Continuous, it
-// settles by 0.05 px.
-/** A move in whole pixels. */
-export const px = (v: number) => `${Math.round(v)}px`;
+// Moves are continuous, ending at exactly 0 (nothing is left between pixels to snap when they stop), and a scale
+// counts as done once it's within half a pixel of the element's size. (2026-10-23 to 25 they went in whole pixels,
+// against text shifting as a motion ended - but then a short move's last pixel came late, on its own: a drop just as
+// it had settled. Seen again and again in motion recordings - the Downloads menu, Settings sections, the Downloads
+// tabs' panels; the user: text "jumps down slightly". Continuous, the last steps shrink to hundredths of a pixel.)
+/** A move, in px. */
+export const px = (v: number) => `${v}px`;
 /** An element's larger side (for settle). */
 export const sizeOf = (node: Element) => {
   const r = (node as HTMLElement).getBoundingClientRect();
@@ -28,7 +26,7 @@ export const sizeOf = (node: Element) => {
 /** A scale that is 1 once the difference is under half a pixel on an element that big. */
 export const settle = (s: number, size: number) => (Math.abs(1 - s) * size < 0.5 ? 1 : s);
 
-/** Like Svelte's fly, in whole pixels: from x / y away (and opacity), to where it is. */
+/** Like Svelte's fly: from x / y away (and opacity), to where it is. */
 export function glide(
   node: Element,
   { x = 0, y = 0, duration = 200, delay = 0, easing = cubicOut, opacity = 0 }: { x?: number; y?: number; duration?: number; delay?: number; easing?: (t: number) => number; opacity?: number } = {},

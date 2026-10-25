@@ -151,6 +151,81 @@ test('motion', async ({ page, browser, baseURL }, info) => {
     }
   }
 
+  // ---- every other page: Downloads, Duplicates, a video, Browse, Rankings, Tags' list
+  const post = (url: string, body: unknown) =>
+    page.evaluate(([u, b]) => fetch(u as string, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then((r) => r.json()), [url, body] as const);
+  // (paused at once: a running one's stripes and the top bar's bobbing arrow never let the screen be still)
+  const dls: number[] = [];
+  for (const q of ['slow_a', 'slow_b', 'slow_c']) dls.push((await post('/api/downloads', { site: 'test-slow', query: q, max_posts: 0 })).id);
+  for (const id of dls) await post(`/api/downloads/${id}/pause`, {});
+  dls.push((await post('/api/downloads', { site: 'test-down', query: 'down_a', max_posts: 0 })).id);
+  await page.goto('/downloads');
+  await settle();
+  const queue = page.locator('section.card', { has: page.getByRole('heading', { name: 'Queue' }) });
+  await record(page, 'd-dl-stack-open', () => queue.getByRole('button', { name: /^Show all/ }).first().click());
+  await record(page, 'd-dl-stack-close', () => queue.getByRole('button', { name: 'Show less' }).first().click());
+  await record(page, 'd-dl-stack-hover', () => queue.locator('.unfold').first().hover());
+  await page.mouse.move(5, 300);
+  await settle();
+  await record(page, 'd-dl-tab-subs', () => page.getByRole('tab', { name: /^Subscriptions/ }).click());
+  await record(page, 'd-dl-tab-history', () => page.getByRole('tab', { name: /^History/ }).click());
+  await record(page, 'd-dl-tab-queue', () => page.getByRole('tab', { name: /^Queue/ }).click());
+  await record(page, 'd-dl-repeat', () => page.getByRole('button', { name: 'Repeat' }).click());
+  await record(page, 'd-dl-repeat-pick', () => page.getByRole('option', { name: 'Every day' }).click()); // (the subscription's options open)
+  await record(page, 'd-dl-repeat-back', async () => {
+    await page.getByRole('button', { name: 'Repeat' }).click();
+    await page.waitForTimeout(300);
+    await page.getByRole('option', { name: 'Once' }).click();
+  });
+  await record(page, 'd-dl-menu-open', () => page.locator('header.topbar button.dl').click());
+  await record(page, 'd-dl-menu-close', () => page.keyboard.press('Escape'));
+  for (const id of dls) await post(`/api/downloads/${id}/remove`, {});
+  await page.evaluate(() => localStorage.setItem('vitrine.dupeLevel', '6')); // (Very similar: the test library has no exact copies)
+  await page.goto('/duplicates');
+  await settle();
+  await record(page, 'd-dupes-flip', () => page.getByRole('tab', { name: 'Flip' }).click());
+  await record(page, 'd-dupes-switch', () => page.getByRole('button', { name: /Switch between A and B/ }).click());
+  await record(page, 'd-dupes-side', () => page.getByRole('tab', { name: 'Side by side' }).click());
+  await record(page, 'd-dupes-skip', () => page.getByRole('button', { name: /^Skip/ }).click());
+  await record(page, 'd-dupes-level', () => page.getByRole('button', { name: /How alike/i }).click());
+  await record(page, 'd-dupes-level-close', () => page.keyboard.press('Escape'));
+  await page.goto('/?q=system:type%3Dvideo');
+  await settle();
+  await page.locator('.tile').first().click();
+  await page.waitForTimeout(900);
+  await record(page, 'd-video-pause', () => page.keyboard.press('k'));
+  await record(page, 'd-video-play', () => page.keyboard.press('k'));
+  await record(page, 'd-video-seek', () => page.keyboard.press('ArrowRight'));
+  await record(page, 'd-video-close', () => page.keyboard.press('Escape'));
+  // Browse (a gallery site answered here)
+  const gallery = (id: number, title: string) => ({ id, token: 'abcdef0123', url: `https://g.test/g/${id}/abcdef0123/`, title, category: 'Manga', pages: 10, tags: [] });
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
+  await page.route('**/api/browse?*', (r) => r.fulfill({ json: { galleries: [1, 2, 3, 4, 5].map((i) => gallery(i, `Gallery ${i}`)), total: 5, next: 0 } }));
+  await page.goto('/browse');
+  await settle();
+  await record(page, 'd-browse-search', async () => {
+    const box = page.locator('.browse').getByRole('combobox', { name: 'Search' });
+    await box.fill('blue_sky');
+    await box.press('Enter');
+  });
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  // Rankings (the I came button on for it)
+  await post('/api/settings', { cameButton: true });
+  await page.goto('/rankings');
+  await settle();
+  for (const r of await page.getByRole('radio').all()) {
+    const label = ((await r.textContent()) ?? '').trim().replace(/\W+/g, '-').toLowerCase();
+    if (label) await record(page, `d-rankings-${label}`, () => r.click());
+  }
+  await post('/api/settings', { cameButton: false });
+  // Tags' list: filtering it
+  await page.goto('/tags/all');
+  await settle();
+  await record(page, 'd-tags-filter', async () => {
+    await page.locator('.content input').first().fill('blue');
+  });
+  await record(page, 'd-tags-filter-clear', () => page.locator('.content input').first().fill(''));
+
   // ---- a phone (Chromium with a phone's screen and touch)
   const phone = await browser.newContext({ ...devices['Pixel 7'], baseURL, locale: 'en-US' });
   const p = await phone.newPage();
@@ -170,5 +245,20 @@ test('motion', async ({ page, browser, baseURL }, info) => {
   await record(p, 'p-filters-close', () => p.goBack());
   await record(p, 'p-bell', () => p.locator('header.topbar .bell').tap());
   await record(p, 'p-bell-close', () => p.goBack());
+  // Phones: a section and back, Downloads' tabs and a dropdown's sheet, a comic
+  await p.goto('/settings');
+  await p.waitForTimeout(600);
+  await record(p, 'p-settings-section', () => p.locator('nav.side button.section').first().tap());
+  await record(p, 'p-settings-back', () => p.locator('.content button.back').first().tap());
+  await p.goto('/downloads');
+  await p.waitForTimeout(800);
+  await record(p, 'p-dl-tab-subs', () => p.getByRole('tab', { name: /^Subscriptions/ }).tap());
+  await record(p, 'p-dl-tab-queue', () => p.getByRole('tab', { name: /^Queue/ }).tap());
+  await record(p, 'p-dropdown-sheet', () => p.getByRole('button', { name: 'Repeat' }).tap());
+  await record(p, 'p-dropdown-sheet-close', () => p.locator('.backdrop').last().tap({ position: { x: 200, y: 100 } }));
+  await p.goto('/comics');
+  await p.waitForTimeout(800);
+  await record(p, 'p-comic-open', () => p.locator('.tile').first().tap());
+  await record(p, 'p-comic-close', () => p.goBack());
   await phone.close();
 });

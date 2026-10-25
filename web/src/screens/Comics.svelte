@@ -270,15 +270,16 @@
     clearTimeout(refreshTimer);
     refreshTimer = window.setTimeout(() => lastSave.finally(() => results.refresh()), 400); // (lastSave as it is then)
   }
-  function closeReader(tries = 0) {
+  /** popped: the reader closed by Back (its address gone already) - the same close, without stepping back. */
+  function closeReader(tries = 0, popped: number | null = null) {
     // A menu or the details just closed (touch: they step back in history a moment later): after that
     // step, or the reader's own step back would only undo theirs.
-    if (history.state?.layer && tries < 20) {
+    if (popped === null && history.state?.layer && tries < 20) {
       if (tries >= 4) history.back(); // (one left behind - two closed at once: stepped back here)
       setTimeout(() => closeReader(tries + 1), 30);
       return;
     }
-    const id = openID;
+    const id = popped ?? openID;
     details = null; // (its details go with it, as the viewer's do)
     closing = true;
     const shot = id !== null && !reducedMotion() ? shownPage() : null;
@@ -321,10 +322,23 @@
       });
     }
     refreshAfterReading();
-    if (openedHere) history.back();
-    else router.go('comics');
+    if (popped === null) {
+      if (openedHere) history.back();
+      else router.go('comics');
+    }
     openedHere = false;
   }
+  // Back (a phone's, the browser's): the reader's address goes, and the reader with it - closed the same way, its
+  // cover flying back to the tile (it vanished at once - seen in a motion recording). Before the reader is taken
+  // away: its page is where the cover starts.
+  let readingWas: number | null = null;
+  $effect.pre(() => {
+    const now = openID;
+    untrack(() => {
+      if (readingWas !== null && now === null && !closing) closeReader(0, readingWas);
+      readingWas = now;
+    });
+  });
   // Where reading stopped (from the reader itself: closing it needs no reload).
   function onRead(id: number, page: number, saving: Promise<unknown>) {
     const f = results.file(id);

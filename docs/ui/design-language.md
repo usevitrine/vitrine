@@ -202,7 +202,14 @@ Palette: https://catppuccin.com/palette
   list so the overlays don't blink when it ends), the flying copy's square corners became the tile's round ones at
   once (lib/hero `radius`, from Grid's `tileRadius`), and the viewer's still swapped its thumbnail for the sharp
   picture at once (the thumbnail was the picture's own background - now a layer under it, the picture fading in over
-  it once decoded, and on opening once the viewer shows; the copy lands on whole pixels: `snap`).
+  it once decoded, and on opening once the viewer shows; the copy lands on whole pixels: `snap`). Round three, every
+  page (Downloads' stacks, tabs and form, Duplicates, a video, Browse, Rankings, Tags' list; on a phone sections,
+  tabs, a dropdown's sheet, the reader): moves are continuous everywhere now (`px` no longer rounds - a short
+  move's last pixel kept coming late: the Downloads tabs' panels, sections), a page change cross-fades (the new
+  screen fades in over the one left, which stays under it for 200 ms - its own layer group, inert and hidden from
+  screen readers, so its header can't show over the new page; App `leaving`), Duplicates' next pair fades in over
+  the last one held where it was, and the reader closed by Back flies its cover home as its close button does (it
+  vanished at once).
 - **Custom dropdowns (2026-10-14)**: `components/Dropdown.svelte` (on phones a sheet along the bottom like every menu there -
   2026-10-25, the user: "on mobile all dropdowns should be the sheet"; its title is the heading or the label, a touch
   doesn't move the highlight, `data-floating` so a sheet under it keeps its presses) - a

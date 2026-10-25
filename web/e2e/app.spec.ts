@@ -782,7 +782,7 @@ test('blacklist: add tags, see matching files, show them, delete and undo', asyn
   await expect(panel.getByText(/red 2/)).toBeVisible();
 
   await panel.getByRole('button', { name: 'Show them' }).click();
-  await expect(page.getByText(/^2 files/)).toBeVisible();
+  await expect(page.locator('header.topbar').getByText(/^2 files/)).toBeVisible(); // (the Tags page fades under the library a moment)
   await expect(page.locator('.chip')).toContainText('OR');
 
   await page.goto('/tags/rules');
@@ -4324,7 +4324,7 @@ test('library: the download button - this search or another, the site, the searc
   await dlg.getByRole('button', { name: 'Repeat' }).click();
   const list = page.getByRole('listbox', { name: 'Repeat' });
   const last = list.getByRole('option', { name: 'Every week' });
-  await expect(last).toBeVisible();
+  await expect(last).toBeInViewport({ ratio: 1 }); // (phones: a sheet - once it has slid up)
   expect(await dlg.evaluate((el) => el.scrollTop)).toBe(0); // (the dialog made room for it by scrolling: its title went)
   await expect(dlg.getByRole('heading')).toBeInViewport();
   expect(await last.evaluate((el) => {

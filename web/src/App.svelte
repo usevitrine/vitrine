@@ -70,6 +70,24 @@
   // The navigation lives in a drawer behind the menu button in the top bar (on
   // every device, like hydrus-web), so the screens get the whole width.
   let drawer = $state(false);
+  // Going to another page: the new one fades in over the one left, which stays under it for that moment (2026-10-25:
+  // the old page went and the new one came in one frame - seen in a motion recording). Screens are stacked, so they
+  // can cross.
+  let leaving = $state<string | null>(null);
+  let shownScreen = router.screen;
+  let leaveTimer = 0;
+  $effect(() => {
+    const now = router.screen;
+    untrack(() => {
+      if (now === shownScreen) return;
+      leaving = matchMedia('(prefers-reduced-motion: reduce)').matches ? null : shownScreen;
+      shownScreen = now;
+      clearTimeout(leaveTimer);
+      leaveTimer = window.setTimeout(() => (leaving = null), 200);
+    });
+  });
+  /** A screen to have on the page: the one shown, or the one just left (under the new one as it fades in). */
+  const onPage = (s: string) => router.screen === s || leaving === s;
   // The trash's counts in the menu (the user): read each time it opens - deletes elsewhere don't update them.
   $effect(() => {
     if (drawer) untrack(() => trash.load());
@@ -375,18 +393,18 @@
 
     <main class="main">
       <!-- The library stays mounted, so switching screens keeps its scroll position and results. -->
-      <div class="screen" hidden={router.screen !== 'library'}><Library /></div>
+      <div class="screen" class:entering={!!leaving && router.screen === 'library'} class:leaving={leaving === 'library'} inert={leaving === 'library' || undefined} aria-hidden={leaving === 'library' || undefined} hidden={!onPage('library')}><Library /></div>
       <!-- Comics too, once opened (its search, scroll position and grid stay). -->
-      {#if comicsOpened}<div class="screen" hidden={router.screen !== 'comics'}><Comics /></div>{/if}
+      {#if comicsOpened}<div class="screen" class:entering={!!leaving && router.screen === 'comics'} class:leaving={leaving === 'comics'} inert={leaving === 'comics' || undefined} aria-hidden={leaving === 'comics' || undefined} hidden={!onPage('comics')}><Comics /></div>{/if}
       <!-- Browse too, once opened (its search and results stay). -->
-      {#if browseOpened && lazy.browse}{@const Browse = lazy.browse}<div class="screen" hidden={router.screen !== 'browse'}><Browse /></div>{/if}
-      {#if router.screen === 'downloads' && lazy.downloads}{@const Downloads = lazy.downloads}<div class="screen"><Downloads /></div>{/if}
-      {#if router.screen === 'tags' && lazy.tags}{@const Tags = lazy.tags}<div class="screen"><Tags /></div>{/if}
-      {#if router.screen === 'duplicates' && lazy.duplicates}{@const Duplicates = lazy.duplicates}<div class="screen"><Duplicates /></div>{/if}
-      {#if router.screen === 'rankings' && !settings.sfwMode && lazy.rankings}{@const Rankings = lazy.rankings}<div class="screen"><Rankings /></div>{/if}
-      {#if router.screen === 'settings' && lazy.settings}
+      {#if browseOpened && lazy.browse}{@const Browse = lazy.browse}<div class="screen" class:entering={!!leaving && router.screen === 'browse'} class:leaving={leaving === 'browse'} inert={leaving === 'browse' || undefined} aria-hidden={leaving === 'browse' || undefined} hidden={!onPage('browse')}><Browse /></div>{/if}
+      {#if onPage('downloads') && lazy.downloads}{@const Downloads = lazy.downloads}<div class="screen" class:entering={!!leaving && router.screen === 'downloads'} class:leaving={leaving === 'downloads'} inert={leaving === 'downloads' || undefined} aria-hidden={leaving === 'downloads' || undefined}><Downloads /></div>{/if}
+      {#if onPage('tags') && lazy.tags}{@const Tags = lazy.tags}<div class="screen" class:entering={!!leaving && router.screen === 'tags'} class:leaving={leaving === 'tags'} inert={leaving === 'tags' || undefined} aria-hidden={leaving === 'tags' || undefined}><Tags /></div>{/if}
+      {#if onPage('duplicates') && lazy.duplicates}{@const Duplicates = lazy.duplicates}<div class="screen" class:entering={!!leaving && router.screen === 'duplicates'} class:leaving={leaving === 'duplicates'} inert={leaving === 'duplicates' || undefined} aria-hidden={leaving === 'duplicates' || undefined}><Duplicates /></div>{/if}
+      {#if onPage('rankings') && !settings.sfwMode && lazy.rankings}{@const Rankings = lazy.rankings}<div class="screen" class:entering={!!leaving && router.screen === 'rankings'} class:leaving={leaving === 'rankings'} inert={leaving === 'rankings' || undefined} aria-hidden={leaving === 'rankings' || undefined}><Rankings /></div>{/if}
+      {#if onPage('settings') && lazy.settings}
         {@const Settings = lazy.settings}
-        <div class="screen"><Settings user={session.user ?? ''} onLoggedOut={() => (session = { ...session!, logged_in: false })} /></div>
+        <div class="screen" class:entering={!!leaving && router.screen === 'settings'} class:leaving={leaving === 'settings'} inert={leaving === 'settings' || undefined} aria-hidden={leaving === 'settings' || undefined}><Settings user={session.user ?? ''} onLoggedOut={() => (session = { ...session!, logged_in: false })} /></div>
       {/if}
     </main>
   </div>
@@ -436,6 +454,21 @@
     position: absolute;
     inset: 0;
     overflow: hidden;
+  }
+  /* (the page left: under it, everything in it - its own header too - kept under the page come to) */
+  .screen.leaving {
+    z-index: 0;
+  }
+  /* (the page come to: over the one left, fading in) */
+  .screen.entering {
+    z-index: 1;
+    background: var(--base);
+    animation: screen-in 0.18s ease-out both;
+  }
+  @keyframes screen-in {
+    from {
+      opacity: 0;
+    }
   }
 
   /* The top bar: menu button, logo, and the shown screen's controls. It
