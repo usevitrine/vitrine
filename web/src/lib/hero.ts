@@ -20,6 +20,14 @@ export function fitContain(w: number, h: number, box: Rect): Rect {
   return { x: box.x + (box.w - fw) / 2, y: box.y + (box.h - fh) / 2, w: fw, h: fh };
 }
 
+/** A rect on whole pixels (its edges rounded), as the browser draws a fitted picture: a copy landing between pixels
+ *  met the real picture a pixel apart at its edges as it gave way to it. */
+export function snap(r: Rect): Rect {
+  const x = Math.round(r.x);
+  const y = Math.round(r.y);
+  return { x, y, w: Math.round(r.x + r.w) - x, h: Math.round(r.y + r.h) - y };
+}
+
 export function rectOf(el: Element): Rect {
   const r = el.getBoundingClientRect();
   return { x: r.left, y: r.top, w: r.width, h: r.height };
@@ -58,6 +66,9 @@ export async function hero(opts: {
   above?: boolean;
   /** Waits for this (at most 800 ms) once it has arrived, before what's under it is shown (with fade). */
   hold?: Promise<unknown>;
+  /** Its corners' radius at the start and the end (px): a tile's rounded corners (2026-10-25: the copy flew square
+   *  and the tile's corners came at once as it landed - seen in a motion recording). */
+  radius?: [number, number];
 }): Promise<void> {
   const { from, to, backdrop } = opts;
   const duration = opts.duration ?? 280;
@@ -76,6 +87,7 @@ export async function hero(opts: {
   const steps = 24;
   const boxes: Rect[] = [];
   const outer: Keyframe[] = [];
+  const corners: Keyframe[] = [];
   for (let i = 0; i <= steps; i++) {
     const e = ease(i / steps);
     const box = {
@@ -86,6 +98,11 @@ export async function hero(opts: {
     };
     boxes.push(box);
     outer.push({ offset: i / steps, transform: `translate(${box.x}px, ${box.y}px) scale(${box.w / to.w}, ${box.h / to.h})` });
+    // (in the frame's own px, scaled with it: as round on screen at each step)
+    if (opts.radius) {
+      const r = opts.radius[0] + (opts.radius[1] - opts.radius[0]) * e;
+      corners.push({ offset: i / steps, borderRadius: `${r / (box.w / to.w)}px / ${r / (box.h / to.h)}px` });
+    }
   }
   // A picture at its own shape (base size: as wide as the end box), covering the moving box at each step.
   function picture(p: HeroPicture) {
@@ -131,6 +148,7 @@ export async function hero(opts: {
   await Promise.race([Promise.all(decoded), new Promise((r) => setTimeout(r, 80))]);
 
   const a = frame.animate(outer, { duration, fill: 'forwards' });
+  if (corners.length) frame.animate(corners, { duration, fill: 'forwards' }); // (apart: the move stays on the compositor)
   main.el.animate(main.frames, { duration, fill: 'forwards' });
   if (into) {
     into.el.animate(into.frames, { duration, fill: 'forwards' });

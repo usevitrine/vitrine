@@ -1001,6 +1001,13 @@
     el?.scrollTo({ top: 0, behavior: instant || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }
 
+  /** The rounded corners of the tile at index (px; 0 when square or not on screen) - a picture flying to or from it
+   *  rounds or squares its corners on the way. */
+  export function tileRadius(index: number): number {
+    const t = el?.querySelector<HTMLElement>(`.tile[data-i="${index}"]`);
+    return t ? parseFloat(getComputedStyle(t).borderTopLeftRadius) || 0 : 0;
+  }
+
   /** Where the tile at index is on screen, if it is (for the viewer's open/close animation). peek: only
    *  looking (a hover's card stays - else the animation takes over from it and it goes back). */
   export function tileRect(index: number, peek = false): { x: number; y: number; w: number; h: number } | null {
@@ -1685,11 +1692,18 @@
   .tile:not(.selected):has(.fit > :global(img.in), .mosaic :global(img.in)) {
     background: none !important;
   }
-  /* Back after the viewer or reader closed (the picture landed on it): its overlays fade in. */
+  /* Back after the viewer or reader closed (the picture landed on it): its overlays fade in. (An animation of its own
+     name: a comic's overlays had run overlay-in when their cover came, and the same animation again doesn't play
+     again - they appeared at once as the reader's cover landed, seen in a motion recording.) */
   .tile.landed :is(.comic-foot, .comic-status, .comic-progress, .deck, .badge, .fav-badge, .new-badge) {
-    animation: overlay-in 0.3s ease-out both;
+    animation: overlay-land 0.3s ease-out both;
   }
   @keyframes overlay-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes overlay-land {
     from {
       opacity: 0;
     }
@@ -1702,8 +1716,17 @@
   .tile:has(.fit > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress) {
     animation: overlay-in 0.3s ease-out both;
   }
+  /* (landed, after the rule above and as weighty: it lost to it - a comic's overlays came at once. overlay-in stays
+     in the list, done: when landed goes, an animation list without it started it again - the overlays blinked out
+     and faded in a second time) */
+  .tile.landed:has(.fit > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress) {
+    animation:
+      overlay-in 0.3s ease-out both,
+      overlay-land 0.3s ease-out both;
+  }
   @media (prefers-reduced-motion: reduce) {
-    .tile:has(.fit > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress) {
+    .tile:has(.fit > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress),
+    .tile.landed:has(.fit > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress) {
       animation: none;
     }
   }

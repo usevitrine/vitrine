@@ -88,6 +88,43 @@ test('motion', async ({ page, browser, baseURL }, info) => {
   await record(page, 'd-new-download-close', () => page.keyboard.press('Escape'));
   await settle();
   // Other pages
+  // Selecting, a chip's editor, a notice with Undo, a comic, a dialog
+  await page.goto('/');
+  await settle();
+  await record(page, 'd-select', () => page.locator('.tile').nth(1).click({ modifiers: ['Control'] }));
+  await record(page, 'd-select-more', () => page.locator('.tile').nth(3).click({ modifiers: ['Control'] }));
+  await record(page, 'd-select-clear', () => page.keyboard.press('Escape'));
+  await page.goto('/?q=blue_sky');
+  await settle();
+  await record(page, 'd-chip-editor', () => page.locator('.bar .chip').first().click());
+  await record(page, 'd-chip-editor-close', () => page.keyboard.press('Escape'));
+  await page.goto('/');
+  await settle();
+  await page.locator('.tile').nth(4).click({ button: 'right' });
+  await page.waitForTimeout(300);
+  await record(page, 'd-confirm', () => page.getByRole('menuitem', { name: /^Delete/ }).first().click());
+  await record(page, 'd-toast', () => page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click());
+  await record(page, 'd-toast-undo', () => page.locator('.toast button', { hasText: 'Undo' }).first().click(), { still: 800 });
+  await page.goto('/comics');
+  await settle();
+  await record(page, 'd-comic-open', () => page.locator('.tile').first().click());
+  await record(page, 'd-comic-close', () => page.keyboard.press('Escape'));
+  const gone = await page.evaluate(async () => {
+    const r = await (await fetch('/api/search?q=&limit=1')).json().catch(() => null);
+    const id = r?.ids?.[0] ?? r?.files?.[0]?.id;
+    if (id) await fetch('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [id] }) });
+    return id;
+  });
+  await page.goto('/trash');
+  await settle();
+  await page.locator('.tile').first().click({ button: 'right' });
+  await page.waitForTimeout(300);
+  await record(page, 'd-dialog', () => page.getByRole('menuitem', { name: /forever/i }).first().click());
+  await record(page, 'd-dialog-close', () => page.keyboard.press('Escape'));
+  if (gone) await page.evaluate((id) => fetch('/api/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [id] }) }), gone);
+  await page.goto('/');
+  await settle();
+
   // Other pages, from the menu
   for (const [name, entry] of [
     ['d-page-tags', 'Tags'],

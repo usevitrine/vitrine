@@ -195,6 +195,7 @@
     }
     // From the tile as it is now (zoomed by a hover: the card) - the tile itself is what flies: it's hidden meanwhile.
     const from = grid?.tileRect(i);
+    const round = grid?.tileRadius(i) ?? 0;
     if (!from) return read(c.id, fromStart);
     heroing = true;
     heroId = c.id;
@@ -216,7 +217,7 @@
     }
     // The tile's cover (cropped as there) turns into that page on the way (a cover opened: the whole cover).
     const into = page.thumb !== c.thumb || c.crop?.length === 4 ? { src: page.thumb, aspect: page.w / page.h } : undefined;
-    await hero({ ...coverPicture(c), from, to, into, backdrop: [0, 1], fade: 380, hold: ready, above: true });
+    await hero({ ...coverPicture(c), from, to, into, backdrop: [0, 1], fade: 380, hold: ready, above: true, radius: [round, 0] });
     heroing = false;
     heroId = undefined;
   }
@@ -310,7 +311,7 @@
           const c = results.file(id)?.comic;
           const into = c?.thumb && c.cover_w && c.cover_h ? coverPicture(c) : undefined;
           // (the flight is in place at once: the still copy goes then)
-          const flight = to ? hero({ src: shot.src, aspect: shot.rect.w / shot.rect.h, from: shot.rect, to, into, backdrop: [fade, 0], duration: 260 }) : null;
+          const flight = to ? hero({ src: shot.src, aspect: shot.rect.w / shot.rect.h, from: shot.rect, to, into, backdrop: [fade, 0], duration: 260, radius: [0, grid?.tileRadius(i) ?? 0] }) : null;
           still.remove();
           await flight;
         }

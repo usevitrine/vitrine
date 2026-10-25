@@ -236,7 +236,7 @@ test('tall and wide images fit the viewer', async ({ page }) => {
   for (const q of ['system:height>2000', 'system:width>3000']) {
     await page.goto('/?q=' + encodeURIComponent(q));
     await page.locator('.tile').first().click();
-    const img = page.locator('.viewer .slide[data-slot="1"] img');
+    const img = page.locator('.viewer .slide[data-slot="1"] img:not(.under)');
     await expect(img).toBeVisible();
     const b = (await img.boundingBox())!;
     const vp = page.viewportSize()!;
@@ -325,7 +325,7 @@ test('video gestures: double-tap seeks, hold plays at 2x, tap hides controls', a
 
 /** The current image's zoom scale (1 = not zoomed). */
 async function imageScale(page: Page) {
-  return page.locator('.viewer .slide[data-slot="1"] img').evaluate((img) => {
+  return page.locator('.viewer .slide[data-slot="1"] img:not(.under)').evaluate((img) => {
     const t = getComputedStyle(img).transform;
     return t === 'none' ? 1 : new DOMMatrix(t).a;
   });
@@ -408,7 +408,7 @@ test('a mouse: moving to the next file is instant (no slide); a click on a video
 test('images: pinch zooms (two touch pointers)', async ({ page }) => {
   await page.goto('/?q=system:type%3Dimage');
   await page.locator('.tile').first().click();
-  await expect(page.locator('.viewer .slide[data-slot="1"] img')).toBeVisible();
+  await expect(page.locator('.viewer .slide[data-slot="1"] img:not(.under)')).toBeVisible();
   await page.locator('.stage').evaluate((stage) => {
     const r = stage.getBoundingClientRect();
     const cx = r.left + r.width / 2;
@@ -510,7 +510,7 @@ test('desktop: a trackpad - two fingers sideways follow, then go on (one file pe
   await expect.poll(() => imageScale(page)).toBeGreaterThan(1.5);
   await page.waitForTimeout(500);
   const scale = await imageScale(page);
-  const at = () => page.locator('.viewer .slide[data-slot="1"] img').evaluate((el) => el.getBoundingClientRect().left);
+  const at = () => page.locator('.viewer .slide[data-slot="1"] img:not(.under)').evaluate((el) => el.getBoundingClientRect().left);
   const before = await at();
   await page.locator('.stage').evaluate((el) => {
     for (let k = 0; k < 6; k++) el.dispatchEvent(new WheelEvent('wheel', { deltaX: -10, deltaY: 0, bubbles: true, cancelable: true }));
@@ -655,11 +655,11 @@ test('viewer: the next image keeps its element (no reload flash) and fast moves 
   await expect(page.getByText(/^1 \/ /)).toBeVisible();
 
   // Mark the preloaded next image, move, and check the current image is that same element.
-  await page.locator('.viewer .slide[data-slot="2"] img').evaluate((img) => ((img as any).__marker = 'next'));
+  await page.locator('.viewer .slide[data-slot="2"] img:not(.under)').evaluate((img) => ((img as any).__marker = 'next'));
   await page.keyboard.press('ArrowRight');
   await expect(page.getByText(/^2 \/ /)).toBeVisible();
   await expect
-    .poll(() => page.locator('.viewer .slide[data-slot="1"] img').evaluate((img) => (img as any).__marker ?? null))
+    .poll(() => page.locator('.viewer .slide[data-slot="1"] img:not(.under)').evaluate((img) => (img as any).__marker ?? null))
     .toBe('next');
 
   // Four quick moves in a row all count (a move in progress is finished, not ignored).
@@ -1491,10 +1491,10 @@ test('a file being viewed stays on screen when files arrive', async ({ page }) =
   await page.goto('/');
   await page.locator('.tile').nth(3).click();
   await expect(page.getByText('4 / 26')).toBeVisible();
-  const src = await page.locator('.viewer .slide[data-slot="1"] img').getAttribute('style');
+  const src = await page.locator('.viewer .slide[data-slot="1"] img:not(.under)').getAttribute('style');
   await arrive();
   await expect(page.getByText('6 / 26')).toBeVisible(); // the same file, now two places later
-  expect(await page.locator('.viewer .slide[data-slot="1"] img').getAttribute('style')).toBe(src);
+  expect(await page.locator('.viewer .slide[data-slot="1"] img:not(.under)').getAttribute('style')).toBe(src);
   await expect.poll(() => new URL(page.url()).searchParams.get('i')).toBe('5');
 });
 
@@ -3127,10 +3127,10 @@ test('viewer: the next still image is decoded in the background first (its slide
     await route.continue();
   });
   await page.locator('.tile[data-i="0"]').click();
-  const nextImg = page.locator('.viewer .slide[data-slot="2"] img');
+  const nextImg = page.locator('.viewer .slide[data-slot="2"] img:not(.under)');
   await expect(nextImg).toHaveCount(1);
   expect(await nextImg.getAttribute('src')).toMatch(/^data:/); // not until decoded (a transparent pixel): the thumbnail shows
-  await expect(nextImg).toHaveCSS('background-image', /thumbs/);
+  await expect(page.locator('.viewer .slide[data-slot="2"] img.under')).toHaveAttribute('src', /thumbs/); // (under it, until it has faded in)
   release();
   await expect(nextImg).toHaveAttribute('src', /\/files\//); // decoded: the full picture
   await page.unroute('**/files/**');
@@ -3159,7 +3159,7 @@ test('viewer: a big image shows at the screen\'s size; zooming in switches to th
   test.skip(test.info().project.name !== 'desktop-chromium', 'one run is enough');
   await page.goto('/?q=' + encodeURIComponent('system:width>3000'));
   await page.locator('.tile').first().click();
-  const img = page.locator('.viewer .slide[data-slot="1"] img');
+  const img = page.locator('.viewer .slide[data-slot="1"] img:not(.under)');
   await expect(img).toHaveAttribute('src', /[?&]size=\d+/); // a screen-sized copy
   const box = (await page.locator('.stage').boundingBox())!;
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // a click zooms in (to 100 %)
@@ -3827,7 +3827,7 @@ test('phones: a zoomed picture keeps gliding after a flick, then stops', async (
   await expect.poll(() => imageScale(page)).toBeGreaterThan(1.5);
   await page.waitForTimeout(400); // the zoom animation done
   const tx = () =>
-    page.locator('.viewer .slide[data-slot="1"] img').evaluate((img) => new DOMMatrix(getComputedStyle(img).transform).e);
+    page.locator('.viewer .slide[data-slot="1"] img:not(.under)').evaluate((img) => new DOMMatrix(getComputedStyle(img).transform).e);
   // A quick flick to the right with one finger.
   await page.locator('.stage').evaluate(async (stage) => {
     const r = stage.getBoundingClientRect();
@@ -3856,7 +3856,7 @@ test('pinching smaller than the fit gives a little, then springs back', async ({
   test.skip(test.info().project.name !== 'iphone', 'touch');
   await page.goto('/?q=system:type%3Dimage');
   await page.locator('.tile').first().click();
-  await expect(page.locator('.viewer .slide[data-slot="1"] img')).toBeVisible();
+  await expect(page.locator('.viewer .slide[data-slot="1"] img:not(.under)')).toBeVisible();
   const stage = page.locator('.stage');
   const pinch = (from: number, to: number, up: boolean) =>
     stage.evaluate(
@@ -3919,7 +3919,7 @@ test('a mouse on a zoomed picture: the wheel zooms (down to the fit, not into th
   await expect.poll(() => imageScale(page)).toBeGreaterThan(at100);
 
   // Middle button held: pans, and doesn't close.
-  const tx = () => page.locator('.viewer .slide[data-slot="1"] img').evaluate((img) => new DOMMatrix(getComputedStyle(img).transform).e);
+  const tx = () => page.locator('.viewer .slide[data-slot="1"] img:not(.under)').evaluate((img) => new DOMMatrix(getComputedStyle(img).transform).e);
   const before = await tx();
   await page.mouse.move(cx, cy);
   await page.mouse.down({ button: 'middle' });
@@ -3945,14 +3945,14 @@ test('pinching near an edge: the picture follows the fingers smoothly, then sett
   test.skip(test.info().project.name !== 'iphone', 'touch');
   await page.goto('/?q=system:type%3Dimage');
   await page.locator('.tile').first().click();
-  await expect(page.locator('.viewer .slide[data-slot="1"] img')).toBeVisible();
+  await expect(page.locator('.viewer .slide[data-slot="1"] img:not(.under)')).toBeVisible();
   const stage = page.locator('.stage');
   // Fingers spread around a point near the picture's edge on the side where it
   // leaves bars (it's smaller than the screen there), step by step. After each
   // step: where that point is across the picture (0 = one edge, 1 = the other).
   const spots = await stage.evaluate(async (el) => {
     const r = el.getBoundingClientRect();
-    const img = el.querySelector('.slide[data-slot="1"] img') as HTMLImageElement;
+    const img = el.querySelector('.slide[data-slot="1"] img:not(.under)') as HTMLImageElement;
     // The picture itself inside the element (it's fitted in, with bars).
     const pic = () => {
       const b = img.getBoundingClientRect();
@@ -3998,7 +3998,7 @@ test('pinching near an edge: the picture follows the fingers smoothly, then sett
   // screen, else covering it.
   await expect
     .poll(() =>
-      page.locator('.viewer .slide[data-slot="1"] img').evaluate((img: HTMLImageElement) => {
+      page.locator('.viewer .slide[data-slot="1"] img:not(.under)').evaluate((img: HTMLImageElement) => {
         const e = img.getBoundingClientRect();
         const k = Math.min(e.width / img.naturalWidth, e.height / img.naturalHeight);
         const b = { width: img.naturalWidth * k, height: img.naturalHeight * k, left: 0, top: 0 };

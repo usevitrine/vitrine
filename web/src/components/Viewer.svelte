@@ -259,6 +259,16 @@
   // one behind) are decoded in the background (img.decode()); a neighbor gets
   // its full picture only once that's done - until then its thumbnail shows.
   const decoded = new SvelteSet<string>();
+  const fullShown = new SvelteSet<number>(); // files whose picture has faded in over its thumbnail (the thumbnail goes)
+  // Opening (hidden under the flying copy - lib/hero): the open picture waits, and fades in over its thumbnail once
+  // shown - the copy (the thumbnail) gave way to the sharp picture at once, seen in a motion recording.
+  $effect(() => {
+    if (hidden || !cur || !imgSrc(cur, true)) return; // (its picture there: decoded)
+    const id = cur.id;
+    untrack(() => {
+      if (!fullShown.has(id)) setTimeout(() => fullShown.add(id), 260);
+    });
+  });
   const warming = new Map<string, HTMLImageElement>(); // kept alive until done
   const kept: string[] = []; // the most recent, so the decoded set stays small
   function warm(url: string) {
@@ -1066,8 +1076,19 @@
                 </div>
               {/if}
             {:else}
+              {@const src = imgSrc(f, s.slot === 1)}
+              <!-- The thumbnail under it until the picture has faded in over it (then gone: not through a transparent
+                   picture). It was the picture's own background, swapped for the picture at once - seen in a motion
+                   recording. -->
+              {#if f.thumb && !fullShown.has(f.id)}<img class="under" src={f.thumb} alt="" draggable="false" />{/if}
               <img
-                src={imgSrc(f, s.slot === 1) ?? BLANK}
+                src={src ?? BLANK}
+                class:pending={!src || (hidden && s.slot === 1)}
+                onload={() => {
+                  if (!src || (hidden && s.slot === 1)) return; // (shown later: the effect below)
+                  const id = f.id;
+                  setTimeout(() => fullShown.add(id), 260);
+                }}
                 alt=""
                 draggable="false"
                 decoding="async"
@@ -1075,8 +1096,7 @@
                 class:spring={s.slot === 1 && zoomAnimate && zoomSpring}
                 style:transform={s.slot === 1 && zoom.s !== 1
                   ? `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.s})`
-                  : undefined}
-                style:background-image={f.thumb ? `url(${f.thumb})` : undefined} />
+                  : undefined} />
             {/if}
           </div>
         {/each}
@@ -1270,6 +1290,29 @@
      pixel bigger than the video's - trimmed, so it never peeks out around it. */
   .slide img.under {
     clip-path: inset(1px);
+  }
+  /* A still's picture fades in over its thumbnail once decoded (one decoded already shows at once). */
+  .slide img:not(.under) {
+    transition: opacity 0.2s ease-out;
+  }
+  /* (with the zoom's own: this rule outweighs .zoom-anim) */
+  .slide img.zoom-anim:not(.under) {
+    transition:
+      transform 0.22s ease-out,
+      opacity 0.2s ease-out;
+  }
+  .slide img.zoom-anim.spring:not(.under) {
+    transition:
+      transform 0.45s cubic-bezier(0.34, 1.45, 0.64, 1),
+      opacity 0.2s ease-out;
+  }
+  .slide img.pending {
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .slide img:not(.under) {
+      transition: none;
+    }
   }
   .slide video {
     opacity: 0;

@@ -195,7 +195,14 @@ Palette: https://catppuccin.com/palette
   shadow on screen (they went their height, not their shadow's 52 px more: a dark band, then gone at once -
   `lib/sheet` `away`), the search suggestions (no motion at all - now they drop in and fade out), Settings / Tags
   sections (the old one vanished at once - now it fades while the new one comes, in one grid cell), and the top
-  bar's text changing its smoothing after some page changes (now always a layer of its own).
+  bar's text changing its smoothing after some page changes (now always a layer of its own). The second round
+  (selecting, a chip's editor, a delete's confirmation and its notice with Undo, the comic reader, a dialog): a
+  comic's title and chips came at once as the reader's cover landed on its tile (the landed fade had the same
+  animation as the cover's own, which doesn't play again - now `overlay-land`, and it stays after `overlay-in` in the
+  list so the overlays don't blink when it ends), the flying copy's square corners became the tile's round ones at
+  once (lib/hero `radius`, from Grid's `tileRadius`), and the viewer's still swapped its thumbnail for the sharp
+  picture at once (the thumbnail was the picture's own background - now a layer under it, the picture fading in over
+  it once decoded, and on opening once the viewer shows; the copy lands on whole pixels: `snap`).
 - **Custom dropdowns (2026-10-14)**: `components/Dropdown.svelte` - a
   trigger (input-styled with a chevron, or a custom one such as the sort icon) and a floating list in the app's
   style (optional heading, check on the current option, keyboard: arrows/Home/End/Enter/Esc, closes on an outside

@@ -7,7 +7,7 @@
   import Welcome from '../components/Welcome.svelte';
   import { onMount, tick, untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
-  import { fitContain, hero, rectOf, reducedMotion } from '../lib/hero';
+  import { fitContain, snap, hero, rectOf, reducedMotion } from '../lib/hero';
   import { results } from '../lib/results.svelte';
   import { router } from '../lib/router.svelte';
   import { settings } from '../lib/settings.svelte';
@@ -249,6 +249,7 @@
   async function open(i: number, details = false) {
     const f = results.fileAt(i);
     const from = grid?.tileRect(i);
+    const round = grid?.tileRadius(i) ?? 0;
     viewInfo = details;
     if (details || !from || !f?.thumb || !f.width || reducedMotion()) {
       viewing = i;
@@ -258,7 +259,7 @@
     viewing = i;
     await tick();
     const slide = document.querySelector('.viewer .slide[data-slot="1"]');
-    if (slide) await hero({ src: f.thumb, aspect: f.width / f.height, from, to: fitContain(f.width, f.height, rectOf(slide)), backdrop: [0, 1] });
+    if (slide) await hero({ src: f.thumb, aspect: f.width / f.height, from, to: snap(fitContain(f.width, f.height, rectOf(slide))), backdrop: [0, 1], radius: [round, 0] });
     heroing = false;
   }
 
@@ -278,7 +279,7 @@
       grid?.reveal(i);
       await tick();
       const to = grid?.tileRect(i);
-      if (from && to && f?.thumb && !reducedMotion()) await hero({ src: f.thumb, aspect: f.width / f.height, from, to, backdrop: [fade, 0], duration: 260 });
+      if (from && to && f?.thumb && !reducedMotion()) await hero({ src: f.thumb, aspect: f.width / f.height, from, to, backdrop: [fade, 0], duration: 260, radius: [0, grid?.tileRadius(i) ?? 0] });
       if (closingId === f?.id) closingId = undefined; // (landed: the tile again)
     });
   }
