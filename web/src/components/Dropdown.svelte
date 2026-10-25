@@ -1,12 +1,15 @@
 <script lang="ts" generics="T extends string">
   import { glide } from '../lib/motion';
   // A dropdown in Vitrine's own look (the native one doesn't match the design,
-  // least of all on desktop): a trigger button and a floating list. Keyboard:
+  // least of all on desktop): a trigger button and a floating list - on phones a sheet along the bottom, like every
+  // menu there (2026-10-25, the user: "on mobile all dropdowns should be the sheet"). Keyboard:
   // Enter/Space/arrows open it, arrows move, Enter picks, Esc closes.
   import { backClose } from '../lib/backClose';
   import type { Snippet } from 'svelte';
-    import Icon from './Icon.svelte';
+  import Icon from './Icon.svelte';
   import { swallowPress } from '../lib/outside';
+  import { sheetIn, sheetOut, shade } from '../lib/sheet';
+  import { sheetDrag } from '../lib/sheetDrag';
 
   let {
     value,
@@ -31,6 +34,7 @@
   } = $props();
 
   let open = $state(false);
+  let sheet = $state(false); // phones: a sheet (decided on opening)
   let active = $state(0);
   let root = $state<HTMLElement>();
   let button = $state<HTMLButtonElement>();
@@ -48,7 +52,7 @@
   // Floating: placed from the trigger's place on screen, below it (above when there's no room).
   let place = $state<Record<string, string> | null>(null);
   function placeMenu() {
-    if (!floating || !button) return (place = null);
+    if (!floating || !button || sheet) return (place = null);
     const r = button.getBoundingClientRect();
     const h = list?.scrollHeight ?? 0; // known once shown (all of it, not the room it was first given); until then placed below
     const p: Record<string, string> = { 'min-width': `${Math.max(r.width, 200)}px` };
@@ -72,7 +76,7 @@
   });
   // Never past the window's sides (a menu wider than its trigger, near the edge on a phone): moved in.
   $effect(() => {
-    if (!open || !list) return;
+    if (!open || !list || sheet) return;
     void place;
     const el = list;
     el.style.translate = '';
@@ -84,6 +88,7 @@
   });
 
   function show() {
+    sheet = matchMedia('(max-width: 639px)').matches;
     active = Math.max(0, options.findIndex((o) => o.value === value));
     placeMenu();
     open = true;
@@ -142,6 +147,28 @@
   });
 </script>
 
+{#snippet items(title: string)}
+  {#if title}<div class="heading">{title}</div>{/if}
+  {#each options as o, i (o.value)}
+    <div
+      id="{id}-{i}"
+      class="option"
+      class:active={i === active}
+      role="option"
+      tabindex="-1"
+      aria-selected={o.value === value}
+      onpointerenter={(e) => e.pointerType === 'mouse' && (active = i)}
+      onclick={() => pick(i)}
+      onkeydown={() => {}}>
+      <span>{o.label}</span>
+      <span class="option-end">
+        {#if o.meta}<span class="meta">{o.meta}</span>{/if}
+        {#if o.value === value}<Icon name="check" size={16} />{:else if options.some((x) => x.meta)}<span class="check-space"></span>{/if}
+      </span>
+    </div>
+  {/each}
+{/snippet}
+
 <div class="dropdown" bind:this={root}>
   <button
     bind:this={button}
@@ -163,7 +190,37 @@
     {/if}
   </button>
 
-  {#if open}
+  {#if open && sheet}
+    <div {@attach toBody} data-floating=""><!-- (a menu under it - the filters sheet - takes a press here as its own) -->
+      <div
+        class="backdrop"
+        role="presentation"
+        in:shade
+        out:shade={{ out: true }}
+        onpointerdown={(e) => {
+          e.preventDefault();
+          hide(false);
+        }}>
+      </div>
+      <div
+        bind:this={list}
+        {@attach backClose(() => hide(false))}
+        {@attach sheetDrag(() => hide(false))}
+        {id}
+        class="menu sheet"
+        data-sheet=""
+        role="listbox"
+        tabindex="-1"
+        aria-label={label}
+        aria-activedescendant="{id}-{active}"
+        onkeydown={onListKey}
+        in:sheetIn
+        out:sheetOut>
+        <div class="grab-zone" aria-hidden="true"><span></span></div>
+        {@render items(heading || label)}
+      </div>
+    </div>
+  {:else if open}
     <div
       bind:this={list}
       {@attach backClose(() => hide(false))}
@@ -179,25 +236,7 @@
       aria-activedescendant="{id}-{active}"
       onkeydown={onListKey}
       transition:glide={{ y: -4, duration: 120 }}>
-      {#if heading}<div class="heading">{heading}</div>{/if}
-      {#each options as o, i (o.value)}
-        <div
-          id="{id}-{i}"
-          class="option"
-          class:active={i === active}
-          role="option"
-          tabindex="-1"
-          aria-selected={o.value === value}
-          onpointerenter={() => (active = i)}
-          onclick={() => pick(i)}
-          onkeydown={() => {}}>
-          <span>{o.label}</span>
-          <span class="option-end">
-            {#if o.meta}<span class="meta">{o.meta}</span>{/if}
-            {#if o.value === value}<Icon name="check" size={16} />{:else if options.some((x) => x.meta)}<span class="check-space"></span>{/if}
-          </span>
-        </div>
-      {/each}
+      {@render items(heading)}
     </div>
   {/if}
 </div>
@@ -277,6 +316,54 @@
   }
   .menu.end {
     right: 0;
+  }
+  /* Phones: a sheet like every menu there - edge to edge along the bottom, a grab bar (drag down to close), room for
+     the home bar; the page behind dims. */
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgb(17 17 27 / 0.5);
+  }
+  .menu.sheet {
+    position: fixed;
+    z-index: 61;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    min-width: 0;
+    max-width: none;
+    max-height: var(--sheet-max-h);
+    padding: 0 12px calc(30px + var(--bottom-room));
+    border-width: 1px 0 0;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
+  }
+  .menu.sheet .option {
+    min-height: 48px;
+  }
+  /* (a touch isn't a cursor: the chosen one shows by its check and color) */
+  .menu.sheet .option.active {
+    background: none;
+  }
+  .grab-zone {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    height: 22px;
+    margin: 0 -12px;
+    background: var(--mantle);
+    touch-action: none;
+    cursor: grab;
+  }
+  .grab-zone span {
+    width: 38px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--surface2);
   }
   .heading {
     padding: 6px 10px 4px;

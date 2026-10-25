@@ -203,7 +203,9 @@ Palette: https://catppuccin.com/palette
   once (lib/hero `radius`, from Grid's `tileRadius`), and the viewer's still swapped its thumbnail for the sharp
   picture at once (the thumbnail was the picture's own background - now a layer under it, the picture fading in over
   it once decoded, and on opening once the viewer shows; the copy lands on whole pixels: `snap`).
-- **Custom dropdowns (2026-10-14)**: `components/Dropdown.svelte` - a
+- **Custom dropdowns (2026-10-14)**: `components/Dropdown.svelte` (on phones a sheet along the bottom like every menu there -
+  2026-10-25, the user: "on mobile all dropdowns should be the sheet"; its title is the heading or the label, a touch
+  doesn't move the highlight, `data-floating` so a sheet under it keeps its presses) - a
   trigger (input-styled with a chevron, or a custom one such as the sort icon) and a floating list in the app's
   style (optional heading, check on the current option, keyboard: arrows/Home/End/Enter/Esc, closes on an outside
   press). Used for the sort menu (top bar and Settings) and the Downloads site picker; no native `<select>` is left
