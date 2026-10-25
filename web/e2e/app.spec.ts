@@ -161,6 +161,34 @@ test('chip editor: OR alternative', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Edit search chip' }).getByRole('button', { name: /^Included: exclude it/ })).toHaveCount(2);
 });
 
+test('viewer: a video stays on screen, playing, when "I came" or the heart is pressed (its details change)', async ({ page }) => {
+  test.skip(isPhone(page), 'the same code: once');
+  // (settings are shared: put back at the end)
+  const put = (v: object) => page.evaluate((v) => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v) }), v);
+  await page.goto('/');
+  await put({ cameButton: true });
+  try {
+    await page.goto('/?q=' + encodeURIComponent('system:type=video system:has_audio'));
+    await page.locator('.tile').first().click();
+    const video = page.locator('.slide[data-slot="1"] video');
+    await expect(video).toHaveClass(/shown/);
+    const v0 = await video.elementHandle();
+    for (const button of ['button.came', 'button.fav']) {
+      const t0 = await video.evaluate((v: HTMLVideoElement) => v.currentTime);
+      await page.locator('.viewer ' + button).first().click();
+      await page.waitForTimeout(800);
+      // (it was hidden behind its thumbnail while it played on: "the video pauses but the audio keeps playing")
+      await expect(video).toHaveClass(/shown/);
+      await expect(video).toHaveCSS('opacity', '1');
+      expect(await video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(t0);
+      expect(await video.evaluate((v, v0) => v === v0, v0)).toBe(true);
+    }
+    await page.locator('.viewer button.fav').first().click(); // (not a favorite again)
+  } finally {
+    await put({ cameButton: false });
+  }
+});
+
 test('viewer: open, swipe to the next file, swipe down to close', async ({ page }) => {
   await page.goto('/');
   await page.locator('.tile').nth(0).click();

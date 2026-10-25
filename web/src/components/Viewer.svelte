@@ -105,13 +105,22 @@
   // A removed video stops downloading (like hydrus-web): WebKit may otherwise
   // keep fetching a detached element.
   // Opened from a hover card that was playing it: from where the card was (lib/videoHandoff).
-  const resumeFrom = (id: number) => (v: HTMLVideoElement) => {
+  // A video's attachments are made once per file (kept by its ID): one made again re-attaches - the file's details
+  // changed (the "I came" count, a favorite) gave a new one, and the video was hidden behind its thumbnail while it
+  // played on (the user: "the video pauses but the audio keeps playing").
+  const attachments = new Map<string, (v: HTMLVideoElement) => void | (() => void)>();
+  const once = (key: string, make: () => (v: HTMLVideoElement) => void | (() => void)) => {
+    let a = attachments.get(key);
+    if (!a) attachments.set(key, (a = make()));
+    return a;
+  };
+  const resumeFrom = (id: number) => once('resume ' + id, () => (v: HTMLVideoElement) => {
     const t = handoff.take(id);
     if (t < 0.3) return;
     const go = () => (v.currentTime = t);
     if (v.readyState >= 1) go();
     else v.addEventListener('loadedmetadata', go, { once: true });
-  };
+  });
   function releaseOnRemove(v: HTMLVideoElement) {
     return () => {
       v.pause();
@@ -127,40 +136,43 @@
   let videoShown = $state<Record<number, boolean>>({}); // fading in / shown
   let thumbGone = $state<Record<number, boolean>>({}); // faded in: the thumbnail can go
   function trackShown(id: number) {
-    return (v: HTMLVideoElement) => {
-      let waiting = false;
-      let raf = 0;
-      let fallback = 0;
-      let done = 0;
-      const fadeIn = () => {
-        if (videoShown[id] || raf) return;
-        clearTimeout(fallback);
-        raf = requestAnimationFrame(() => {
-          videoShown[id] = true;
-          done = window.setTimeout(() => (thumbGone[id] = true), reducedMotion() ? 0 : 260);
-        });
-      };
-      // Only once a frame is really on screen: the browser says so with
-      // requestVideoFrameCallback (iOS reports loadeddata/canplay before it
-      // draws - fading in then showed a blank). A timer in case it never does.
-      const shown = () => {
-        if (waiting || videoShown[id]) return;
-        waiting = true;
-        if ('requestVideoFrameCallback' in v) v.requestVideoFrameCallback(fadeIn);
-        fallback = window.setTimeout(fadeIn, 'requestVideoFrameCallback' in v ? 700 : 120);
-      };
-      v.addEventListener('loadeddata', shown);
-      v.addEventListener('playing', shown);
-      if (v.readyState >= 2) shown();
-      return () => {
-        cancelAnimationFrame(raf);
-        clearTimeout(fallback);
-        clearTimeout(done);
-        v.removeEventListener('loadeddata', shown);
-        v.removeEventListener('playing', shown);
-        delete videoShown[id];
-        delete thumbGone[id];
-      };
+    // (untracked: what it reads - whether it shows yet - isn't what it depends on; read inside, setting it re-ran it,
+    // which took it away again)
+    return once('shown ' + id, () => (v: HTMLVideoElement) => untrack(() => trackVideo(id, v)));
+  }
+  function trackVideo(id: number, v: HTMLVideoElement) {
+    let waiting = false;
+    let raf = 0;
+    let fallback = 0;
+    let done = 0;
+    const fadeIn = () => {
+      if (videoShown[id] || raf) return;
+      clearTimeout(fallback);
+      raf = requestAnimationFrame(() => {
+        videoShown[id] = true;
+        done = window.setTimeout(() => (thumbGone[id] = true), reducedMotion() ? 0 : 260);
+      });
+    };
+    // Only once a frame is really on screen: the browser says so with
+    // requestVideoFrameCallback (iOS reports loadeddata/canplay before it
+    // draws - fading in then showed a blank). A timer in case it never does.
+    const shown = () => {
+      if (waiting || videoShown[id]) return;
+      waiting = true;
+      if ('requestVideoFrameCallback' in v) v.requestVideoFrameCallback(fadeIn);
+      fallback = window.setTimeout(fadeIn, 'requestVideoFrameCallback' in v ? 700 : 120);
+    };
+    v.addEventListener('loadeddata', shown);
+    v.addEventListener('playing', shown);
+    if (v.readyState >= 2) shown();
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(fallback);
+      clearTimeout(done);
+      v.removeEventListener('loadeddata', shown);
+      v.removeEventListener('playing', shown);
+      delete videoShown[id];
+      delete thumbGone[id];
     };
   }
 

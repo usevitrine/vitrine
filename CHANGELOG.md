@@ -4,6 +4,7 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 
 ## Unreleased
 
+- **Fix**: pressing "I came" or the heart on a video no longer freezes its picture while the sound plays on.
 - **Settings > Library** (was Media): a card each for Media, Comics, Browse and the trash. Comics and Browse each have a default search and sort, and open with them (Browse's sort can be one of the site's own lists, like Popular).
 - **Windows installer**: `Vitrine-Setup-<version>-x64.exe` installs Vitrine for you (no administrator needed) with ffmpeg and libvips included. It asks where to keep the library, the original files and the backups, the port, and whether phones on your Wi-Fi may open it; it can start Vitrine when you sign in, add the `vitrine` command to PATH and put Vitrine in the Start menu (and on the desktop). Vitrine then lives in the notification area: click it to open Vitrine, or use its menu - the address for your phone, your files, the log, Start with Windows, Restart, Quit. Update in Settings installs new versions by itself and brings Vitrine back. Uninstalling keeps your library unless you say otherwise.
 - **Portable**: a `config.toml` next to the program makes Vitrine portable - with `data_dir = "data"` everything lives in that folder (move or copy it), a double-click starts the server, and ffmpeg/libvips placed beside it are used. Relative paths in a config file now count from the file's folder, not from where Vitrine was started.
