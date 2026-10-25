@@ -197,10 +197,24 @@ test('motion', async ({ page, browser, baseURL }, info) => {
   await record(page, 'd-video-play', () => page.keyboard.press('k'));
   await record(page, 'd-video-seek', () => page.keyboard.press('ArrowRight'));
   await record(page, 'd-video-close', () => page.keyboard.press('Escape'));
-  // Browse (a gallery site answered here)
-  const gallery = (id: number, title: string) => ({ id, token: 'abcdef0123', url: `https://g.test/g/${id}/abcdef0123/`, title, category: 'Manga', pages: 10, tags: [] });
+  // Browse (a gallery site answered here; its covers: the library's own thumbnails)
+  const thumbs: string[] = await page.evaluate(async () => {
+    const ids = (await (await fetch('/api/search?q=system:type%3Dimage&limit=5')).json()).ids;
+    return (await (await fetch('/api/files?ids=' + ids.join(','))).json()).files.map((f: { thumb: string }) => f.thumb);
+  });
+  const gallery = (id: number, title: string, extra = {}) => ({
+    id, token: 'abcdef0123', url: `https://g.test/g/${id}/abcdef0123/`, title, category: 'Manga', pages: 10, tags: [{ ns: 'female', name: 'blue_sky' }],
+    cover: `https://img.g.test/c/${id}.webp`, ...extra,
+  });
   await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
-  await page.route('**/api/browse?*', (r) => r.fulfill({ json: { galleries: [1, 2, 3, 4, 5].map((i) => gallery(i, `Gallery ${i}`)), total: 5, next: 0 } }));
+  await page.route('**/api/browse?*', (r) =>
+    r.fulfill({ json: { galleries: [1, 2, 3, 4, 5].map((i) => gallery(i, `Gallery ${i}`, i === 1 ? { comic: 3 } : {})), total: 5, next: 0 } }));
+  await page.route('**/api/browse/image?*', async (r) => {
+    const n = Number(/c%2F(\d+)\.webp/.exec(r.request().url())?.[1] ?? 1);
+    await r.fulfill({ response: await page.request.get(thumbs[(n - 1) % thumbs.length]) });
+  });
+  await page.route('**/api/browse/gallery?*', (r) => r.fulfill({ json: { thumbs: [], pages: 1 } }));
+  await page.route('**/api/downloads', (r) => (r.request().method() === 'POST' ? r.fulfill({ json: { id: 99 } }) : r.continue()));
   await page.goto('/browse');
   await settle();
   await record(page, 'd-browse-search', async () => {
@@ -208,6 +222,16 @@ test('motion', async ({ page, browser, baseURL }, info) => {
     await box.fill('blue_sky');
     await box.press('Enter');
   });
+  await settle();
+  const btile = page.locator('.browse .tile').nth(1);
+  await record(page, 'd-browse-hover', () => btile.hover(), { still: 900 });
+  await record(page, 'd-browse-unhover', () => page.mouse.move(5, 300), { still: 900 });
+  await record(page, 'd-browse-open', () => btile.click());
+  await record(page, 'd-browse-download', () => page.getByRole('button', { name: 'Download', exact: true }).click());
+  await record(page, 'd-browse-download-confirm', () => page.locator('[role="dialog"][aria-modal="true"]').getByRole('button', { name: 'Download', exact: true }).click());
+  await record(page, 'd-browse-close', () => page.keyboard.press('Escape'));
+  await record(page, 'd-browse-hover-queued', () => btile.hover(), { still: 900 });
+  await record(page, 'd-browse-unhover-queued', () => page.mouse.move(5, 300), { still: 900 });
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   // Rankings (the I came button on for it)
   await post('/api/settings', { cameButton: true });

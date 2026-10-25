@@ -244,7 +244,7 @@
   type Motion = { ms: number; ease: [number, number, number, number] };
   const GROW: Motion = { ms: ZOOM_MS, ease: [0.22, 1, 0.36, 1] };
   const SHRINK: Motion = { ms: 200, ease: [0.33, 1, 0.68, 1] };
-  const flights = new Map<HTMLElement, { outer: Animation; inner?: Animation; from: Rect; to: Rect; m: Motion }>();
+  const flights = new Map<HTMLElement, { outer: Animation; inner?: Animation; marks: Animation[]; from: Rect; to: Rect; m: Motion }>();
   const lerp = (a: Rect, b: Rect, e: number): Rect => ({ x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, w: a.w + (b.w - a.w) * e, h: a.h + (b.h - a.h) * e });
   /** Where a card in motion is drawn now (in the list), if it's moving. */
   function cardNow(t: HTMLElement): Rect | null {
@@ -258,7 +258,17 @@
     flights.delete(t);
     f?.outer.cancel();
     f?.inner?.cancel();
+    for (const a of f?.marks ?? []) a.cancel();
   }
+
+  // What's drawn over a card that keeps its size while the card grows or shrinks (a comic's mark and its title and
+  // chips, a favorite's heart), each about the corner it sits in: scaled with the card, they were drawn smaller as it
+  // set off and grew back (the user: "the downloading/downloaded indicator changes sizes briefly").
+  const MARKS: [string, string][] = [
+    [':scope > .face > .comic-status, :scope > .comic-status', '0 0'],
+    [':scope > .face > .comic-foot > *, :scope > .comic-foot > *', '0 100%'],
+    [':scope > .face > .fav-badge.on-comic, :scope > .fav-badge.on-comic', '100% 0'],
+  ];
   /** Draws tile t (laid out as card, placed by base) from one place to another; done when it's there. */
   function fly(t: HTMLElement, from: Rect, to: Rect, card: Rect, base: { x: number; y: number }, m: Motion, done?: () => void) {
     land(t);
@@ -266,6 +276,7 @@
     const N = 30;
     const outerK: Keyframe[] = [];
     const innerK: Keyframe[] = [];
+    const markK: Keyframe[] = [];
     for (let k = 0; k <= N; k++) {
       const r = lerp(from, to, cubicBezier(...m.ease, k / N));
       const sx = r.w / card.w;
@@ -273,6 +284,7 @@
       const s = Math.max(sx, sy); // (covering the shape it's in, as the tile's picture does)
       outerK.push({ transform: `translate(${base.x + r.x - card.x}px, ${base.y + r.y - card.y}px) scale(${sx}, ${sy})` });
       innerK.push({ transform: `scale(${s / sx}, ${s / sy})` });
+      markK.push({ transform: `scale(${1 / sx}, ${1 / sy})` });
     }
     // (kept at the end until the layout follows - a shrink's card is laid out as the tile only then)
     const o: KeyframeAnimationOptions = { duration: m.ms, easing: 'linear', fill: 'forwards' };
@@ -280,7 +292,14 @@
     outer.id = 'card';
     const fit = t.querySelector<HTMLElement>(':scope > .face > .fit');
     const inner = fit?.animate(innerK, o);
-    flights.set(t, { outer, inner, from, to, m });
+    const marks: Animation[] = [];
+    for (const [sel, origin] of MARKS) {
+      for (const mark of t.querySelectorAll<HTMLElement>(sel)) {
+        mark.style.transformOrigin = origin;
+        marks.push(mark.animate(markK, o));
+      }
+    }
+    flights.set(t, { outer, inner, marks, from, to, m });
     outer.finished.then(
       () => {
         if (flights.get(t)?.outer !== outer) return;
@@ -1721,7 +1740,8 @@
   }
   /* A comic's cover: its overlays (title and chips, marks, progress) wait for its picture and fade in with it - a
      picture the browser had shows at once, and the overlay used to be there before any fade. */
-  .tile:has(.fit > :global(img:not(.in))) :is(.comic-foot, .comic-status, .comic-progress) {
+  /* (the cover only - not a hover card's bigger picture, which never gets .in: the title and chips vanished at once as it came) */
+  .tile:has(.fit > :global(img:not(.in):not(.zoom-media))) :is(.comic-foot, .comic-status, .comic-progress) {
     opacity: 0;
   }
   .tile:has(.fit > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress) {

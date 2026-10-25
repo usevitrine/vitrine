@@ -382,3 +382,11 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   check skips. Checked with Chrome's screencast: the grow is drawn over ~20 frames, the edges move steadily, the
   picture scales evenly. The badges (length, NEW, heart) stay hidden until the tile is home and fade in then: outside
   `.fit`, the card's stretch drew them out of shape as it shrank (the user: the NEW chip "resizes when i mouse off").
+- **A comic's card keeps its overlays (2026-10-25)** (the user, on Comics > Browse: "the overlay appearing and
+  disappear, especially when hovering to zoom", "the downloading/downloaded indicator changes sizes briefly"): the rule
+  that hides a comic's title, chips and mark until its cover has come (`img:not(.in)`) also caught the card's bigger
+  picture (`.zoom-media`, never `.in`) - they vanished in one frame as it loaded; it's left out now. And the card's
+  overlays were scaled with it as it grew (drawn smaller as it set off, growing back): the mark, the title and chips
+  and a comic's heart are counter-scaled now (`MARKS` in Grid: the card's inverse scale, each about its own corner),
+  as the picture is - measured: the mark stays 22 px (21 while it moves: edge smoothing). The motion audit records
+  Browse's hover, mouse-off, preview, Download (the mark appearing) and a queued tile's hover.
