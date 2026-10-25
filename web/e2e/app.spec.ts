@@ -6613,6 +6613,29 @@ test('comics: Browse - a new search calls off the one on its way (its request en
   await expect(page.locator('.browse .tile', { hasText: 'Slow result' })).toHaveCount(0); // and never shown
 });
 
+test('comics: Browse - a new search clears the last one\'s galleries at once (a spinner until the new ones come)', async ({ page }) => {
+  const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://gallery.test/g/${id}/abcdef0123/`, title: `Some Comic ${id}`, category: 'Manga', pages: 24, tags: [] });
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  await page.route('**/api/browse?*', async (r) => {
+    const q = new URL(r.request().url()).searchParams.get('q');
+    if (q) await held; // (the site slow to answer the new tag)
+    await r.fulfill({ json: { galleries: q ? [gallery(7)] : [1, 2, 3].map(gallery), total: q ? 1 : 3, next: 0 } });
+  });
+  await page.goto('/browse');
+  const tiles = page.locator('.browse .tile');
+  await expect(tiles).toHaveCount(3);
+  const box = page.locator('.browse').getByRole('combobox', { name: 'Search' });
+  await box.fill('blue_sky');
+  await box.press('Enter');
+  await expect(tiles).toHaveCount(0);
+  await expect(page.locator('.browse .first-load')).toBeVisible();
+  release();
+  await expect(tiles).toHaveCount(1);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('comics: Browse - a gallery site\'s galleries as covers (marked when in the library or downloading), more as it scrolls; a preview with tags and page thumbnails; Download, a tag\'s search or subscription', async ({ page }) => {
   // A made-up site (the test server has no gallery site): its answers mocked.
   const now = Date.now();

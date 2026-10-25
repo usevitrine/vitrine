@@ -288,3 +288,4 @@ The comics library (galleries, comic tags, read state, custom titles, cover crop
     last picture shown until the new one has come (Safari blanks it: desktop only), for good when it fails. Each
     thumbnail is a new element now (`{#key}` on its address; a collection's mosaic covers likewise) - the library's grid
     after a new search too. Test: "grid: a new search shows none of the last one's pictures".
+- **Browse: a new search clears at once (2026-10-25)** (the user: "when entering a new tag it should clear the results"): `BrowseResults.search` empties the list as it starts (the page's spinner until the site answers; before, the last search's galleries stayed until the new covers had come). Test: "Browse - a new search clears the last one's galleries at once".

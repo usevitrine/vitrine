@@ -89,16 +89,19 @@ export class BrowseResults extends Results {
     this.loadingMore = false;
     this.busy = true;
     this.error = '';
+    // The last search's galleries go at once (the user: "when entering a new tag it should clear the results") - the
+    // page's spinner shows until the new ones come (the site takes a second or two).
+    this.order = [];
+    this.items.clear();
+    this.galleries.clear();
+    this.settle();
     try {
       const res = await api.browse(this.site, this.siteQuery(q), 0, this.sort, abort.signal);
       if (my !== this.run) return;
-      // The first screenful's covers before the list changes (at most a moment): the new results come in together,
-      // not cover by cover over the old ones.
+      // The first screenful's covers before the list shows (at most a moment): they come in together, not cover by
+      // cover.
       await preload(res.galleries.slice(0, 24).map((g) => this.image(g.cover)), 1200, abort.signal);
       if (my !== this.run) return;
-      this.order = [];
-      this.items.clear();
-      this.galleries.clear();
       this.take(res.galleries);
       this.next = res.next;
       this.comics = res.total >= 0 ? res.total : this.order.length;
