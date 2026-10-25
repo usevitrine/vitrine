@@ -1,6 +1,7 @@
 package download
 
 import (
+	"runtime"
 	"bytes"
 	"context"
 	"crypto/md5"
@@ -718,6 +719,9 @@ func TestRemoveHungSearchFreesQueue(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
+		// (where everything is: macOS on CI got here - the stacks say what waits)
+		buf := make([]byte, 1<<20)
+		t.Logf("goroutines:\n%s", buf[:runtime.Stack(buf, true)])
 		t.Fatal("the queue stayed blocked after removing the hung search")
 	}
 	if took := time.Since(start); took > 2*time.Second {
