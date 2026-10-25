@@ -1,25 +1,44 @@
 // CHANGELOG.md read into versions: the installed one's (built into the app) and a newer release's (Settings > Updates).
 
-export type ChangelogPart = { text: string; bold: boolean };
-export type ChangelogVersion = { title: string; intro: string[]; items: ChangelogPart[][] };
+export type ChangelogPart = { text: string; bold: boolean; code?: boolean };
+/** A version's "### " section (New, Improved, Fixed; '' for items before any) and its items. */
+export type ChangelogGroup = { title: string; items: ChangelogPart[][] };
+export type ChangelogVersion = { title: string; intro: string[]; groups: ChangelogGroup[]; items: ChangelogPart[][] };
 
-/** "**A** b" -> [{A, bold}, {b}]. */
-const parts = (s: string): ChangelogPart[] => s.split(/\*\*(.+?)\*\*/).map((text, i) => ({ text, bold: i % 2 === 1 })).filter((p) => p.text);
+/** "**A** b `c`" -> [{A, bold}, {b}, {c, code}]. */
+const parts = (s: string): ChangelogPart[] =>
+  s
+    .split(/\*\*(.+?)\*\*/)
+    .flatMap((text, i) =>
+      text.split(/`([^`]+)`/).map((t, j) => ({ text: t, bold: i % 2 === 1, code: j % 2 === 1 })),
+    )
+    .filter((p) => p.text);
 
-/** The changelog's "## version" sections: their plain lines and their "- " items (a wrapped item's lines joined). */
+/** The changelog's "## version" sections: their plain lines, their "### " sections (New, Improved, Fixed) and their
+ *  "- " items (a wrapped item's lines joined; items: all of them, in order). */
 export function readChangelog(md: string): ChangelogVersion[] {
   const out: ChangelogVersion[] = [];
   let item: string | null = null;
   const flush = () => {
-    if (item !== null && out.length) out[out.length - 1].items.push(parts(item));
+    if (item !== null && out.length) {
+      const v = out[out.length - 1];
+      if (!v.groups.length) v.groups.push({ title: '', items: [] });
+      const it = parts(item);
+      v.groups[v.groups.length - 1].items.push(it);
+      v.items.push(it);
+    }
     item = null;
   };
   for (const raw of md.split('\n')) {
     const line = raw.trimEnd();
     if (line.startsWith('## ')) {
       flush();
-      out.push({ title: line.slice(3), intro: [], items: [] });
+      out.push({ title: line.slice(3), intro: [], groups: [], items: [] });
     } else if (!out.length) continue;
+    else if (line.startsWith('### ')) {
+      flush();
+      out[out.length - 1].groups.push({ title: line.slice(4).trim(), items: [] });
+    }
     else if (line.startsWith('- ')) {
       flush();
       item = line.slice(2);

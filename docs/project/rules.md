@@ -36,6 +36,10 @@ examples are written; how decisions are recorded.
 - When a decision is made or changed, update the matching topic doc (and `docs/project/overview.md` if it's a key
   decision). New built behavior goes in the topic's "as built" part, dated.
 - A topic doc that grows past ~300 lines is split further (and `docs/README.md` updated).
-- **`CHANGELOG.md`** (shown in the app: Settings > What's new, built in at build time): every change a user would
-  notice gets a line under `## Unreleased`, in plain words (what it does for them, not how). At a release that
-  heading becomes `## <version> - <date>` in the same commit the tag goes on, and a new `## Unreleased` starts empty.
+- **`CHANGELOG.md`** (shown in the app: Settings > Updates, built in at build time): every change a user would
+  notice gets a line under `## Unreleased`, in plain words (what it does for them, not how), in its section -
+  `### New` (features), `### Improved` (better at what it did), `### Fixed` (bugs) - in that order, a section only
+  when it has lines (the user, 2026-10-25: "i want the changes sorted into different section such as bug fixes new
+  features"). An item mixing kinds is split. At a release that heading becomes `## <version> - <date>` in the same
+  commit the tag goes on, and a new `## Unreleased` starts empty. The app shows the sections as headings
+  (`lib/changelog`'s groups) and `` `code` `` as code; a version before 1.0.3 reads them as plain lines.
