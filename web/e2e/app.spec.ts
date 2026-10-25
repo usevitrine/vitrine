@@ -6780,6 +6780,9 @@ test('settings: Browse search has Browse\'s orders too - a site\'s list (no sear
     await expect(field.getByRole('button', { name: 'Filters', exact: true })).not.toHaveClass(/changed/);
     await page.goto('/browse');
     await expect.poll(() => asked[0]).toBe('popular|');
+    // (opened in its default order: no "not the default order" dot)
+    await expect(page.locator('.browse .filt')).toBeVisible();
+    await expect(page.locator('.browse .filt .dot')).toHaveCount(0);
   } finally {
     await put({ browseSearch: '', browseSort: 'newest' });
     await page.unrouteAll({ behavior: 'ignoreErrors' });

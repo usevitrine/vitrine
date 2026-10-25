@@ -59,6 +59,9 @@
     selection.ids.clear(); // (another search: other galleries - picking goes on)
     results.search(q);
   }
+  // Its default order (Settings > Library > Browse): the list set there when this site has it, else its newest - what
+  // the filter button counts as not the default (it showed the dot on opening in the list set).
+  const defaultSort = $derived(settings.browseSort && settings.browseSort !== 'newest' && (sorts[results.site] ?? []).includes(settings.browseSort) ? settings.browseSort : 'newest');
   // An order from the filter menu: one of the site's own lists clears the search (it has none).
   function pickSort(s: string) {
     results.sort = s === 'newest' ? '' : s;
@@ -148,7 +151,7 @@
         <SearchBar
           {query}
           sort={results.sort || 'newest'}
-          defaultSort="newest"
+          defaultSort={defaultSort}
           sorts={sorts[results.site] ?? []}
           onsort={pickSort}
           suggest={suggestTags}
