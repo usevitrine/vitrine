@@ -29,7 +29,8 @@ func TestLiveProgress(t *testing.T) {
 	// Post 3 is half downloaded: it shows in the progress list.
 	var p []FileProgress
 	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
-		if p = e.dl.Progress(); len(p) == 1 && p[0].Read > 0 {
+		// (until all of the half that came is read: it can arrive in parts - CI saw 64 of its 71 bytes)
+		if p = e.dl.Progress(); len(p) == 1 && p[0].Read >= int64(size/2) {
 			break
 		}
 	}
