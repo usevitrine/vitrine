@@ -7,7 +7,7 @@
   // tap opens the reader at /comics/<id>. Comics live only here - their pages are
   // never in the library's grid.
   import { onMount, tick, untrack } from 'svelte';
-  import { reveal, glide, swap, nudge } from '../lib/motion';
+  import { reveal, glide, swap, nudge, pop } from '../lib/motion';
   import { collections } from '../lib/collections.svelte';
   import ActionMenu from '../components/ActionMenu.svelte';
   import { cubicOut } from 'svelte/easing';
@@ -67,6 +67,8 @@
   let current = $derived(collections.list.find((k) => k.id === inCollection));
   let queryOutside = ''; // (the search on the page a collection was opened from: back on leaving it)
   let cameFromGrid = false; // (opened from its tile: Back steps back)
+  /** A page switch under way: the last page's comics hidden until the new page's come. */
+  let switching = $state(false);
   $effect(() => {
     if (!here() || /^\d+$/.test(router.sub)) return; // (reading: the page under the reader stays)
     const now = router.sub === 'favorites';
@@ -79,6 +81,7 @@
       fav = now;
       inTrash = nowTrash;
       inCollection = nowCollection;
+      const pageChanged = results.scope !== (fav ? 'favorites' : nowTrash ? 'trash' : '');
       results.scope = fav ? 'favorites' : nowTrash ? 'trash' : '';
       if (nowTrash) {
         trash.load();
@@ -97,7 +100,10 @@
         sort = loadSort();
         cameFromGrid = false;
       }
-      search(query);
+      // Another page (the comics, the trash, favorites): its comics only once they come (a collection's own morph
+      // keeps showing - its comics fly).
+      if (pageChanged) switching = true;
+      search(query).finally(() => (switching = false));
     });
   });
   function leaveCollection() {
@@ -502,7 +508,11 @@
     {/if}
     {#if !inCollection}<div in:glide={{ y: -8, duration: 260, easing: cubicOut }}><div class="search-row">
       {#if inTrash && trash.comics > 0}
-        <button class="empty-trash" aria-label={t('trash.empty')} title={t('trash.empty')} onclick={() => emptyTrash(results)} transition:reveal={{ axis: 'x' }}><Icon name="trash" size={20} /></button>
+        <button class="empty-trash" aria-label={t('trash.empty')} title={t('trash.empty')} onclick={() => emptyTrash(results)} transition:reveal={{ axis: 'x' }}
+          disabled={trash.emptying}
+          aria-busy={trash.emptying}
+          >{#if trash.emptying}<span class="spinner" role="status" aria-label={t('trash.emptying')} transition:pop></span>{:else}<span class="icon-in" transition:pop><Icon name="trash" size={20} /></span>{/if}</button
+        >
       {/if}
       <div class="search-grow"><SearchBar {query} {sort} placeholder={fav ? t('comics.favSearch') : inTrash ? t('comics.trashSearch') : t('comics.searchPlaceholder')} defaultSort={inTrash ? 'modified' : DEFAULT_SORT} onsearch={search} onsaved={(q, s) => ((sort = s), search(q))} onsort={setSort} /></div>
     </div>
@@ -520,7 +530,7 @@
       </div>
     {/if}
   </header>
-  <div class="grid">
+  <div class="grid" class:switching>
     {#if results.total === 0 && !results.busy && !results.error && results.searches > 0}
       {#if query}
         <div class="empty" in:swap><p>{t('comics.noMatch')}</p></div>
@@ -599,6 +609,12 @@
   .grid {
     position: relative;
     min-height: 0;
+    transition: opacity 0.2s ease-out;
+  }
+  /* Another page's files (the library, the trash, favorites) gone at once, the new page's fading in when they come. */
+  .grid.switching {
+    opacity: 0;
+    transition: none;
   }
   /* The search bar floats over the grid under the top bar, sliding away with it (as in the library). */
   header {
@@ -729,6 +745,24 @@
   .search-grow {
     flex: 1;
     min-width: 0;
+  }
+  /* Emptying: a spinner in place of the icon (the two cross in the same spot), dark on the red. */
+  .empty-trash > :global(*) {
+    grid-area: 1 / 1;
+  }
+  .empty-trash .icon-in {
+    display: grid;
+  }
+  .empty-trash .spinner {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    border-color: rgb(17 17 27 / 0.25);
+    border-top-color: var(--crust);
+  }
+  .empty-trash:disabled {
+    opacity: 1;
+    cursor: progress;
   }
   .empty-trash {
     flex: none;

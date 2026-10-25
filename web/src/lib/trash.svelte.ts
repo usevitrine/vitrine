@@ -20,6 +20,8 @@ class Trash {
   comics = $state(0);
   comicBytes = $state(0);
   days = $state(0);
+  /** Empty trash is removing everything (its button spins meanwhile: a big trash takes a while). */
+  emptying = $state(false);
   async load() {
     try {
       const r = await api.trashInfo();
@@ -93,11 +95,16 @@ export async function emptyTrash(results: Refreshable) {
     typed: t('trash.emptyWord'),
   });
   if (!ok) return;
+  trash.emptying = true;
   try {
     const { purged } = await (comics ? api.emptyComicsTrash() : api.emptyTrash());
     toasts.show(t(comics ? 'trash.purgedComics' : 'trash.purged', { n: purged }), { cat: 'deleted', kind: 'removed' });
   } catch (e) {
     toasts.error((e as Error).message);
   }
-  await Promise.all([results.refresh(), trash.load()]);
+  try {
+    await Promise.all([results.refresh(), trash.load()]);
+  } finally {
+    trash.emptying = false;
+  }
 }

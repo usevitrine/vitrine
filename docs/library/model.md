@@ -73,3 +73,11 @@ Files, tags (one tag set, origins, namespaces), parents and siblings, delete/und
   emptying (`trashDays`) covers comics too. A deleted comic still opens in the reader from there.
 - **Emptying fast (2026-10-23)**: the first real Empty trash (well over a thousand files) took 5 minutes - thumbnails were deleted one
   file at a time, two commits each. Now one transaction for all of them (`thumbs.Delete(ids...)`).
+- **Emptying shows (2026-10-25)** (the user: "when clearing trash theres no indication that its deleting anything"): the
+  red button spins (`trash.emptying`, the icon and a dark spinner crossing in place; disabled, aria-busy, "Emptying the
+  trash" for screen readers) from the confirmation until the emptied page is back - Media's and Comics' alike.
+- **No last page on the way (2026-10-25)** (the user: "if i change pages from the media library to the trash, it for a
+  short time still shows the media library images"): the library and its trash (and Favorites; the Comics page's
+  likewise, not a collection's own morph) are one screen, so the old files stayed until the new search answered. A
+  page switch now hides the grid at once (`switching`: opacity 0) and fades the new page's files in when they come.
+  Test: "trash: going there shows none of the library meanwhile, and Empty trash spins while it empties".

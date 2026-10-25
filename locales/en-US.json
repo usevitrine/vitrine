@@ -1837,6 +1837,7 @@
       "other": "Deleted {n} files forever"
     },
     "empty": "Empty trash",
+    "emptying": "Emptying the trash",
     "emptyTitle": "Empty the trash?",
     "emptyBody": {
       "one": "{n} file ({size}) is deleted forever. This can't be undone.",

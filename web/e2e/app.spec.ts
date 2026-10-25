@@ -7530,6 +7530,47 @@ test('trash: its own page in the menu - its files, Restore and Delete forever (a
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+test('trash: going there shows none of the library meanwhile, and Empty trash spins while it empties', async ({ page }) => {
+  // (the test library is shared: the trash's answers are made up here - nothing is deleted)
+  const ids = (await page.request.get('/api/search?q=system:type%3Dimage&limit=2').then((r) => r.json())).ids as number[];
+  let releaseSearch = () => {};
+  const searchHeld = new Promise<void>((r) => (releaseSearch = r));
+  let releaseEmpty = () => {};
+  const emptyHeld = new Promise<void>((r) => (releaseEmpty = r));
+  await page.route('**/api/trash', (r) => r.fulfill({ json: { files: 2, bytes: 3_500_000, days: 0 } }));
+  await page.route('**/api/search?*', async (r) => {
+    if (!r.request().url().includes('scope=trash')) return r.continue();
+    await searchHeld; // (a slow answer)
+    await r.fulfill({ json: { result: 'trash-test', total: 2, matched: 2, ids, unknown: [], seed: 0, took_ms: 1, query: '', now: Date.now() } });
+  });
+  await page.route('**/api/trash/empty', async (r) => {
+    await emptyHeld;
+    await r.fulfill({ json: { purged: 2 } });
+  });
+  await page.goto('/');
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  const grid = page.locator('.library .grid');
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await unfold(page, 'library');
+  await page.locator('#nav-drawer').getByRole('button', { name: 'Trash' }).click();
+  await expect(page).toHaveURL(/\/trash$/);
+  await expect(grid).toHaveCSS('opacity', '0'); // (the library's files: not shown while the trash's are on the way)
+  releaseSearch();
+  await expect(page.locator('.tile')).toHaveCount(2);
+  await expect(grid).toHaveCSS('opacity', '1');
+
+  const button = page.locator('.library .empty-trash'); // (not the dialog's, closing)
+  await button.click();
+  const dlg = page.getByRole('alertdialog');
+  await dlg.getByRole('textbox').fill('delete');
+  await dlg.getByRole('button', { name: 'Empty trash' }).click();
+  await expect(button.getByRole('status', { name: 'Emptying the trash' })).toBeVisible();
+  await expect(button).toBeDisabled();
+  releaseEmpty();
+  await expect(button.getByRole('status')).toHaveCount(0);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('SFW mode: the "I came" button, its Rankings, sort and setting go, and adult sites are never offered', async ({ page }) => {
   // (settings are shared: the server's answer is changed here, nothing is saved)
   await page.route('**/api/settings', async (r) => {

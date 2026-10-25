@@ -1,7 +1,7 @@
 <script lang="ts">
   import { cubicOut } from 'svelte/easing';
   import { slide } from 'svelte/transition';
-  import { reveal, swap } from '../lib/motion';
+  import { reveal, swap, pop } from '../lib/motion';
   import { live } from '../lib/live.svelte';
   import { connection } from '../lib/offline.svelte';
   import Welcome from '../components/Welcome.svelte';
@@ -94,6 +94,10 @@
     search(q).then(() => top && grid?.toTop(true));
   });
 
+  /** A page switch under way: the last page's files are hidden until the new page's arrive (it showed the library a
+   *  moment on the way to the trash). */
+  let switching = $state(false);
+
   // Switching between the library and Favorites (the menu, Back): the page's own
   // search and order come back from its URL; its default order otherwise.
   $effect(() => {
@@ -108,7 +112,8 @@
       const typed = extractSort(router.param('q'));
       query = typed.q;
       sort = router.param('sort') || typed.sort || defaultSort();
-      results.search(query, sort);
+      switching = true;
+      results.search(query, sort).finally(() => (switching = false));
     });
   });
 
@@ -340,7 +345,11 @@
       {/if}
       {#if inTrash && trash.files > 0}
         <div class="slot" transition:slide={{ axis: 'x', duration: reduced() ? 0 : 260, easing: cubicOut }}>
-          <button class="empty-trash" aria-label={t('trash.empty')} title={t('trash.empty')} onclick={() => emptyTrash(results)}><Icon name="trash" size={20} /></button>
+          <button class="empty-trash" aria-label={t('trash.empty')} title={t('trash.empty')} onclick={() => emptyTrash(results)}
+          disabled={trash.emptying}
+          aria-busy={trash.emptying}
+          >{#if trash.emptying}<span class="spinner" role="status" aria-label={t('trash.emptying')} transition:pop></span>{:else}<span class="icon-in" transition:pop><Icon name="trash" size={20} /></span>{/if}</button
+        >
         </div>
       {/if}
       <div class="search-grow">
@@ -362,7 +371,7 @@
     </div>
     {/if}
   </header>
-  <div class="grid">
+  <div class="grid" class:switching>
     <!-- (only once a search has finished: before the first one - the app starting - the welcome flashed) -->
     {#if results.total === 0 && !results.busy && !results.error && results.searches > 0}
       {#if query}
@@ -401,6 +410,12 @@
   .grid {
     position: relative;
     min-height: 0;
+    transition: opacity 0.2s ease-out;
+  }
+  /* Another page's files (the library, the trash, favorites) gone at once, the new page's fading in when they come. */
+  .grid.switching {
+    opacity: 0;
+    transition: none;
   }
   /* The search bar floats over the grid under the top bar, sliding away with it
      (the grid scrolls under both - nothing moves when they go). */
@@ -542,6 +557,24 @@
     --sq: max(var(--control-h), 38px); /* (44 px on phones; 38 with a mouse, as the bar with its input) */
     width: var(--sq);
     height: var(--sq);
+  }
+  /* Emptying: a spinner in place of the icon (the two cross in the same spot), dark on the red. */
+  .empty-trash > :global(*) {
+    grid-area: 1 / 1;
+  }
+  .empty-trash .icon-in {
+    display: grid;
+  }
+  .empty-trash .spinner {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    border-color: rgb(17 17 27 / 0.25);
+    border-top-color: var(--crust);
+  }
+  .empty-trash:disabled {
+    opacity: 1;
+    cursor: progress;
   }
   .empty-trash {
     flex: none;
