@@ -5,7 +5,8 @@
   // suggestions can be marked - from several words typed one after another - and go in together: all of them, or
   // any of them (an OR group).
   import { api, type Suggestion } from '../lib/api';
-  import { pop, moved, nudge } from '../lib/motion';
+  import { pop, moved, nudge, reduced } from '../lib/motion';
+  import { cubicOut } from 'svelte/easing';
   import { splitTag, tagColor, nsLabel } from '../lib/namespaces.svelte';
   import { t, num } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
@@ -68,6 +69,22 @@
   // less that. (The page's coordinates and innerHeight don't agree with the fixed layer's on an iPhone with the
   // keyboard up: the list hung far above the box - the user, twice: "the suggestions still float".)
   let place = $state<{ left: number; width: number; top?: number; bottom?: number; room?: number } | null>(null);
+  /** The suggestions come and go as a menu does: dropping in a few px from the field (rising, when they open above
+   *  it) as they fade. (They popped in and vanished at once - seen in a motion recording.) */
+  function drop(node: Element, { out = false } = {}) {
+    const el = node as HTMLElement;
+    if (out) {
+      el.dataset.leaving = ''; // (going: not the list a new word opens, nothing to press)
+      el.style.pointerEvents = 'none';
+    } else {
+      // (back before it had gone: the same list comes in again)
+      delete el.dataset.leaving;
+      el.style.pointerEvents = '';
+    }
+    if (reduced()) return { duration: 0 };
+    const from = place?.bottom !== undefined ? 6 : -6;
+    return { duration: out ? 120 : 160, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * from}px)` };
+  }
   // Never taller than the room left above the on-screen keyboard (and the bar
   // iOS puts on top of it): the visual viewport ends there.
   let maxHeight = $state<number | null>(null);
@@ -382,6 +399,8 @@
     <div
       class="list"
       bind:this={listEl}
+      in:drop
+      out:drop={{ out: true }}
       class:anchored={!!place}
       {@attach anchor && toBody}
       data-floating={anchor ? '' : undefined}

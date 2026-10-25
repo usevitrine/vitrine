@@ -181,6 +181,21 @@ Palette: https://catppuccin.com/palette
   Material's "sort", as in hydrus-web) with the native picker laid invisibly over it, plus a dot when the order
   isn't the default. `e2e/shots.spec.ts` takes screenshots of every screen on request
   (`SHOTS=<folder> npx playwright test shots`) for design reviews.
+- **Motion recordings (2026-10-25, the user: "animations site-wide, should be clean, smooth, and pixel perfect")**:
+  `e2e/motion.spec.ts` records what Chrome paints (CDP `Page.startScreencast`, every frame with its time) while the
+  viewer, menus, sheets, dialogs, the bell, chips, page changes and every Settings / Tags section come and go, on a
+  desktop and a phone screen - `MOTION=<folder> npx playwright test motion --project=desktop-chromium`
+  (`MOTION_ONLY=<name start>` for some; the rest still happen, unrecorded). `node scripts/motion-report.mjs
+  <folder>` (ffmpeg) writes a contact sheet per recording and flags a late step (moving more again after it had
+  slowed - a last-moment snap), a long tail (something lingering) and a jump (most of the change in one frame - a
+  pop); changes of 3 levels or less don't count. Flags are leads, not verdicts (two motions ending apart, or a fade
+  out then in, read as a step): look at the frames (pixel diffs of the last ones find a 1 px snap). The first audit
+  found and fixed: the details column (layout-animated: the picture snapped 1 px aside at the end - now the column
+  changes at once, the panel slides by a transform and the picture glides by one), bottom sheets leaving their
+  shadow on screen (they went their height, not their shadow's 52 px more: a dark band, then gone at once -
+  `lib/sheet` `away`), the search suggestions (no motion at all - now they drop in and fade out), Settings / Tags
+  sections (the old one vanished at once - now it fades while the new one comes, in one grid cell), and the top
+  bar's text changing its smoothing after some page changes (now always a layer of its own).
 - **Custom dropdowns (2026-10-14)**: `components/Dropdown.svelte` - a
   trigger (input-styled with a chevron, or a custom one such as the sort icon) and a floating list in the app's
   style (optional heading, check on the current option, keyboard: arrows/Home/End/Enter/Esc, closes on an outside

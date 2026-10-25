@@ -456,6 +456,10 @@
     left: var(--safe-left);
     right: var(--safe-right);
     z-index: 6;
+    /* A layer of its own, always: its text is then always drawn the same way - it changed its smoothing (colored to
+       gray) after some page changes, when something moving under it had made it a layer for the moment (seen in a
+       motion recording). Opacity, not transform: no containing block for what's fixed inside it. */
+    will-change: opacity;
     /* Scrolled down: slid up out of sight - all but the strip under the status bar
        (content never shows under the status bar). By its top, not a transform: a transform
        would make it the frame of the menus inside it that are fixed to the screen. */

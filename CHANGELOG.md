@@ -4,6 +4,7 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 
 ## Unreleased
 
+- **Pixel-perfect motion**: the details panel opens and closes without the picture snapping aside at the end; bottom sheets no longer leave a dark band behind as they close; search suggestions fade in and out; Settings and Tags sections cross-fade instead of the old one vanishing.
 - **New download**: the limit is labeled Posts (it counts every post gone through - new, had or blacklisted).
 - **The menu shows what's in the trash**: deleted files and comics together on Trash, each on its own under it.
 - **Duplicates**: the last pair fades away cleanly (it shrank first).

@@ -2860,7 +2860,7 @@ test('search bar: chips stay on one line (scrolling sideways), suggestions are a
   const input = page.getByRole('combobox', { name: 'Search' });
   await input.click();
   await input.pressSequentially('re'); // (a tag not in the search: those already there aren't suggested)
-  const list = page.locator('.list[data-floating]'); // (the search bar's suggestions: at the top of the page)
+  const list = page.locator('.list[data-floating]:not([data-leaving])'); // (the search bar's suggestions: at the top of the page; not one fading out)
   await expect(list).toBeVisible();
   const lb = (await list.boundingBox())!;
   const fb = (await field.boundingBox())!;
@@ -2875,7 +2875,7 @@ test('search bar: chips stay on one line (scrolling sideways), suggestions are a
 test('search bar: suggestions show for the second tag too, with the chips overflowing', async ({ page }) => {
   await page.goto('/?q=' + encodeURIComponent('some_very_long_tag_name another_long_tag_name third_tag'));
   const input = page.getByRole('combobox', { name: 'Search' });
-  const list = page.locator('.list[data-floating]'); // (the search bar's suggestions: at the top of the page)
+  const list = page.locator('.list[data-floating]:not([data-leaving])'); // (the search bar's suggestions: at the top of the page)
   // Really seen: on top at its center, and nothing above it masks or clips it.
   const shown = () =>
     list.evaluate((el) => {
@@ -4387,7 +4387,7 @@ test('suggestions: a long list scrolls under the app\'s floating scrollbar (not 
   await page.setViewportSize({ width: 1280, height: 420 }); // (short: the list has to scroll)
   await page.goto('/');
   await page.getByRole('combobox', { name: 'Search' }).fill('scroll');
-  const list = page.locator('.list[data-floating]');
+  const list = page.locator('.list[data-floating]:not([data-leaving])');
   await expect(list.getByRole('option')).toHaveCount(12);
   const scroller = list.locator('ul.scroll');
   await expect(scroller).toHaveClass(/oscroll-host/);

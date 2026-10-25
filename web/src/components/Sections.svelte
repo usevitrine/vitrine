@@ -1,5 +1,4 @@
 <script lang="ts" module>
-  import { glide } from '../lib/motion';
   import type { ComponentProps } from 'svelte';
   import type IconType from './Icon.svelte';
 
@@ -19,7 +18,8 @@
   // shows beside it. Each section has its own address (/<screen>/<id>).
   import { overlayScroll } from '../lib/overlayScroll';
   import { onMount, type Snippet } from 'svelte';
-    import Icon from './Icon.svelte';
+  import { cubicOut } from 'svelte/easing';
+  import Icon from './Icon.svelte';
   import { router, type Screen } from '../lib/router.svelte';
   import { t } from '../lib/i18n.svelte';
 
@@ -50,12 +50,24 @@
   });
   const current = $derived(sections.some((s) => s.id === router.sub) ? router.sub : wide ? fallback : '');
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Going to another section (or between the list and a section on phones): the one going fades where it is, quickly;
+  // the new one comes in just after - from the side on phones, a few px up on wide screens - both in one grid cell, so
+  // nothing below jumps. Continuous moves (in whole pixels a short one's last pixel came late). (2026-10-25: the old
+  // section vanished at once - most of the change in one frame, seen in a motion recording.)
+  function enter(node: Element, { x = 0, y = 0 } = {}) {
+    if (reduced()) return { duration: 0 };
+    return { delay: 90, duration: 220, easing: cubicOut, css: (t: number, u: number) => `opacity: ${t}; transform: translate(${u * x}px, ${u * y}px)` };
+  }
+  function leave(node: Element) {
+    if (reduced()) return { duration: 0 };
+    return { duration: 120, css: (t: number) => `opacity: ${t}` };
+  }
 </script>
 
 <div class="page" {@attach overlayScroll}>
   <div class="layout" class:wide>
     {#if wide || !current}
-      <nav class="side" aria-label={t('sections.nav', { title })} in:glide={{ x: reduced() || wide ? 0 : -24, duration: wide ? 0 : 200 }}>
+      <nav class="side" aria-label={t('sections.nav', { title })} in:enter={{ x: wide ? 0 : -24 }} out:leave>
         <h1>{title}</h1>
         <ul class="sections">
           {#each sections as s (s.id)}
@@ -75,14 +87,16 @@
       </nav>
     {/if}
     {#if current}
-      {#key current}
-        <div class="content" in:glide={{ x: reduced() ? 0 : wide ? 0 : 24, y: wide && !reduced() ? 6 : 0, duration: 200 }}>
-          {#if !wide}
-            <button class="back" onclick={() => router.go(screen)}><Icon name="left" size={18} /> {title}</button>
-          {/if}
-          {@render children(current)}
-        </div>
-      {/key}
+      <div class="cell" out:leave>
+        {#key current}
+          <div class="content" in:enter={{ x: wide ? 0 : 24, y: wide ? 6 : 0 }} out:leave>
+            {#if !wide}
+              <button class="back" onclick={() => router.go(screen)}><Icon name="left" size={18} /> {title}</button>
+            {/if}
+            {@render children(current)}
+          </div>
+        {/key}
+      </div>
     {/if}
   </div>
 </div>
@@ -93,6 +107,25 @@
   .layout {
     max-width: 760px;
     margin: 0 auto;
+  }
+  /* (phones: the list and a section in one cell while one goes and the other comes) */
+  .layout:not(.wide) {
+    display: grid;
+    align-items: start;
+  }
+  .layout:not(.wide) > :is(.side, .cell) {
+    grid-area: 1 / 1;
+    min-width: 0;
+  }
+  /* (the section going and the one coming, in one cell) */
+  .cell {
+    display: grid;
+    align-items: start;
+    min-width: 0;
+  }
+  .cell > .content {
+    grid-area: 1 / 1;
+    min-width: 0;
   }
   .layout.wide {
     max-width: 1080px;

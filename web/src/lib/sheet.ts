@@ -10,6 +10,10 @@ import { cubicOut } from 'svelte/easing';
 
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/** How far a sheet goes to be out of sight: its height and its shadow above it (0 -12px 40px) - by its height alone,
+ *  the shadow was still a dark band along the bottom when it had gone, then vanished at once. */
+export const away = (node: Element) => (node as HTMLElement).offsetHeight + 56;
+
 type Desk = 'pop' | 'drop' | '';
 
 /** A window or menu on a wide screen, coming (t 0 -> 1) or going. */
@@ -32,7 +36,7 @@ export function sheetIn(node: Element, { on = true, desk: kind = '' as Desk } = 
   el.style.transition = '';
   if (!on) return desk(node, kind, false);
   if (reduced()) return { duration: 0 };
-  return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${px((1 - t) * (node as HTMLElement).offsetHeight)})` };
+  return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${px((1 - t) * away(node))})` };
 }
 
 export function sheetOut(node: Element, { on = true, desk: kind = '' as Desk } = {}) {
@@ -41,7 +45,7 @@ export function sheetOut(node: Element, { on = true, desk: kind = '' as Desk } =
   if (!on) return desk(node, kind, true);
   if (reduced()) return { duration: 0 };
   const from = Number((node as HTMLElement).dataset.dragged ?? 0);
-  return { duration: 220, easing: cubicOut, css: (t: number) => `transform: translateY(${px(from * t + (1 - t) * (node as HTMLElement).offsetHeight)})` };
+  return { duration: 220, easing: cubicOut, css: (t: number) => `transform: translateY(${px(from * t + (1 - t) * away(node))})` };
 }
 
 /** The dimmed page behind a sheet: fades in and out (usable again at once). */

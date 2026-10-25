@@ -1,15 +1,17 @@
 <script lang="ts">
   import { backClose } from '../lib/backClose';
+  import { away } from '../lib/sheet';
   import { pop, px, nudge } from '../lib/motion';
   import { dragDown } from '../lib/sheetDrag';
   import { Glide, clampZoom as clampFit, zoomAround, pinchScale } from '../lib/zoom';
   import { reducedMotion } from '../lib/hero';
   import { volume } from '../lib/volume.svelte';
   import { cubicOut } from 'svelte/easing';
+  import { cubicBezier } from '../lib/hero';
   // Full-screen viewer over the same result list as the grid: swipe or use
   // the arrow keys to move through every result (no pages), swipe down or
   // Esc to close, tap to show/hide the controls.
-  import { onMount, untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { on } from 'svelte/events';
   import { api, type FileInfo } from '../lib/api';
@@ -820,10 +822,39 @@
   });
 
   // ---- the details: a sheet on phones (slides up; dragging its header down
-  // closes it), a column on wide screens (the column grows and shrinks - CSS,
-  // .viewer grid - so the panel slides in from the edge and the picture makes
-  // room; on closing the panel stays while its column shrinks away).
+  // closes it), a column on wide screens (the panel slides in from the edge and
+  // the picture glides aside to make room - below).
   const isSheet = () => matchMedia('(max-width: 899px)').matches;
+  const column = (t: number) => cubicBezier(0.2, 0.8, 0.2, 1, t);
+  // Wide screens: the details' column comes and goes at once, and the picture glides from where it was to its new
+  // place (centered in the narrower or wider stage, fitted to it) - on the compositor with the panel's slide, so nothing
+  // is laid out (or snapped to pixels) on the way.
+  /** The fitted picture's center and scale in a stage: for the file shown. */
+  function fitIn(r: DOMRect) {
+    const f = cur;
+    const fit = f && f.width && f.height ? Math.min(r.width / f.width, r.height / f.height) : 1;
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, fit };
+  }
+  $effect.pre(() => {
+    void info;
+    untrack(() => {
+      if (!stageEl || isSheet() || reducedMotion()) return;
+      const from = fitIn(stageEl.getBoundingClientRect());
+      tick().then(() => {
+        const slide = stageEl?.querySelector<HTMLElement>('.slide[data-slot="1"]');
+        if (!stageEl || !slide) return;
+        const to = fitIn(stageEl.getBoundingClientRect());
+        const dx = from.x - to.x;
+        const dy = from.y - to.y;
+        const s = from.fit / to.fit;
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(s - 1) < 0.001) return;
+        slide.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${s})` }, { transform: 'translate(0, 0) scale(1)' }], {
+          duration: 260,
+          easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+        });
+      });
+    });
+  });
   let sheetGone = 0; // how far the sheet was dragged when it was let go (it leaves from there)
   // In and out separately (a two-way transition: plays its way in backwards to
   // leave - from where the sheet rests, so a dragged one jumped up first).
@@ -832,10 +863,15 @@
     if (out && isSheet() && sheetGone > 0) {
       const from = sheetGone;
       sheetGone = 0;
-      return { duration: 200, easing: cubicOut, css: (t: number) => `transform: translateY(${px(from * t + (1 - t) * (node as HTMLElement).offsetHeight)})` };
+      return { duration: 200, easing: cubicOut, css: (t: number) => `transform: translateY(${px(from * t + (1 - t) * away(node))})` };
     }
-    if (!isSheet()) return { duration: 260, css: () => '' };
-    return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${px((1 - t) * (node as HTMLElement).offsetHeight)})` };
+    // Wide screens: the column is there (or gone) at once; the panel slides in from the edge - and out over the
+    // picture, held at the right (its column is gone already).
+    if (!isSheet()) {
+      const held = out ? 'position: absolute; top: 0; right: 0; bottom: 0; width: 340px; z-index: 2;' : '';
+      return { duration: 260, easing: column, css: (t: number) => `${held} transform: translateX(${(1 - t) * 100}%)` };
+    }
+    return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${px((1 - t) * away(node))})` };
   }
   // Phones: dragged down from anywhere on it closes it (lib/sheetDrag: a list scrolled down scrolls first).
   let sheetDragging = $state(false);
@@ -1139,11 +1175,13 @@
   }
   /* Wide screens: the details column (0 when closed) grows and shrinks smoothly;
      the panel keeps its width, so it slides in from the edge (clipped here). */
+  /* (2026-10-25: the column changes at once - the panel slides by a transform and the picture glides to its new place
+     by one (sheet, columnMove): growing the column laid the picture out every frame, and its last step snapped it a
+     pixel aside after it had stopped) */
   @media (min-width: 900px) {
     .viewer {
       grid-template-columns: minmax(0, 1fr) 0px;
       overflow: hidden;
-      transition: grid-template-columns 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
     .viewer.info {
       grid-template-columns: minmax(0, 1fr) 340px;
@@ -1152,11 +1190,6 @@
       width: 340px;
       grid-column: 2;
       grid-row: 1;
-    }
-  }
-  @media (min-width: 900px) and (prefers-reduced-motion: reduce) {
-    .viewer {
-      transition: none;
     }
   }
   /* Its own stacking context: the slides' layers (will-change, zoom, video) stay inside it - on an iPhone a promoted
