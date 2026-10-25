@@ -250,56 +250,11 @@
     drawer = false;
   }
 
-  // ---- The top bar slides away while the page scrolls down and comes back when
-  // it scrolls up (or reaches the top) - the library's grid and the other
-  // screens' pages, not lists inside menus.
-  let barAway = $state(false);
+  // ---- The top bar: always there (it slid away while a page scrolled down until 2026-10-25 - the user: "disable
+  // the header bar autohide site wide. its annoying"). It floats over the screens, which keep room for it (topbar.h).
   let barH = $state(0);
-  let barEl = $state<HTMLElement>();
-  // How far it slides: all but the strip under the status bar (its top padding).
-  let barHide = $derived.by(() => {
-    void barH;
-    return barEl ? Math.max(0, barH - (parseFloat(getComputedStyle(barEl).paddingTop) || 0)) : 0;
-  });
-  let barOff = $derived(barAway && !drawer ? barHide : 0);
   $effect(() => {
     topbar.h = barH;
-    topbar.off = barOff;
-  });
-  const lastTop = new WeakMap<Element, number>();
-  // Just after it moved: a scroll then (e.g. the browser settling) isn't taken as the user's.
-  let quietUntil = 0;
-  // While it slides (only then: its height measured at the start mustn't animate).
-  let barSliding = $state(false);
-  let slideTimer = 0;
-  const setAway = (v: boolean) => {
-    if (v === barAway) return;
-    barSliding = true;
-    clearTimeout(slideTimer);
-    slideTimer = window.setTimeout(() => (barSliding = false), 300);
-    barAway = v;
-    quietUntil = performance.now() + 350;
-  };
-  $effect(() => {
-    const onScroll = (e: Event) => {
-      const t = e.target as HTMLElement;
-      if (!(t instanceof HTMLElement) || !(t.classList.contains('grid-scroller') || t.classList.contains('page'))) return;
-      const top = t.scrollTop;
-      const prev = lastTop.get(t) ?? top;
-      lastTop.set(t, top);
-      if (top < 8) return setAway(false); // at the top: always there
-      if (performance.now() < quietUntil || performance.now() < Number(t.dataset.quietUntil ?? 0)) return; // (see setAway; the grid moving itself)
-      if (top - prev > 6 && top > barH * 2) setAway(true);
-      else if (prev - top > 6) setAway(false);
-    };
-    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
-    return () => document.removeEventListener('scroll', onScroll, { capture: true });
-  });
-  // Another screen: the bar is back.
-  $effect(() => {
-    void router.screen;
-    void router.sub;
-    untrack(() => setAway(false));
   });
   updater.announce(); // (just updated: says to what)
 </script>
@@ -322,8 +277,8 @@
 {:else if settings.welcome && settings.welcome !== 'finished'}
   {#if lazy.firstSteps}{@const FirstSteps = lazy.firstSteps}<FirstSteps />{/if}
 {:else}
-  <div class="shell" class:bar-sliding={barSliding} style:--bar-h="{barH}px" style:--bar-off="{-barOff}px">
-    <header class="topbar" class:away={barAway && !drawer} bind:this={barEl} bind:offsetHeight={barH}>
+  <div class="shell" style:--bar-h="{barH}px">
+    <header class="topbar" bind:offsetHeight={barH}>
       <button
         class="menu-button"
         aria-label={t('menu.menu')}
@@ -483,9 +438,9 @@
     min-height: calc(max(var(--control-h), 40px) + var(--safe-top));
     background: var(--mantle);
     border-bottom: 1px solid var(--surface0);
-    /* Over the screens (they keep room for it): sliding away moves nothing under it. */
+    /* Over the screens (they keep room for it). */
     position: absolute;
-    top: var(--bar-off, 0px);
+    top: 0;
     left: var(--safe-left);
     right: var(--safe-right);
     z-index: 6;
@@ -493,17 +448,6 @@
        gray) after some page changes, when something moving under it had made it a layer for the moment (seen in a
        motion recording). Opacity, not transform: no containing block for what's fixed inside it. */
     will-change: opacity;
-    /* Scrolled down: slid up out of sight - all but the strip under the status bar
-       (content never shows under the status bar). By its top, not a transform: a transform
-       would make it the frame of the menus inside it that are fixed to the screen. */
-  }
-  .bar-sliding .topbar {
-    transition: top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .bar-sliding .topbar {
-      transition: none;
-    }
   }
   @media (min-width: 900px) {
     .topbar {

@@ -163,7 +163,7 @@
     {:else if results.total === 0 && results.busy}
       <div class="first-load" role="status" aria-label={t('library.searching')} in:swap><span class="spinner"></span></div>
     {:else}
-      <Grid {pad} inset={topbar.h + headH - topbar.off} onopen={details} />
+      <Grid {pad} inset={topbar.h + headH} onopen={details} />
     {/if}
     {#if results.loadingMore}
       <!-- The site's next page on its way. -->
@@ -195,7 +195,7 @@
   header {
     padding: 8px 10px 8px;
     position: absolute;
-    top: calc(var(--bar-h, 0px) + var(--bar-off, 0px));
+    top: var(--bar-h, 0px);
     left: 0;
     right: 0;
     z-index: 5;

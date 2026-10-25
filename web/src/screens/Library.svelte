@@ -379,7 +379,7 @@
         bind:this={grid}
         {pad}
         {hideId}
-        inset={pad - topbar.off}
+        inset={pad}
         onopen={(i, details) => open(i, details)} />
     {/if}
   </div>
@@ -409,7 +409,7 @@
     position: absolute;
     /* (by its top, not a transform: that would make it the frame of the suggestions
        list, which is fixed to the screen) */
-    top: calc(var(--bar-h, 0px) + var(--bar-off, 0px));
+    top: var(--bar-h, 0px);
     left: 0;
     right: 0;
     z-index: 5;

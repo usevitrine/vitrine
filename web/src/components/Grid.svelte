@@ -604,7 +604,7 @@
   });
 
   /** The grid moving itself (following the viewer, keeping arrivals still): not
-   *  the user scrolling - the top bar stays as it is (App reads data-quiet-until). */
+   *  the user scrolling - not a flick (trackSpeed reads data-quiet-until). */
   function scrollSelf(top: number) {
     if (!el) return;
     el.dataset.quietUntil = String(performance.now() + 300);

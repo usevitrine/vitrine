@@ -4889,36 +4889,20 @@ test('full screen: our viewer, not the browser\'s player - a button in the video
   await expect.poll(fsEl).toBe('');
 });
 
-test('the top bar slides away when the page scrolls down and comes back when it scrolls up (always at the top)', async ({ page }) => {
+test('the top bar stays as the page scrolls (it slid away until 2026-10-25 - the user: "its annoying")', async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 700 }); // a long grid
   await page.goto('/');
   await expect(page.getByText(/^26 files/)).toBeVisible();
   const bar = page.locator('header.topbar');
   const grid = page.locator('#grid-scroller');
-  const shown = async () => ((await bar.boundingBox())!.y + (await bar.boundingBox())!.height) > 10;
-  expect(await shown()).toBe(true);
-  // Down: away - sliding over the grid, which doesn't move (only the scrolling moves it).
-  for (const y of [100, 300, 500]) {
-    await grid.evaluate((el, y) => (el.scrollTop = y), y);
-    await page.waitForTimeout(60);
-  }
-  const y0 = (await page.locator('.tile').nth(12).boundingBox())!.y;
-  await expect(bar).toHaveClass(/away/);
-  await expect.poll(shown).toBe(false);
-  expect((await page.locator('.tile').nth(12).boundingBox())!.y).toBeCloseTo(y0, 0);
-  // Up a little (a moment later, as a hand would): back.
+  const at = async () => (await bar.boundingBox())!.y;
+  const y0 = await at();
+  await grid.evaluate((el) => el.scrollBy(0, 600));
   await page.waitForTimeout(400);
-  await grid.evaluate((el) => (el.scrollTop -= 80));
-  await expect(bar).not.toHaveClass(/away/);
-  // Down again, then all the way to the top: back, and it stays.
+  expect(await at()).toBe(y0); // down: still there
+  await grid.evaluate((el) => el.scrollBy(0, -300));
   await page.waitForTimeout(400);
-  await grid.evaluate((el) => (el.scrollTop += 200));
-  await page.waitForTimeout(60);
-  await grid.evaluate((el) => (el.scrollTop += 200));
-  await expect(bar).toHaveClass(/away/);
-  await grid.evaluate((el) => (el.scrollTop = 0));
-  await expect(bar).not.toHaveClass(/away/);
-  await expect.poll(shown).toBe(true);
+  expect(await at()).toBe(y0); // up: the same
 });
 
 test('videos loop seamlessly: sent back to the start just before the end (never left to end and restart)', async ({ page }, info) => {

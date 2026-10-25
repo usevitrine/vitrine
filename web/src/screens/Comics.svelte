@@ -536,7 +536,7 @@
         </div>
       {/if}
     {:else}
-      <Grid bind:this={grid} noHover={heroing} hideId={heroId ?? openID ?? undefined} {pad} inset={topbar.h + headH - topbar.off} onopen={open} oncrop={(i) => (cropping = results.fileAt(i)?.comic ?? null)} />
+      <Grid bind:this={grid} noHover={heroing} hideId={heroId ?? openID ?? undefined} {pad} inset={topbar.h + headH} onopen={open} oncrop={(i) => (cropping = results.fileAt(i)?.comic ?? null)} />
     {/if}
   </div>
   {#if selection.active}<SelectionBar />{/if}
@@ -604,7 +604,7 @@
   header {
     padding: 8px 10px 8px;
     position: absolute;
-    top: calc(var(--bar-h, 0px) + var(--bar-off, 0px));
+    top: var(--bar-h, 0px);
     left: 0;
     right: 0;
     z-index: 5;

@@ -114,7 +114,7 @@
     flex-direction: column;
     min-height: 0;
     background: var(--mantle);
-    top: calc(var(--bar-h, 0px) + var(--bar-off, 0px));
+    top: var(--bar-h, 0px);
     right: 0;
     bottom: 0;
     width: 340px;

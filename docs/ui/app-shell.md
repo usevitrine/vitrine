@@ -109,7 +109,8 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   library's search bar, the bar's one-line height (44 / 38 px, like Empty trash in the trash), no text - how many
   only in its label for screen readers; it and Empty trash slide in and out sideways with their gap. Measured with a
   159,212 file count and 3 downloads: the bar fits at 393, 360 and 320 px. Desktop: just the button moved. Its icon is an eye (marks them seen; a broom until 2026-10-24, the user: "should be an eye instead of a broom").
-- **The top bar slides away on scroll (2026-10-19)**: scrolling the library grid or a screen's page down (past two
+- **The top bar slid away on scroll (2026-10-19 to 2026-10-25 - removed: the user, "disable the header bar autohide site
+  wide. its annoying"; it always stays now)**: scrolling the library grid or a screen's page down (past two
   bar heights) slides the top bar up out of sight - all but the strip under the status bar; scrolling up brings it
   back, and it's always there at the top, on another screen and with the menu open. Since 2026-10-20 the bar floats
   over the screens (`position: absolute`; `--bar-h`, `--bar-off` on the shell, `topbar.h`/`off` for the library)
