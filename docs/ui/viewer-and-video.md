@@ -130,7 +130,8 @@ lays them out at the original size.
   close, where you are (in full: 96,938 / 162,330, centered) and the details; the actions run along the bottom in reach of
   a thumb - favorite, I came, full screen (where there is one) - each in its own dark backing like the top bar's, over
   a video's own controls as one panel that shows and hides with them. Delete stays in the details only (the user). The
-  size (%) shows a moment while it changes (a pinch, a double tap), then goes. Wide screens keep the one bar on top.
+  size (%) shows a moment while you zoom (a pinch, a double tap), then goes - not on opening or going to another file
+  (the user). The spinner sits right of close; the top bar is three columns, so where you are stays centered. Wide screens keep the one bar on top.
 - **Trackpad gestures (2026-10-24, the user: "natural trackpad gestures ... 2 finger swipe to switch between images")**:
   two fingers sideways (wheel events with deltaX) - the file follows them like a touch swipe (`dx`), past
   min(140 px, 20 % of the width) it slides on to the next or previous one, and the rest of that gesture (its glide

@@ -358,7 +358,12 @@ test('images: zoom to 100 % (phones: a double tap; a mouse: a click) and back to
     fitted = (await pct.textContent())!;
   } else {
     await page.waitForTimeout(500);
+    await expect(pct).toHaveCount(0); // (not on opening)
+    await page.keyboard.press('ArrowRight'); // another file: its own fit is no zoom - nothing shows
+    await page.waitForTimeout(300);
     await expect(pct).toHaveCount(0);
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(500);
   }
   const zoom = () =>
     mouseUI ? page.mouse.click(box.x + box.width / 2, box.y + box.height / 2) : page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);

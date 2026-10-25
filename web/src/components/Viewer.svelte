@@ -405,19 +405,26 @@
     return k > 1.2 ? k : 2;
   }
   /** How big the picture is shown, in % of its own pixels. */
-  // (split: the size shows a moment while it changes - a pinch, a double tap - then goes, as in a photo app)
+  // (split: the size shows a moment while you zoom - a pinch, a double tap - then goes, as in a photo app. Not on
+  // opening or going to another file: their own fit is no zoom - the user)
   let pctShown = $state(false);
   let pctTimer = 0;
-  let pctWas = 0;
+  let zoomWas = { s: 1, i: -1, at: 0 };
   $effect(() => {
-    const now = percent;
+    const zs = zoom.s;
+    const i = index;
     untrack(() => {
-      if (now && pctWas && now !== pctWas) {
+      const now = performance.now();
+      if (i !== zoomWas.i) {
+        zoomWas.at = now; // (another file: its zoom starts over - not a zoom of yours)
+        pctShown = false;
+      }
+      else if (zs !== zoomWas.s && now - zoomWas.at > 150) {
         pctShown = true;
         clearTimeout(pctTimer);
         pctTimer = window.setTimeout(() => (pctShown = false), 1200);
       }
-      pctWas = now;
+      zoomWas = { s: zs, i, at: zoomWas.at };
     });
   });
   $effect(() => () => clearTimeout(pctTimer));
@@ -1035,6 +1042,21 @@
   }
 </script>
 
+{#snippet closeButton()}
+  <button class="icon" aria-label={t('sites.close')} onclick={onclose}><Icon name="close" /></button>
+{/snippet}
+{#snippet where()}
+  <span class="count chip">{num(index + 1)} / {num(results.total)}</span>
+  {#if index < results.pinned}<span class="chip new" title={t('viewer.newTitle')} transition:nudge>{t('grid.new')}</span>{/if}
+  {#if percent && (!split || pctShown)}<span class="chip pct" title={t('viewer.percentTitle', { n: percent })} transition:nudge>{t('viewer.percent', { n: percent })}</span>{/if}
+{/snippet}
+{#snippet spinner()}
+  {#if loading}<span class="spinner" role="status" aria-label={t('viewer.loading')} transition:pop></span>{/if}
+{/snippet}
+{#snippet infoButton()}
+  <button class="icon" class:on={info} aria-label={t('fileMenu.details')} title={t('viewer.detailsKey')} aria-pressed={info} onclick={() => (info = !info)}
+    ><Icon name="info" /></button>
+{/snippet}
 {#snippet actions()}
   {#if cur}
     <button class="icon fav" class:on={cur.favorite} aria-label={t('filter.favorite.label')} aria-pressed={!!cur.favorite} title={cur.favorite ? t('viewer.unfavoriteKey') : t('viewer.favoriteKey')}
@@ -1154,16 +1176,20 @@
 
     <!-- Controls sit in their own layer above the slides (never inside the swipe area). -->
     <div class="top float-bar" class:split class:hide={!chrome || !entered} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
-      <button class="icon" aria-label={t('sites.close')} onclick={onclose}><Icon name="close" /></button>
-      {#if split}<span class="spacer"></span>{/if}
-      <span class="count chip">{num(index + 1)} / {num(results.total)}</span>
-      {#if index < results.pinned}<span class="chip new" title={t('viewer.newTitle')} transition:nudge>{t('grid.new')}</span>{/if}
-      {#if percent && (!split || pctShown)}<span class="chip pct" title={t('viewer.percentTitle', { n: percent })} transition:nudge>{t('viewer.percent', { n: percent })}</span>{/if}
-      {#if loading}<span class="spinner" role="status" aria-label={t('viewer.loading')} transition:pop></span>{/if}
-      <span class="spacer"></span>
-      {#if !split}{@render actions()}{/if}
-      <button class="icon" class:on={info} aria-label={t('fileMenu.details')} title={t('viewer.detailsKey')} aria-pressed={info} onclick={() => (info = !info)}
-        ><Icon name="info" /></button>
+      {#if split}
+        <!-- Three columns: close and the spinner, where you are (centered whatever comes and goes beside close), the
+             details. -->
+        <span class="side">{@render closeButton()}{@render spinner()}</span>
+        <span class="where">{@render where()}</span>
+        <span class="side end">{@render infoButton()}</span>
+      {:else}
+        {@render closeButton()}
+        {@render where()}
+        {@render spinner()}
+        <span class="spacer"></span>
+        {@render actions()}
+        {@render infoButton()}
+      {/if}
     </div>
     {#if split || (isVideo && videoEl)}
       <div class="bottom" class:hide={!chrome || !entered} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
@@ -1363,9 +1389,24 @@
   button.came {
     position: relative;
   }
-  /* Split (phones): the count in the middle, between close and the details. */
-  .top.split .count {
-    flex: none;
+  /* Split (phones): three columns - close and the spinner, where you are in the middle, the details. (The columns
+     take no presses of their own: between the buttons is the picture's.) */
+  .top.split {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+  .top.split > span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    pointer-events: none;
+  }
+  .top.split > span > * {
+    pointer-events: auto;
+  }
+  .top.split > .end {
+    justify-content: flex-end;
   }
   /* The actions along the bottom (split): evenly across, each in its own dark backing like the top bar's. */
   .actions {
