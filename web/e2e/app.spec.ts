@@ -6713,6 +6713,20 @@ test('comics: Browse opens with its default search (Settings > Library, Browse s
   }
 });
 
+test('settings: Browse search has Browse\'s own filter menu (as on the page)', async ({ page }) => {
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
+  await page.goto('/settings/library');
+  const field = page.getByRole('group', { name: 'Browse search' });
+  await field.getByRole('button', { name: 'Filters', exact: true }).click();
+  const menu = page.getByRole('dialog', { name: /filter/i });
+  await expect(menu.getByRole('button', { name: /^Rating/ })).toBeVisible(); // (the gallery site's filters: its stars)
+  await expect(menu.getByRole('button', { name: /^Has a torrent/ })).toBeVisible();
+  await expect(menu.getByRole('button', { name: /^Category/ })).toBeVisible();
+  await expect(menu.getByRole('button', { name: /^Length/ })).toHaveCount(0); // (not the library's)
+  await expect(menu.getByText('From', { exact: true })).toHaveCount(0); // (no site: the setting is for all of them)
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('comics: Browse - a new search clears the last one\'s galleries at once (a spinner until the new ones come)', async ({ page }) => {
   const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://gallery.test/g/${id}/abcdef0123/`, title: `Some Comic ${id}`, category: 'Manga', pages: 24, tags: [] });
   await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));

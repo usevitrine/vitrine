@@ -28,6 +28,7 @@
   import SearchBar from '../components/SearchBar.svelte';
   import Rich from '../components/Rich.svelte';
   import UpdatesPage from '../components/UpdatesPage.svelte';
+  import BrowseSearchSetting from '../components/BrowseSearchSetting.svelte';
   import { router } from '../lib/router.svelte';
   import { t, num, i18n, languages } from '../lib/i18n.svelte';
 
@@ -170,12 +171,7 @@
               </div>
               <div class="field">
                 <span class="field-label">{t('settings.browseSearch')}</span>
-                <SearchBar
-                  plain
-                  label={t('settings.browseSearch')}
-                  placeholder={t('settings.browseSearchPlaceholder')}
-                  query={settings.browseSearch}
-                  onsearch={(q) => (settings.browseSearch = q)} />
+                <BrowseSearchSetting />
               </div>
             </section>
           {/if}
