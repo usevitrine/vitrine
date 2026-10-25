@@ -13,7 +13,7 @@
   import { displayInfo } from '../lib/viewport';
   import ActionMenu, { type MenuItem } from '../components/ActionMenu.svelte';
   import { sortOptions } from '../components/SortMenu.svelte';
-  import { sortFields, sortInfo, splitSort, joinSort } from '../lib/system';
+  import { sortFields, comicSortFields, sortInfo, splitSort, joinSort } from '../lib/system';
   import InstallHelp from '../components/InstallHelp.svelte';
   import SitesCard from '../components/SitesCard.svelte';
   import DownloadRules from '../components/DownloadRules.svelte';
@@ -38,11 +38,11 @@
 
   // The default sort as an action menu: the fields, each opening its two
   // directions (the current one lit, its direction beside it).
-  const sortLabel = (v: string) => sortOptions().find((o) => o.value === v)?.label ?? v;
-  function sortItems(value: string, set: (v: string) => void = (v) => (settings.defaultSort = v)): MenuItem[] {
+  const sortLabel = (v: string, comics = false) => sortOptions(comics).find((o) => o.value === v)?.label ?? v;
+  function sortItems(value: string, set: (v: string) => void = (v) => (settings.defaultSort = v), comics = false): MenuItem[] {
     const cur = splitSort(value);
-    return sortFields.filter((f) => f !== 'came' || settings.came).map((f) => {
-      const i = sortInfo(f);
+    return (comics ? comicSortFields : sortFields).filter((f) => f !== 'came' || settings.came).map((f) => {
+      const i = sortInfo(f, comics);
       const on = cur.field === f;
       if (!i.desc) return { label: i.label, on, run: () => set(f) };
       const ways = [
@@ -136,6 +136,16 @@
                 current={sortLabel(settings.favoritesSort)}
                 items={sortItems(settings.favoritesSort, (v) => (settings.favoritesSort = v))} />
             </div>
+            {#if !settings.comicsOff}
+              <div class="field" transition:reveal>
+                <span class="field-label">{t('settings.comicsSort')}</span>
+                <ActionMenu
+                  label={t('settings.comicsSort')}
+                  title={t('settings.comicsSort')}
+                  current={sortLabel(settings.comicsSort, true)}
+                  items={sortItems(settings.comicsSort, (v) => (settings.comicsSort = v), true)} />
+              </div>
+            {/if}
             <div class="field">
               <span class="field-label">{t('settings.newOrder.label')}</span>
               <span class="hint">{t('settings.newOrder.hint')}</span>

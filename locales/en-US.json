@@ -593,6 +593,7 @@
     "defaultSearchPlaceholder": "Tags or filters",
     "defaultSort": "Default sort",
     "favoritesSort": "Favorites sort",
+    "comicsSort": "Comics sort",
     "bulkNew": "Bulk downloads count as new",
     "bulkNewHint": "One-off downloads, first checks and imports. Off: only regular checks.",
     "tagsInUse": {

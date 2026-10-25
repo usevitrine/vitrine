@@ -27,6 +27,7 @@ var settingCheck = map[string]func(json.RawMessage) error{
 	},
 	"defaultSort":   isOrder,
 	"favoritesSort": isOrder, // the Favorites page's own default order
+	"comicsSort":    isOrder, // the Comics page's own default order
 	"startMuted":    isBool,
 	// The FlareSolverr service that passes Cloudflare challenges ("" = none).
 	"flaresolverrURL": func(v json.RawMessage) error {

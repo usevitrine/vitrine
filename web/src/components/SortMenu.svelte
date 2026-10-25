@@ -3,7 +3,7 @@
   // sort button); in Settings a normal dropdown. Both use Vitrine's own
   // dropdown, not the native one. The sort is kept apart from the search -
   // in the URL's ?sort= - never as a chip.
-  import { sortFields, comicSortFields, sortInfo } from '../lib/system';
+  import { sortFields, comicSortFields, sortInfo, midSentence } from '../lib/system';
   import { t } from '../lib/i18n.svelte';
 
   /** Every order the library offers, both ways ("File size - largest first"), in the current language. */
@@ -19,8 +19,8 @@
           const i = sortInfo(f, comics);
           if (!i.desc) return [{ value: f, label: i.label }];
           return [
-            { value: f, label: t('sort.option', { field: i.label, way: i.desc.toLowerCase() }) },
-            { value: f + '_asc', label: t('sort.option', { field: i.label, way: i.asc.toLowerCase() }) },
+            { value: f, label: t('sort.option', { field: i.label, way: midSentence(i.desc) }) },
+            { value: f + '_asc', label: t('sort.option', { field: i.label, way: midSentence(i.asc) }) },
           ];
         }),
     ];

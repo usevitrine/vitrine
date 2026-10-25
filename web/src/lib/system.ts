@@ -114,6 +114,10 @@ export function splitSort(sort: string): { field: string; asc: boolean } {
   return { field: asc ? sort.slice(0, -4) : sort, asc };
 }
 
+/** A direction's words inside a sentence ("Size - largest first"): its first word in lower case - not one that's a
+ *  letter or a name ("A to Z first" stays: "a to z" read wrong). */
+export const midSentence = (w: string) => (/^[A-Z][a-z]/.test(w) ? w[0].toLowerCase() + w.slice(1) : w);
+
 export const joinSort = (field: string, asc: boolean) => (asc && !field.startsWith('random') ? field + '_asc' : field);
 
 /** A field's name and its two directions in words (no directions for random). */

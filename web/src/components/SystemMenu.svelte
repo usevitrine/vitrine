@@ -47,6 +47,7 @@
     type Form,
     type TimeMode,
     type Cmp,
+    midSentence,
   } from '../lib/system';
 
   let {
@@ -409,7 +410,7 @@
       <div class="sort-row">
       <button
         class="sort-pick"
-        aria-label={info.desc ? t('filterMenu.sortByWay', { field: info.label, way: (current.asc ? info.asc : info.desc).toLowerCase() }) : t('filterMenu.sortBy', { field: info.label })}
+        aria-label={info.desc ? t('filterMenu.sortByWay', { field: info.label, way: midSentence(current.asc ? info.asc : info.desc) }) : t('filterMenu.sortBy', { field: info.label })}
         data-value={current.field}
         data-dir={info.desc ? (current.asc ? info.asc : info.desc) : ''}
         onclick={() => openSort('fields')}>

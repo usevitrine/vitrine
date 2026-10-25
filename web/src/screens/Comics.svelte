@@ -13,6 +13,7 @@
   import { cubicOut } from 'svelte/easing';
   import { fitContain, hero, reducedMotion, type HeroPicture, type Rect } from '../lib/hero';
   import { isRead, isReading } from '../lib/comics';
+  import { settings } from '../lib/settings.svelte';
   import type { Comic } from '../lib/api';
   import { router } from '../lib/router.svelte';
   import { itemName, t, num } from '../lib/i18n.svelte';
@@ -40,7 +41,8 @@
 
   provideScope(comicsScope);
   const { results, selection } = comicsScope;
-  const DEFAULT_SORT = 'imported'; // newest added first
+  // Its default order: the setting (Settings > Media, "Comics sort"); the page opens in it, as the library does.
+  const DEFAULT_SORT = $derived(settings.comicsSort || 'imported');
 
   const here = () => router.screen === 'comics';
   const fromURL = extractSort(router.param('q'));
@@ -112,19 +114,7 @@
   }
 
   function loadSort(): string {
-    try {
-      return localStorage.getItem('vitrine.comicSort') || DEFAULT_SORT;
-    } catch {
-      return DEFAULT_SORT;
-    }
-  }
-  function keepSort() {
-    if (inCollection) return; // (a collection's page has its own order: by title)
-    try {
-      localStorage.setItem('vitrine.comicSort', sort);
-    } catch {
-      /* not remembered */
-    }
+    return DEFAULT_SORT;
   }
   const setURL = () => here() && router.setParams({ q: query || undefined, sort: sort === (inTrash ? 'modified' : DEFAULT_SORT) ? undefined : sort });
 
@@ -132,7 +122,6 @@
     const typed = extractSort(q); // a sort typed into the search goes to the order, not the chips
     if (typed.sort) sort = typed.sort;
     query = typed.q;
-    keepSort();
     setURL();
     await results.search(query, sort);
   }
@@ -465,7 +454,7 @@
     if (here()) untrack(setURL);
   });
 
-  onMount(() => {
+  onMount(async () => {
     collections.load();
     collections.onchange = () => {
       // (a collection taken apart or emptied while its page is open: back to all comics)
@@ -474,7 +463,12 @@
     };
     topbar.comics = countControl;
     namespaces.loadComics();
-    if (results.searches === 0) search(query);
+    if (results.searches === 0) {
+      // (its first search in the shared default order, read a moment ago - as the library's)
+      await settings.whenSynced();
+      if (!router.param('sort') && !fromURL.sort && !inTrash && !inCollection) sort = DEFAULT_SORT;
+      search(query);
+    }
   });
 </script>
 

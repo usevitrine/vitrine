@@ -6998,6 +6998,26 @@ test('comics: the reader handles like the viewer - i, L, a swipe up shows the de
   await expect(page).toHaveURL(/\/comics$/);
 });
 
+test('comics: its own default order (Settings > Media, Comics sort), the page opening in it', async ({ page }) => {
+  // (settings are shared: put back at the end)
+  const set = (v: string) => page.evaluate((v) => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comicsSort: v }) }), v);
+  await page.goto('/');
+  await set('title_asc');
+  try {
+    await page.goto('/comics');
+    const titles = page.locator('.comics .tile .comic-title');
+    await expect(titles.first()).toHaveText('Blue Sky Comic'); // (by title; newest added first, Short Story led)
+    // Settings shows it, with the Comics page's own orders.
+    await page.goto('/settings/library');
+    const menu = page.getByRole('button', { name: 'Comics sort' });
+    await expect(menu).toContainText('Title');
+    await menu.click();
+    await expect(page.getByRole('menuitemradio', { name: 'Last read' })).toBeVisible(); // (a comics order the library hasn't)
+  } finally {
+    await set('imported');
+  }
+});
+
 test('comics: the library\'s search, grid and selection - tags or title, filters, details, read state, favorites, delete with undo', async ({ page }) => {
   await page.goto('/comics');
   await page.evaluate(async () => {
