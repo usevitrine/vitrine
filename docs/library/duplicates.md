@@ -66,6 +66,12 @@ The near-duplicate finder (perceptual hashes) and the Duplicates screen.
   (`error`) takes no part; the wait never lasts more than 4 s (`HOLD_MAX`, a safety net: 1.5 s made the slow one
   seek-thrash again on a slow connection); a new element's join gives up after a second. Not reproduced here
   (desktop browsers load the test videos paused too); the library is ~all H.264 (13.8k of 13.9k videos).
+- **A picture still loading (2026-10-25)** (the user: "there doesn't seem to be an indicator that a very large image is
+  loading in the duplicates page"): a pane whose picture's screen-sized copy hasn't come (or failed) shows the same
+  centered spinner as a buffering video - after 250 ms, so a picture that comes at once shows none; its thumbnail
+  shows meanwhile. Loaded pictures are kept by URL (`pictures`; the attachment `arrived` also counts one the browser
+  had already). The spinner has a dark halo so it shows on bright pictures (the video one too). Test: "a picture
+  still loading has a spinner on its pane until it comes".
 - **Still looking (2026-10-23)**: while the library is being looked through, the progress is a thin bar along the
   header's bottom edge (its numbers in the tooltip and for screen readers) - it takes no room. It used to be a line
   above the pictures that slid open and shut; the pictures (a flexible stage) shrank and grew with it, which showed as

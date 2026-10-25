@@ -22,6 +22,21 @@
   let progress = $state({ checked: 0, total: 0 });
   let loaded = $state(false);
   const skipped = new SvelteSet<string>();
+  // Pictures whose screen-sized copy has come (or failed): until then their pane has a spinner (a huge image takes a
+  // while; its thumbnail shows meanwhile).
+  const pictures = new SvelteSet<string>();
+  const waiting = (f: DupeFile) => !f.mime.startsWith('video/') && !pictures.has(viewURL(f));
+  /** Marks a picture come when it has loaded - also one the browser had already (complete before this ran). */
+  function arrived(img: HTMLImageElement) {
+    const done = () => pictures.add(img.getAttribute('src') ?? ''); // (the one it shows now: a new pair reuses it)
+    if (img.complete) done();
+    img.addEventListener('load', done);
+    img.addEventListener('error', done);
+    return () => {
+      img.removeEventListener('load', done);
+      img.removeEventListener('error', done);
+    };
+  }
   const key = (p: DupePair) => `${p.a.id}-${p.b.id}`;
 
   let cur = $derived(pairs[0] as DupePair | undefined);
@@ -374,8 +389,14 @@
       alt={side === 'a' ? 'File A' : 'File B'}
       draggable="false"
       decoding="async"
+      {@attach arrived}
       style:background-image={f.thumb ? `url(${f.thumb})` : undefined} />
   {/if}
+{/snippet}
+
+{#snippet loadingSpinner(f: DupeFile)}
+  <!-- (only after a moment: a picture that comes at once shows none) -->
+  {#if waiting(f)}<span class="buffering spinner" role="status" aria-label={t('common.loading')} in:pop={{ delay: 250 }} out:pop></span>{/if}
 {/snippet}
 
 {#snippet undoButton()}
@@ -444,6 +465,7 @@
             {#each ['a', 'b'] as const as s (s)}
               <div class="pane">
                 {@render media(cur[s], s)}
+                {@render loadingSpinner(cur[s])}
                 <div class="tags-row">{@render badge(s)}</div>
               </div>
             {/each}
@@ -453,6 +475,7 @@
                 <div class="layer" class:hidden={shown !== s} aria-hidden={shown !== s}>{@render media(cur[s], s)}</div>
               {/each}
               <!-- (a pop on each flip: that it switched shows even when the two look alike) -->
+              {@render loadingSpinner(cur[shown])}
               {#key shown}<div class="tags-row swapped">{@render badge(shown)}</div>{/key}
               <span class="hint">{t('dupes.tapToSwitch')}</span>
             </button>
@@ -658,7 +681,11 @@
     height: 30px;
     border-width: 3px;
     margin: -15px 0 0 -15px;
-    filter: drop-shadow(0 1px 4px rgb(0 0 0 / 0.6));
+    /* (a dark halo: it shows on any picture, bright ones too) */
+    border-color: rgb(255 255 255 / 0.28);
+    border-top-color: var(--mauve);
+    background: rgb(17 17 27 / 0.55);
+    box-shadow: 0 0 0 7px rgb(17 17 27 / 0.55);
     pointer-events: none;
   }
   /* (still drawn, under the one on show: a hidden video may stop being drawn, and show an old frame on a flip) */

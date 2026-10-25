@@ -3294,6 +3294,30 @@ test('duplicates: compare a pair (flip, side by side), keep one and undo, keep b
   expect((await list()).total).toBe(before.total);
 });
 
+test('duplicates: a picture still loading has a spinner on its pane until it comes', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('vitrine.dupeLevel', '6')); // (Very similar: the test library has no exact copies)
+  await page.goto('/');
+  const list = () => page.evaluate(() => fetch('/api/dupes?max=6&limit=100').then((r) => r.json()));
+  await expect.poll(async () => (await list()).total).toBeGreaterThan(0);
+  const a = (await list()).pairs[0].a;
+  // File A's picture is held back (a huge image on a slow connection) until released.
+  const path = new URL(a.url, page.url()).pathname;
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  await page.route((u) => u.pathname === path, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto('/duplicates');
+  await page.getByRole('tab', { name: 'Side by side' }).click();
+  const paneA = page.locator('.stage.side .pane').first();
+  const paneB = page.locator('.stage.side .pane').nth(1);
+  await expect(paneA.getByRole('status', { name: 'Loading' })).toBeVisible();
+  await expect(paneB.getByRole('status')).toHaveCount(0); // (B came)
+  release();
+  await expect(paneA.getByRole('status')).toHaveCount(0);
+});
+
 test('duplicates: the menu shows how many wait', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('vitrine.dupeLevel', '6')); // (Very similar: the test library has no exact copies)
   await page.goto('/');
