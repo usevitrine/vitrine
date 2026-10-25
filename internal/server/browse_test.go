@@ -96,7 +96,7 @@ func TestBrowseBlacklisted(t *testing.T) {
 	}{
 		{[]string{"blue_sky"}, []browseTag{{Name: "blue_sky"}}, false},
 		{[]string{"artist:some_artist"}, []browseTag{{NS: "creator", Name: "some_artist"}}, true}, // (as the library names it)
-		{[]string{"female:red_hair"}, []browseTag{{NS: "female", Name: "red_hair"}}, true},       // (a wildcard, on the name)
+		{[]string{"female:red_hair"}, []browseTag{{NS: "female", Name: "red_hair"}}, true},        // (a wildcard, on the name)
 		{nil, []browseTag{{NS: "female", Name: "blue_sky"}}, false},
 	} {
 		if got := blacklisted(bl, c.site, c.tags); got != c.want {
