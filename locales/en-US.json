@@ -1235,13 +1235,13 @@
     "searchAny": "Search, e.g. blue_sky -cloud",
     "myFavorites": "My favorites",
     "myFavoritesTitle": "My favorites (fav:me)",
-    "files": "Files",
+    "files": "Posts",
     "firstCheck": "First check",
     "all": "All",
-    "maxFiles": "Max files",
-    "maxFirst": "Max files on the first check",
-    "maxFilesTitle": "Stop once this many files are in the library (blacklisted or skipped posts do not count)",
-    "maxFirstTitle": "The first check stops once this many files are in the library (later checks get every new post)",
+    "maxFiles": "Max posts",
+    "maxFirst": "Max posts on the first check",
+    "maxFilesTitle": "Stop after going through this many posts (new, had or blacklisted)",
+    "maxFirstTitle": "The first check stops after going through this many posts (later checks get every new post)",
     "repeat": "Repeat",
     "group": "Group",
     "addToGroup": "Add to group",
@@ -1249,13 +1249,13 @@
     "newGroupLabel": "New group name",
     "addToFavs": "Add to my favorites",
     "noteOnce": {
-      "one": "Stops once {n} file is in the library. Blacklisted and skipped posts do not count.",
-      "other": "Stops once {n} files are in the library. Blacklisted and skipped posts do not count."
+      "one": "Stops after going through {n} post - new, had or blacklisted.",
+      "other": "Stops after going through {n} posts - new, had or blacklisted."
     },
     "noteSub": "Checked {every} for new posts. The first check gets {first}",
     "newestN": {
-      "one": "the newest {n} file",
-      "other": "the newest {n} files"
+      "one": "the newest {n} post",
+      "other": "the newest {n} posts"
     },
     "everyPost": "every post",
     "fromSite": "from {site}",
@@ -2057,8 +2057,8 @@
     "blacklist": "Blacklist"
   },
   "viewer": {
-    "countedFirst": "You came to {what} for the first time",
-    "counted": "You came to {what} {n} times",
+    "countedFirst": "You Came to {what} for the first time",
+    "counted": "You Came to {what} {n} times",
     "back10": "◂◂ 10 s",
     "forward10": "10 s ▸▸",
     "soundOff": "Sound off",

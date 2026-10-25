@@ -1926,15 +1926,15 @@ test('settings: notifications card - other devices, kinds, service worker', asyn
 
 test('downloads: max files stays empty (every post) when subscribing', async ({ page }) => {
   await page.goto('/downloads');
-  const max = page.getByLabel(/^Max files/);
+  const max = page.getByLabel(/^Max posts/);
   await expect(max).toHaveValue('');
   await page.getByRole('button', { name: 'Repeat' }).click();
   await page.getByRole('option', { name: 'Every hour' }).click();
-  await expect(page.getByLabel('Max files on the first check')).toHaveValue('');
+  await expect(page.getByLabel('Max posts on the first check')).toHaveValue('');
   await expect(page.getByText(/The first check gets every post/)).toBeVisible();
   await page.getByRole('button', { name: 'Repeat' }).click();
   await page.getByRole('option', { name: 'Once' }).click();
-  await expect(page.getByLabel('Max files')).toHaveValue('');
+  await expect(page.getByLabel('Max posts')).toHaveValue('');
 });
 
 const addDownload = (page: import('@playwright/test').Page, site: string, query: string) =>
@@ -2496,10 +2496,10 @@ test('login: the password can be shown; a hint says how to reset it', async ({ p
   await expect(page.getByText('vitrine passwd')).toBeVisible();
 });
 
-test('downloads: the file limit says skipped posts do not count', async ({ page }) => {
+test('downloads: the limit counts every post gone through (new, had or blacklisted)', async ({ page }) => {
   await page.goto('/downloads');
-  await page.getByLabel('Max files').fill('1000');
-  await expect(page.getByText('Stops once 1,000 files are in the library. Blacklisted and skipped posts do not count.')).toBeVisible();
+  await page.getByLabel('Max posts').fill('1000');
+  await expect(page.getByText('Stops after going through 1,000 posts - new, had or blacklisted.')).toBeVisible();
 });
 
 const setSettings = (page: import('@playwright/test').Page, v: Record<string, unknown>) =>

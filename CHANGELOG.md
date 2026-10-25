@@ -4,6 +4,7 @@ What changed in each version of Vitrine, newest first. The app shows this too (S
 
 ## Unreleased
 
+- **New download**: the limit is labeled Posts (it counts every post gone through - new, had or blacklisted).
 - **The menu shows what's in the trash**: deleted files and comics together on Trash, each on its own under it.
 - **Duplicates**: the last pair fades away cleanly (it shrank first).
 - **Top bar**: the downloads and bell icons are a little smaller, their counters too.

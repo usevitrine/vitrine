@@ -84,7 +84,7 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
   ... it should say the file/comic id"; push: nothing "that could be explicit such as site names and tag names"):
   - In-app (pop-ups, the bell): a notice about one item names it by its ID - `itemName(id, comic)` in lib/i18n:
     "file #1234" / "comic #56", "page 12 of comic #56" for the comic reader's "I came" - e.g. "Deleted file #1234",
-    "Restored comic #56", "Added file #1234 to favorites", "You came to file #1234 for the first time" / "... 3 times"
+    "Restored comic #56", "Added file #1234 to favorites", "You Came to file #1234 for the first time" (Came capitalized, the feature's name - the user) / "... 3 times"
     (the user's words), "Saved the tags of file #1234 (added 1)", "Removed landscape from file #1234", "Refreshed
     the tags of file #1234 from its site", "Renamed comic #56", "Added comic #56 to "Sunsets"". Two or more: the
     count only ("Deleted 2 files"). The blacklist clean-up's Undo says "Restored N files". TagsSection knows whose
