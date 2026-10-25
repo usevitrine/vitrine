@@ -31,7 +31,7 @@ func TestDownloadRules(t *testing.T) {
 
 	// Videos over the size limit: known from the size before the body is read.
 	st := e.dl.Site("fake")
-	if _, _, err := e.dl.fetchFile(ctx, st, e.fb.srv.URL+"/img/3.png", 10, true); !errors.Is(err, errTooBig) {
+	if _, _, err := e.dl.fetchFile(ctx, st, e.fb.srv.URL+"/img/3.png", [16]byte{}, 10, true); !errors.Is(err, errTooBig) {
 		t.Fatalf("over the limit: %v", err)
 	}
 	for u, want := range map[string]bool{"https://x.test/a/b.MP4": true, "https://x.test/v.webm?x=1": true, "https://x.test/i.png": false, "https://x.test/mp4/i.jpg": false} {

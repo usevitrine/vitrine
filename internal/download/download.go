@@ -28,6 +28,7 @@ import (
 	"github.com/usevitrine/vitrine/internal/library"
 	"github.com/usevitrine/vitrine/internal/media"
 	"github.com/usevitrine/vitrine/internal/plugin"
+	"github.com/usevitrine/vitrine/internal/store"
 )
 
 // Post outcomes (seen_posts.outcome).
@@ -1108,7 +1109,11 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 		if isVideoURL(u) {
 			limit = rules.VideoBytes
 		}
-		f, modified, err = d.fetchFile(ctx, st, st.Client.Manifest().FileFetchURL(u, fp.ID), limit, bulk) // (as the site links it: see FileQuery)
+		var md5 [16]byte
+		if i == 0 {
+			md5 = fp.MD5 // (the site's md5 is the post's file's, not an alternative's)
+		}
+		f, modified, err = d.fetchFile(ctx, st, st.Client.Manifest().FileFetchURL(u, fp.ID), md5, limit, bulk) // (as the site links it: see FileQuery)
 		if err != nil && ctx.Err() != nil {
 			return Failed, 0, ctx.Err() // (stopped mid-file: fetched again on resume)
 		}
@@ -1146,7 +1151,15 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 // waits when the failure may pass (network trouble, the server busy) - not for
 // a missing file, a web page instead of the file, or a type Vitrine can't keep.
 // It also returns the file's Last-Modified time (zero if the site sent none).
-func (d *Downloader) fetchFile(ctx context.Context, st *Site, u string, maxBytes int64, bulk bool) (library.File, time.Time, error) {
+//
+// With the md5 the site gave for it (zero: none), the file is kept only if it matches: one that doesn't came out
+// wrong and is downloaded again. If the site then sends the very same file again, its md5 is just wrong for it (a
+// site that lists another version's md5): it's kept - an error would fail the post for good.
+func (d *Downloader) fetchFile(ctx context.Context, st *Site, u string, md5 [16]byte, maxBytes int64, bulk bool) (library.File, time.Time, error) {
+	var want [][16]byte // the md5s the file may have
+	if md5 != ([16]byte{}) {
+		want = [][16]byte{md5}
+	}
 	for attempt := 0; ; attempt++ {
 		var f library.File
 		var modified time.Time
@@ -1161,8 +1174,14 @@ func (d *Downloader) fetchFile(ctx context.Context, st *Site, u string, maxBytes
 				modified = m.Modified()
 			}
 			body = d.countBody(ctx, body, size)
-			f, err = d.lib.ImportAs(ctx, body, bulk)
+			f, err = d.lib.ImportChecked(ctx, body, bulk, want...)
 			body.Close()
+		}
+		var wrong *store.MD5MismatchError
+		if errors.As(err, &wrong) {
+			want = [][16]byte{md5, wrong.Got} // (the same again: the site's md5 is wrong, not the download)
+		} else if err == nil && md5 != ([16]byte{}) && f.MD5 != md5 {
+			d.log.Warn("the site's md5 doesn't match its file (the same file came twice): kept", "site", st.Client.Manifest().ID, "url", u)
 		}
 		d.log.Debug("file", "site", st.Client.Manifest().ID, "url", u, "attempt", attempt+1, "bytes", size, "new", f.New, "file_id", f.ID,
 			"took", d.now().Sub(fileStart).Round(time.Millisecond), "err", err)

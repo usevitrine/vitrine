@@ -2,8 +2,10 @@ package download
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -78,6 +80,37 @@ func TestFileRetries(t *testing.T) {
 	}
 	if e.fb.fileHits[13] != 0 {
 		t.Fatal("unexpected")
+	}
+}
+
+// A file that comes out wrong (its md5 isn't the one the site gave) is downloaded again; if it keeps coming out
+// different it fails. One the site sends the same way twice is kept: the site's md5 is wrong for it, not the download.
+func TestFileMD5Checked(t *testing.T) {
+	e := newEnv(t, 5)
+	ctx := context.Background()
+	e.dl.fileWaits = []time.Duration{time.Millisecond, time.Millisecond}
+	e.fb.mu.Lock()
+	e.fb.garbled[4] = 1     // wrong once, then right
+	e.fb.garbled[2] = 5     // wrong every time, differently: fails after three tries
+	e.fb.wrongMD5[3] = true // the site lists another md5; its file always comes the same
+	e.fb.mu.Unlock()
+	id, _ := e.dl.Add(ctx, "fake", "common", 0)
+	e.dl.RunQueue(ctx, "fake")
+	s, _ := e.dl.Get(ctx, id)
+	// 4: the second try is right. 3: the same file twice - kept. 2: never right - failed (listed, retried later).
+	if s.Downloaded != 4 || s.Failed != 1 {
+		t.Fatalf("search: %+v", s)
+	}
+	if e.fb.fileHits[4] != 2 || e.fb.fileHits[3] != 2 || e.fb.fileHits[2] != 3 || e.fb.fileHits[1] != 1 {
+		t.Fatalf("file hits: 4=%d 3=%d 2=%d 1=%d (want 2, 2, 3, 1)", e.fb.fileHits[4], e.fb.fileHits[3], e.fb.fileHits[2], e.fb.fileHits[1])
+	}
+	// The one that came right is the site's file, not the garbled copy.
+	want := md5.Sum(e.fb.files[4])
+	if m, err := e.lib.FindMD5(ctx, want); err != nil || m.FileID == 0 {
+		t.Fatalf("file 4 kept garbled: %+v, %v", m, err)
+	}
+	if failed, _ := e.dl.FailedPosts(ctx); len(failed) != 1 || failed[0].Post != 2 || !strings.Contains(failed[0].Error, "md5") {
+		t.Fatalf("failed: %+v", failed)
 	}
 }
 

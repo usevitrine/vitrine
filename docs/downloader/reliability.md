@@ -1,6 +1,6 @@
 # When sites misbehave
 
-Cloudflare and FlareSolverr, stalled and trickling downloads, and the automatic pause of a site that stops answering.
+Cloudflare and FlareSolverr, stalled and trickling downloads, files checked against the md5 the site gave, and the automatic pause of a site that stops answering.
 
 ## Cloudflare and FlareSolverr (2026-10-16)
 - Every site request goes through `plugin.Client.getWith`. A reply that is a Cloudflare challenge (403/503 with
@@ -27,6 +27,17 @@ Cloudflare and FlareSolverr, stalled and trickling downloads, and the automatic 
   start (resumed or not) and end, each page (posts, total, time), each post (outcome, file, time, error), each file
   attempt (bytes, time, error), each site request (host and path - never the query - status, time), manual retries,
   thumbnail batches. Every web request is logged only with VITRINE_LOG_LEVEL=debug (it's every thumbnail too).
+
+## Files checked against the site's md5 (2026-10-25)
+The user: "it should compare the MD5 it calculates with the one the site gave". The store hashes every file as it
+writes it (SHA-256 and md5); a download with the md5 its site listed (`Post.MD5`: the boorus' APIs, the HTML engines'
+thumbnail names) goes in with `library.ImportChecked` -> `store.PutChecked`, which keeps it only if the md5 matches -
+before the file is moved into the store or a row is written; a mismatch leaves nothing and returns
+`*store.MD5MismatchError`. `fetchFile` then downloads it again (the usual file retries, `fileWaits`); still wrong after
+those: the post fails (listed in Failed, retried later; the error names the md5). If a retry brings the very same
+bytes as the first wrong one, they're kept with a warning in the log: the site's md5 is wrong for its file (another
+version's), and failing would lose the post for good - corruption doesn't repeat byte for byte. Only the post's
+main file is checked (an alternative - a webm for a missing mp4 - has its own md5). Test: `TestFileMD5Checked`.
 
 ## A site that stops answering pauses by itself (2026-10-21)
 - `plugin.Client` counts each site's **connection failures in a row** (no answer, a 5xx, a Cloudflare block it can't

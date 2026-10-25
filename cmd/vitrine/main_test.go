@@ -38,7 +38,12 @@ func writeImage(t *testing.T, path string, c uint8, asPNG bool) {
 
 func runCmd(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	t.Setenv("VITRINE_CONFIG", "")
+	// An empty config of its own: not the machine's (an installed Vitrine's settings would leak in).
+	cfg := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(cfg, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("VITRINE_CONFIG", cfg)
 	var out, errOut bytes.Buffer
 	err := run(context.Background(), args, &out, &errOut)
 	return out.String() + errOut.String(), err

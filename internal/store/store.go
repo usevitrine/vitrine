@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 
 	"github.com/usevitrine/vitrine/internal/media"
 )
@@ -76,6 +77,19 @@ type Result struct {
 // from the content; unsupported files are rejected with media.ErrUnsupported
 // and leave nothing behind.
 func (s *Store) Put(r io.Reader) (Result, error) {
+	return s.PutChecked(r)
+}
+
+// MD5MismatchError: the content's md5 (Got) isn't one PutChecked was told to expect - a download that came out wrong.
+type MD5MismatchError struct{ Got [16]byte }
+
+func (e *MD5MismatchError) Error() string {
+	return fmt.Sprintf("the file's md5 (%x) isn't the one the site gave", e.Got)
+}
+
+// PutChecked is Put that keeps the file only when its md5 is one of want (none given: any); otherwise it leaves
+// nothing behind and says so with an *MD5MismatchError.
+func (s *Store) PutChecked(r io.Reader, want ...[16]byte) (Result, error) {
 	var res Result
 
 	tmp, err := os.CreateTemp(filepath.Join(s.root, tmpDir), "put-*")
@@ -113,6 +127,9 @@ func (s *Store) Put(r io.Reader) (Result, error) {
 	res.Size = int64(n) + rest
 	sha.Sum(res.SHA256[:0])
 	md.Sum(res.MD5[:0])
+	if len(want) > 0 && !slices.Contains(want, res.MD5) {
+		return res, &MD5MismatchError{Got: res.MD5} // (the deferred cleanup removes the temp file)
+	}
 
 	if err := tmp.Sync(); err != nil {
 		return res, fmt.Errorf("store: sync: %w", err)

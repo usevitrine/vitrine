@@ -47,6 +47,8 @@ type fakeBooru struct {
 	down      bool                    // the API answers 503 (the site is down: it gets paused)
 	broken    bool                    // the API answers, but with something unreadable (a real failure, not the connection)
 	flaky     map[int64]int           // files that answer 503 this many more times
+	garbled   map[int64]int           // files sent with a byte wrong this many more times (a corrupted download)
+	wrongMD5  map[int64]bool          // posts the site lists with another md5 than their file's
 	hold      map[int64]chan struct{} // these files wait until their channel closes
 	partial   map[int64]chan struct{} // these send half the file, then wait until their channel closes
 	hangOn    string                  // searches with this tag never get an answer (until the request is canceled)
@@ -76,7 +78,7 @@ func (fb *fakeBooru) upload(k int) {
 
 func newFakeBooru(t *testing.T, n int) *fakeBooru {
 	t.Helper()
-	fb := &fakeBooru{files: map[int64][]byte{}, fileHits: map[int64]int{}, fileQuery: map[int64]string{}, flaky: map[int64]int{}, hidden: map[int64]bool{}, hold: map[int64]chan struct{}{}, partial: map[int64]chan struct{}{}}
+	fb := &fakeBooru{files: map[int64][]byte{}, fileHits: map[int64]int{}, fileQuery: map[int64]string{}, flaky: map[int64]int{}, garbled: map[int64]int{}, wrongMD5: map[int64]bool{}, hidden: map[int64]bool{}, hold: map[int64]chan struct{}{}, partial: map[int64]chan struct{}{}}
 	fb.upload(n)
 	idBelow := regexp.MustCompile(`id:<(\d+)`)
 	idExact := regexp.MustCompile(`(?:^|\s)id:(\d+)(?:\s|$)`)
@@ -123,6 +125,11 @@ func newFakeBooru(t *testing.T, n int) *fakeBooru {
 			}
 			fb.mu.Lock()
 			partial := fb.partial[id]
+			if fb.garbled[id] > 0 {
+				file = append([]byte(nil), file...)
+				file[len(file)-1] ^= byte(fb.garbled[id]) // (differently each time, as corruption is)
+				fb.garbled[id]--
+			}
 			fb.mu.Unlock()
 			if partial != nil {
 				w.Header().Set("Content-Length", strconv.Itoa(len(file)))
@@ -208,6 +215,9 @@ func newFakeBooru(t *testing.T, n int) *fakeBooru {
 		fmt.Fprintf(&sb, `<posts count="%d" offset="0">`, n)
 		for _, id := range ids {
 			sum := md5.Sum(fb.files[id])
+			if fb.wrongMD5[id] {
+				sum = md5.Sum([]byte("another version"))
+			}
 			fmt.Fprintf(&sb, `<post id="%d" md5="%s" file_url="%s/img/%d.png" tags="tag_%d common" rating="s" source="https://src.example.test/%d" width="8" height="8" created_at="%s"/>`,
 				id, hex.EncodeToString(sum[:]), fb.srv.URL, id, id, id, postedAt(id).Format("Mon Jan 02 15:04:05 -0700 2006"))
 		}

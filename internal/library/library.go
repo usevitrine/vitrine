@@ -90,6 +90,7 @@ func (l *Library) Index() *index.Index { return l.ix }
 type File struct {
 	ID     uint32
 	SHA256 store.Hash
+	MD5    [16]byte
 	Type   media.Type
 	Size   int64
 	// New is false if the library already had the file.
@@ -107,11 +108,17 @@ func (l *Library) Import(ctx context.Context, r io.Reader) (File, error) {
 // download, a subscription's first check, an import) or from a subscription's
 // regular check - "new files" can leave bulk ones out.
 func (l *Library) ImportAs(ctx context.Context, r io.Reader, bulk bool) (File, error) {
-	res, err := l.store.Put(r)
+	return l.ImportChecked(ctx, r, bulk)
+}
+
+// ImportChecked is ImportAs that keeps the file only when its md5 is one of want (none given: any) - a download
+// checked against the md5 its site gave. A mismatch adds nothing and returns a *store.MD5MismatchError.
+func (l *Library) ImportChecked(ctx context.Context, r io.Reader, bulk bool, want ...[16]byte) (File, error) {
+	res, err := l.store.PutChecked(r, want...)
 	if err != nil {
 		return File{}, err
 	}
-	f := File{SHA256: res.SHA256, Type: res.Type, Size: res.Size}
+	f := File{SHA256: res.SHA256, MD5: res.MD5, Type: res.Type, Size: res.Size}
 
 	l.mu.Lock()
 	var now int64
