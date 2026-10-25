@@ -579,11 +579,14 @@ type relativeKey struct{}
 // one look throttled); and a file is held to it this many times at most - slow again on fresh connections, it's the
 // line that's slow (or busy), not one server: then only fileMin.
 const (
-	slowShare     = 10
-	slowCap       = 2 << 20
-	slowResumes   = 3
-	rateFileBytes = 4 << 20
+	slowShare   = 10
+	slowCap     = 2 << 20
+	slowResumes = 3
 )
+
+// rateFileBytes: files from this size count towards a site's usual speed (smaller ones are mostly the request's own
+// time; a var for tests).
+var rateFileBytes int64 = 4 << 20
 
 // slowMin is the bytes a file connection must bring in each fileIdle: fileMin, or more once the site's usual speed is
 // known (a tenth of it, at most slowCap a second).
@@ -655,7 +658,9 @@ func (b *resumingBody) Read(p []byte) (int, error) {
 	n, err := b.part.body.Read(p)
 	b.got += int64(n)
 	b.since += int64(n)
-	if err == io.EOF && b.resumes == 0 && b.got >= rateFileBytes {
+	// (also one that came slowly after the slow connections were let be: the line itself is slower now - the usual
+	// speed follows it down, and a slow line isn't held to its old speed file after file)
+	if err == io.EOF && (b.resumes == 0 || b.resumes >= slowResumes) && b.got >= rateFileBytes {
 		if d := time.Since(b.start).Seconds(); d > 0 {
 			b.c.noteRate(float64(b.got) / d)
 		}

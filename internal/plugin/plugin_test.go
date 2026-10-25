@@ -561,6 +561,13 @@ func TestFileTrickleRelative(t *testing.T) {
 	n, err, _ = get()
 	if err != nil || n != size || ranged != slowResumes {
 		t.Fatalf("all slow: %d bytes, %v, carried on %d times (want %d, then the file at the slow speed)", n, err, ranged, slowResumes)
+	} // The line is slower now: the usual speed follows it down (the next files aren't held to the old one).
+	before := c.rate
+	rateFileBytes = 100_000
+	defer func() { rateFileBytes = 4 << 20 }()
+	get()
+	if c.rate >= before {
+		t.Fatalf("usual speed %.0f B/s after a slow file (was %.0f)", c.rate, before)
 	}
 }
 
