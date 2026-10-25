@@ -28,6 +28,8 @@ var settingCheck = map[string]func(json.RawMessage) error{
 	"defaultSort":   isOrder,
 	"favoritesSort": isOrder, // the Favorites page's own default order
 	"comicsSort":    isOrder, // the Comics page's own default order
+	// Comics > Browse's order when it opens: newest, or one of a site's own lists (popular, a toplist).
+	"browseSort": isOrder,
 	// Comics > Browse's search when it opens (the gallery site's tags, as the page writes them).
 	"browseSearch": func(v json.RawMessage) error {
 		var s string

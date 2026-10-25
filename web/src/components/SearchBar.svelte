@@ -26,6 +26,7 @@
     onsaved = (q: string) => onsearch(q),
     onsort = () => {},
     plain = false,
+    sortable = false,
     label: barLabel = t('tagMenu.search'),
     placeholder = t('library.search'),
     defaultSort = undefined,
@@ -41,6 +42,7 @@
     onsaved?: (q: string, sort: string, key?: string) => void; // a saved search or group tag picked: its search, order and menu entry
     onsort?: (sort: string) => void; // an order picked in the filter menu
     plain?: boolean; // only the search (e.g. in Settings): no saved searches, no order
+    sortable?: boolean; // ... with the order still in the filter menu (Settings' Browse search: as on the page)
     label?: string;
     placeholder?: string;
     /** The page's default order (the sort button is marked when the order differs); the library's by default. */
@@ -428,14 +430,14 @@
         bind:this={filterBtn}
         class="icon filt"
         aria-label={t('searchBar.filters')}
-        class:changed={!plain && sort !== pageDefault}
+        class:changed={(!plain || sortable) && sort !== pageDefault}
         aria-expanded={filterMenu !== null && filterMenu.index === null}
-        title={plain ? t('searchBar.filters') : sort !== pageDefault ? t('searchBar.sortFiltersChanged') : t('searchBar.sortFilters')}
+        title={plain && !sortable ? t('searchBar.filters') : sort !== pageDefault ? t('searchBar.sortFiltersChanged') : t('searchBar.sortFilters')}
         onclick={() => {
           editing = null;
           savedOpen = false;
           filterMenu = filterMenu && filterMenu.index === null ? null : { index: null, form: null };
-        }}><Icon name="filter" size={19} />{#if !plain && sort !== pageDefault}<span class="dot" transition:grow></span>{/if}</button>
+        }}><Icon name="filter" size={19} />{#if (!plain || sortable) && sort !== pageDefault}<span class="dot" transition:grow></span>{/if}</button>
       {#if !plain && !browse}
       <button
         bind:this={starBtn}
@@ -476,7 +478,7 @@
       <div class="editor" class:saved-pos={filterMenu.index === null} class:wide={filterMenu.index === null} in:pop|global out:pop|global={{ out: true }}>
         <SystemMenu
           initial={filterMenu.form}
-          noSort={plain}
+          noSort={plain && !sortable}
           {sorts}
           {browseSites}
           {site}

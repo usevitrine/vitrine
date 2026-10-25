@@ -85,7 +85,11 @@
     results.site = sites.includes(lastSite()) ? lastSite() : sites[0];
     if (results.searches === 0) {
       await settings.whenSynced();
-      search(settings.browseSearch); // (its default search: Settings > Library)
+      // Its default search and order (Settings > Library): one of the site's own lists if it has the one set (no
+      // search then), else the search, newest first.
+      const list = settings.browseSort;
+      if (list && list !== 'newest' && (sorts[results.site] ?? []).includes(list)) pickSort(list);
+      else search(settings.browseSearch);
     }
   });
 

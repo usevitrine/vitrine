@@ -6727,6 +6727,34 @@ test('settings: Browse search has Browse\'s own filter menu (as on the page)', a
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+test('settings: Browse search has Browse\'s orders too - a site\'s list (no search then), and Browse opens in it', async ({ page }) => {
+  // (settings are shared: put back at the end)
+  const put = (v: object) => page.evaluate((v) => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v) }), v);
+  const get = () => page.evaluate(() => fetch('/api/settings').then((r) => r.json()));
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': ['popular', 'top-day'] } } }));
+  const asked: string[] = [];
+  await page.route('**/api/browse?*', (r) => {
+    const u = new URL(r.request().url());
+    asked.push(`${u.searchParams.get('sort') ?? ''}|${u.searchParams.get('q') ?? ''}`);
+    return r.fulfill({ json: { galleries: [], total: 0, next: 0 } });
+  });
+  await page.goto('/');
+  await put({ browseSearch: 'blue_sky', browseSort: 'newest' });
+  try {
+    await page.goto('/settings/library');
+    const field = page.getByRole('group', { name: 'Browse search' });
+    await field.getByRole('button', { name: 'Filters', exact: true }).click();
+    await page.getByRole('button', { name: /^Sort by/ }).click();
+    await page.getByRole('button', { name: /^Popular now/ }).click();
+    await expect.poll(async () => { const s = await get(); return `${s.browseSort}|${s.browseSearch}`; }).toBe('popular|'); // (a list has no search)
+    await page.goto('/browse');
+    await expect.poll(() => asked[0]).toBe('popular|');
+  } finally {
+    await put({ browseSearch: '', browseSort: 'newest' });
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  }
+});
+
 test('comics: Browse - a new search clears the last one\'s galleries at once (a spinner until the new ones come)', async ({ page }) => {
   const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://gallery.test/g/${id}/abcdef0123/`, title: `Some Comic ${id}`, category: 'Manga', pages: 24, tags: [] });
   await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));

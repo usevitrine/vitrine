@@ -1,7 +1,9 @@
 <script lang="ts">
   // Settings > Library > Comics: the search Comics > Browse opens with, in Browse's own search bar - its filters
   // (category, language, pages, stars...) and the site's own tags while typing (the user: "the filter menu ... should be
-  // the same one thats on the page"). No site or order: the setting is for every site.
+  // the same one thats on the page"; "so should the sort menu"): its orders too - newest, or one of the sites' own lists
+  // (picking one clears the search, a search goes back to newest: as on the page). No site: the setting is for every
+  // site (an order a site hasn't: its newest there).
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { browseScope, provideScope } from '../lib/scope.svelte';
@@ -12,9 +14,12 @@
 
   provideScope(browseScope);
   let site = $state('');
+  let sorts = $state<string[]>([]);
   onMount(async () => {
     try {
-      site = (await api.browseSites()).sites[0] ?? '';
+      const res = await api.browseSites();
+      site = res.sites[0] ?? '';
+      sorts = [...new Set(res.sites.flatMap((id) => res.sorts?.[id] ?? []))];
     } catch {
       /* the comics' own tags then */
     }
@@ -39,4 +44,15 @@
   placeholder={t('settings.browseSearchPlaceholder')}
   query={settings.browseSearch}
   {suggest}
-  onsearch={(q) => (settings.browseSearch = q)} />
+  sortable
+  sort={settings.browseSort || 'newest'}
+  defaultSort="newest"
+  {sorts}
+  onsort={(s) => {
+    settings.browseSort = s;
+    if (s !== 'newest') settings.browseSearch = ''; // (a site's list has no search)
+  }}
+  onsearch={(q) => {
+    settings.browseSearch = q;
+    if (q.trim()) settings.browseSort = 'newest'; // (a search is the site's newest first)
+  }} />
