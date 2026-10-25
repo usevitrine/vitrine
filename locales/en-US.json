@@ -84,6 +84,12 @@
     "no_audio": {
       "label": "No audio"
     },
+    "animated": {
+      "label": "Animated"
+    },
+    "new": {
+      "label": "New"
+    },
     "favorite": {
       "label": "Favorite"
     },
@@ -306,6 +312,8 @@
   },
   "describe": {
     "hasAudio": "has audio",
+    "animated": "animated",
+    "new": "NEW",
     "favorite": "favorite",
     "imported": {
       "last": "imported in the last {amount}",

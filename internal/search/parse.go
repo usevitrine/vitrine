@@ -134,6 +134,7 @@ var fieldAliases = map[string]Field{
 	"duration": FieldDuration, "length": FieldDuration,
 	"tags": FieldTagCount, "tag_count": FieldTagCount, "tagcount": FieldTagCount,
 	"has_audio": FieldHasAudio, "audio": FieldHasAudio,
+	"new": FieldNew, "animated": FieldAnimated, "animation": FieldAnimated,
 	"type": FieldType, "filetype": FieldType,
 	"rating":   FieldRating,
 	"site":     FieldSite,
@@ -181,7 +182,7 @@ func parseSystem(s string, loc *time.Location) (System, error) {
 		return System{}, fmt.Errorf("unknown system filter %q", "system:"+s)
 	}
 	sys := System{Field: f, Op: op}
-	if f == FieldHasAudio || f == FieldFavorite {
+	if f == FieldHasAudio || f == FieldFavorite || f == FieldNew || f == FieldAnimated {
 		if op != OpNone {
 			return sys, fmt.Errorf("system:%s takes no value (use -system:%s for files without)", fieldNames[f], fieldNames[f])
 		}
@@ -345,7 +346,7 @@ func parseSort(v string) (Sort, error) {
 	}
 	f, ok := fieldAliases[name]
 	switch {
-	case !ok, f == FieldHasAudio, f == FieldType, f == FieldRating, f == FieldSite, f == FieldFoundBy:
+	case !ok, f == FieldHasAudio, f == FieldType, f == FieldRating, f == FieldSite, f == FieldFoundBy, f == FieldNew, f == FieldAnimated:
 		return s, fmt.Errorf("can't sort by %q", v)
 	}
 	s.Field = f

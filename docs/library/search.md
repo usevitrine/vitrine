@@ -68,4 +68,13 @@ The text form (`internal/search`; every chip maps to one term, so text and chips
 - **system:found_by=<subscription ID> (2026-10-22)**: the files a subscription downloaded (the index keeps a bitmap
   per subscription from `file_sources`, added to as files come in; a merge of duplicates shows on the next start).
   Its chip reads "found by “<the subscription's name>”" (`lib/subNames`). The Downloads page's "+N" opens it.
+- **system:new and system:animated (2026-10-25)** (the user: "2 new filters. one for NEW files (marked as new), and one
+  for files with more than 1 frame aka animated"): no value, negatable, in OR groups too; in the filter menu as New
+  (Other) and Animated (File), added at once; chips "NEW" and "animated". `animated` = a duration: videos and
+  animated pictures (probing keeps a duration only for an image with more than one frame) - a scan of the duration
+  column. `new` = the NEW pills' files: imported after the "seen" time, bulk ones left out when New files from
+  downloads is off; the server fills it in (`System.Since`/`SkipBulk`, `Server.withNew`) from the request's
+  `new_since`/`new_bulk` (a saved search's own time), else the shared settings `seenAt`/`newFromBulk` - so it works
+  in saved searches and the API too; never marked as seen: nothing is new. Not sortable. Test:
+  `TestNewAndAnimatedFilters`, "search: the Animated and New filters".
 - **No "No tag …" line (2026-10-22)**: the user - an empty result says enough; unknown tags still match nothing.

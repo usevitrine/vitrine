@@ -2206,6 +2206,28 @@ test('details: a very long tag wraps inside the panel', async ({ page }, info) =
   }, [id, long] as const);
 });
 
+test('search: the Animated and New filters (no form: added at once)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  const menu = page.getByRole('dialog', { name: /filter/i });
+  const open = () => page.getByRole('button', { name: 'Filters', exact: true }).click();
+  const chips = page.locator('.bar .chip');
+  // Animated: what moves - the files with a length (videos, animated GIFs).
+  const moving = await page.evaluate(() => fetch('/api/search?q=system:duration>0&limit=0').then((r) => r.json()));
+  expect(moving.total).toBeGreaterThan(0);
+  await open();
+  await menu.getByRole('button', { name: /^Animated/ }).click();
+  await expect(chips).toHaveText(['animated']);
+  await expect(page.getByText(new RegExp(`^${moving.total} files?\\b`))).toBeVisible();
+  // New: the files marked NEW (none here: the library was never marked as seen).
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  await open();
+  await menu.getByRole('button', { name: /^New/ }).click();
+  await expect(chips).toHaveText(['NEW']);
+  const fresh = await page.evaluate(() => fetch('/api/search?q=system:new&limit=0').then((r) => r.json()));
+  expect(fresh.query).toBe('system:new');
+});
+
 test('search: the filter menu adds filters as readable chips, and a tapped filter chip opens its form', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText(/^26 files/)).toBeVisible();

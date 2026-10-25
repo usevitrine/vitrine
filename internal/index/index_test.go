@@ -430,6 +430,61 @@ func TestPinNew(t *testing.T) {
 	}
 }
 
+// system:new (the NEW files: imported after Since) and system:animated (a duration: videos, animated pictures), as
+// filters - alone, negated, with other terms and in an OR group.
+func TestNewAndAnimatedFilters(t *testing.T) {
+	ix := fixture(t)
+	ms := now.UnixMilli()
+	if err := ix.AddFile(File{ID: 5, Size: 1, Type: media.GIF, DurationMS: 1200, ImportedAt: ms - 60_000, ModifiedAt: ms, Bulk: true}, nil); err != nil {
+		t.Fatal(err)
+	}
+	ids := func(text string, since int64, skipBulk bool) []uint32 {
+		t.Helper()
+		q, err := search.Parse(text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range q.Terms {
+			for j := range q.Terms[i].Any {
+				if a := &q.Terms[i].Any[j]; a.Sys.Field == search.FieldNew {
+					a.Sys.Since, a.Sys.SkipBulk = since, skipBulk
+				}
+			}
+		}
+		got := ix.Search(q, now).IDs
+		slices.Sort(got)
+		return got
+	}
+	since := ms - 3*day // new: 2, 3 and 5 (bulk)
+	for _, c := range []struct {
+		text     string
+		since    int64
+		skipBulk bool
+		want     []uint32
+	}{
+		{"system:new", since, false, []uint32{2, 3, 5}},
+		{"system:new", since, true, []uint32{2, 3}},
+		{"system:new", 0, false, nil}, // (never marked as seen: nothing is NEW, as the pills)
+		{"-system:new", since, false, []uint32{1, 4}},
+		{"system:animated", since, false, []uint32{2, 4, 5}},
+		{"-system:animated", since, false, []uint32{1, 3}},
+		{"system:new system:animated", since, false, []uint32{2, 5}},
+		{"( system:new ~ system:animated )", since, false, []uint32{2, 3, 4, 5}},
+	} {
+		if got := ids(c.text, c.since, c.skipBulk); !slices.Equal(got, c.want) {
+			t.Errorf("%s (since %d, skip bulk %v): %v, want %v", c.text, c.since, c.skipBulk, got, c.want)
+		}
+	}
+	for _, text := range []string{"system:new", "system:animated", "-system:animated"} {
+		if q, _ := search.Parse(text); q.String() != text {
+			t.Errorf("%s reads back as %s", text, q.String())
+		}
+	}
+	if _, err := search.Parse("system:animated>1"); err == nil {
+		t.Error("system:animated took a value")
+	}
+}
+
 // Without bulk files: only files from subscriptions' regular checks are new.
 func TestPinNewSkipBulk(t *testing.T) {
 	ix := fixture(t)

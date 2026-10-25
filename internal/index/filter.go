@@ -48,6 +48,8 @@ func bounds(s search.System, now time.Time) (lo, hi int64, negate, ok bool) {
 			lo, hi, negate = from, until, s.Op == search.OpNe
 		}
 		return lo, hi, negate, true
+	case search.FieldAnimated:
+		return 1, math.MaxInt64, false, true // (a duration: still pictures have none)
 	case search.FieldSize, search.FieldWidth, search.FieldHeight, search.FieldDuration, search.FieldTagCount, search.FieldClimax, search.FieldPages:
 		x := s.Num
 		switch s.Op {
@@ -85,7 +87,7 @@ func (ix *Index) column(f search.Field) (i64 []int64, u32 []uint32, u16 []uint16
 		return nil, ix.width, nil
 	case search.FieldHeight:
 		return nil, ix.height, nil
-	case search.FieldDuration:
+	case search.FieldDuration, search.FieldAnimated:
 		return nil, ix.duration, nil
 	case search.FieldTagCount:
 		return nil, nil, ix.tagCount
@@ -108,6 +110,9 @@ func (ix *Index) matcher(s search.System, now time.Time) func(id uint32) bool {
 		return ix.hasAudio.Contains
 	case search.FieldFavorite:
 		return ix.favorite.Contains
+	case search.FieldNew:
+		o := NewOpts{Since: s.Since, SkipBulk: s.SkipBulk}
+		return func(id uint32) bool { return o.Since > 0 && ix.isNew(id, o) }
 	case search.FieldType:
 		want := s.Op == search.OpEq
 		return func(id uint32) bool { return slices.Contains(s.Types, ix.typ[id]) == want }

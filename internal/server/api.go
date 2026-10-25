@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -126,6 +127,7 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	s.withNew(r, &q)
 	ix, ok := s.searchIndex(w, r)
 	if !ok {
 		return
@@ -215,10 +217,38 @@ func (s *Server) newFiles(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	s.withNew(r, &q)
 	since, _ := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
 	q.Limit = 0
 	res := ix.Search(q, time.Now())
 	writeJSON(w, http.StatusOK, map[string]int{"new": ix.CountNew(res.IDs, newOpts(r, since))})
+}
+
+// withNew fills in what system:new compares with: the request's new_since and new_bulk=0 (the NEW pills' own: a saved
+// search opened from the menu has its own time), else the shared settings seenAt and newFromBulk (missing = on).
+func (s *Server) withNew(r *http.Request, q *search.Query) {
+	var atoms []*search.Atom
+	for i := range q.Terms {
+		for j := range q.Terms[i].Any {
+			if a := &q.Terms[i].Any[j]; a.Kind == search.KindSystem && a.Sys.Field == search.FieldNew {
+				atoms = append(atoms, a)
+			}
+		}
+	}
+	if len(atoms) == 0 {
+		return
+	}
+	since, _ := strconv.ParseInt(r.URL.Query().Get("new_since"), 10, 64)
+	skip := r.URL.Query().Get("new_bulk") == "0"
+	if since <= 0 {
+		if set, err := s.lib.Settings(r.Context()); err == nil {
+			json.Unmarshal(set["seenAt"], &since)
+			skip = string(set["newFromBulk"]) == "false"
+		}
+	}
+	for _, a := range atoms {
+		a.Sys.Since, a.Sys.SkipBulk = since, skip
+	}
 }
 
 // newOpts: which files count as new - imported after since, and without
@@ -707,6 +737,7 @@ func (s *Server) siteCounts(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	s.withNew(r, &q)
 	ix, ok := s.searchIndex(w, r)
 	if !ok {
 		return

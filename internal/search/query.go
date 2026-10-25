@@ -76,6 +76,8 @@ const (
 	FieldPages    // comics: how many pages (system:pages>20, sort:pages)
 	FieldRead     // comics: unread / reading / read (system:unread ...; sort: last read)
 	FieldFoundBy  // the subscription that downloaded a file (system:found_by=12; Num: its ID)
+	FieldNew      // a NEW file: imported after the device's "seen" time (system:new; Since, SkipBulk: filled in by the server)
+	FieldAnimated // moves: a video or an animated picture - it has a duration (system:animated)
 	FieldTitle    // comics: sort only, by title
 	FieldRandom   // sort only; keep last (sizes per-field arrays)
 )
@@ -123,6 +125,10 @@ type System struct {
 	// Site for FieldSite: a site's address or plugin ID, lower case; several
 	// separated by commas (from any of them).
 	Site string
+	// For FieldNew: files imported after Since (Unix ms; 0: none is new), bulk ones left out with SkipBulk - the
+	// NEW pills' settings, filled in by whoever runs the search (not part of the text).
+	Since    int64
+	SkipBulk bool
 }
 
 // Comics' read states (System.Num for FieldRead).
@@ -154,6 +160,8 @@ var fieldNames = map[Field]string{
 	FieldDuration: "duration",
 	FieldTagCount: "tags",
 	FieldHasAudio: "has_audio",
+	FieldNew:      "new",
+	FieldAnimated: "animated",
 	FieldType:     "type",
 	FieldRating:   "rating",
 	FieldSite:     "site",
@@ -210,7 +218,7 @@ func (a Atom) String() string {
 func (s System) String() string {
 	name := "system:" + fieldNames[s.Field]
 	switch s.Field {
-	case FieldHasAudio, FieldFavorite:
+	case FieldHasAudio, FieldFavorite, FieldNew, FieldAnimated:
 		return name
 	case FieldRead:
 		return "system:" + readStates[s.Num]

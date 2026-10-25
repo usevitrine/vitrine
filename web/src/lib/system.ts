@@ -16,6 +16,8 @@ export type FilterId =
   | 'height'
   | 'has_audio'
   | 'no_audio'
+  | 'animated'
+  | 'new'
   | 'favorite'
   | 'not_favorite'
   | 'tags'
@@ -45,7 +47,7 @@ const choice = <V extends string>(value: V, key: string) => ({
 const withHint = new Set<FilterId>(['imported', 'uploaded', 'modified', 'limit']);
 // A hint only where the name alone could mislead (kept to a few words).
 export const filters = Object.fromEntries(
-  (['imported', 'uploaded', 'modified', 'type', 'duration', 'size', 'width', 'height', 'has_audio', 'no_audio', 'favorite', 'not_favorite', 'tags', 'rating', 'site', 'limit', 'pages', 'unread', 'reading', 'read', 'category', 'language', 'stars', 'expunged', 'torrent'] as FilterId[]).map(
+  (['imported', 'uploaded', 'modified', 'type', 'duration', 'size', 'width', 'height', 'has_audio', 'no_audio', 'animated', 'new', 'favorite', 'not_favorite', 'tags', 'rating', 'site', 'limit', 'pages', 'unread', 'reading', 'read', 'category', 'language', 'stars', 'expunged', 'torrent'] as FilterId[]).map(
     (id) => [
       id,
       {
@@ -62,8 +64,8 @@ export const filters = Object.fromEntries(
 
 export const groups: { name: string; items: FilterId[] }[] = [
   { get name() { return t('filter.group.when'); }, items: ['imported', 'uploaded', 'modified'] },
-  { get name() { return t('filter.group.file'); }, items: ['type', 'duration', 'size', 'width', 'height', 'has_audio', 'no_audio'] },
-  { get name() { return t('filter.group.other'); }, items: ['favorite', 'not_favorite', 'tags', 'rating', 'limit'] }, // Site: the From row at the top
+  { get name() { return t('filter.group.file'); }, items: ['type', 'animated', 'duration', 'size', 'width', 'height', 'has_audio', 'no_audio'] },
+  { get name() { return t('filter.group.other'); }, items: ['new', 'favorite', 'not_favorite', 'tags', 'rating', 'limit'] }, // Site: the From row at the top
 ];
 
 /** The Comics page's filters (imported and modified read as added and updated there: see filterInfo). */
@@ -128,7 +130,7 @@ export function sortInfo(field: string, comics = false): { label: string; desc: 
 
 /** Filters with nothing to fill in: picking one adds it straight away. */
 export const instant = (id: FilterId) =>
-  id === 'has_audio' || id === 'no_audio' || id === 'favorite' || id === 'not_favorite' || id === 'unread' || id === 'reading' || id === 'read' || id === 'expunged' || id === 'torrent';
+  id === 'has_audio' || id === 'no_audio' || id === 'animated' || id === 'new' || id === 'favorite' || id === 'not_favorite' || id === 'unread' || id === 'reading' || id === 'read' || id === 'expunged' || id === 'torrent';
 
 export type TimeMode = 'last' | 'ago' | 'since' | 'before' | 'on';
 export type Cmp = '<' | '<=' | '=' | '>=' | '>' | '!=';
@@ -215,6 +217,8 @@ export function build(f: Form): string {
       return 'system:favorite';
     case 'not_favorite':
       return '-system:favorite';
+    case 'animated':
+    case 'new':
     case 'unread':
     case 'reading':
     case 'read':
@@ -253,7 +257,7 @@ export function read(text: string): Form | null {
   const neg = text.startsWith('-');
   const t = (neg ? text.slice(1) : text).toLowerCase();
   if (t === 'system:has_audio') return defaults(neg ? 'no_audio' : 'has_audio');
-  if (!neg && (t === 'system:expunged' || t === 'system:torrent')) return defaults(t.slice(7) as FilterId);
+  if (!neg && (t === 'system:expunged' || t === 'system:torrent' || t === 'system:animated' || t === 'system:new')) return defaults(t.slice(7) as FilterId);
   if (isFavorite(t)) return defaults(neg ? 'not_favorite' : 'favorite');
   if (neg) return null;
   const state = readState(t);
@@ -321,7 +325,7 @@ const symbol: Record<string, string> = { '<': '<', '<=': '≤', '=': '=', '>=': 
 export function describe(text: string, comics = false): string | null {
   const low = text.toLowerCase();
   if (low === 'system:has_audio') return t('describe.hasAudio');
-  if (low === 'system:expunged' || low === 'system:torrent') return t(`describe.${low.slice(7)}`);
+  if (low === 'system:expunged' || low === 'system:torrent' || low === 'system:animated' || low === 'system:new') return t(`describe.${low.slice(7)}`);
   const state = readState(low);
   if (state) return t(`describe.${state}`);
   if (isFavorite(low)) return t('describe.favorite');
