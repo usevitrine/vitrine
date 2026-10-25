@@ -492,6 +492,78 @@ func TestFileTrickle(t *testing.T) {
 // A file that breaks off (a stall, or a cut connection) carries on where it stopped with a Range request, when
 // the site takes them - the reader gets the whole file, unchanged. A site that ignores Range: given up as before
 // (never a file pieced together from the wrong bytes).
+// A connection far below the site's usual speed (a server trickling at 100 KB/s where a fresh connection gets the
+// full speed - rule34's video server through a far VPN exit) is carried on on a fresh one, though it brings more than
+// fileMin; when fresh ones are slow too, the line is slow: after slowResumes only fileMin holds - the file still comes.
+func TestFileTrickleRelative(t *testing.T) {
+	const size = 300_000
+	var mu sync.Mutex
+	ranged := 0
+	allSlow := false
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		from := 0
+		if rg := r.Header.Get("Range"); rg != "" {
+			fmt.Sscanf(rg, "bytes=%d-", &from)
+		}
+		mu.Lock()
+		slow := allSlow || from == 0 // (the first connection trickles; carried on, a fresh one is fast - unless all are slow)
+		if from > 0 {
+			ranged++
+		}
+		mu.Unlock()
+		w.Header().Set("Accept-Ranges", "bytes")
+		w.Header().Set("Content-Length", strconv.Itoa(size-from))
+		if from > 0 {
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", from, size-1, size))
+			w.WriteHeader(http.StatusPartialContent)
+		}
+		chunk, every := 2000, 20*time.Millisecond // 100 KB/s
+		if !slow {
+			chunk, every = 100_000, time.Millisecond
+		}
+		for sent := from; sent < size; sent += chunk {
+			if _, err := w.Write(make([]byte, min(chunk, size-sent))); err != nil {
+				return
+			}
+			w.(http.Flusher).Flush()
+			select {
+			case <-time.After(every):
+			case <-r.Context().Done():
+				return
+			}
+		}
+	}))
+	defer srv.Close()
+	m, _ := Parse([]byte("id: t\nengine: gelbooru-v02\nbase: " + srv.URL + "\n"))
+	c := NewClient(m, nil)
+	c.http = &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+	c.SetFileIdle(200 * time.Millisecond)
+	c.SetFileMin(4000)   // 20 KB/s: the trickle passes that
+	c.noteRate(20 << 20) // (the site's usual speed: 20 MB/s - a tenth of it, 2 MB/s, wanted)
+
+	get := func() (int64, error, time.Duration) {
+		start := time.Now()
+		body, _, err := c.File(context.Background(), srv.URL+"/v.mp4")
+		if err != nil {
+			return 0, err, 0
+		}
+		n, err := io.Copy(io.Discard, body)
+		body.Close()
+		return n, err, time.Since(start)
+	}
+	n, err, took := get()
+	if err != nil || n != size || took > 1500*time.Millisecond || ranged != 1 {
+		t.Fatalf("a trickling connection: %d bytes, %v, in %v, carried on %d times (want: at once, once)", n, err, took, ranged)
+	}
+	mu.Lock()
+	allSlow, ranged = true, 0
+	mu.Unlock()
+	n, err, _ = get()
+	if err != nil || n != size || ranged != slowResumes {
+		t.Fatalf("all slow: %d bytes, %v, carried on %d times (want %d, then the file at the slow speed)", n, err, ranged, slowResumes)
+	}
+}
+
 func TestFileResumes(t *testing.T) {
 	file := make([]byte, 30000)
 	for i := range file {

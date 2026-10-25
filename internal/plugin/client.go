@@ -9,6 +9,7 @@ import (
 	"html"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -49,7 +50,12 @@ type Client struct {
 	// a hung or throttled connection never holds a slot for good.
 	fileIdle time.Duration
 	fileMin  int64
-	brk      breaker // pauses the site when it keeps failing to answer (breaker.go)
+	// The site's usual speed for a file (bytes a second, a running average of files over 4 MB that came in one go;
+	// 0: not known yet): a connection far below it - a CDN server trickling at 100 KB/s while a fresh connection gets
+	// 30 MB/s - is given up and carried on on a fresh one (see slowMin).
+	rateMu sync.Mutex
+	rate   float64
+	brk    breaker // pauses the site when it keeps failing to answer (breaker.go)
 }
 
 // NewClient returns a client for a plugin with the user's credentials for
@@ -453,7 +459,7 @@ func (c *Client) File(ctx context.Context, rawURL string) (io.ReadCloser, int64,
 			return nil, 0, ctx.Err()
 		}
 	}
-	part, err := c.openFile(ctx, u, 0)
+	part, err := c.openFile(context.WithValue(ctx, relativeKey{}, true), u, 0)
 	if err != nil {
 		<-slots
 		return nil, 0, err
@@ -465,7 +471,7 @@ func (c *Client) File(ctx context.Context, rawURL string) (io.ReadCloser, int64,
 		return nil, 0, fmt.Errorf("%s: %w", c.m.Site, ErrNotAFile)
 	}
 	b := &resumingBody{c: c, ctx: ctx, u: u, part: part, total: part.resp.ContentLength,
-		ranges: part.resp.Header.Get("Accept-Ranges") == "bytes"}
+		ranges: part.resp.Header.Get("Accept-Ranges") == "bytes", start: time.Now()}
 	modified, _ := http.ParseTime(part.resp.Header.Get("Last-Modified"))
 	return &slotBody{ReadCloser: b, release: func() { <-slots }, modified: modified}, part.resp.ContentLength, nil
 }
@@ -566,6 +572,45 @@ func (p *filePart) close() {
 
 type rangeKey struct{}
 
+// relativeKey marks a file request held to the site's usual speed (slowMin), not only to fileMin.
+type relativeKey struct{}
+
+// Speeds held to: a tenth of the site's usual one, at most 2 MB/s (a fast line's usual speed doesn't make an ordinary
+// one look throttled); and a file is held to it this many times at most - slow again on fresh connections, it's the
+// line that's slow (or busy), not one server: then only fileMin.
+const (
+	slowShare     = 10
+	slowCap       = 2 << 20
+	slowResumes   = 3
+	rateFileBytes = 4 << 20
+)
+
+// slowMin is the bytes a file connection must bring in each fileIdle: fileMin, or more once the site's usual speed is
+// known (a tenth of it, at most slowCap a second).
+func (c *Client) slowMin() int64 {
+	c.rateMu.Lock()
+	r := c.rate
+	c.rateMu.Unlock()
+	min := c.fileMin
+	if r > 0 {
+		if v := int64(math.Min(r/slowShare, slowCap) * c.fileIdle.Seconds()); v > min {
+			min = v
+		}
+	}
+	return min
+}
+
+// noteRate adds a file's speed to the site's usual one (a running average).
+func (c *Client) noteRate(bytesPerSec float64) {
+	c.rateMu.Lock()
+	defer c.rateMu.Unlock()
+	if c.rate == 0 {
+		c.rate = bytesPerSec
+	} else {
+		c.rate = 0.7*c.rate + 0.3*bytesPerSec
+	}
+}
+
 type urgentKey struct{}
 
 // Urgent marks a file download someone is waiting for (a Retry): it doesn't queue behind a search's files
@@ -578,6 +623,9 @@ func (c *Client) openFile(parent context.Context, u *url.URL, from int64) (*file
 		ctx = context.WithValue(ctx, rangeKey{}, from)
 	}
 	w := &watchdog{d: c.fileIdle, min: c.fileMin, cancel: cancel}
+	if relative, _ := ctx.Value(relativeKey{}).(bool); relative {
+		w.min = c.slowMin()
+	}
 	w.t = time.AfterFunc(c.fileIdle, w.fire)
 	resp, err := c.getWith(ctx, u, c.m.Referer, false)
 	if err != nil {
@@ -599,13 +647,19 @@ type resumingBody struct {
 	total   int64 // the file's size (-1: unknown - then no carrying on)
 	ranges  bool  // the site said it takes Range requests
 	resumes int
-	since   int64 // bytes the current part brought
+	since   int64     // bytes the current part brought
+	start   time.Time // when it started (its speed, for the site's usual one)
 }
 
 func (b *resumingBody) Read(p []byte) (int, error) {
 	n, err := b.part.body.Read(p)
 	b.got += int64(n)
 	b.since += int64(n)
+	if err == io.EOF && b.resumes == 0 && b.got >= rateFileBytes {
+		if d := time.Since(b.start).Seconds(); d > 0 {
+			b.c.noteRate(float64(b.got) / d)
+		}
+	}
 	if err == nil || err == io.EOF || !b.ranges || b.total <= 0 || b.got >= b.total || b.resumes >= maxResumes || b.ctx.Err() != nil {
 		return n, err
 	}
@@ -614,7 +668,11 @@ func (b *resumingBody) Read(p []byte) (int, error) {
 		return n, fmt.Errorf("%s: %w - it always stops at %s of %s", b.c.m.Site, ErrCutShort, megabytes(b.got), megabytes(b.total))
 	}
 	// Broke off: the rest, from where it stopped (only if the site answers with exactly that part).
-	next, oerr := b.c.openFile(b.ctx, b.u, b.got)
+	ctx := b.ctx
+	if b.resumes+1 < slowResumes { // (the first connection was held to it too)
+		ctx = context.WithValue(ctx, relativeKey{}, true) // (after that: only fileMin - see slowResumes)
+	}
+	next, oerr := b.c.openFile(ctx, b.u, b.got)
 	if oerr != nil {
 		return n, err
 	}

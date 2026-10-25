@@ -28,6 +28,10 @@ Cloudflare and FlareSolverr, stalled and trickling downloads, files checked agai
   attempt (bytes, time, error), each site request (host and path - never the query - status, time), manual retries,
   thumbnail batches. Every web request is logged only with VITRINE_LOG_LEVEL=debug (it's every thumbnail too).
 
+## A connection far below the site's usual speed (2026-10-25)
+The user: a subscription's first check "going at 112 KB/s ... usually several dozen megabytes per second on rule34.xxx". Measured: rule34's videos come from one server (api-cdn-mp4, not behind its CDN; its pictures are), ~11 ms from the author's line but ~280 ms through the VPN (exit in another continent); through it, fresh connections to the same video were a lottery - 31 MB/s, 270 KB/s, 130 KB/s - while direct ones gave ~95 MB/s every time (a long path: a lost packet early leaves a TCP connection crawling). One crawled at ~130 KB/s for 3.5 min until the server cut it, then the rest came in 3 s on a fresh connection. The trickle rule (256 KB in 20 s) never caught it.
+- Each site's usual speed (`Client.rate`: a running average of files over 4 MB that came in one go); a file connection that brings less than a tenth of it (at most 2 MB/s) in a fileIdle (20 s) is given up and carried on from where it stopped on a fresh connection (`slowMin`, `relativeKey`) - a re-roll of the lottery. Held to that 3 times per file at most (`slowResumes`): slow on fresh connections too, it's the line (or a busy one), and only fileMin holds. Test: `TestFileTrickleRelative`.
+
 ## Files checked against the site's md5 (2026-10-25)
 The user: "it should compare the MD5 it calculates with the one the site gave". The store hashes every file as it
 writes it (SHA-256 and md5); a download with the md5 its site listed (`Post.MD5`: the boorus' APIs, the HTML engines'
