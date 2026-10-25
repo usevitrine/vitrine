@@ -6636,20 +6636,21 @@ test('comics: a comic card keeps its title, chips and mark as they are while it 
             const t = document.querySelectorAll('.browse .tile')[1];
             const chip = t.querySelector('.comic-chip')!.getBoundingClientRect();
             const title = t.querySelector('.comic-title')!.getBoundingClientRect();
-            out.push([title.top - chip.top, chip.left - title.left, chip.height, t.querySelector('.comic-status')!.getBoundingClientRect().width]);
+            const r = t.getBoundingClientRect();
+            out.push([title.top - chip.top, chip.left - title.left, chip.height, t.querySelector('.comic-status')!.getBoundingClientRect().width, chip.left - r.left, r.bottom - chip.bottom]); // (and its place from the tile's corner: no nudge as it lands)
             if (performance.now() - t0 < 500) requestAnimationFrame(step);
             else done(out);
           };
           requestAnimationFrame(step);
         }),
     );
-  const spread = (frames: number[][]) => [0, 1, 2, 3].map((k) => Math.max(...frames.map((f) => f[k])) - Math.min(...frames.map((f) => f[k])));
+  const spread = (frames: number[][]) => [0, 1, 2, 3, 4, 5].map((k) => Math.max(...frames.map((f) => f[k])) - Math.min(...frames.map((f) => f[k])));
   const growing = watch();
   await tile.hover();
-  for (const d of spread(await growing)) expect(d).toBeLessThan(0.5);
+  for (const [k, d] of spread(await growing).entries()) expect(d).toBeLessThan(k >= 4 ? 0.1 : 0.5);
   const shrinking = watch();
   await page.mouse.move(5, 400);
-  for (const d of spread(await shrinking)) expect(d).toBeLessThan(0.5);
+  for (const [k, d] of spread(await shrinking).entries()) expect(d).toBeLessThan(k >= 4 ? 0.1 : 0.5);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 

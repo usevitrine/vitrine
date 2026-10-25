@@ -288,14 +288,24 @@
       a.finished.then(() => (part.style.transformOrigin = ''), () => (part.style.transformOrigin = ''));
       out.push(a);
     };
+    // Each is held about the tile's own corner (not its own, nor the foot's - those sit a few pixels in, or a pixel
+    // out: drawn smaller with the tile, that gap came back as it landed, a nudge of the chip). Places in the tile's
+    // own pixels (a transform on it now: undone by its drawn-to-laid-out ratio).
     const w = t.offsetWidth;
     const h = t.offsetHeight;
+    const tr = t.getBoundingClientRect();
+    const k = tr.width / w || 1;
+    const at = (part: HTMLElement, cornerX: number, cornerY: number) => {
+      const r = part.getBoundingClientRect();
+      hold(part, `${cornerX - (r.left - tr.left) / k}px ${cornerY - (r.top - tr.top) / k}px`);
+    };
     for (const mark of t.querySelectorAll<HTMLElement>(':scope > .face > :is(.comic-status, .fav-badge, .new-badge, .badge, .check)')) {
+      const r = mark.getBoundingClientRect();
       // (its corner: the side of the tile it's nearer)
-      hold(mark, `${mark.offsetLeft + mark.offsetWidth / 2 > w / 2 ? '100%' : '0'} ${mark.offsetTop + mark.offsetHeight / 2 > h / 2 ? '100%' : '0'}`);
+      at(mark, (r.left + r.width / 2 - tr.left) / k > w / 2 ? w : 0, (r.top + r.height / 2 - tr.top) / k > h / 2 ? h : 0);
     }
     const foot = t.querySelector<HTMLElement>(':scope > .face > .comic-foot');
-    if (foot) for (const part of foot.children as HTMLCollectionOf<HTMLElement>) hold(part, `${-part.offsetLeft}px ${foot.offsetHeight - part.offsetTop}px`);
+    if (foot) for (const part of foot.children as HTMLCollectionOf<HTMLElement>) at(part, 0, h); // (the title and chips together)
     return out;
   }
 

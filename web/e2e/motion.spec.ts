@@ -197,6 +197,14 @@ test('motion', async ({ page, browser, baseURL }, info) => {
   await record(page, 'd-video-play', () => page.keyboard.press('k'));
   await record(page, 'd-video-seek', () => page.keyboard.press('ArrowRight'));
   await record(page, 'd-video-close', () => page.keyboard.press('Escape'));
+  // Comics: a cover's hover zoom and back (its title, chips and mark held as it grows)
+  await page.goto('/comics');
+  await page.locator('.comics .tile .fit > img.in').first().waitFor();
+  await settle();
+  const ctile = page.locator('.comics .tile').first();
+  if (dir) fs.writeFileSync(`${dir}/comics-tile.json`, JSON.stringify(await ctile.boundingBox()));
+  await record(page, 'd-comics-hover', () => ctile.hover(), { still: 900 });
+  await record(page, 'd-comics-unhover', () => page.mouse.move(5, 500), { still: 900 });
   // Browse (a gallery site answered here; its covers: the library's own thumbnails)
   const thumbs: string[] = await page.evaluate(async () => {
     const ids = (await (await fetch('/api/search?q=system:type%3Dimage&limit=5')).json()).ids;
