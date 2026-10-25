@@ -131,8 +131,15 @@ lays them out at the original size.
   after the fingers lift: events less than 150 ms apart) does nothing more - one file per swipe; short of it, it springs
   back 160 ms after the last event; past the first or last file it gives a quarter. Zoomed, two fingers move the
   picture (a trackpad shows by sideways or small/fractional steps; a mouse wheel - big whole steps - still zooms).
-  A pinch is Ctrl + wheel to the browser: zooms around the pointer, as before. Vertical two-finger scrolls still
-  step through files as the wheel does.
+  A pinch is Ctrl + wheel to the browser: zooms around the pointer, as before.
+  Two fingers down (2026-10-25, the user): the viewer follows them as a finger's swipe down does and closes past
+  110 px (a phone-sized details sheet goes first); up past 70 px, the details open. A mouse wheel still steps through
+  files - a trackpad is told by sideways movement, fractional steps (Windows) or small steps with the old wheelDelta
+  at -3x deltaY (a Mac's; not big steps - WebKit gives a wheel that ratio too); a Mac mouse's small steps mustn't
+  close the viewer. Fixed the same day (the user: "subsequent swipes don't do anything until I move the cursor"):
+  Chrome sends a scroll's wheel events to the element it began on until the pointer moves, and that slide was gone
+  after a swipe - the slides take no pointer events now (`pointer-events: none`: the stage, which stays, gets them);
+  and a new swipe can start during the last one's glide (its steps growing again after dying away).
 - **Panning and pinching like Photos (2026-10-19)**: a zoomed picture keeps gliding after a flick (the speed of the
   last 100 ms, friction by elapsed time, stopping at the edges; a touch catches it). Pinching smaller than fitted or
   past the most zoom goes on with resistance (down to 0.55x, free under the fingers) and springs back on release

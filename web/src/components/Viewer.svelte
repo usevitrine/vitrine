@@ -677,7 +677,7 @@
   let lastZoomWheel = -Infinity; // the wheel last zoomed (navigation waits until it rests)
   // A trackpad's natural gestures (2026-10-24, the user): two fingers sideways swipe between files, two fingers on a
   // zoomed picture move it, a pinch zooms (Ctrl + wheel, above).
-  let gesture = { at: -Infinity, axis: 'y' as 'x' | 'y', pad: false, sum: 0, done: false };
+  let gesture = { at: -Infinity, axis: 'y' as 'x' | 'y', pad: false, sum: 0, done: false, mag: 0 };
   let swipeEnd = 0;
   $effect(() => {
     if (!stageEl) return;
@@ -696,12 +696,20 @@
         const ddy = e.deltaY * unit;
         // One gesture: events close together (a trackpad's swipe and the glide after the fingers lift). Its way is
         // the first event's; a trackpad's shows by sideways or small steps (a mouse wheel's are big, whole ones).
-        if (now - gesture.at > 150) {
+        // (a new swipe can also come while the last one's glide is still arriving - its steps getting bigger again
+        // after dying away: the next swipe was ignored until the glide ended, the user)
+        const mag = Math.max(Math.abs(ddx), Math.abs(ddy));
+        if (now - gesture.at > 150 || (gesture.done && mag > gesture.mag * 2 + 4 && gesture.mag < 30)) {
           finishMove();
-          gesture = { at: now, axis: Math.abs(ddx) > Math.abs(ddy) ? 'x' : 'y', pad: false, sum: 0, done: false };
+          gesture = { at: now, axis: Math.abs(ddx) > Math.abs(ddy) ? 'x' : 'y', pad: false, sum: 0, done: false, mag };
         }
         gesture.at = now;
-        if (ddx !== 0 || (e.deltaMode === 0 && (Math.abs(ddy) < 40 || !Number.isInteger(ddy)))) gesture.pad = true;
+        gesture.mag = mag;
+        // (a mouse with small steps - a Mac's - mustn't close the viewer: sideways movement, fractions of a pixel - a
+        // Windows touchpad - or small steps with the old wheelDelta at -3x deltaY - a Mac's trackpad; WebKit gives a
+        // wheel's big steps that ratio too)
+        const legacy = (e as WheelEvent & { wheelDeltaY?: number }).wheelDeltaY;
+        if (ddx !== 0 || (e.deltaMode === 0 && (!Number.isInteger(e.deltaY) || (e.deltaY !== 0 && Math.abs(e.deltaY) < 50 && legacy === -3 * e.deltaY)))) gesture.pad = true;
         // Zoomed, two fingers on a trackpad: the picture moves with them (as on a Mac).
         if (isZoomed() && gesture.pad) {
           stopGlide();
@@ -743,6 +751,39 @@
             if (moving) return;
             animate = true;
             dx = 0;
+          }, 160);
+          return;
+        }
+        // Two fingers down (a trackpad): the viewer follows them as a finger's swipe down does, and closes past 110 px
+        // (a phone-sized details sheet goes first); up, the details open (the user). A mouse wheel still steps.
+        if (gesture.pad) {
+          if (gesture.done) return;
+          clearTimeout(swipeEnd);
+          gesture.sum += ddy;
+          if (gesture.sum < 0) {
+            animate = false;
+            clearTimeout(hideSidesTimer);
+            hideSides = true;
+            dy = -gesture.sum;
+            if (dy > 110) {
+              gesture.done = true;
+              animate = true;
+              if (info && isSheet()) {
+                info = false;
+                dy = 0;
+                hideSidesTimer = window.setTimeout(() => (hideSides = false), 250);
+              } else onclose();
+              return;
+            }
+          } else if (gesture.sum > 70) {
+            gesture.done = true;
+            info = true;
+            return;
+          }
+          swipeEnd = window.setTimeout(() => {
+            animate = true;
+            dy = 0;
+            hideSidesTimer = window.setTimeout(() => (hideSides = false), 250);
           }, 160);
           return;
         }
@@ -1149,10 +1190,14 @@
     position: relative;
     height: 100%;
   }
+  /* (not a target of their own: the pointer is always on the stage, which stays. Chrome sends a scroll's wheel
+     events to the element it began on until the pointer moves - a slide gone after a swipe took the next swipe's
+     events with it: nothing happened until the pointer moved, the user) */
   .slide {
     position: absolute;
     inset: 0;
     will-change: transform;
+    pointer-events: none;
   }
   .track.animate,
   .slide.animate {

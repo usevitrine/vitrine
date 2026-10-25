@@ -518,6 +518,47 @@ test('desktop: a trackpad - two fingers sideways follow, then go on (one file pe
   await expect.poll(at).toBeGreaterThan(before + 20); // fingers to the right: the picture moves right
   expect(await imageScale(page)).toBeCloseTo(scale, 2);
   await expect(page.getByText(/^1 \/ /)).toBeVisible();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // back to the fit
+  await expect.poll(() => imageScale(page)).toBe(1);
+  await page.waitForTimeout(500);
+  /** Two fingers up or down (negative: down): a Windows touchpad's fractional steps. */
+  const vertical = (steps: number[]) =>
+    page.locator('.stage').evaluate(async (el, steps) => {
+      for (const d of steps) {
+        el.dispatchEvent(new WheelEvent('wheel', { deltaY: d, bubbles: true, cancelable: true }));
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+    }, steps);
+  // Up: the details open.
+  await vertical([12.5, 20.5, 25.5, 20.5, 10.5, 5.5]);
+  await expect(page.locator('.viewer aside.panel')).toBeVisible();
+  await page.keyboard.press('i'); // (closed again)
+  await expect(page.locator('.viewer aside.panel')).toHaveCount(0);
+  await page.waitForTimeout(400);
+  // A little down: it gives, then comes back; far enough down, the viewer closes.
+  await vertical([-10.5, -10.5, -10.5]);
+  await page.waitForTimeout(400);
+  await expect(page.locator('.viewer')).toBeVisible();
+  await vertical([-20.5, -30.5, -40.5, -40.5, -30.5]);
+  await expect(page.locator('.viewer')).toHaveCount(0);
+});
+
+test('desktop: a trackpad - a swipe right after another (its glide still arriving) still goes on; the next swipe works without moving the pointer', async ({ page }) => {
+  test.skip(isPhone(page), 'desktop only');
+  await page.goto('/?q=system:type%3Dimage');
+  await page.locator('.tile').first().click();
+  await expect(page.getByText(/^1 \/ /)).toBeVisible();
+  const box = (await page.locator('.stage').boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  // Real wheel events (sent where the pointer is, as the browser does), the pointer not moving between swipes:
+  // a swipe, its glide dying away, and the next swipe straight after.
+  const swipe = [20, 35, 45, 40, 30, 20, 12, 8, 5, 3, 2, 1];
+  for (const d of swipe) await page.mouse.wheel(d, 0);
+  await expect(page.getByText(/^2 \/ /)).toBeVisible();
+  for (const d of swipe) await page.mouse.wheel(d, 0);
+  await expect(page.getByText(/^3 \/ /)).toBeVisible();
+  for (const d of swipe) await page.mouse.wheel(d, 0);
+  await expect(page.getByText(/^4 \/ /)).toBeVisible();
 });
 
 /** Simulated touch on the grid (Playwright's touchscreen can only tap). */
