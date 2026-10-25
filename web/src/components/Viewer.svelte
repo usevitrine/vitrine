@@ -38,6 +38,15 @@
   }: { index: number; onclose: () => void; onsearch: (q: string) => void; startInfo?: boolean; hidden?: boolean } = $props();
 
   const wide = matchMedia('(min-width: 900px)');
+  // Narrower (phones): the controls split, as in a phone's photo app - close, where you are and the details at the
+  // top; the actions along the bottom, in reach of a thumb (2026-10-25, the user: on a phone with a six-figure library
+  // the top bar's buttons ran off the screen - "need to rethink the ui of the viewer"). Wide screens: one bar on top.
+  let split = $state(!wide.matches);
+  $effect(() => {
+    const change = () => (split = !wide.matches);
+    wide.addEventListener('change', change);
+    return () => wide.removeEventListener('change', change);
+  });
   // A mouse (desktop): moving between files is instant, a click zooms to 100 %
   // (or plays/pauses a video) and the controls always show. Touch: slides, a
   // tap shows/hides the controls, a double tap zooms.
@@ -396,6 +405,22 @@
     return k > 1.2 ? k : 2;
   }
   /** How big the picture is shown, in % of its own pixels. */
+  // (split: the size shows a moment while it changes - a pinch, a double tap - then goes, as in a photo app)
+  let pctShown = $state(false);
+  let pctTimer = 0;
+  let pctWas = 0;
+  $effect(() => {
+    const now = percent;
+    untrack(() => {
+      if (now && pctWas && now !== pctWas) {
+        pctShown = true;
+        clearTimeout(pctTimer);
+        pctTimer = window.setTimeout(() => (pctShown = false), 1200);
+      }
+      pctWas = now;
+    });
+  });
+  $effect(() => () => clearTimeout(pctTimer));
   let percent = $derived.by(() => {
     void width;
     void height;
@@ -1010,6 +1035,22 @@
   }
 </script>
 
+{#snippet actions()}
+  {#if cur}
+    <button class="icon fav" class:on={cur.favorite} aria-label={t('filter.favorite.label')} aria-pressed={!!cur.favorite} title={cur.favorite ? t('viewer.unfavoriteKey') : t('viewer.favoriteKey')}
+      onclick={toggleFavorite}><Icon name="heart" filled={!!cur.favorite} /></button>
+    {#if settings.came}
+      <button class="icon came" aria-label={cur.came ? t('viewer.cameSoFar', { n: cur.came }) : t('rankings.title')} title={t('viewer.cameKey')} onclick={countClimax}
+        ><Icon name="drop" />{#if cur.came}<span class="came-n" transition:nudge>{cur.came}</span>{/if}</button>
+    {/if}
+  {/if}
+  {#if fullscreen.supported && !isVideo}
+    <!-- (a video has its own, in its controls) -->
+    <button class="icon" aria-label={fullscreen.on ? t('video.exitFullscreen') : t('video.fullscreen')} title={fullscreen.on ? t('video.exitFullscreenKey') : t('video.fullscreenKey')}
+      onclick={() => fullscreen.toggle(viewerEl ?? null)}><Icon name={fullscreen.on ? 'shrink' : 'expand'} /></button>
+  {/if}
+{/snippet}
+
 <svelte:window onkeydown={key} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions (the mouse moving only shows the controls again; nothing to press) -->
@@ -1112,32 +1153,25 @@
     {/if}
 
     <!-- Controls sit in their own layer above the slides (never inside the swipe area). -->
-    <div class="top float-bar" class:hide={!chrome || !entered} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
+    <div class="top float-bar" class:split class:hide={!chrome || !entered} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
       <button class="icon" aria-label={t('sites.close')} onclick={onclose}><Icon name="close" /></button>
+      {#if split}<span class="spacer"></span>{/if}
       <span class="count chip">{num(index + 1)} / {num(results.total)}</span>
       {#if index < results.pinned}<span class="chip new" title={t('viewer.newTitle')} transition:nudge>{t('grid.new')}</span>{/if}
-      {#if percent}<span class="chip pct" title={t('viewer.percentTitle', { n: percent })} transition:nudge>{t('viewer.percent', { n: percent })}</span>{/if}
+      {#if percent && (!split || pctShown)}<span class="chip pct" title={t('viewer.percentTitle', { n: percent })} transition:nudge>{t('viewer.percent', { n: percent })}</span>{/if}
       {#if loading}<span class="spinner" role="status" aria-label={t('viewer.loading')} transition:pop></span>{/if}
       <span class="spacer"></span>
-      {#if cur}
-        <button class="icon fav" class:on={cur.favorite} aria-label={t('filter.favorite.label')} aria-pressed={!!cur.favorite} title={cur.favorite ? t('viewer.unfavoriteKey') : t('viewer.favoriteKey')}
-          onclick={toggleFavorite}><Icon name="heart" filled={!!cur.favorite} /></button>
-        {#if settings.came}
-          <button class="icon came" aria-label={cur.came ? t('viewer.cameSoFar', { n: cur.came }) : t('rankings.title')} title={t('viewer.cameKey')} onclick={countClimax}
-            ><Icon name="drop" />{#if cur.came}<span class="came-n" transition:nudge>{cur.came}</span>{/if}</button>
-        {/if}
-      {/if}
-      {#if fullscreen.supported && !isVideo}
-        <!-- (a video has its own, in its controls) -->
-        <button class="icon" aria-label={fullscreen.on ? t('video.exitFullscreen') : t('video.fullscreen')} title={fullscreen.on ? t('video.exitFullscreenKey') : t('video.fullscreenKey')}
-          onclick={() => fullscreen.toggle(viewerEl ?? null)}><Icon name={fullscreen.on ? 'shrink' : 'expand'} /></button>
-      {/if}
+      {#if !split}{@render actions()}{/if}
       <button class="icon" class:on={info} aria-label={t('fileMenu.details')} title={t('viewer.detailsKey')} aria-pressed={info} onclick={() => (info = !info)}
         ><Icon name="info" /></button>
     </div>
-    {#if isVideo && videoEl}
+    {#if split || (isVideo && videoEl)}
       <div class="bottom" class:hide={!chrome || !entered} role="presentation" onpointerenter={() => (overControls = true)} onpointerleave={() => (overControls = false)}>
-        <VideoControls video={videoEl} fileId={cur?.id ?? 0} bind:scrubFrame />
+        {#if split && cur}
+          <!-- (over a video's own controls: one panel, shown and hidden together. Delete stays in the details - the user) -->
+          <div class="actions" class:over-video={isVideo && !!videoEl}>{@render actions()}</div>
+        {/if}
+        {#if isVideo && videoEl}<VideoControls video={videoEl} fileId={cur?.id ?? 0} bind:scrubFrame />{/if}
       </div>
     {/if}
     {#if wide.matches}
@@ -1326,8 +1360,39 @@
       transition: none;
     }
   }
-  .top button.came {
+  button.came {
     position: relative;
+  }
+  /* Split (phones): the count in the middle, between close and the details. */
+  .top.split .count {
+    flex: none;
+  }
+  /* The actions along the bottom (split): evenly across, each in its own dark backing like the top bar's. */
+  .actions {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    padding: 6px calc(12px + var(--safe-corner, 0px)) calc(10px + var(--safe-bottom) + var(--home-bar, 0px));
+    pointer-events: none; /* (between the buttons: the picture's) */
+  }
+  .actions.over-video {
+    padding-bottom: 2px; /* (the video's controls below keep clear of the screen's edge) */
+  }
+  .actions > * {
+    pointer-events: auto;
+  }
+  .actions button {
+    color: var(--text);
+    border-radius: 50%;
+    background: rgb(17 17 27 / 0.72);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .actions .on {
+    color: var(--mauve);
+  }
+  .actions button.fav.on {
+    color: var(--red);
   }
   /* How many times so far: a small count on the button. */
   .came-n {

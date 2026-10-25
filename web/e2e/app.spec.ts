@@ -345,14 +345,21 @@ test('details are hidden by default; swipe up opens them', async ({ page }) => {
   await expect(page.locator('.viewer aside.panel')).toBeVisible();
 });
 
-test('images: zoom to 100 % (phones: a double tap; a mouse: a click) and back to fit; the size shows at the top', async ({ page }) => {
+test('images: zoom to 100 % (phones: a double tap; a mouse: a click) and back to fit; the size shows at the top (phones: while it changes)', async ({ page }) => {
   await page.goto('/?q=system:type%3Dimage');
   await page.locator('.tile').first().click();
   const box = (await page.locator('.stage').boundingBox())!;
   const pct = page.locator('.viewer .pct');
-  await expect(pct).toHaveText(/^\d+ %$/); // fitted: some %
-  const fitted = await pct.textContent();
   const mouseUI = test.info().project.name !== 'iphone';
+  // Wide screens: always there. Phones (the controls split top and bottom): only a moment while it changes.
+  let fitted = '';
+  if (mouseUI) {
+    await expect(pct).toHaveText(/^\d+ %$/); // fitted: some %
+    fitted = (await pct.textContent())!;
+  } else {
+    await page.waitForTimeout(500);
+    await expect(pct).toHaveCount(0);
+  }
   const zoom = () =>
     mouseUI ? page.mouse.click(box.x + box.width / 2, box.y + box.height / 2) : page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
   await zoom();
@@ -361,7 +368,11 @@ test('images: zoom to 100 % (phones: a double tap; a mouse: a click) and back to
   await page.waitForTimeout(400);
   await zoom();
   await expect.poll(() => imageScale(page)).toBe(1);
-  await expect(pct).toHaveText(fitted!);
+  if (mouseUI) await expect(pct).toHaveText(fitted);
+  else {
+    await expect(pct).toHaveText(/^\d+ %$/); // (the fitted size, a moment)
+    await expect(pct).toHaveCount(0, { timeout: 4000 }); // then gone
+  }
   if (mouseUI) await expect(page.locator('.viewer .top')).not.toHaveClass(/hide/); // a mouse never hides the controls
 });
 

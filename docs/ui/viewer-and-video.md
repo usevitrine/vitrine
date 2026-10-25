@@ -125,6 +125,12 @@ lays them out at the original size.
   on a video plays/pauses it; the controls never hide. Touch: slides, a tap shows/hides the controls, a double tap
   zooms to 100 %. The top bar shows the size (% of its own pixels) and a spinner while the picture (or its full size
   when zoomed) loads; no gradient across the picture - each control has a small dark backing of its own.
+- **Split controls on phones (2026-10-25, the user: with a six-figure library the top bar ran off a phone's screen -
+  "need to rethink the ui of the viewer" -> option A, "like a phone's photo app")**: under 900 px wide the top bar has
+  close, where you are (in full: 96,938 / 162,330, centered) and the details; the actions run along the bottom in reach of
+  a thumb - favorite, I came, full screen (where there is one) - each in its own dark backing like the top bar's, over
+  a video's own controls as one panel that shows and hides with them. Delete stays in the details only (the user). The
+  size (%) shows a moment while it changes (a pinch, a double tap), then goes. Wide screens keep the one bar on top.
 - **Trackpad gestures (2026-10-24, the user: "natural trackpad gestures ... 2 finger swipe to switch between images")**:
   two fingers sideways (wheel events with deltaX) - the file follows them like a touch swipe (`dx`), past
   min(140 px, 20 % of the width) it slides on to the next or previous one, and the rest of that gesture (its glide

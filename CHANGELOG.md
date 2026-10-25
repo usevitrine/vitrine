@@ -2,6 +2,10 @@
 
 What changed in each version of Vitrine, newest first. The app shows this too (Settings > What’s new).
 
+## Unreleased
+
+- **Viewer on phones**: the controls split like a phone's photo app - close, where you are and the details at the top, favorite, I came and full screen along the bottom in reach of your thumb; the size shows a moment while you zoom. Large libraries no longer push the buttons off the screen.
+
 ## 1.0.2 - 2026-10-25
 
 - **Fixes**: a file that finished just as its download was stopped is counted as downloaded (it showed as "had" after resuming); a site behind Cloudflare no longer loses its fresh clearance when several requests are challenged at once.
