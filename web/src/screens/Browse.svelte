@@ -158,14 +158,14 @@
         <span class="badge"><Icon name="book" size={28} /></span>
         <p class="muted">{t('browse.noSites')}</p>
       </div>
-    {:else if results.total === 0 && !results.busy && !results.error && results.searches > 0}
+    {:else if results.total === 0 && !results.busy && !results.loadingMore && !results.error && results.searches > 0}
       <div class="empty" in:swap><p>{t('browse.none')}</p></div>
-    {:else if results.total === 0 && results.busy}
+    {:else if results.total === 0 && (results.busy || results.loadingMore)}
       <div class="first-load" role="status" aria-label={t('library.searching')} in:swap><span class="spinner"></span></div>
     {:else}
       <Grid {pad} inset={topbar.h + headH} onopen={details} />
     {/if}
-    {#if results.loadingMore}
+    {#if results.loadingMore && results.total > 0}
       <!-- The site's next page on its way. -->
       <div class="more" role="status" aria-label={t('browse.loadingMore')} transition:fade={{ duration: 150 }}><span class="spinner small"></span></div>
     {/if}

@@ -6677,6 +6677,20 @@ test('comics: Browse - the details panel\'s pages show as each sheet of them com
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+test('comics: Browse - a page whose galleries are all blacklisted (hidden by the server) goes on to the next', async ({ page }) => {
+  const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://gallery.test/g/${id}/abcdef0123/`, title: `Some Comic ${id}`, category: 'Manga', pages: 24, tags: [] });
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
+  await page.route('**/api/browse?*', (r) => {
+    const before = Number(new URL(r.request().url()).searchParams.get('before'));
+    // (the first page: every gallery hidden - none sent, the cursor past them)
+    return r.fulfill({ json: before === 0 ? { galleries: [], total: 40, next: 21, hidden: 20 } : { galleries: [gallery(20), gallery(19)], total: 40, next: 0, hidden: 0 } });
+  });
+  await page.goto('/browse');
+  await expect(page.locator('.browse .tile')).toHaveCount(2);
+  await expect(page.getByText('No galleries')).toHaveCount(0);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('comics: Browse - a new search clears the last one\'s galleries at once (a spinner until the new ones come)', async ({ page }) => {
   const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://gallery.test/g/${id}/abcdef0123/`, title: `Some Comic ${id}`, category: 'Manga', pages: 24, tags: [] });
   await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));

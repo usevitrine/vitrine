@@ -77,3 +77,33 @@ func TestPictureCacheLoad(t *testing.T) {
 		t.Fatalf("the one waiting got: %v", err)
 	}
 }
+
+// Browse hides a gallery with a blacklisted tag: one of the site's own, or one as the library names it.
+func TestBrowseBlacklisted(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	if _, err := e.lib.SetBlacklist(ctx, []string{"creator:some_artist", "red*"}); err != nil {
+		t.Fatal(err)
+	}
+	bl, err := e.lib.Blacklist(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		site []string
+		tags []browseTag
+		want bool
+	}{
+		{[]string{"blue_sky"}, []browseTag{{Name: "blue_sky"}}, false},
+		{[]string{"artist:some_artist"}, []browseTag{{NS: "creator", Name: "some_artist"}}, true}, // (as the library names it)
+		{[]string{"female:red_hair"}, []browseTag{{NS: "female", Name: "red_hair"}}, true},       // (a wildcard, on the name)
+		{nil, []browseTag{{NS: "female", Name: "blue_sky"}}, false},
+	} {
+		if got := blacklisted(bl, c.site, c.tags); got != c.want {
+			t.Errorf("%v %v: %v, want %v", c.site, c.tags, got, c.want)
+		}
+	}
+	if blacklisted(nil, []string{"red"}, nil) {
+		t.Error("no blacklist hid a gallery")
+	}
+}

@@ -229,7 +229,8 @@ export class BrowseResults extends Results {
   private checkNear() {
     clearTimeout(this.nearTimer);
     this.nearTimer = window.setTimeout(() => {
-      if (router.screen === 'browse' && this.total > 0 && this.focus.to >= this.total - 12) this.more();
+      // (nothing to show yet - a page all blacklisted: the next one, until there is or the site has no more)
+      if (router.screen === 'browse' && this.searches > 0 && (this.total === 0 || this.focus.to >= this.total - 12)) this.more();
     }, 50);
   }
   private nearTimer = 0;

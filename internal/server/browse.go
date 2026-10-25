@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/usevitrine/vitrine/internal/download"
+	"github.com/usevitrine/vitrine/internal/library"
 	"github.com/usevitrine/vitrine/internal/plugin"
 )
 
@@ -161,13 +162,19 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Galleries with a blacklisted tag aren't shown (the user: "blacklisted tags should apply the browse page") - as a
+	// download skips them; matched on the site's tags and on each as the library would name it.
+	bl, _ := s.lib.Blacklist(r.Context())
 	out := make([]browseGallery, 0, len(page.Posts))
 	var next int64
+	hidden, read := 0, 0
 	for _, p := range page.Posts {
 		g := p.Gallery
 		if g == nil {
 			continue
 		}
+		read++
+		next = p.ID // (the cursor goes on past a hidden one too)
 		bg := browseGallery{ID: p.ID, Token: g.Token, URL: p.PostURL, Title: g.Title, TitleAlt: g.TitleAlt, Category: g.Category,
 			Pages: g.Pages, Cover: g.Cover, Rating: g.Rating, Uploader: g.Uploader, Tags: []browseTag{}, Queued: queued[p.ID]}
 		if !p.Posted.IsZero() {
@@ -193,13 +200,16 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 				bg.Tags = append(bg.Tags, bt)
 			}
 		}
+		if blacklisted(bl, p.Tags, bg.Tags) {
+			hidden++
+			continue
+		}
 		if id, _, err := s.lib.ComicFrom(r.Context(), st.Client.Manifest().ID, g.Key); err == nil {
 			bg.Comic = id
 		}
 		out = append(out, bg)
-		next = p.ID
 	}
-	if len(out) == 0 || len(out) == page.Total {
+	if read == 0 || read == page.Total {
 		next = 0
 	}
 	if sort != "" {
@@ -208,7 +218,7 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 			next = before + 1
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"galleries": out, "total": page.Total, "next": next})
+	writeJSON(w, http.StatusOK, map[string]any{"galleries": out, "total": page.Total, "next": next, "hidden": hidden})
 
 	// The next page on its way too, in the background (after what's on screen and the downloads' turns, called off
 	// by a newer search): scrolling on finds it - and its covers - ready.
@@ -232,6 +242,22 @@ func (s *Server) browse(w http.ResponseWriter, r *http.Request) {
 			}()
 		}
 	}
+}
+
+// blacklisted tells whether a gallery has a blacklisted tag: one of the site's own (as a download matches them), or
+// one as the library names it (its name, and with its namespace).
+func blacklisted(bl *library.Blacklist, siteTags []string, tags []browseTag) bool {
+	if bl == nil || len(bl.Patterns()) == 0 {
+		return false
+	}
+	named := append([]string{}, siteTags...)
+	for _, t := range tags {
+		named = append(named, t.Name)
+		if t.NS != "" {
+			named = append(named, t.NS+":"+t.Name)
+		}
+	}
+	return bl.Match(named) != ""
 }
 
 // prefetchCovers gets a page's covers on their way (the browser asks for them a moment later and joins).
