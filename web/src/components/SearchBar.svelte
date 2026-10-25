@@ -57,7 +57,8 @@
     onsite?: (id: string) => void;
   } = $props();
   /** The order this page counts as its default (the sort mark, the menu's "default" and Reset). */
-  const pageDefault = $derived(defaultSort ?? settings.defaultSort);
+  // (in Settings - plain, sortable - the order picked is the default being set: nothing there is "not the default")
+  const pageDefault = $derived(plain && sortable ? sort : (defaultSort ?? settings.defaultSort));
   const { saved, kind } = useScope();
   const comics = kind === 'comics' || kind === 'browse'; // (the Comics page and Browse: suggestions from the comics' tags)
   const browse = kind === 'browse'; // (a site's search: its own filters and orders, no saved searches)
@@ -430,14 +431,14 @@
         bind:this={filterBtn}
         class="icon filt"
         aria-label={t('searchBar.filters')}
-        class:changed={(!plain || sortable) && sort !== pageDefault}
+        class:changed={!plain && sort !== pageDefault}
         aria-expanded={filterMenu !== null && filterMenu.index === null}
-        title={plain && !sortable ? t('searchBar.filters') : sort !== pageDefault ? t('searchBar.sortFiltersChanged') : t('searchBar.sortFilters')}
+        title={plain && !sortable ? t('searchBar.filters') : !plain && sort !== pageDefault ? t('searchBar.sortFiltersChanged') : t('searchBar.sortFilters')}
         onclick={() => {
           editing = null;
           savedOpen = false;
           filterMenu = filterMenu && filterMenu.index === null ? null : { index: null, form: null };
-        }}><Icon name="filter" size={19} />{#if (!plain || sortable) && sort !== pageDefault}<span class="dot" transition:grow></span>{/if}</button>
+        }}><Icon name="filter" size={19} />{#if !plain && sort !== pageDefault}<span class="dot" transition:grow></span>{/if}</button>
       {#if !plain && !browse}
       <button
         bind:this={starBtn}

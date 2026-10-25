@@ -6747,6 +6747,10 @@ test('settings: Browse search has Browse\'s orders too - a site\'s list (no sear
     await page.getByRole('button', { name: /^Sort by/ }).click();
     await page.getByRole('button', { name: /^Popular now/ }).click();
     await expect.poll(async () => { const s = await get(); return `${s.browseSort}|${s.browseSearch}`; }).toBe('popular|'); // (a list has no search)
+    // (no "not the default order" dot: here the order picked is the default)
+    await page.keyboard.press('Escape');
+    await expect(field.locator('.filt .dot')).toHaveCount(0);
+    await expect(field.getByRole('button', { name: 'Filters', exact: true })).not.toHaveClass(/changed/);
     await page.goto('/browse');
     await expect.poll(() => asked[0]).toBe('popular|');
   } finally {
