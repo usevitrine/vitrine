@@ -110,8 +110,9 @@
   {/snippet}
   {#snippet children(current: string)}
           {#if current === 'library'}
+          <!-- The library's pages: Media, Comics (while it's on), and the trash both share. -->
           <section class="card">
-            <div class="card-head"><h2>{t('settings.section.library.label')}</h2></div>
+            <div class="card-head"><h2>{t('menu.library')}</h2></div>
             <!-- A div, not a label: the search bar has buttons and menus of its own. -->
             <div class="field">
               <span class="field-label">{t('settings.defaultSearch')}</span>
@@ -136,25 +137,6 @@
                 current={sortLabel(settings.favoritesSort)}
                 items={sortItems(settings.favoritesSort, (v) => (settings.favoritesSort = v))} />
             </div>
-            {#if !settings.comicsOff}
-              <div class="field" transition:reveal>
-                <span class="field-label">{t('settings.comicsSort')}</span>
-                <ActionMenu
-                  label={t('settings.comicsSort')}
-                  title={t('settings.comicsSort')}
-                  current={sortLabel(settings.comicsSort, true)}
-                  items={sortItems(settings.comicsSort, (v) => (settings.comicsSort = v), true)} />
-              </div>
-              <div class="field" transition:reveal>
-                <span class="field-label">{t('settings.browseSearch')}</span>
-                <SearchBar
-                  plain
-                  label={t('settings.browseSearch')}
-                  placeholder={t('settings.browseSearchPlaceholder')}
-                  query={settings.browseSearch}
-                  onsearch={(q) => (settings.browseSearch = q)} />
-              </div>
-            {/if}
             <div class="field">
               <span class="field-label">{t('settings.newOrder.label')}</span>
               <span class="hint">{t('settings.newOrder.hint')}</span>
@@ -171,6 +153,34 @@
                 <span class="hint">{t('settings.bulkNewHint')}</span>
               </span>
             </label>
+            {#if stats}
+              <p class="hint" transition:reveal>{t('common.files', { n: stats.files })} · {t('settings.tagsInUse', { n: stats.tags })}</p>
+            {/if}
+          </section>
+          {#if !settings.comicsOff}
+            <section class="card" transition:reveal>
+              <div class="card-head"><h2>{t('comics.title')}</h2></div>
+              <div class="field">
+                <span class="field-label">{t('settings.defaultSort')}</span>
+                <ActionMenu
+                  label={t('settings.comicsSort')}
+                  title={t('settings.comicsSort')}
+                  current={sortLabel(settings.comicsSort, true)}
+                  items={sortItems(settings.comicsSort, (v) => (settings.comicsSort = v), true)} />
+              </div>
+              <div class="field">
+                <span class="field-label">{t('settings.browseSearch')}</span>
+                <SearchBar
+                  plain
+                  label={t('settings.browseSearch')}
+                  placeholder={t('settings.browseSearchPlaceholder')}
+                  query={settings.browseSearch}
+                  onsearch={(q) => (settings.browseSearch = q)} />
+              </div>
+            </section>
+          {/if}
+          <section class="card">
+            <div class="card-head"><h2>{t('menu.trash')}</h2></div>
             <div class="field">
               <span class="field-label">{t('settings.trashDays.label')}</span>
               <span class="hint">{t('settings.trashDays.hint')}</span>
@@ -180,9 +190,6 @@
                 current={settings.trashDays ? t('settings.trashDays.after', { n: settings.trashDays }) : t('settings.trashDays.never')}
                 items={[0, 7, 30, 90, 365].map((n) => ({ label: n ? t('settings.trashDays.after', { n }) : t('settings.trashDays.never'), on: n === settings.trashDays, run: () => (settings.trashDays = n) }))} />
             </div>
-            {#if stats}
-              <p class="hint" transition:reveal>{t('common.files', { n: stats.files })} · {t('settings.tagsInUse', { n: stats.tags })}</p>
-            {/if}
           </section>
           {:else if current === 'sites'}
             <SitesCard />

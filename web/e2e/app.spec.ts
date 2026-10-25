@@ -2727,9 +2727,9 @@ test('settings: the default search is the library search bar - autocomplete and 
   await page.goto('/settings/library');
   await setSettings(page, { defaultSearch: '' });
   await page.reload();
-  const bar = page.getByRole('group', { name: 'Media search' });
+  const bar = page.getByRole('group', { name: 'Default search' });
   await expect(bar.getByRole('button', { name: /Saved searches/ })).toHaveCount(0);
-  const input = bar.getByRole('combobox', { name: 'Media search' });
+  const input = bar.getByRole('combobox', { name: 'Default search' });
   await input.click();
   await input.pressSequentially('blue_s');
   await expect(page.getByRole('option', { name: /blue_sky/ })).toBeVisible();
@@ -2762,10 +2762,10 @@ test('settings: the default search is the library search bar - autocomplete and 
 test('settings: the default sort is an action menu - a field, then its direction', async ({ page }) => {
   test.skip(test.info().project.name === 'desktop-chromium', 'phones (a sheet) and desktop (a menu) are enough');
   await page.goto('/settings/library');
-  const field = page.getByRole('button', { name: 'Media sort' });
+  const field = page.getByRole('button', { name: 'Default sort', exact: true });
   await expect(field).toHaveText(/Newest uploaded/);
   await field.click();
-  const menu = page.getByRole('menu', { name: 'Media sort' });
+  const menu = page.getByRole('menu', { name: 'Default sort', exact: true });
   await expect(menu.getByRole('menuitemradio', { name: /Uploaded/ })).toHaveAttribute('aria-checked', 'true');
   await expect(menu.getByRole('menuitemradio', { name: /Uploaded/ })).toContainText('Newest first');
   await menu.getByRole('menuitemradio', { name: /File size/ }).click();
@@ -3215,13 +3215,13 @@ test('settings: sections - a list on phones (each opens with a back link), side 
   const wide = (page.viewportSize()?.width ?? 0) >= 900;
   if (wide) {
     // The first section shows beside the list.
-    await expect(page.getByRole('heading', { name: 'Library', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Media', exact: true })).toBeVisible();
     await nav.getByRole('button', { name: /^Backups/ }).click();
     await expect(page).toHaveURL(/\/settings\/backups$/);
     await expect(nav).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Backups' })).toBeVisible();
   } else {
-    await expect(page.getByRole('heading', { name: 'Library', exact: true })).toHaveCount(0); // just the list
+    await expect(page.getByRole('heading', { name: 'Media', exact: true })).toHaveCount(0); // just the list
     await nav.getByRole('button', { name: /^Download rules/ }).click();
     await expect(page).toHaveURL(/\/settings\/rules$/);
     await expect(nav).toHaveCount(0);
@@ -7030,7 +7030,7 @@ test('comics: its own default order (Settings > Library, Comics sort), the page 
     await expect(titles.first()).toHaveText('Blue Sky Comic'); // (by title; newest added first, Short Story led)
     // Settings shows it, with the Comics page's own orders.
     await page.goto('/settings/library');
-    const menu = page.getByRole('button', { name: 'Comics sort' });
+    const menu = page.getByRole('button', { name: 'Comics default sort' });
     await expect(menu).toContainText('Title');
     await menu.click();
     await expect(page.getByRole('menuitemradio', { name: 'Last read' })).toBeVisible(); // (a comics order the library hasn't)
