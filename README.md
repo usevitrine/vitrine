@@ -8,6 +8,8 @@ One program stores your files, keeps their tags (with parents and siblings), sea
 thumbnails, downloads from booru-style and gallery sites through plugins, and serves a phone-first web app you can
 add to your home screen.
 
+![The library in Rows: a search bar over a justified grid of pictures](docs/images/library.webp)
+
 ## What it does
 
 - **Library**: pictures and videos (JPEG, PNG, GIF, WebP, AVIF, MP4, MOV, WebM, MKV), each stored once, with the
@@ -24,6 +26,20 @@ add to your home screen.
 - **Web app**: one app for phone and desktop, installable (PWA), with its own video player, a viewer that swipes
   through results, bulk tag editing, push notifications, light on data.
 - **Command line**: `vitrine status`, `queue`, `subs`, `logs` and more talk to the running server.
+
+## Screenshots
+
+![The viewer with its details: where the file came from, its sources and its tags by kind](docs/images/viewer.webp)
+
+![The library as square tiles](docs/images/library-grid.webp)
+
+<p align="center">
+  <img src="docs/images/phone-library.webp" width="30%" alt="On a phone: the library in Rows">
+  <img src="docs/images/phone-grid.webp" width="30%" alt="On a phone: the library as square tiles">
+  <img src="docs/images/phone-details.webp" width="30%" alt="On a phone: a picture with its details sheet">
+</p>
+
+<sub>Pictures from safebooru.org, by their artists.</sub>
 
 ## Installing
 
