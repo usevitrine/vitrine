@@ -726,7 +726,7 @@ func (c *Client) getOnce(ctx context.Context, u *url.URL, referer string, page b
 	challenged, head := isChallenge(resp)
 	if challenged {
 		resp.Body.Close()
-		if resp, err = c.passCloudflare(ctx, u, referer, page); err != nil {
+		if resp, err = c.passCloudflare(ctx, u, referer, page, resp.Request); err != nil {
 			return nil, err
 		}
 		head = nil
@@ -804,11 +804,12 @@ func (c *Client) send(ctx context.Context, u *url.URL, referer string) (*http.Re
 // leave Vitrine; the clearance is for the whole site anyway). If the site
 // still refuses (it checks more than cookies), a page request can use the
 // page FlareSolverr's browser got - when that was the same URL.
-func (c *Client) passCloudflare(ctx context.Context, u *url.URL, referer string, page bool) (*http.Response, error) {
+// refused: the request that was turned away.
+func (c *Client) passCloudflare(ctx context.Context, u *url.URL, referer string, page bool, refused *http.Request) (*http.Response, error) {
 	if c.solver == nil || c.solver.Endpoint() == "" {
 		return nil, &CloudflareError{Site: c.m.Site}
 	}
-	c.solver.forget(u.Hostname()) // a clearance sent with this request was refused
+	c.solver.forget(u.Hostname(), refused) // (its clearance, if it carried the one there is, was refused)
 	target, same := c.withoutCredentials(u)
 	got, err := c.solver.solve(ctx, target)
 	if err != nil {

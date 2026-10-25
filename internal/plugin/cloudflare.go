@@ -187,17 +187,32 @@ func (s *Solver) lookup(host string) *clearance {
 	return nil
 }
 
-// forget drops the clearance for a host (it was refused).
-func (s *Solver) forget(host string) {
+// forget drops the clearance for a host when the refused request carried it (refused nil: whatever it was). A
+// request sent before the clearance came was refused for having none: the clearance stays - several requests
+// challenged at once, one cleared the way, and a later one forgot that fresh clearance, so the next went without it
+// and was refused too (the race detector's slow runs found it).
+func (s *Solver) forget(host string, refused *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if c := s.lookup(host); c != nil {
-		for d, x := range s.cleared {
-			if x == c {
-				delete(s.cleared, d)
-			}
+	c := s.lookup(host)
+	if c == nil || (refused != nil && !carries(refused, c)) {
+		return
+	}
+	for d, x := range s.cleared {
+		if x == c {
+			delete(s.cleared, d)
 		}
 	}
+}
+
+// carries says whether a request had a clearance's cookies.
+func carries(req *http.Request, c *clearance) bool {
+	for _, ck := range c.cookies {
+		if got, err := req.Cookie(ck.Name); err != nil || got.Value != ck.Value {
+			return false
+		}
+	}
+	return len(c.cookies) > 0
 }
 
 // solve gets a clearance for the URL's site from FlareSolverr (one visit at
