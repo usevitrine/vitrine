@@ -23,6 +23,11 @@ comics page, the downloader, etc, a mix of serious and unserious."
 - **Serious and unserious**: straight, confident headlines and facts; the jokes in the small print (e.g. "No cloud.
   No account. No one judging your 40,000 bookmarks."; a 404 that's an empty grid: "No results for this page. Try
   fewer tags."). The user: about that much.
+- **Contact and GitHub on every page** (the user, 2026-10-26): a link to https://github.com/usevitrine/vitrine, and the
+  contact email hello@vitrine.software **hidden from bots** - never in the HTML as text or a `mailto:`: put together
+  by a script only when a person presses "Email us" (copied, or the mail app opened), with a plain hint for people
+  without scripts that doesn't spell the address out either. (The address is already in Vitrine's User-Agent and Web
+  Push subject in the public repository, so this cuts spam from the site's side only.)
 - **Never on the site: the "I came" button** (the user: "no i came button"), nor adult sites or content.
 - **Pages**: the landing page (hero, features, the iPhone app, install, FAQ, footer) and **the demo on a page of its
   own**, opened by a button in the hero (the user).
