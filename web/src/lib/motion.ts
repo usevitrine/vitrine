@@ -122,5 +122,9 @@ export function swap(node: Element, { duration = 160, delay = 0 } = {}) {
 
 /** animate:moved on a keyed {#each}'s rows. */
 export function moved(node: Element, fromTo: { from: DOMRect; to: DOMRect }, { duration = 220 } = {}) {
+  // (one with no size at either end - a chip just popping in, 0 wide - has nothing to glide: flip divides by its
+  // size, and its frames came out NaN and Infinity, so the browser threw them away - the user's first chip)
+  const { from, to } = fromTo;
+  if (!from.width || !from.height || !to.width || !to.height) return { duration: 0 };
   return flip(node, fromTo, { duration: reduced() ? 0 : duration, easing: cubicOut });
 }

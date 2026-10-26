@@ -10,10 +10,13 @@ const backend = process.env.VITRINE_BACKEND ?? 'http://127.0.0.1:8080';
 // requests present the backend's host and origin.
 const toBackend = { target: backend, changeOrigin: true, headers: { origin: backend } };
 
-export default defineConfig({
+// `npm run build:demo` (mode demo): the website's demo instead - the same app with a pretend server in the page
+// (src/demo), into dist-demo for the website (its base: where the site serves it, DEMO_BASE).
+export default defineConfig(({ mode }) => ({
   plugins: [svelte()],
+  base: mode === 'demo' ? (process.env.DEMO_BASE ?? '/demo/app/') : '/',
   build: {
-    outDir: '../internal/server/web/app',
+    outDir: mode === 'demo' ? 'dist-demo' : '../internal/server/web/app',
     emptyOutDir: true,
     target: 'es2022',
     // The bundled packages' licenses (served at /licenses with the Go side's: internal/server/licenses.go).
@@ -28,4 +31,4 @@ export default defineConfig({
       '/sprites': toBackend,
     },
   },
-});
+}));

@@ -15,8 +15,14 @@ const paths: Record<Screen, string> = {
   settings: '/settings',
 };
 
+// The app's own path in the address: "" at the site's root, as always; the website's demo is in a folder of its own
+// (vite's base, e.g. /demo/app/).
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const own = (path: string) => (base && path.startsWith(base) ? path.slice(base.length) || '/' : path);
+
 /** A screen's sub-page: the path after the screen's own ("/tags/rules" -> "rules"; "" = its first page). */
 function subOf(path: string): string {
+  path = own(path);
   const s = screenOf(path);
   if (s === 'library') {
     const p = path.replace(/^\/+|\/+$/g, '');
@@ -26,9 +32,10 @@ function subOf(path: string): string {
 }
 
 /** A screen's path (the library's Favorites and Trash pages: /favorites, /trash). */
-const pathOf = (screen: Screen, sub: string) => (screen === 'library' ? (sub ? '/' + sub : '/') : paths[screen] + (sub ? '/' + sub : ''));
+const pathOf = (screen: Screen, sub: string) => base + (screen === 'library' ? (sub ? '/' + sub : '/') : paths[screen] + (sub ? '/' + sub : ''));
 
 function screenOf(path: string): Screen {
+  path = own(path);
   for (const [s, p] of Object.entries(paths)) {
     if (p !== '/' && path.startsWith(p)) return s as Screen;
   }

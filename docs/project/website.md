@@ -108,4 +108,25 @@ The user: "one thing i definitely want is a demo of vitrine on the site".
   the source.
 - **Made with Vitrine**: a script fetches them, imports them into a fresh library with their tags and sources and
   exports a snapshot (thumbnails, screen-sized copies, the data) that the demo reads - rebuilt with one run.
-- A browser test checks the demo build loads and searches.
+
+### As built (2026-10-26)
+- **The search is Vitrine's own, as WebAssembly**: `cmd/demowasm` (GOOS=js GOARCH=wasm, ~6 MB) builds the index
+  from the snapshot with its ordinary calls (`AddFile`, `AddTags`, `AddFileSite`...) and answers what the server's
+  handlers would: search and its slices (with `find` and `shapes`), the fast scroller's dates, suggestions, tag
+  edits (into the index and the details, added ones as the user's), tags-of, favorites, delete and undelete. Every
+  search syntax and order works exactly as in the app - nothing rewritten in TypeScript.
+- **The app in demo mode** (`npm run build:demo <snapshot folder>` -> `web/dist-demo`; vite `--mode demo`, base
+  `/demo/app/`): `src/demo/backend.ts` takes the app's `/api/` fetches and answers from the engine, or with what a
+  library of only those files says (no sites' downloads, notices, relations; saved searches kept for the visit); no
+  service worker, install offer, version check or live events. `lib/demo.ts`'s `DEMO` hides the menu, Downloads and
+  the bell. The router knows the base (`import.meta.env.BASE_URL`), so the app works in a folder.
+- **The snapshot**: `tools/demosnap` from demolib's library -> `snapshot.json` (`internal/demo.Snapshot`: namespaces,
+  tags, sites, each file's index columns, tags, sites, its `/api/files` info and its details) and `media/`: the
+  library's own thumbnails, pictures at 1600 px (the demo can't make screen-sized copies on request), the clips as
+  they are, the links' site icons (fetched once with `internal/favicon`). ~111 MB of media, 416 KB of data.
+- **On the site**: `npm run demo [folder]` copies a built demo to `public/demo/app` (not in git); `/demo` is a page
+  with a short text (for people and search engines) and the app in a frame filling the window, with Full screen
+  (`/demo/app/`). Cloudflare serves the folder's index.html (its default HTML handling).
+- **Tested**: `e2e/demo.spec.ts` with `DEMO_URL` set (a served build): it loads with no server, no menu or
+  Downloads, a search from the suggestions, the details' tags and site, an edit found by a search and gone after a
+  fresh load, and no warnings in the console.

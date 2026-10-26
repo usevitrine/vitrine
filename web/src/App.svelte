@@ -18,6 +18,7 @@
   import Toasts from './components/Toasts.svelte';
   import Bell from './components/Bell.svelte';
   import DownloadsMenu from './components/DownloadsMenu.svelte';
+  import { DEMO } from './lib/demo';
   import { notices } from './lib/notices.svelte';
   import ConfirmDialog from './components/ConfirmDialog.svelte';
   import Updater from './components/Updater.svelte';
@@ -279,20 +280,24 @@
 {:else}
   <div class="shell" style:--bar-h="{barH}px">
     <header class="topbar" bind:offsetHeight={barH}>
-      <button
-        class="menu-button"
-        aria-label={t('menu.menu')}
-        aria-expanded={drawer}
-        aria-controls="nav-drawer"
-        onclick={() => (drawer = !drawer)}><Icon name="menu" size={22} /></button>
+      {#if !DEMO}
+        <button
+          class="menu-button"
+          aria-label={t('menu.menu')}
+          aria-expanded={drawer}
+          aria-controls="nav-drawer"
+          onclick={() => (drawer = !drawer)}><Icon name="menu" size={22} /></button>
+      {/if}
       <button class="home" aria-label={settings.mediaOff ? t('comics.title') : t('menu.library')} onclick={() => goTo(settings.mediaOff ? 'comics' : 'library')}><Logo /></button>
       <span class="spacer"></span>
       {#if router.screen === 'library' && topbar.library}{@render topbar.library()}{/if}
       {#if router.screen === 'comics' && topbar.comics}{@render topbar.comics()}{/if}
       {#if router.screen === 'browse' && topbar.browse}{@render topbar.browse()}{/if}
       <!-- (on every page - the user; it was the library's only) -->
-      <DownloadsMenu query={router.screen === 'library' ? topbar.query : ''} />
-      <Bell />
+      {#if !DEMO}
+        <DownloadsMenu query={router.screen === 'library' ? topbar.query : ''} />
+        <Bell />
+      {/if}
     </header>
 
     {#if drawer}

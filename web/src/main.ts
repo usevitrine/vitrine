@@ -11,12 +11,18 @@ import { t } from './lib/i18n.svelte';
 import { quietKeyboard } from './lib/privacy';
 import { refreshShell } from './lib/appShell';
 import { ownTouches } from './lib/ownTouches';
+import { DEMO } from './lib/demo';
+import { startDemo } from './demo/backend'; // (left out of the app's build: DEMO is false there)
 
 logErrors();
 ownTouches(); // (the app's own swipes: the browser takes no fling from them - lib/ownTouches)
 trackKeyboard();
-registerServiceWorker();
-install.start(); // (the browser's install offer comes early)
+// The website's demo: its pretend server first (src/demo); no service worker, install offer or version checks.
+if (DEMO) startDemo();
+else {
+  registerServiceWorker();
+  install.start(); // (the browser's install offer comes early)
+}
 
 mount(App, { target: document.getElementById('app')! });
 quietKeyboard(); // (text fields: the keyboard doesn't suggest or learn what's typed)
@@ -99,7 +105,7 @@ async function checkVersion() {
     // Offline: checked again next time.
   }
 }
-checkVersion();
+if (!DEMO) checkVersion();
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') hiddenAt = Date.now();

@@ -7,6 +7,7 @@ shows this too (Settings > Updates).
 
 ### Fixed
 
+- **Search chips**: a tag picked from the suggestions slides into the search bar smoothly (its first frames came out broken, so it popped in).
 - **Details on phones**: with the details sheet up, the picture moves into the room above it instead of staying hidden behind the sheet.
 
 ## 1.0.3-hotfix - 2026-10-26

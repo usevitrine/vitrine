@@ -28,3 +28,6 @@ about-gpu-*.txt
 # your own deploy scripts (your setup) - never commit
 *.local.sh
 /cmd/vitrine/*.syso
+
+# the website demo (npm run build:demo)
+/web/dist-demo/

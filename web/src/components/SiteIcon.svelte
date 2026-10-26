@@ -6,6 +6,7 @@
 
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { DEMO, demoIcons } from '../lib/demo';
 
   // A site's own icon (its favicon, fetched and kept by the server), on the
   // usual round-cornered badge; the link icon until it has loaded, or if it has none.
@@ -48,9 +49,9 @@
 
 <span class="ic" class:site={loaded} class:dark>
   {#if !loaded}<Icon name="link" size={17} />{/if}
-  {#if host && !none.has(host)}
+  {#if host && !none.has(host) && (!DEMO || demoIcons.has(host))}
     <img
-      src="/api/favicon?host={encodeURIComponent(host)}&v=2"
+      src={DEMO ? `${import.meta.env.BASE_URL}media/favicon/${host}` : `/api/favicon?host=${encodeURIComponent(host)}&v=2`}
       alt=""
       width="18"
       height="18"
