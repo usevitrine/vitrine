@@ -880,9 +880,9 @@
   // the picture glides aside to make room - below).
   const isSheet = () => matchMedia('(max-width: 899px)').matches;
   const column = (t: number) => cubicBezier(0.2, 0.8, 0.2, 1, t);
-  // Wide screens: the details' column comes and goes at once, and the picture glides from where it was to its new
-  // place (centered in the narrower or wider stage, fitted to it) - on the compositor with the panel's slide, so nothing
-  // is laid out (or snapped to pixels) on the way.
+  // The details' column (wide screens) or sheet (phones: the stage ends where it begins) comes and goes at once, and
+  // the picture glides from where it was to its new place (centered in the narrower or wider stage, fitted to it) - on
+  // the compositor with the panel's slide, so nothing is laid out (or snapped to pixels) on the way.
   /** The fitted picture's center and scale in a stage: for the file shown. */
   function fitIn(r: DOMRect) {
     const f = cur;
@@ -892,7 +892,7 @@
   $effect.pre(() => {
     void info;
     untrack(() => {
-      if (!stageEl || isSheet() || reducedMotion()) return;
+      if (!stageEl || reducedMotion()) return;
       const from = fitIn(stageEl.getBoundingClientRect());
       tick().then(() => {
         const slide = stageEl?.querySelector<HTMLElement>('.slide[data-slot="1"]');
@@ -1597,6 +1597,17 @@
     }
     .panel.dragging {
       transition: none;
+    }
+    /* The details up: the picture in the room above the sheet (it stayed centered behind it, the room above empty) -
+       the stage ends where the sheet begins (the sheet's own height, below), the picture gliding there (columnMove). */
+    .viewer.info .stage-wrap {
+      align-self: start;
+      height: calc(100% - var(--kb, 0px) - min(75%, var(--sheet-max-h), calc(100% - var(--kb, 0px) - 56px)));
+    }
+    /* (its bottom controls go meanwhile, as they did behind the sheet - over the raised picture they covered it) */
+    .viewer.info .bottom {
+      opacity: 0;
+      pointer-events: none;
     }
     .panel-head {
       padding: 18px 8px 6px 20px;

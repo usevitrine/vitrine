@@ -2842,6 +2842,31 @@ test('settings: the default sort is an action menu - a field, then its direction
   await setSettings(page, { defaultSort: 'uploaded' });
 });
 
+// Phones: the details sheet up, the picture fits in the room above it (it stayed centered behind the sheet, the room
+// above empty); closed, it's back in the middle.
+test('phones: with the details up, the picture sits in the room above the sheet', async ({ page }) => {
+  const vw = page.viewportSize()!;
+  test.skip(vw.width >= 900, 'phones only (wide screens: a column beside the picture)');
+  await page.goto('/');
+  await page.locator('.tile').nth(3).click();
+  const pic = page.locator('.viewer .slide[data-slot="1"] img:not(.under)').first();
+  await expect(pic).toBeVisible();
+  const before = (await pic.boundingBox())!;
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  const panel = page.getByRole('complementary', { name: 'Details' });
+  await expect(panel).toBeVisible();
+  await page.waitForTimeout(500); // (the sheet slid up, the picture glided)
+  const sheet = (await panel.boundingBox())!;
+  const up = (await pic.boundingBox())!;
+  expect(up.y + up.height).toBeLessThanOrEqual(sheet.y + 1); // all of it above the sheet
+  expect(Math.abs(up.x + up.width / 2 - vw.width / 2)).toBeLessThan(2); // centered across
+  await panel.getByRole('button', { name: 'Close details' }).click();
+  await expect(panel).toHaveCount(0);
+  await page.waitForTimeout(500);
+  const back = (await pic.boundingBox())!;
+  expect(Math.round(back.y)).toBe(Math.round(before.y));
+});
+
 test('details: a close button, Escape, a tap outside; phones: a sheet (the standard height) that drags down to close', async ({ page }) => {
   await page.goto('/');
   await page.locator('.tile').nth(3).click();

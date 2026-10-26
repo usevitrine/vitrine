@@ -5,6 +5,10 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### Fixed
+
+- **Details on phones**: with the details sheet up, the picture moves into the room above it instead of staying hidden behind the sheet.
+
 ## 1.0.3-hotfix - 2026-10-26
 
 ### Fixed

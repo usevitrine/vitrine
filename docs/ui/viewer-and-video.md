@@ -108,6 +108,10 @@ lays them out at the original size.
   sheet on top every time, so an iPhone compositing order): the picture's area is its own stacking context
   (`.stage-wrap`: `isolation: isolate`) and the sheet is above it with a layer of its own (`z-index: 3`, `will-change:
   transform`).
+  **The picture above the sheet** (2026-10-26, found taking the website's screenshots): with the sheet up, the stage ends
+  where the sheet begins (the sheet's own height in CSS: `min(75%, --sheet-max-h, 100% - keyboard - 56px)`), so the
+  picture fits in the room above it, gliding there like the wide screens' (it stayed centered behind the sheet, the room
+  above empty); its bottom controls go meanwhile (as they did behind the sheet).
 - **Details: copy links; swipe down (2026-10-16, user)**: the post page and source rows have a copy button after the
   open-in-new-tab arrow (toast "Copied the post page link"). Swiping down with the details open closes the viewer on
   wide screens (the details are a column beside the picture); on phones the sheet covers the picture, so it goes first.
