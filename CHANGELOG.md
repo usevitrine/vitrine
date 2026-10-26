@@ -5,6 +5,8 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+## 1.0.4 - 2026-10-26
+
 ### Improved
 
 - **Videos play with their sound** from the start (Start videos muted, in Settings > Viewing, is now off unless you turn it on). Where the browser doesn't allow it, the video plays muted with Tap for sound, as before.
