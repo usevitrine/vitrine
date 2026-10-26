@@ -1,4 +1,5 @@
 import { type Page, devices } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { expect, test, login, USER, PASSWORD } from './fixtures';
 
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 0) < 900;
@@ -2539,6 +2540,47 @@ test('removing a site with files of it asks whether to erase every trace: the li
   await wipe.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByText('Removed safebooru.org', { exact: true })).toBeVisible();
   expect(sent).toEqual({ wipe: false, backups: false });
+});
+
+test("what's new after an update: the new version's changes once per server, Don't show again, the switch in Settings > Updates; a sheet on phones", async ({ page }) => {
+  const latest = readFileSync(new URL('../../CHANGELOG.md', import.meta.url), 'utf8').match(/^## (\d+\.\d+\.\d+(?:-hotfix)?)/m)![1];
+  const set = (values: Record<string, unknown>) =>
+    page.evaluate(async (v) => (await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v) })).status, values);
+  const server = () => page.evaluate(async () => (await fetch('/api/settings')).json());
+  try {
+    // Updated from 1.0.0: the changes since then, each version under its heading (the title names none).
+    expect(await set({ whatsNew: true, whatsNewSeen: '1.0.0' })).toBe(200);
+    await page.goto('/');
+    const box = page.getByRole('dialog', { name: /^What's new in Vitrine/ });
+    await expect(box).toHaveAccessibleName("What's new in Vitrine");
+    await expect(box.getByRole('heading', { name: `${latest} - ` }).first()).toBeVisible();
+    expect(await box.getByRole('heading', { level: 2 }).count()).toBeGreaterThan(2); // (the title and two versions or more)
+    await expect(box.locator('li').first()).toBeVisible();
+    if (test.info().project.name === 'iphone') await expect(box).toHaveAttribute('data-sheet', '');
+    await box.getByRole('checkbox', { name: "Don't show again" }).check();
+    await box.getByRole('button', { name: 'Got it' }).click();
+    await expect(box).toHaveCount(0);
+    await expect.poll(async () => { const s = await server(); return [s.whatsNew, s.whatsNewSeen]; }).toEqual([false, latest]);
+    // Seen: not again (on any device - the setting is the server's).
+    await page.reload();
+    await expect(page.locator('.tile').first()).toBeVisible();
+    await expect(box).toHaveCount(0);
+    // The switch in Settings > Updates.
+    await page.goto('/settings/updates');
+    const sw = page.getByRole('checkbox', { name: /Show what's new after an update/ });
+    await expect(sw).not.toBeChecked();
+    await sw.check();
+    await expect.poll(async () => (await server()).whatsNew).toBe(true);
+    // Never shown on this server before: this version's changes; Escape closes it.
+    expect(await set({ whatsNewSeen: '' })).toBe(200);
+    await page.goto('/');
+    await expect(box).toHaveAccessibleName(`What's new in Vitrine ${latest}`); // (one version: named)
+    await page.keyboard.press('Escape');
+    await expect(box).toHaveCount(0);
+    await expect.poll(async () => (await server()).whatsNewSeen).toBe(latest);
+  } finally {
+    await set({ whatsNew: false }); // (whatever happened: no window over the next tests on this server)
+  }
 });
 
 test('offline: the app, the last results and their thumbnails stay on the device', async ({ page, context }) => {

@@ -32,6 +32,8 @@
   import { dupes } from './lib/dupes.svelte';
   import { trash } from './lib/trash.svelte';
   import Tour from './components/Tour.svelte';
+  import WhatsNew from './components/WhatsNew.svelte';
+  import { whatsNew } from './lib/whatsNew.svelte';
   import { tour } from './lib/tour.svelte';
   import type { Component } from 'svelte';
 
@@ -144,6 +146,13 @@
     if (!ready || !freshSetup) return;
     freshSetup = false;
     settings.welcome = 'sections';
+  });
+  // What's new after an update (lib/whatsNew): asked on the media page (Comics with Media off), nothing else open.
+  $effect(() => {
+    if (!ready || DEMO || (settings.welcome && settings.welcome !== 'finished')) return;
+    if (router.screen !== (settings.mediaOff ? 'comics' : 'library') || /^\d+$/.test(router.sub)) return;
+    if (tour.active || drawer || newDownloadDialog.current) return;
+    untrack(() => void whatsNew.check());
   });
   // Only logging in or out re-runs this (not a fresh copy of the same session from the server).
   const loggedIn = $derived(!!session?.logged_in);
@@ -374,6 +383,7 @@
 {/if}
 <Toasts />
 <ConfirmDialog />
+<WhatsNew />
 {#if updater.active}<Updater />{/if}
 <PromptDialog />
 <!-- A new download (the Library's download button, a tag's menu, the details' picked tags). -->

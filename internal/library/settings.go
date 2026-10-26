@@ -75,6 +75,19 @@ var settingCheck = map[string]func(json.RawMessage) error{
 	"backupKeep":  numberIn(1, 365), // how many backups to keep
 	// Ask GitHub once a day whether a newer Vitrine is out (missing = on).
 	"updateCheck": isBool,
+	// What's new: after an update, the new version's changes in a window on the library (missing = on), and the last
+	// version whose changes were shown ("1.0.6"; missing = none yet - shown once for the version installed).
+	"whatsNew": isBool,
+	"whatsNewSeen": func(v json.RawMessage) error {
+		var s string
+		if err := json.Unmarshal(v, &s); err != nil {
+			return err
+		}
+		if len(s) > 40 {
+			return fmt.Errorf("too long")
+		}
+		return nil
+	},
 	// The trash empties itself of files deleted more than this many days ago (0 / missing = never).
 	"trashDays":    numberIn(0, 3650),
 	"newMode":      oneOf("auto", "button"),

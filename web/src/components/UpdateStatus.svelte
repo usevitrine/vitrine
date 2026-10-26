@@ -67,6 +67,13 @@
         <span class="hint">{t('updates.checkHint')}</span>
       </span>
     </label>
+    <label class="check">
+      <input type="checkbox" bind:checked={settings.whatsNew} />
+      <span class="field">
+        <span class="field-label">{t('updates.showWhatsNew')}</span>
+        <span class="hint">{t('updates.showWhatsNewHint')}</span>
+      </span>
+    </label>
   </div>
 {/if}
 

@@ -2484,6 +2484,12 @@
     "unreleased": "Not released yet",
     "failed": "The changelog couldn’t be read."
   },
+  "whatsNewDialog": {
+    "title": "What's new in Vitrine {version}",
+    "titleMany": "What's new in Vitrine",
+    "dontShow": "Don't show again",
+    "ok": "Got it"
+  },
   "updates": {
     "notice": "Vitrine {version} is out",
     "available": "Version {version} is out",
@@ -2500,6 +2506,8 @@
     "howTo": "To update: docker compose pull, then docker compose up -d.",
     "check": "Check for updates",
     "checkHint": "Once a day, from GitHub.",
+    "showWhatsNew": "Show what's new after an update",
+    "showWhatsNewHint": "Once per new version, on the library.",
     "updateTo": "Update to {version}",
     "updated": "Updated to {version}",
     "title": "Updating to {version}",

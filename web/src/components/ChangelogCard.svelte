@@ -7,7 +7,8 @@
   import { t } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
 
-  let { given = null }: { given?: ChangelogVersion[] | null } = $props();
+  // bare: in the What's new window - no cards, no "new" mark, a version's heading only when there are several.
+  let { given = null, bare = false }: { given?: ChangelogVersion[] | null; bare?: boolean } = $props();
   let builtIn = $state<ChangelogVersion[] | null>(null);
   let failed = $state(false);
   // (a version with nothing in it - "Unreleased" just after a release - isn't shown: an empty card)
@@ -26,8 +27,8 @@
     <p class="error small" transition:reveal>{t('changelog.failed')}</p>
   {:else if versions}
     {#each versions as v (v.title)}
-      <section class="card" transition:reveal>
-        <h2>{#if given}<span class="new"><Icon name="download" size={14} /> {t('updates.newIn')}</span>{/if}{v.title === 'Unreleased' ? t('changelog.unreleased') : v.title}</h2>
+      <section class:card={!bare} transition:reveal>
+        {#if !bare || versions.length > 1}<h2>{#if given && !bare}<span class="new"><Icon name="download" size={14} /> {t('updates.newIn')}</span>{/if}{v.title === 'Unreleased' ? t('changelog.unreleased') : v.title}</h2>{/if}
         {#each v.intro as p, i (i)}<p class="intro">{p}</p>{/each}
         {#each v.groups as g, gi (gi)}
           {#if g.title}<h3>{g.title}</h3>{/if}

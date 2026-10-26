@@ -30,6 +30,9 @@ export const PASSWORD = 'e2e password';
  * to load videos with it.
  */
 export async function login(page: Page) {
+  // (What's new after an update off on this device: the test library has never shown it - a window over every test.
+  // The test of it switches it on through the server, whose value wins.)
+  await page.addInitScript(() => localStorage.setItem('vitrine.whatsNew', 'false'));
   await page.goto('/api/health');
   const status = await page.evaluate(
     async ([name, password]) => {

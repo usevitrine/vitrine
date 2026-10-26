@@ -22,7 +22,7 @@ function save(key: string, value: unknown) {
 }
 
 /** The settings every device shares (the server's allow-list). */
-const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck'] as const;
+const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck', 'whatsNew', 'whatsNewSeen'] as const;
 type SharedKey = (typeof shared)[number];
 
 class Settings {
@@ -89,6 +89,9 @@ class Settings {
   noticeModes = $state<Record<string, string>>(load('noticeModes', {}));
   /** Ask once a day whether a newer Vitrine is out (the server asks GitHub). */
   updateCheck = $state(load('updateCheck', true));
+  /** After an update, the new version's changes in a window on the library (lib/whatsNew); the last version shown. */
+  whatsNew = $state(load('whatsNew', true));
+  whatsNewSeen = $state(load('whatsNewSeen', ''));
   siteCheckDepths = $state<Record<string, number>>(load('siteCheckDepths', {}));
   /** Which push notifications to send (to every device that turned them on). */
   notifyNew = $state(load('notifyNew', true));
@@ -104,6 +107,10 @@ class Settings {
   gridLayout = $state<'squares' | 'masonry'>(load('gridLayout', 'masonry'));
 
   private synced = false; // the server's values have been read: changes go back to it
+  /** Whether the server's values have been read (else the local copy stands, maybe stale). */
+  get isSynced() {
+    return this.synced;
+  }
   /** This device has read the server's settings before (its copy is a good start). */
   syncedBefore = load('syncedOnce', false);
   private applying = false; // copying the server's values in: not a change to send

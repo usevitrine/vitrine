@@ -13,6 +13,7 @@
   import { newDownloadDialog } from '../lib/newDownload.svelte';
   import { api, type LibraryStats } from '../lib/api';
   import { settings } from '../lib/settings.svelte';
+  import { whatsNew } from '../lib/whatsNew.svelte';
   import { router } from '../lib/router.svelte';
   import { sites } from '../lib/sites.svelte';
   import { bytes } from '../lib/live.svelte';
@@ -84,6 +85,7 @@
 
   function finish(to: 'library' | 'comics' | 'downloads' | 'blacklist' | 'rules') {
     settings.welcome = 'finished';
+    void whatsNew.markSeen(); // (just set up: this version's changes aren't news)
     tour.start(); // (a few hints on the library, once - on this device)
     if (to === 'downloads') router.go('downloads');
     else if (to === 'blacklist') router.go('tags', 'rules');
