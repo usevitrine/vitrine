@@ -27,6 +27,22 @@ comics page, the downloader, etc, a mix of serious and unserious."
 - **Pages**: the landing page (hero, features, the iPhone app, install, FAQ, footer) and **the demo on a page of its
   own**, opened by a button in the hero (the user).
 
+## SEO (the user, 2026-10-26: "make sure it has excellent SEO")
+- **Every page is real HTML, rendered ahead** (static, not a single-page app): search engines and link previews read
+  the text without running scripts. The animations go on top and never hide content from them.
+- **Fast pages**: good Core Web Vitals - images in AVIF/WebP with their sizes set (nothing jumps as they load),
+  lazy loading below the fold, the hero's image preloaded, the font self-hosted and preloaded, little JavaScript.
+  The animations must not cost loading speed or move the layout.
+- **On every page**: its own title and description, a canonical URL, Open Graph and Twitter cards (a social image per
+  page, from `docs/brand/`), one `h1` and headings in order, alt text on every image, `lang`.
+- **For search engines**: `sitemap.xml`, `robots.txt`, structured data (JSON-LD `SoftwareApplication` with the
+  version, platforms and license; `FAQPage` on the FAQ).
+- **Words people search for**, in the headings and text, naturally: self-hosted media library, image and video
+  library, tag-based / booru-style library, gallery downloader, Hydrus alternative, gallery-dl and Hydrus in one,
+  Docker, Windows. Pages that answer a search on their own (e.g. "Vitrine vs Hydrus", installing with Docker) bring
+  visitors best.
+- The demo page has its own title and description, and a short text about it that search engines can read.
+
 ## The demo (decided 2026-10-26)
 The user: "one thing i definitely want is a demo of vitrine on the site".
 
