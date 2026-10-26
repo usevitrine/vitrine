@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   // A new download from the library (2026-10-22: the Library's download button), a page at a time: the library's
   // search or another one (only when the search has tags), the site (where the search's tags came from first), the
   // search on that site (the library's written the site's way: lib/siteSearch - an OR group on a site without an OR
@@ -333,7 +334,7 @@
                 <SiteIcon host={siteInfo.hosts[site] ?? ''} /> <span>{label || (searches.length > 1 ? t('newDl.searches', { n: searches.length }) : searches[0])}</span>
               </p>
               {#if searches.length > 1}
-                <ul class="split-list" transition:reveal>
+                <ul class="split-list" {@attach overlayScroll} transition:reveal>
                   {#each searches as s (s)}<li>{s}</li>{/each}
                 </ul>
               {/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   import { untrack } from 'svelte';
   import { px, settle, sizeOf } from '../lib/motion';
   // The bell in the top bar: it rings when a notification comes, its counter says how many are unread (red with
@@ -162,7 +163,7 @@
         {/if}
       </header>
       {#if notices.list.length}
-        <ul {@attach scrollsWhenFull}>
+        <ul {@attach scrollsWhenFull} {@attach overlayScroll}>
           {#each groups as g, i (g.key)}
             <li animate:flip={{ duration: 220 }} in:slideIn={{ i }} out:slideOut>
               {#if g.items.length === 1}

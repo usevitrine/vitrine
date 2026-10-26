@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   // The filter menu (like hydrus-web's system predicates, but only what
   // Vitrine has): pick a filter, fill in its short form, and it's added to the
   // search as a chip. Opened from the search bar's filter button, or by
@@ -302,7 +303,7 @@
 <div use:portal>
 {#if sheet}<div class="backdrop" role="presentation" in:shade|global out:shade|global={{ out: true }}></div>{/if}
 <div
-  class="panel"
+  class="panel" {@attach overlayScroll}
   class:sheet
   data-sheet={sheet ? '' : undefined}
     {@attach sheet && sheetDrag(() => onclose(false))}

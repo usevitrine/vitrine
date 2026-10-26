@@ -18,6 +18,7 @@
   background: color-mix(in srgb, var(--text) 32%, transparent);
   opacity: 0;
   pointer-events: none;
+  touch-action: none; /* (a finger on it drags it - the browser doesn't scroll the page instead) */
   transition:
     opacity 0.25s,
     width 0.15s,

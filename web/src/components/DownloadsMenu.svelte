@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   import { untrack } from 'svelte';
   import { px, settle, sizeOf } from '../lib/motion';
   // The downloads in the top bar (the library): its counter says how many are running or waiting, and the arrow bobs
@@ -167,7 +168,7 @@
         <button class="quiet link" onclick={toDownloads}>{t('dlMenu.all')} <Icon name="right" size={15} /></button>
       </header>
       {#if active.list.length}
-        <ul {@attach scrollsWhenFull}>
+        <ul {@attach scrollsWhenFull} {@attach overlayScroll}>
           {#each groups.slice(0, SHOWN) as g, i (g.site)}
             <li animate:flip={{ duration: 220 }} in:slideIn={{ i }} out:slideOut>
               {#if g.list.length === 1}

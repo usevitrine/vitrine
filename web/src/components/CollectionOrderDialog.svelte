@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   // A collection's own order (the user: "I need to be able to manually order collections"): its comics as a list -
   // drag one by its grip (or arrow keys on it), A to Z puts them back by title, Save keeps it. Its page, its tile's
   // covers and the reader's Up next follow it. Opened from the collection's menu (collections.ordering).
@@ -70,7 +71,7 @@
     {:else if error}
       <p class="error" transition:reveal>{error}</p>
     {:else}
-      <ul class="list" class:dragging={!!lists.drag} transition:reveal>
+      <ul class="list" {@attach overlayScroll} class:dragging={!!lists.drag} transition:reveal>
         {#each list as c, i (c.id)}
           <li class:lifted={lists.drag?.from === i} style:transform={lists.shift(i) ? `translateY(${lists.shift(i)}px)` : undefined}>
             <button

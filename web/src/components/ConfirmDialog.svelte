@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   import { px, settle, sizeOf } from '../lib/motion';
   // The confirmation before a destructive action (lib/confirm): what goes (a
   // red badge, or the files' pictures), a question, one line, Cancel and the
@@ -70,7 +71,7 @@
 {#if c}
   <div class="backdrop" role="presentation" in:shade out:shade={{ out: true }} onpointerdown={() => confirmer.answer(false)}></div>
   <div
-    class="dialog"
+    class="dialog" {@attach overlayScroll}
     class:sheet
     data-sheet={sheet ? '' : undefined}
     data-drag

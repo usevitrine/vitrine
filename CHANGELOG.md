@@ -5,8 +5,14 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### Improved
+
+- **Videos play with their sound** from the start (Start videos muted, in Settings > Viewing, is now off unless you turn it on). Where the browser doesn't allow it, the video plays muted with Tap for sound, as before.
+- **The app's own scrollbar everywhere**: menus, sheets, dropdowns, dialogs and the comic reader have the thin floating scrollbar, on phones too (the details sheet on a phone had the browser's own).
+
 ### Fixed
 
+- **Video sound**: the mute button can always be pressed (at a high volume the hidden volume slider covered part of it), and a video paused right away stays paused when the browser refuses its sound.
 - **Search chips**: a tag picked from the suggestions slides into the search bar smoothly (its first frames came out broken, so it popped in).
 - **Details on phones**: with the details sheet up, the picture moves into the room above it instead of staying hidden behind the sheet.
 

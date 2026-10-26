@@ -242,7 +242,7 @@ test('viewer: the file being viewed has no tile behind it (dragging down shows a
   await expect.poll(() => page.evaluate(() => (window as any).landed)).toBe(true);
 });
 
-test('videos play inline, muted, with our own controls', async ({ page }) => {
+test('videos play inline, with their sound (unless Start videos muted is on), with our own controls', async ({ page }) => {
   await page.goto('/?q=system:type%3Dvideo');
   await expect(page.getByText(/^2 files/)).toBeVisible();
   await page.locator('.tile').nth(0).click();
@@ -253,9 +253,9 @@ test('videos play inline, muted, with our own controls', async ({ page }) => {
     controls: v.controls,
     muted: v.muted,
   }));
-  expect(attrs).toEqual({ playsinline: true, controls: false, muted: true });
+  expect(attrs).toEqual({ playsinline: true, controls: false, muted: false }); // (the default since 2026-10-26 - the user)
   await expect(page.getByRole('slider', { name: 'Position' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Unmute/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mute', exact: true })).toBeVisible();
   // Once the video shows a frame, its thumbnail underneath is hidden (no edge peeking out).
   await expect(page.locator('.viewer .slide[data-slot="1"] > img')).toBeHidden();
 });
@@ -835,25 +835,25 @@ test('settings are shared through the server; top spacing stays on the device', 
   test.skip(test.info().project.name !== 'iphone', 'one run is enough: settings are on the server (top spacing: phones only)');
   await page.goto('/settings/viewing');
   const muted = page.getByRole('checkbox', { name: /Start videos muted/ });
-  await expect(muted).toBeChecked();
+  await expect(muted).not.toBeChecked(); // (off by default)
   const saved = page.waitForRequest((r) => r.url().endsWith('/api/settings') && r.method() === 'POST' && 'startMuted' in (r.postDataJSON() ?? {}));
-  await muted.uncheck();
-  expect((await saved).postDataJSON()).toMatchObject({ startMuted: false }); // what changed (sent with any other change still waiting)
+  await muted.check();
+  expect((await saved).postDataJSON()).toMatchObject({ startMuted: true }); // what changed (sent with any other change still waiting)
   await page.getByRole('slider', { name: 'Top spacing' }).fill('40');
   await page.waitForTimeout(900);
   const server = await page.evaluate(async () => (await fetch('/api/settings')).json());
-  expect(server.startMuted).toBe(false);
+  expect(server.startMuted).toBe(true);
   expect(server.topSpacing).toBeUndefined();
 
   // "Another device": nothing in this browser's storage - the shared values come from the server.
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await expect(muted).not.toBeChecked();
+  await expect(muted).toBeChecked();
   await expect(page.getByRole('slider', { name: 'Top spacing' })).toHaveValue('0'); // per device: the default
 
-  await muted.check();
+  await muted.uncheck();
   await page.waitForTimeout(900);
-  expect((await page.evaluate(async () => (await fetch('/api/settings')).json())).startMuted).toBe(true);
+  expect((await page.evaluate(async () => (await fetch('/api/settings')).json())).startMuted).toBe(false);
 });
 
 test('blacklist: add tags, see matching files, show them, delete and undo', async ({ page }) => {
@@ -3905,14 +3905,16 @@ test('settings: a change made just before leaving the page is still saved', asyn
   test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough: settings are on the server');
   await page.goto('/settings/viewing');
   const muted = page.getByRole('checkbox', { name: /Start videos muted/ });
-  await expect(muted).toBeChecked();
-  await muted.uncheck();
+  await expect(muted).not.toBeChecked();
+  await muted.check();
   await page.reload(); // at once - before the usual short wait to group changes
-  await expect.poll(async () => (await page.evaluate(async () => (await fetch('/api/settings')).json())).startMuted).toBe(false);
-  await setSettings(page, { startMuted: true });
+  await expect.poll(async () => (await page.evaluate(async () => (await fetch('/api/settings')).json())).startMuted).toBe(true);
+  await setSettings(page, { startMuted: false });
 });
 
 test('video sound: double-tap the middle toggles it; a volume slider (where the browser allows) remembers the level on this device', async ({ page }) => {
+  await page.goto('/');
+  await setSettings(page, { startMuted: true }); // (videos start muted with the setting on: toggled from there)
   await page.goto('/?q=system:type%3Dvideo%20system:has_audio');
   await page.locator('.tile').first().click();
   const video = page.locator('.viewer video');
@@ -3937,6 +3939,7 @@ test('video sound: double-tap the middle toggles it; a volume slider (where the 
   });
   const slider = page.getByRole('slider', { name: 'Volume' });
   if (!settable || isPhone(page)) {
+    await setSettings(page, { startMuted: false });
     if (isPhone(page)) {
       await expect(slider).toBeHidden(); // phones: the volume buttons
       return;
@@ -3957,6 +3960,7 @@ test('video sound: double-tap the middle toggles it; a volume slider (where the 
   await page.getByRole('button', { name: 'Unmute' }).click();
   expect(await page.locator('.viewer video').evaluate((v: HTMLVideoElement) => v.volume)).toBeCloseTo(0.3, 2);
   await page.evaluate(() => localStorage.removeItem('vitrine.volume'));
+  await setSettings(page, { startMuted: false });
 });
 
 test('phones: the fast scroller moves to the side the thumb scrolls on', async ({ page }) => {

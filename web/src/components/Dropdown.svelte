@@ -1,4 +1,5 @@
 <script lang="ts" generics="T extends string">
+  import { overlayScroll } from '../lib/overlayScroll';
   import { glide } from '../lib/motion';
   // A dropdown in Vitrine's own look (the native one doesn't match the design,
   // least of all on desktop): a trigger button and a floating list - on phones a sheet along the bottom, like every
@@ -207,7 +208,7 @@
         {@attach backClose(() => hide(false))}
         {@attach sheetDrag(() => hide(false))}
         {id}
-        class="menu sheet"
+        class="menu sheet" {@attach overlayScroll}
         data-sheet=""
         role="listbox"
         tabindex="-1"
@@ -227,7 +228,7 @@
       {@attach floating && toBody}
       data-floating={floating ? '' : undefined}
       {id}
-      class="menu {align}"
+      class="menu {align}" {@attach overlayScroll}
       class:floating={!!place}
       style={place ? Object.entries(place).map(([k, v]) => `${k}: ${v}`).join('; ') : undefined}
       role="listbox"

@@ -1,29 +1,38 @@
-// A scrollbar that floats over the content (with a mouse): the browser's own
-// takes room when it appears, so the page shifted sideways as it came and went.
-// A thin thumb at the edge, shown while scrolling and when the pointer comes
-// near (wider under it, so it's easy to grab), dragged to scroll; gone when idle
-// or when there's nothing to scroll. Touch screens keep their own (it floats
-// there already). Use as {@attach overlayScroll} on the scroller; its native bar
-// is hidden by the .oscroll-host class (overlayScroll.css). The website
-// (vitrine.software) uses it too: overlayScroll('page') for the page itself (a
-// thumb along the window's right, under its header.top), overlayScroll(el, 'x')
-// for a box that scrolls sideways (a thumb along its bottom).
+// A scrollbar that floats over the content: the browser's own takes room when
+// it appears (the page shifted sideways as it came and went), and looks like
+// the browser's, not the app's. A thin thumb at the edge, shown while scrolling
+// and when a mouse comes near (wider under it, so it's easy to grab), dragged to
+// scroll - with a finger too; gone when idle or when there's nothing to scroll.
+// On touch screens as well (2026-10-26, the user: the details sheet on a phone
+// had the browser's own). Use as {@attach overlayScroll} on the scroller; its
+// native bar is hidden by the .oscroll-host class (overlayScroll.css). The
+// website (vitrine.software) uses it too: overlayScroll('page') for the page
+// itself (a thumb along the window's right, under its header.top),
+// overlayScroll(el, 'x') for a box that scrolls sideways (a thumb along its bottom).
 import './overlayScroll.css';
 
-const fine = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
-
 export function overlayScroll(target: HTMLElement | 'page', axis: 'x' | 'y' = 'y') {
-  if (!fine()) return;
   const page = target === 'page';
   const el = page ? document.documentElement : target;
   const host = page ? document.body : el.parentElement;
   if (!host) return;
   el.classList.add(page ? 'oscroll-page' : 'oscroll-host');
-  if (!page && getComputedStyle(host).position === 'static') host.style.position = 'relative';
   const thumb = document.createElement('div');
   thumb.className = `oscroll ${axis}${page ? ' page' : ''}`;
   thumb.setAttribute('aria-hidden', 'true'); // the page scrolls with the wheel, keys and touch as ever
-  host.appendChild(thumb);
+  // Where the thumb is: the scroller's parent, or - one that isn't positioned - the nearest that is (looked at
+  // again each time: a class can change it). The parent's own style is never changed: given a position, its top
+  // and left took effect (a suggestion list placed below its box in another layout moved 172 px off it).
+  let box: HTMLElement = host;
+  const container = () => {
+    const c = page || getComputedStyle(host).position !== 'static' ? host : ((host.offsetParent as HTMLElement | null) ?? document.body);
+    if (c !== box || thumb.parentElement !== c) {
+      box = c;
+      c.appendChild(thumb);
+    }
+    return c;
+  };
+  container();
 
   const view = () => (axis === 'x' ? el.clientWidth : page ? innerHeight : el.clientHeight);
   const full = () => (axis === 'x' ? el.scrollWidth : el.scrollHeight);
@@ -49,18 +58,26 @@ export function overlayScroll(target: HTMLElement | 'page', axis: 'x' | 'y' = 'y
     const len = track();
     const size = Math.max(32, (len * view()) / full());
     const off = (at() / max) * (len - size);
-    if (axis === 'x') {
-      thumb.style.width = `${size}px`;
-      thumb.style.left = `${el.offsetLeft + off}px`;
-      thumb.style.top = `${el.offsetTop + el.clientHeight - 8}px`;
-    } else if (page) {
+    if (page) {
       thumb.style.height = `${size}px`;
       thumb.style.top = `${head() + off}px`;
       thumb.style.right = '2px';
+      return;
+    }
+    // The scroller's place in the thumb's container (its padding box, scrolled with it).
+    const c = container();
+    const r = el.getBoundingClientRect();
+    const cr = c.getBoundingClientRect();
+    const x0 = r.left - cr.left - c.clientLeft + c.scrollLeft;
+    const y0 = r.top - cr.top - c.clientTop + c.scrollTop;
+    if (axis === 'x') {
+      thumb.style.width = `${size}px`;
+      thumb.style.left = `${x0 + off}px`;
+      thumb.style.top = `${y0 + el.clientHeight - 8}px`;
     } else {
       thumb.style.height = `${size}px`;
-      thumb.style.top = `${el.offsetTop + off}px`;
-      thumb.style.right = `${host!.clientWidth - (el.offsetLeft + el.clientWidth) + 2}px`;
+      thumb.style.top = `${y0 + off}px`;
+      thumb.style.right = `${c.clientWidth - (x0 + el.clientWidth) + 2}px`;
     }
   }
   function show() {

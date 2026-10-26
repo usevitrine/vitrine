@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   import { reveal, moved, nudge } from '../lib/motion';
   // Saved searches: save the current search (and its order), run one with a
   // tap; changed after running one, update it in one tap (or save it as a new
@@ -201,7 +202,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions (Esc and arrow keys for the whole panel) -->
-<div class="panel" bind:this={panel} {@attach backClose(() => onclose(false))} role="dialog" aria-label={t('saved.title')} tabindex="-1" onkeydown={onKey}>
+<div class="panel" bind:this={panel} {@attach overlayScroll} {@attach backClose(() => onclose(false))} role="dialog" aria-label={t('saved.title')} tabindex="-1" onkeydown={onKey}>
   <div class="head">
     <h2><Icon name="star" size={16} filled /> {t('saved.title')}</h2>
     {#if saved.list.length}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   // The first steps after the first account: what you'll use (and safe for work), storage, sites, how the library
   // looks, the app on the home screen, notifications, what never to download (blacklist, size limits), a first
   // download, then a page of good-to-knows - and a short tour of the library once they're done (lib/tour).
@@ -92,7 +93,7 @@
   }
 </script>
 
-<div class="first" bind:this={page}>
+<div class="first" bind:this={page} {@attach overlayScroll}>
   <div class="inner">
     <header>
       <Logo size={28} />

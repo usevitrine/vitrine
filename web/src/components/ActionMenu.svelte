@@ -23,6 +23,7 @@
 </script>
 
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   // A ⋯ button with the actions of a row (e.g. a subscription): a menu at the
   // button, or an action sheet along the bottom on phones. An item with choices
   // (a schedule, a group) opens them as a page of the menu, with a way back.
@@ -203,7 +204,7 @@
       }}>
     </div>
     <div
-      class="menu"
+      class="menu" {@attach overlayScroll}
       class:sheet
       class:wide={current !== undefined}
       {@attach own((el) => (menu = el), () => menu)}

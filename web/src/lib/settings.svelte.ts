@@ -27,7 +27,7 @@ type SharedKey = (typeof shared)[number];
 
 class Settings {
   /** Every video starts muted; unmuting affects only the current video. */
-  startMuted = $state(load('startMuted', true));
+  startMuted = $state(load('startMuted', false)); // (videos with their sound unless asked - the user, 2026-10-26; where the browser won't, the app plays one muted and offers sound)
   /** Remembered across videos. */
   loop = $state(load('loop', true));
   /** New files: imported after seenAt (set by "Mark all as seen"; shared by every

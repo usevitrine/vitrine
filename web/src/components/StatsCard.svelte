@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   // Settings > Stats: the library, downloads, storage and the server at a
   // glance - read when the section opens and again every half minute while
   // it's on screen.
@@ -230,7 +231,7 @@
       <button class="quiet" onclick={() => reportAction('show')} disabled={making} aria-expanded={showReport}><Icon name={showReport ? 'eyeoff' : 'eye'} size={16} /> {showReport ? t('stats.report.hide') : t('stats.report.show')}</button>
     </div>
     {#if showReport}
-      <pre class="report" aria-label={t('stats.report.label')} transition:reveal>{report}</pre>
+      <pre class="report" {@attach overlayScroll} aria-label={t('stats.report.label')} transition:reveal>{report}</pre>
     {/if}
   </section>
 {/if}

@@ -12,8 +12,8 @@ The viewer (slides, gestures, zoom, open/close animation, details panel) and Vit
   earlier custom players (2026-10-14): put video controls **outside** the element that owns the swipe gesture (a layer
   above the slides), not inside it - stopping events on controls inside the swipe area still let scrubbing swipe on
   iOS.
-- Sound: a **"Start videos muted" setting** decides how every video starts; unmuting affects only the current video
-  (a remembered "sound on" that overrides the setting is unwanted). If iOS blocks autoplay with sound, play muted and show a "Tap for sound" button. Loop and speed are
+- Sound: a **"Start videos muted" setting** (off by default since 2026-10-26 - the user: "it shouldnt default to muted") decides how every video starts; unmuting affects only the current video
+  (a remembered "sound on" that overrides the setting is unwanted). If iOS blocks autoplay with sound, play muted and show a "Tap for sound" button - unless the video was paused meanwhile (the refusal can come late: it started a paused video again). Loop and speed are
   remembered.
 - Desktop: the same player with keyboard shortcuts (space, arrows, M, F) and hover previews in the grid.
 - Preload the next file for instant starts; range-request streaming.

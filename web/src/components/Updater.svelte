@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   // The full-screen updater (lib/updater): the start-up splash's look - its background and logo - with the update's
   // steps and a bar under the logo, the two together in the middle of the screen. At the end the steps fade while the
   // logo glides to the splash's very place, and the page reloads behind it: the splash takes over where it is and
@@ -16,7 +17,7 @@
   let panelH = $state(0);
 </script>
 
-<div class="updater" role="dialog" aria-modal="true" aria-labelledby="updater-title" transition:fade={{ duration: reduced() ? 0 : 300 }}>
+<div class="updater" {@attach overlayScroll} role="dialog" aria-modal="true" aria-labelledby="updater-title" transition:fade={{ duration: reduced() ? 0 : 300 }}>
   <!-- The logo and the steps, in the middle; leaving, the steps fade and the group moves down by half their height (and
        the gap), which puts the logo in the middle - where the splash draws it (its shift too). -->
   <div class="group" class:leaving={updater.leaving} style:--gap="{GAP}px" style:--drop="{(panelH + GAP) / 2}px">

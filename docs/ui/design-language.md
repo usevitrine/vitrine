@@ -267,8 +267,11 @@ Palette: https://catppuccin.com/palette
   panel hide the browser's own scrollbar (it took room as it came and went, so the page shifted sideways) and get
   a thin thumb over the content at the right edge (`lib/overlayScroll.ts`, `{@attach overlayScroll}`): shown
   while scrolling (fades after ~1 s) and while the pointer is at the edge, wider under the pointer, draggable;
-  gone when there's nothing to scroll. Touch screens keep their own (it already floats). The library grid has
-  its own fast scroller.
+  gone when there's nothing to scroll. The library grid has its own fast scroller. **Everywhere, on touch too
+  (2026-10-26, the user: "several areas of the demo dont have the custom scrollbar such as the details panel in
+  mobile mode")**: every scroller has it - menus, sheets, dropdowns, dialogs, the saved searches, the selection
+  bar's tag editor, the Downloads menu and the bell, the comic reader, first steps; on touch screens as well (shown
+  while scrolling; a finger can drag it: `touch-action: none`). A new scroller gets `{@attach overlayScroll}`.
 - **Hover changes are instant everywhere (2026-10-19)**: no element fades its background on hover (the shared
   button and icon-link styles, chips, chart columns): moving between two neighbors, one fading out while the
   other faded in looked like a flicker. A test checks every clickable element on each screen for a background

@@ -52,9 +52,14 @@
       if (volume.settable) v.volume = volume.level; // this device's level
     });
     blockedSound = false;
+    // Paused meanwhile (the space bar, a tap): the browser's refusal can come late - it mustn't start it again.
+    let pausedMeanwhile = false;
+    const onPause = () => (pausedMeanwhile = true);
+    v.addEventListener('pause', onPause, { once: true });
     v.play().catch(() => {
       // iOS blocks autoplay with sound: play muted and offer sound.
-      if (!v.muted) {
+      v.removeEventListener('pause', onPause);
+      if (!v.muted && !pausedMeanwhile) {
         v.muted = true;
         blockedSound = true;
         v.play().catch(() => {});
@@ -494,6 +499,8 @@
     min-width: 0;
     opacity: 0;
     margin: 0;
+    overflow: hidden; /* (its thumb: at a high level it stuck out over the speaker, unseen, and took its clicks) */
+    pointer-events: none;
     transition:
       width 0.18s ease-out,
       opacity 0.18s ease-out,
@@ -505,6 +512,8 @@
     width: 84px;
     opacity: 1;
     margin: 0 8px 0 2px;
+    overflow: visible;
+    pointer-events: auto;
   }
   /* Phones use their volume buttons: no slider there (the remembered level still applies). */
   @media (hover: none) {

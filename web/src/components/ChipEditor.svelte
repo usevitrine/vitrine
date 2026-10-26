@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   // A search chip's menu: its text, editable in place (with OR alternatives),
   // and what to do with it - exclude or include it, add an alternative, split
   // a group, search with only it, start a new download for it, copy it,
@@ -129,7 +130,7 @@
     }}>
   </div>
   <div
-    class="menu"
+    class="menu" {@attach overlayScroll}
     class:sheet
     data-sheet={sheet ? '' : undefined}
     {@attach sheet && sheetDrag(close)}

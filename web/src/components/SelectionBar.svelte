@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   import { reveal, moved, nudge } from '../lib/motion';
   // Actions for the selected files: edit their tags (all their tags with how
   // many have each; add, remove, give a tag to all), refresh tags, delete
@@ -319,7 +320,7 @@
         <button class="icon" aria-label={t('selection.closeEditor')} title={t('selection.closeTitle')} onclick={() => (editing = false)}><Icon name="close" /></button>
       </div>
       <TagInput bind:value={text} {comics} multi autofocus label={t(sk('addLabel'))} placeholder={t('blacklist.addPlaceholder')} onenter={add} onescape={() => (editing = false)} />
-      <div class="ed-tags">
+      <div class="ed-tags" {@attach overlayScroll}>
         {#if loading}
           <p class="muted small" transition:reveal>{t('common.loading')}</p>
         {:else}

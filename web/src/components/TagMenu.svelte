@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   // What to do with a tag tapped in the details: search with it (add, exclude,
   // a new search), start a new download for it, copy it (with or without its namespace), put it in
   // another namespace (a page of its own), remove it from the file. A menu next to the tag, kept on screen; Escape or a tap outside closes it.
@@ -106,7 +107,7 @@
     }}>
   </div>
   <div
-    class="menu"
+    class="menu" {@attach overlayScroll}
     class:sheet
     data-sheet={sheet ? '' : undefined}
     {@attach sheet && sheetDrag(onclose)}

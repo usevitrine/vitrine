@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
   import { cubicOut } from 'svelte/easing';
   import { slide } from 'svelte/transition';
   import { reveal, swap, pop } from '../lib/motion';
@@ -382,7 +383,7 @@
       {:else if inTrash}
         <div class="empty" in:swap><p>{t('library.trashEmpty')}</p></div>
       {:else}
-        <div class="welcome-scroll" in:swap><Welcome /></div>
+        <div class="welcome-scroll" {@attach overlayScroll} in:swap><Welcome /></div>
       {/if}
     {:else}
       <Grid
