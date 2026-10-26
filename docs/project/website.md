@@ -69,7 +69,7 @@ comics page, the downloader, etc, a mix of serious and unserious."
   git submodule): the site repository has this one as a submodule at `app/` and uses its colors
   (`web/src/lib/tokens.css`), its logo (`Logo.svelte`, through Astro's Svelte support) and its floating scrollbar
   (`lib/overlayScroll.ts`: element mode for the app, `'page'` and sideways modes for the site); the demo is built from
-  the same checkout. The icons come from the same Lucide package (the site's own component, its own names). A change
+  the same checkout. The icons come from the same Lucide package (the site's own component, its own names); brand marks (GitHub) from Simple Icons (`simple-icons`, `BrandIcon.astro` - 2026-10-26, the user: Lucide for everything else). A change
   here reaches the site when its submodule is moved on.
 - **The demo's library and the screenshots**: `tools/demolib` builds the library (cached downloads in
   %LOCALAPPDATA%VitrineDemo; every artwork, comic and clip looked at by eye - nudes, a shunga-style print and a
