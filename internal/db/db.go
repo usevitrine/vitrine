@@ -174,3 +174,16 @@ func (d *DB) migrate(ctx context.Context, dir string) error {
 	}
 	return nil
 }
+
+// Compact rewrites the database without its free pages (VACUUM) and empties the write-ahead log: what was deleted is
+// gone from the disk too, not just unlinked (a site wiped from the server). Writes wait meanwhile; it needs free
+// space about the database's size.
+func (d *DB) Compact(ctx context.Context) error {
+	if _, err := d.W.ExecContext(ctx, "VACUUM"); err != nil {
+		return fmt.Errorf("db: vacuum: %w", err)
+	}
+	if _, err := d.W.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		return fmt.Errorf("db: checkpoint: %w", err)
+	}
+	return nil
+}

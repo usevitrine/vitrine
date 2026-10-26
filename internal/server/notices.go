@@ -31,6 +31,7 @@ type notices struct {
 	next int64 // (only when meta.db can't be written: numbered on from the last)
 	// read and cleared: how far (notice IDs); marks goes up with each change (the event stream sends it then).
 	read, cleared, marks int64
+	forgets             int64 // goes up when some are dropped (a wiped site's): pages read the list again
 }
 
 func newNotices(lib *library.Library, log *slog.Logger) *notices {
@@ -112,6 +113,13 @@ func (n *notices) state() (read, cleared, marks int64) {
 	return n.read, n.cleared, n.marks
 }
 
+// forgot counts the times some were dropped (forgetSite).
+func (n *notices) forgot() int64 {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.forgets
+}
+
 // mark reads them (and clears them, with clear) up to an ID - never back.
 func (n *notices) mark(upTo int64, clear bool) {
 	n.mu.Lock()
@@ -166,7 +174,7 @@ func (s *Server) addNotice(w http.ResponseWriter, r *http.Request) {
 // listNotices: GET /api/notices -> {boot, notices, read} (not the cleared ones; read: how far, by ID).
 func (s *Server) listNotices(w http.ResponseWriter, r *http.Request) {
 	read, _, _ := s.notices.state()
-	writeJSON(w, http.StatusOK, map[string]any{"boot": s.notices.boot, "notices": s.notices.after(0), "read": read})
+	writeJSON(w, http.StatusOK, map[string]any{"boot": s.notices.boot, "notices": s.notices.after(0), "read": read, "forgets": s.notices.forgot()})
 }
 
 // markNotices: POST /api/notices/read and /api/notices/clear {up_to} - for every device -> {read, cleared}.
@@ -183,4 +191,14 @@ func (s *Server) markNotices(clear bool) http.HandlerFunc {
 		read, cleared, _ := s.notices.state()
 		writeJSON(w, http.StatusOK, map[string]int64{"read": read, "cleared": cleared})
 	}
+}
+
+// forgetSite drops a wiped site's notices (meta.db's went with it: library.WipeSite); open pages hear of it
+// (notices-state's forgets) and read the list again.
+func (n *notices) forgetSite(site string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.list = slices.DeleteFunc(n.list, func(x library.Notice) bool { return x.Site == site })
+	n.forgets++
+	n.marks++
 }

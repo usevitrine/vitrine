@@ -1168,3 +1168,61 @@ func TestDownloadsActiveOnly(t *testing.T) {
 		t.Fatalf("active: %d %v", code, active)
 	}
 }
+
+// Removing a site with wipe: its files go for good in the background, its traces endpoint finds nothing after, and a
+// notice that doesn't name it says so.
+func TestRemovePluginWipe(t *testing.T) {
+	e := newEnv(t)
+	e.loginAs("me", "correct horse")
+	ctx := context.Background()
+	dl, err := download.New(ctx, e.lib, e.db, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.h.SetDownloader(dl)
+	dl.PluginsDir = filepath.Join(t.TempDir(), "plugins")
+	if _, err := dl.InstallPlugin(ctx, []byte("id: blue\nversion: 1.0.0\nengine: gelbooru-v02\nbase: https://api.blue.test\npost_url: https://blue.test/post/{id}\n")); err != nil {
+		t.Fatal(err)
+	}
+	site, err := e.lib.Site(ctx, "blue")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := e.lib.Import(ctx, bytes.NewReader(pngBytes(t, 20, 20, 7)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.lib.SetSitePost(ctx, f.ID, site, library.SitePost{Tags: []string{"blue_sky"}, PostURL: "https://blue.test/post/1"}); err != nil {
+		t.Fatal(err)
+	}
+	var tr struct {
+		Traces  library.SiteTraces
+		Any     bool
+		Backups int
+	}
+	if code := e.call("GET", "/api/plugins/blue/traces", nil, &tr); code != 200 || !tr.Any || tr.Traces.Files != 1 {
+		t.Fatalf("traces: %d %+v", code, tr)
+	}
+	var res map[string]any
+	if code := e.call("POST", "/api/plugins/blue/remove", map[string]any{"wipe": true}, &res); code != 200 || res["wiping"] != true {
+		t.Fatalf("remove: %d %v", code, res)
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for e.call("GET", "/api/plugins/blue/traces", nil, &tr); tr.Any || e.h.wiping.Load(); e.call("GET", "/api/plugins/blue/traces", nil, &tr) {
+		if time.Now().After(deadline) {
+			t.Fatalf("not wiped: %+v", tr)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	var st struct{ Files int }
+	if e.call("GET", "/api/stats", nil, &st); st.Files != 0 {
+		t.Fatalf("%d files left", st.Files)
+	}
+	var nt struct {
+		Notices []struct{ Text, Tone string }
+	}
+	e.call("GET", "/api/notices", nil, &nt)
+	if len(nt.Notices) == 0 || nt.Notices[len(nt.Notices)-1].Tone != "removed" || strings.Contains(strings.ToLower(nt.Notices[len(nt.Notices)-1].Text), "blue") {
+		t.Fatalf("notice: %+v", nt.Notices)
+	}
+}

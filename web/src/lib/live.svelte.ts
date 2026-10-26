@@ -101,8 +101,8 @@ class Live {
     });
     es.addEventListener('notices-state', (e) => {
       try {
-        const { read, cleared } = JSON.parse((e as MessageEvent).data);
-        notices.state(read, cleared);
+        const { read, cleared, forgets } = JSON.parse((e as MessageEvent).data);
+        notices.state(read, cleared, forgets);
       } catch {
         /* ignore a bad message */
       }

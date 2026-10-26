@@ -160,3 +160,32 @@ func (ix *Index) addFoundBy(file, sub uint32) {
 	}
 	bm.Add(file)
 }
+
+// SiteAliases is every name system:site= knows a site by (its plugin ID, its address).
+func (ix *Index) SiteAliases(site uint32) []string {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	var out []string
+	for name, id := range ix.siteAlias {
+		if id == site {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// DropSite forgets a site: its names, which files came from it, and what its subscriptions found (a site wiped:
+// Library.WipeSite).
+func (ix *Index) DropSite(site uint32, subs []uint32) {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	for name, id := range ix.siteAlias {
+		if id == site {
+			delete(ix.siteAlias, name)
+		}
+	}
+	delete(ix.siteFiles, site)
+	for _, s := range subs {
+		delete(ix.subFiles, s)
+	}
+}

@@ -177,3 +177,20 @@ func (c *Cache) Size() int64 {
 	defer c.mu.Unlock()
 	return c.total
 }
+
+// Remove drops every size kept for keys (their originals removed for good).
+func (c *Cache) Remove(keys ...string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, key := range keys {
+		if len(key) < 2 {
+			continue
+		}
+		for _, size := range Sizes {
+			p := c.path(key, size)
+			if info, err := os.Stat(p); err == nil && os.Remove(p) == nil {
+				c.total -= info.Size()
+			}
+		}
+	}
+}

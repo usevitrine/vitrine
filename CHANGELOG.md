@@ -5,6 +5,10 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### New
+
+- **Erase every trace of a removed site**: after removing a site, Vitrine offers to wipe it from the server completely - the files only it gave, its tags and links on the rest, its downloads, subscriptions, history, deletion records, notices, login and log lines, and its entries in menus, filters and saved searches. Files another site also gave stay. Older backups go too if you tick the box. Deletion records from before this version can't be traced to a site and stay.
+
 ### Improved
 
 - **Site filter** (Sort and filters > From): only the sites your files came from are listed, and comic sites no longer show in the media's.

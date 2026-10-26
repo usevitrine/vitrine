@@ -12,7 +12,8 @@ import (
 //   event: progress   - the files downloading now: [{search, post, read, total}], twice a
 //                       second while any are (and one empty list when they stop)
 //   event: notice     - the downloader's new events for the bell: [{id, at, kind, ...}] (see notices.go)
-//   event: notices-state - how far the bell's notices are read and cleared changed (on another device): {read, cleared}
+//   event: notices-state - how far the bell's notices are read and cleared changed (on another device), or some
+//                          were dropped (forgets went up: a wiped site's): {read, cleared, forgets}
 // Changes are sent at most twice a second; a comment every 20 s keeps proxies
 // from closing the connection. The browser's EventSource reconnects by itself.
 
@@ -62,7 +63,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 		}
 		if read, cleared, marks := s.notices.state(); marks != lastMarks {
 			lastMarks = marks
-			b, _ := json.Marshal(map[string]int64{"read": read, "cleared": cleared})
+			b, _ := json.Marshal(map[string]int64{"read": read, "cleared": cleared, "forgets": s.notices.forgot()})
 			fmt.Fprintf(w, "event: notices-state\ndata: %s\n\n", b)
 			wrote = true
 		}

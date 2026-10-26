@@ -40,6 +40,7 @@ const sessionCookie = "vitrine_session"
 type Server struct {
 	// anonymous: the setting anonymousLogin - signed out, only a plain sign-in page (signin.go).
 	anonymous atomic.Bool
+	wiping    atomic.Bool // a removed site being wiped (wipe.go)
 	lib       *library.Library
 	auth      *auth.Auth
 	log       *slog.Logger
@@ -162,6 +163,7 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.handle("POST /api/plugins/install", s.signal(s.installPlugin))
 	s.handle("POST /api/plugins/upload", s.signal(s.uploadPlugin))
 	s.handle("POST /api/plugins/{id}/remove", s.signal(s.removePlugin))
+	s.handle("GET /api/plugins/{id}/traces", s.siteTraces)
 	s.handle("GET /api/failed-posts", s.failedPosts)
 	s.handle("POST /api/failed-posts/retry", s.retryPost)
 	s.handle("POST /api/failed-posts/dismiss", s.dismissPosts)

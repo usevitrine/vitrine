@@ -228,6 +228,32 @@ func (ix *Index) unname(id uint32) {
 	ix.sorted = slices.DeleteFunc(ix.sorted, func(x uint32) bool { return x == id })
 }
 
+// ForgetTags drops tags deleted from the database (a wiped site's: Library.WipeSite): their names leave autocomplete
+// and lookups at once (the IDs can be handed out again; addTag takes them back).
+func (ix *Index) ForgetTags(ids []uint32) {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	gone := make(map[uint32]bool, len(ids))
+	for _, id := range ids {
+		if int(id) >= len(ix.tags) || !ix.tags[id].known {
+			continue
+		}
+		gone[id] = true
+		lower := ix.tags[id].lower
+		ix.byName[lower] = slices.DeleteFunc(ix.byName[lower], func(x uint32) bool { return x == id })
+		if len(ix.byName[lower]) == 0 {
+			delete(ix.byName, lower)
+		}
+		for _, g := range trigramsOf(lower) {
+			if b := ix.trigrams[g]; b != nil {
+				b.Remove(id)
+			}
+		}
+		ix.tags[id] = tagEntry{}
+	}
+	ix.sorted = slices.DeleteFunc(ix.sorted, func(x uint32) bool { return gone[x] }) // (one pass: thousands at once)
+}
+
 func (ix *Index) sortTags() {
 	slices.SortFunc(ix.sorted, func(a, b uint32) int {
 		if c := strings.Compare(ix.tags[a].lower, ix.tags[b].lower); c != 0 {

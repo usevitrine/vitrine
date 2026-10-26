@@ -7,7 +7,8 @@
   import { api, type SiteInfo, type SiteTest, type PluginInfo, type Installed } from '../lib/api';
   import { sites as siteNames } from '../lib/sites.svelte';
   import { toasts } from '../lib/toast.svelte';
-  import { confirmAction } from '../lib/confirm.svelte';
+  import { confirmAction, confirmChecked } from '../lib/confirm.svelte';
+  import { formatSize } from '../lib/results.svelte';
   import Icon from './Icon.svelte';
   import SiteIcon from './SiteIcon.svelte';
   import ActionMenu, { type MenuItem } from './ActionMenu.svelte';
@@ -65,8 +66,12 @@
     }
   }
 
+  // Removing a site, then (when there's anything of it) whether to erase every trace of it: its files only it gave
+  // for good, its tags and links off the others, its history, records, notices, login and menus' entries - a word to
+  // type, older backups only when ticked (the user, 2026-10-26). Cancel there: only the site goes.
   async function removeSite(s: SiteInfo) {
     const waiting = usage(s);
+    const traces = s.overrides ? null : api.siteTraces(s.id).catch(() => null); // (asked meanwhile)
     const ok = await confirmAction(
       s.overrides
         ? { title: t('sites.builtInTitle', { site: s.site }), body: t('sites.builtInBody'), action: t('sites.goBack'), icon: 'undo' }
@@ -77,11 +82,37 @@
           },
     );
     if (!ok) return;
+    const found = await traces;
+    let wipe = false;
+    let backups = false;
+    if (found?.any) {
+      const tr = found.traces;
+      const details = [
+        ...(tr.files ? [t('sites.wipeFiles', { n: tr.files, size: formatSize(tr.bytes) })] : []),
+        ...(tr.shared ? [t('sites.wipeShared', { n: tr.shared })] : []),
+        ...(tr.comics ? [t('sites.wipeComics', { n: tr.comics })] : []),
+        t('sites.wipeRest'),
+        ...(tr.unknown ? [t('sites.wipeUnknown', { n: tr.unknown })] : []),
+      ];
+      const asked = await confirmChecked({
+        title: t('sites.wipeTitle', { site: s.site }),
+        details,
+        body: t('sites.wipeUndo'),
+        action: t('sites.wipe'),
+        typed: t('sites.wipeWord'),
+        check: found.backups ? t('sites.wipeBackups') : '',
+      });
+      wipe = asked.ok;
+      backups = asked.checked;
+    }
     busy[s.id] = 'remove';
     try {
-      const res = await api.removePlugin(s.id);
+      const res = await api.removePlugin(s.id, wipe, backups);
       sites = res.sites;
-      toasts.show(res.removed.restored ? t('sites.restored', { site: s.site }) : t('sites.removed', { site: s.site }), { cat: 'sites', kind: 'removed' });
+      toasts.show(
+        res.removed.restored ? t('sites.restored', { site: s.site }) : res.wiping ? t('sites.wiping', { site: s.site }) : t('sites.removed', { site: s.site }),
+        { cat: 'sites', kind: 'removed' },
+      );
       siteNames.load();
       loadPlugins();
     } catch (e) {

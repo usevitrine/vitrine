@@ -28,7 +28,9 @@ Files, tags (one tag set, origins, namespaces), parents and siblings, delete/und
   separately and shown as "Post" and "Source".
 - **Delete with a short undo window**: the file leaves every search immediately and an "Undo" appears; the original
   stays hidden for a configurable time (default 7 days), then is purged. The tombstone (never download again) is
-  written at delete time and removed on undo.
+  written at delete time and removed on undo. Since 2026-10-26 it also notes the **sites** the file came from
+  (`tombstones.sites`: `,a,b,` plugin IDs, `''` none; migration 0042 filled it in for what was still in the trash -
+  older records whose files were gone stay NULL: they can't be traced), so wiping a site can take its records too (below).
 - **The trash (2026-10-23)** (the user: "a way to restore individual deleted media and clear the bin"): found then that
   nothing ever purged - every deleted file (thousands, gigabytes, in a real library) was still in the store. Now: the
   library's **Trash** page (`/trash`, Menu > Library > Trash) - the library's own search bar and grid on the trash's
@@ -44,6 +46,25 @@ Files, tags (one tag set, origins, namespaces), parents and siblings, delete/und
   again). In batches of 500 (`purgeBatch`, 2026-10-23), each its own transaction - a big trash (or a whole section
   deleted) no longer holds every other change up (a setting and a notice once waited 11 s); each batch's originals go
   after its rows are committed. Tests: `TestTrash`, `TestEmptyTrashInBatches` (Go), "trash: its own page" (e2e).
+- **Wiping a removed site (2026-10-26)** (the user: removing a site can "completely wipe their server of any hint that
+  they ever had it enabled. That means deleting all files/metadata/deleted files history/any entry in every menu such
+  as the sites filter"): after Remove, when anything of it is left, a second dialog asks to erase every trace
+  (`GET /api/plugins/{id}/traces` counts it: `Library.SiteTraces`) - a list of what goes, the word "erase" to type, and
+  "Also delete older backups (they still contain it)", off by default (the user's choice). Cancel removes only the
+  site. `Library.WipeSite` (in the background, a notice that doesn't name it when done): its comics go for good; files
+  only it gave (links, tags or sources from no other site - the trash's too) are deleted, removed for good and their
+  records go; files another site gave too **stay**, without its tags, links and sources (not an edit: modified
+  stays - the user's choice "Keep, strip this site"); then its downloads, subscriptions, groups, history
+  (`seen_posts`), tag types, notices, pauses, deletion records naming only it (it's taken off the others), its `sites`
+  row, `system:site=` in saved searches (one that only searched it goes) and the pages' start searches
+  (`search.DropSite`), `siteCheckDepths`/`sitesOff`, its tags nothing else has (`index.ForgetTags`) and links no file
+  has. The server then forgets its credentials, site icon, resized copies, bell notices (open pages read the list again:
+  notices-state's `forgets`) and log lines naming it (`logring.Forget`, memory and files), deletes the older backups
+  when ticked (a fresh one made after), and compacts meta.db and thumbs.db (VACUUM: nothing left in free pages). Not
+  reachable: the container's own output (`docker logs`), copies outside the data folder, and the built-in site's ID in
+  `removedSites` (needed to keep it removed). A site that goes back to its built-in plugin isn't asked. Tests:
+  `TestWipeSite`, `TestDropSite`, `TestForget`, `TestRemovePluginWipe` (Go), "removing a site with files of it asks
+  whether to erase every trace" (e2e).
 - **Left out** (by design): user ratings (a favorite heart instead, see "Favorites"), inbox/archive, PTR, Hydrus import. Notes and view counts: low
   priority. Duplicate detection (perceptual hashes + review screen): built 2026-10-16, see `docs/library/duplicates.md`.
 

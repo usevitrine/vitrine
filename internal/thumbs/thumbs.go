@@ -154,3 +154,6 @@ func (s *Store) GetSprite(ctx context.Context, file uint32, withData bool) (Spri
 	}
 	return sp, nil
 }
+
+// Compact rewrites thumbs.db without the space removed thumbnails left (db.Compact).
+func (s *Store) Compact(ctx context.Context) error { return s.db.Compact(ctx) }

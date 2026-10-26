@@ -289,6 +289,17 @@ export interface SitePause {
   tries: number; // tries that failed since
 }
 
+/** What erasing a removed site would remove (library.SiteTraces). */
+export interface SiteTraces {
+  files: number; // deleted for good: only it gave them
+  bytes: number;
+  shared: number; // kept, its tags and links taken off
+  comics: number;
+  records: number;
+  unknown: number; // older deletion records that can't be traced: kept
+  other: boolean;
+}
+
 export interface SiteInfo {
   id: string;
   name: string;
@@ -404,8 +415,11 @@ export const api = {
   undoDupe: (a: number, b: number) => post<{ ok: boolean }>('/api/dupes/undo', { a, b }),
   plugins: (refresh = false) => get<{ plugins: PluginInfo[]; error?: string }>('/api/plugins' + (refresh ? '?refresh=1' : '')),
   installPlugin: (id: string) => post<{ installed: Installed; sites: SiteInfo[] }>('/api/plugins/install', { id }),
-  removePlugin: (id: string) =>
-    post<{ removed: { id: string; site: string; restored: boolean }; sites: SiteInfo[] }>(`/api/plugins/${encodeURIComponent(id)}/remove`, {}),
+  removePlugin: (id: string, wipe = false, backups = false) =>
+    post<{ removed: { id: string; site: string; restored: boolean }; sites: SiteInfo[]; wiping: boolean }>(`/api/plugins/${encodeURIComponent(id)}/remove`, { wipe, backups }),
+  /** What erasing a site would remove (asked after Remove). */
+  siteTraces: (id: string) =>
+    get<{ traces: SiteTraces; any: boolean; backups: number }>(`/api/plugins/${encodeURIComponent(id)}/traces`),
   uploadPlugin: (yaml: string) => post<{ installed: Installed; sites: SiteInfo[] }>('/api/plugins/upload', { yaml }),
   push: () => get<{ key: string; devices: PushDevice[] }>('/api/push'),
   pushSubscribe: (subscription: PushSubscriptionJSON, label: string, language: string) =>
@@ -506,7 +520,7 @@ export const api = {
   seen: (key: string) => post<{ previous: number }>('/api/seen', { key }),
   /** Posts whose file couldn't be brought in (newest first), and one tried again now. */
   /** The downloader's recent events for the bell (see notices.svelte.ts). */
-  notices: () => get<{ boot: string; notices: import('./notices.svelte').ServerNotice[]; read?: number }>('/api/notices'),
+  notices: () => get<{ boot: string; notices: import('./notices.svelte').ServerNotice[]; read?: number; forgets?: number }>('/api/notices'),
   addNotice: (text: string, tone: string, category: string) => post<{ id: number }>('/api/notices', { text, tone, category }),
   markNotices: (upTo: number, clear: boolean) => post<{ read: number; cleared: number }>(clear ? '/api/notices/clear' : '/api/notices/read', { up_to: upTo }),
   browseSites: () => get<{ sites: string[]; sorts: Record<string, string[]> }>('/api/browse/sites'),

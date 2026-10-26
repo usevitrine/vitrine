@@ -334,3 +334,13 @@ func writeFile(path string, data []byte) error {
 	}
 	return nil
 }
+
+// Forget drops the icons kept for hosts (a site wiped from the server).
+func (c *Cache) Forget(hosts ...string) {
+	for _, h := range hosts {
+		if h = strings.ToLower(h); ValidHost(h) {
+			os.Remove(filepath.Join(c.dir, h+".icon"))
+			os.Remove(filepath.Join(c.dir, h+".none"))
+		}
+	}
+}

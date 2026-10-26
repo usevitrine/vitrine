@@ -59,10 +59,14 @@ func (l *Library) Delete(ctx context.Context, files []uint32, reason string) err
 			if _, err := tx.ExecContext(ctx, "UPDATE files SET deleted_at = ? WHERE id = ?", now, id); err != nil {
 				return nil, err
 			}
+			// (with the sites it came from: removing a site can wipe its records too - WipeSite)
 			if _, err := tx.ExecContext(ctx, `
-				INSERT INTO tombstones (sha256, md5, deleted_at, reason) VALUES (?, ?, ?, ?)
-				ON CONFLICT (sha256) DO UPDATE SET deleted_at = excluded.deleted_at, reason = excluded.reason`,
-				sha, md5, now, nullString(reason)); err != nil {
+				INSERT INTO tombstones (sha256, md5, deleted_at, reason, sites) VALUES (?1, ?2, ?3, ?4, coalesce((
+					SELECT ',' || group_concat(s.name, ',') || ',' FROM sites s WHERE s.id != 0 AND s.id IN (
+						SELECT site_id FROM file_urls WHERE file_id = ?5 UNION SELECT origin FROM file_tags WHERE file_id = ?5
+						UNION SELECT site_id FROM file_sources WHERE file_id = ?5)), ''))
+				ON CONFLICT (sha256) DO UPDATE SET deleted_at = excluded.deleted_at, reason = excluded.reason, sites = excluded.sites`,
+				sha, md5, now, nullString(reason), id); err != nil {
 				return nil, err
 			}
 			done = append(done, removed{id, tags})

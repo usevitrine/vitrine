@@ -1666,6 +1666,34 @@
     "remove": "Remove",
     "restored": "{site} is back to the built-in plugin",
     "removed": "Removed {site}",
+    "wipeTitle": "Also erase every trace of {site}?",
+    "wipeFiles": {
+      "one": "{n} file ({size}) only it gave is deleted for good.",
+      "other": "{n} files ({size}) only it gave are deleted for good."
+    },
+    "wipeShared": {
+      "one": "{n} file another site gave too stays, without its tags and links.",
+      "other": "{n} files another site gave too stay, without its tags and links."
+    },
+    "wipeComics": {
+      "one": "{n} comic is deleted for good.",
+      "other": "{n} comics are deleted for good."
+    },
+    "wipeRest": "Its downloads, subscriptions, history, deletion records, notices and login go too, and it leaves every menu and saved search.",
+    "wipeUnknown": {
+      "one": "{n} older deletion record can't be traced to a site and stays.",
+      "other": "{n} older deletion records can't be traced to a site and stay."
+    },
+    "wipeUndo": "This can't be undone. Cancel removes only the site.",
+    "wipeBackups": "Also delete older backups (they still contain it)",
+    "wipe": "Erase everything",
+    "wipeWord": "erase",
+    "wiping": "Removed {site} - erasing its traces (a notice says when it's done)",
+    "wiped": {
+      "one": "A removed site is erased: {n} file deleted for good",
+      "other": "A removed site is erased: {n} files deleted for good"
+    },
+    "wipeFailed": "Erasing a removed site failed: {error}",
     "installed": "Installed {site}",
     "updated": "Updated {site} to {version}",
     "updatedNew": "Updated {site} to the new version",

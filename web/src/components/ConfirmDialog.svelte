@@ -73,6 +73,7 @@
   <div
     class="dialog" {@attach overlayScroll}
     class:sheet
+    class:wide={!!c.details?.length}
     data-sheet={sheet ? '' : undefined}
     data-drag
     {@attach sheet && sheetDrag(() => confirmer.answer(false))}
@@ -96,6 +97,11 @@
       <span class="badge" aria-hidden="true"><Icon name={c.icon ?? 'trash'} size={22} /></span>
     {/if}
     <h2 id="confirm-title">{c.title}</h2>
+    {#if c.details?.length}
+      <ul class="details">
+        {#each c.details as d (d)}<li>{d}</li>{/each}
+      </ul>
+    {/if}
     {#if c.body}<p id="confirm-body">{c.body}</p>{/if}
     {#if c.typed}
       <label class="typed-label">
@@ -108,6 +114,12 @@
           spellcheck="false"
           aria-label={t('confirm.typeToConfirm', { word: c.typed })}
           onkeydown={(e) => e.key === 'Enter' && ready && confirmer.answer(true)} />
+      </label>
+    {/if}
+    {#if c.check}
+      <label class="check">
+        <input type="checkbox" bind:checked={confirmer.checked} />
+        <span>{c.check}</span>
       </label>
     {/if}
     <div class="buttons">
@@ -145,6 +157,10 @@
     border-radius: 18px;
     box-shadow: 0 24px 60px rgb(0 0 0 / 0.6);
     text-align: center;
+  }
+  /* With a list of what happens: room for its lines. */
+  .dialog.wide {
+    width: min(440px, calc(100vw - 32px));
   }
   /* Phones: a sheet along the bottom like the others (drag down to cancel). */
   .dialog.sheet {
@@ -239,6 +255,37 @@
   .go {
     background: var(--red);
     color: var(--crust);
+  }
+  /* More of what happens: a short list, left-aligned (a line each reads better than a paragraph); the body's line
+     under it. */
+  .details {
+    justify-self: stretch;
+    display: grid;
+    gap: 6px;
+    margin: 8px 0 6px;
+    padding: 10px 12px 10px 28px;
+    border-radius: 12px;
+    background: var(--base);
+    text-align: left;
+    color: var(--subtext);
+    font-size: var(--font-small);
+  }
+  .details li::marker {
+    color: var(--overlay0);
+  }
+  /* A box to tick: beside its words, the whole row pressable. */
+  .check {
+    justify-self: stretch;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-top: 10px;
+    text-align: left;
+    font-size: var(--font-small);
+    cursor: pointer;
+  }
+  .check input {
+    margin-top: 1px;
   }
   /* The word to type: its label above a full-width box. */
   .typed-label {

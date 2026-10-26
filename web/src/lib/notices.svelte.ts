@@ -109,7 +109,8 @@ class Notices {
   /** The list as the server has it (at the start, and whenever the live stream opens again). */
   async catchUp() {
     try {
-      const { boot, notices, read } = await api.notices();
+      const { boot, notices, read, forgets } = await api.notices();
+      this.forgets = forgets;
       const before = new Set(this.all.map((n) => n.key));
       const first = this.boot === '';
       this.boot = boot;
@@ -141,8 +142,16 @@ class Notices {
     if (ring) this.rings++;
   }
 
-  /** Read and cleared changed (on another device, or here). */
-  state(read: number, cleared: number) {
+  private forgets: number | undefined; // (the server's count of drops: see state)
+
+  /** Read and cleared changed (on another device, or here) - or the server dropped some (forgets went up: a wiped
+   *  site's), and the list is read again. */
+  state(read: number, cleared: number, forgets?: number) {
+    if (forgets !== undefined) {
+      const before = this.forgets;
+      this.forgets = forgets;
+      if (before !== undefined && before !== forgets) return void this.catchUp();
+    }
     this.readUpTo = Math.max(this.readUpTo, read);
     this.all = this.all.filter((n) => n.id > cleared).map((n) => (n.read || n.id > this.readUpTo ? n : { ...n, read: true }));
   }

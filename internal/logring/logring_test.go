@@ -69,3 +69,31 @@ func TestFile(t *testing.T) {
 	}
 	r.Close()
 }
+
+func TestForget(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "vitrine.log")
+	r, err := Open(path, 10, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	log := slog.New(Tee(slog.NewTextHandler(io.Discard, nil), r))
+	log.Info("search done", "site", "blue_site")
+	log.Info("started")
+	log.Info("Blue_Site paused")
+	if n := r.Forget("blue_site"); n != 2 {
+		t.Errorf("forgot %d, want 2", n)
+	}
+	log.Info("after")
+	for _, recs := range [][]Record{r.Records(10), r.memory()} {
+		if len(recs) != 2 || recs[0].Msg != "started" || recs[1].Msg != "after" {
+			t.Errorf("records = %+v", recs)
+		}
+	}
+	r.Close()
+	r2, _ := Open(path, 10, 1<<20) // (the file, read again)
+	defer r2.Close()
+	if recs := r2.Records(10); len(recs) != 2 {
+		t.Errorf("file = %+v", recs)
+	}
+}

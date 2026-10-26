@@ -7,11 +7,13 @@ package logring
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -295,4 +297,76 @@ func flatten(out []slog.Attr, prefix string, a slog.Attr) []slog.Attr {
 		a.Value = slog.StringValue(a.Value.String())
 	}
 	return append(out, slog.Attr{Key: prefix + a.Key, Value: a.Value})
+}
+
+// Forget drops every record that mentions any of words (case-insensitively, in its message or values) from memory
+// and the log files - a site wiped from the server leaves no line naming it. It returns how many went.
+func (r *Ring) Forget(words ...string) int {
+	for i, w := range words {
+		words[i] = strings.ToLower(w)
+	}
+	mentions := func(s string) bool {
+		s = strings.ToLower(s)
+		for _, w := range words {
+			if w != "" && strings.Contains(s, w) {
+				return true
+			}
+		}
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	n := 0
+	var keep []Record
+	for _, rec := range r.memory() {
+		text := rec.Msg
+		for _, a := range rec.Attrs {
+			text += " " + a.Key + " " + a.Value.String()
+		}
+		if mentions(text) {
+			n++
+		} else {
+			keep = append(keep, rec)
+		}
+	}
+	clear(r.buf)
+	r.next, r.full = copy(r.buf, keep[max(0, len(keep)-len(r.buf)):]), false
+	if r.next == len(r.buf) {
+		r.next, r.full = 0, true
+	}
+	if r.path == "" {
+		return n
+	}
+	// The files: rewritten without those lines (the current one reopened for appending).
+	for _, p := range []string{r.path + ".1", r.path} {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		var out []byte
+		gone := 0
+		for _, ln := range bytes.SplitAfter(data, []byte("\n")) {
+			if len(ln) > 0 && mentions(string(ln)) {
+				gone++
+				continue
+			}
+			out = append(out, ln...)
+		}
+		if gone == 0 {
+			continue
+		}
+		if p == r.path && r.f != nil {
+			r.f.Close()
+			r.f = nil
+		}
+		if os.WriteFile(p+".tmp", out, 0o600) == nil {
+			os.Rename(p+".tmp", p)
+		}
+		if p == r.path {
+			if f, err := os.OpenFile(p, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600); err == nil {
+				r.f, r.size = f, int64(len(out))
+			}
+		}
+	}
+	return n
 }

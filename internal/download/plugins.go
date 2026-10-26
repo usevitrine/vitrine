@@ -208,6 +208,7 @@ func (d *Downloader) InstallFromIndex(ctx context.Context, id string) (Installed
 type Removed struct {
 	ID       string `json:"id"`
 	Site     string `json:"site"`
+	Name     string `json:"name"`     // the site's own name
 	Restored bool   `json:"restored"` // the built-in plugin with this ID is used again
 }
 
@@ -231,7 +232,7 @@ func (d *Downloader) RemovePlugin(ctx context.Context, id string) (Removed, erro
 		d.dropSite(id)
 		d.Changed()
 		d.log.Info("built-in plugin removed", "plugin", id)
-		return Removed{ID: id, Site: m.Site}, nil
+		return Removed{ID: id, Site: m.Site, Name: m.Name}, nil
 	}
 	if d.PluginsDir == "" {
 		return Removed{}, ErrNoPluginsDir
@@ -247,7 +248,7 @@ func (d *Downloader) RemovePlugin(ctx context.Context, id string) (Removed, erro
 	if !gone {
 		return Removed{}, fmt.Errorf("the %s plugin file isn't in the plugins folder", id)
 	}
-	res := Removed{ID: id, Site: m.Site}
+	res := Removed{ID: id, Site: m.Site, Name: m.Name}
 	if b, ok := plugin.Builtin(id); ok {
 		var creds map[string]string
 		if d.SecretsPath != "" {
@@ -302,4 +303,22 @@ func (d *Downloader) siteUsage() map[string][2]int {
 		}
 	}
 	return out
+}
+
+// ForgetCredentials removes a removed site's credentials from the credentials file (a site wiped from the server).
+func (d *Downloader) ForgetCredentials(id string) error {
+	if d.SecretsPath == "" {
+		return nil
+	}
+	d.credMu.Lock()
+	defer d.credMu.Unlock()
+	secrets, err := plugin.LoadSecrets(d.SecretsPath)
+	if err != nil {
+		return fmt.Errorf("reading the credentials file: %w", err)
+	}
+	if _, ok := secrets[id]; !ok {
+		return nil
+	}
+	delete(secrets, id)
+	return secrets.Save(d.SecretsPath)
 }

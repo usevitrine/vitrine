@@ -2503,6 +2503,44 @@ test('settings: install a site from the plugin list, update one, install from a 
   await expect(card.getByRole('heading', { name: 'test-file.invalid' })).toHaveCount(0);
 });
 
+test('removing a site with files of it asks whether to erase every trace: the list, a word to type, older backups only when ticked', async ({ page }) => {
+  // (the traces and the removal answered here: the shared test library keeps its sites)
+  let sent: Record<string, unknown> | null = null;
+  await page.route('**/api/plugins/safebooru/traces', (r) =>
+    r.fulfill({ json: { traces: { files: 3, bytes: 3 * 1024 * 1024, shared: 2, comics: 0, records: 1, unknown: 4, other: true }, any: true, backups: 2 } }),
+  );
+  await page.route('**/api/plugins/safebooru/remove', async (r) => {
+    sent = r.request().postDataJSON();
+    const { sites } = await (await page.request.get('/api/sites')).json();
+    await r.fulfill({ json: { removed: { id: 'safebooru', site: 'safebooru.org', restored: false }, sites, wiping: !!sent?.wipe } });
+  });
+  await page.goto('/settings/sites');
+  await rowMenu(page, 'safebooru.org', 'Remove site');
+  await page.getByRole('alertdialog', { name: 'Remove safebooru.org?' }).getByRole('button', { name: 'Remove', exact: true }).click();
+  const wipe = page.getByRole('alertdialog', { name: 'Also erase every trace of safebooru.org?' });
+  await expect(wipe).toBeVisible();
+  await expect(wipe).toContainText('3 files (3.0 MB) only it gave are deleted for good.');
+  await expect(wipe).toContainText('2 files another site gave too stay, without its tags and links.');
+  await expect(wipe).toContainText('4 older deletion records');
+  await expect(wipe).toContainText('Cancel removes only the site.');
+  const go = wipe.getByRole('button', { name: 'Erase everything' });
+  await expect(go).toBeDisabled();
+  await wipe.getByLabel('Type "erase" to confirm').fill('erase');
+  await wipe.getByRole('checkbox', { name: /Also delete older backups/ }).check();
+  await go.click();
+  await expect(wipe).toHaveCount(0);
+  await expect(page.getByText('Removed safebooru.org - erasing its traces')).toBeVisible();
+  expect(sent).toEqual({ wipe: true, backups: true });
+
+  // Cancel there: only the site goes (and the box starts unticked again).
+  await rowMenu(page, 'safebooru.org', 'Remove site');
+  await page.getByRole('alertdialog', { name: 'Remove safebooru.org?' }).getByRole('button', { name: 'Remove', exact: true }).click();
+  await expect(wipe.getByRole('checkbox', { name: /Also delete older backups/ })).not.toBeChecked();
+  await wipe.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByText('Removed safebooru.org', { exact: true })).toBeVisible();
+  expect(sent).toEqual({ wipe: false, backups: false });
+});
+
 test('offline: the app, the last results and their thumbnails stay on the device', async ({ page, context }) => {
   test.skip(test.info().project.name !== 'desktop-chromium', 'service workers are tested in Chromium');
   const origin = ''; // (the tests run on the built app)
