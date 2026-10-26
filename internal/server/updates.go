@@ -40,6 +40,11 @@ import (
 // ReleasesURL is GitHub's API address for the latest release.
 const ReleasesURL = "https://api.github.com/repos/usevitrine/vitrine/releases/latest"
 
+// ReleasePagesURL is GitHub's web address for the releases: when its API refuses (403/429 - 60 requests an hour per
+// address, used up by others behind a shared one: a VPN's exit, the user's), /latest's redirect names the newest
+// tag and /download/<tag>/SHA256SUMS its files and their sums (the website has no such limit).
+const ReleasePagesURL = "https://github.com/usevitrine/vitrine/releases"
+
 // ChangelogURL is where a release's CHANGELOG.md is (%s: its tag).
 const ChangelogURL = "https://raw.githubusercontent.com/usevitrine/vitrine/%s/CHANGELOG.md"
 
@@ -49,6 +54,7 @@ const UpdateImage = "ghcr.io/usevitrine/vitrine"
 // UpdateConfig is how the server checks for and installs updates.
 type UpdateConfig struct {
 	ReleasesURL     string // "" = ReleasesURL; "off" = never ask (tests)
+	ReleasePagesURL string // "" = ReleasePagesURL: asked when the API refuses
 	ChangelogURL    string // "" = ChangelogURL (%s: the tag)
 	UserAgent       string
 	WatchtowerURL   string // "" = no Update button (unless RunSetup)
@@ -87,6 +93,9 @@ func (s *Server) SetUpdates(c UpdateConfig) {
 	}
 	if c.ChangelogURL == "" {
 		c.ChangelogURL = ChangelogURL
+	}
+	if c.ReleasePagesURL == "" {
+		c.ReleasePagesURL = ReleasePagesURL
 	}
 	if s.updates != nil { // (set again: the new settings, the routes are there)
 		s.updates.mu.Lock()
@@ -175,6 +184,9 @@ func (u *updates) fetchLatest(ctx context.Context) (tag, page string, assets map
 		return "", "", nil, err
 	}
 	defer res.Body.Close()
+	if res.StatusCode == http.StatusForbidden || res.StatusCode == http.StatusTooManyRequests {
+		return u.fetchLatestPage(ctx) // (its hourly limit used up: GitHub's website instead)
+	}
 	if res.StatusCode != http.StatusOK {
 		return "", "", nil, fmt.Errorf("GitHub answered %s", res.Status)
 	}
@@ -198,6 +210,56 @@ func (u *updates) fetchLatest(ctx context.Context) (tag, page string, assets map
 		assets[a.Name] = asset{a.URL, a.Digest}
 	}
 	return rel.Tag, rel.Page, assets, nil
+}
+
+// fetchLatestPage is fetchLatest from GitHub's website (its API refused): the newest tag from where /latest
+// redirects, the files and their sums from the release's SHA256SUMS (none there: no files - an update through
+// Watchtower needs none).
+func (u *updates) fetchLatestPage(ctx context.Context) (tag, page string, assets map[string]asset, err error) {
+	cfg := u.config()
+	base := strings.TrimSuffix(cfg.ReleasePagesURL, "/")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/latest", nil)
+	if err != nil {
+		return "", "", nil, err
+	}
+	req.Header.Set("User-Agent", cfg.UserAgent)
+	noFollow := *u.client
+	noFollow.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	res, err := noFollow.Do(req)
+	if err != nil {
+		return "", "", nil, err
+	}
+	res.Body.Close()
+	loc := res.Header.Get("Location")
+	_, tag, found := strings.Cut(loc, "/releases/tag/")
+	if res.StatusCode/100 != 3 || !found {
+		return "", "", nil, fmt.Errorf("GitHub answered %s (its API refused too)", res.Status)
+	}
+	if t, err := url.PathUnescape(tag); err == nil {
+		tag = t
+	}
+	if _, ok := parseVersion(tag); !ok {
+		return "", "", nil, fmt.Errorf("the latest release has no version number (%q)", tag)
+	}
+	assets = map[string]asset{}
+	download := base + "/download/" + url.PathEscape(tag) + "/"
+	if req, err := http.NewRequestWithContext(ctx, http.MethodGet, download+"SHA256SUMS", nil); err == nil {
+		req.Header.Set("User-Agent", cfg.UserAgent)
+		if res, err := u.client.Do(req); err == nil {
+			b, _ := io.ReadAll(io.LimitReader(res.Body, 64<<10))
+			res.Body.Close()
+			if res.StatusCode == http.StatusOK {
+				for _, line := range strings.Split(string(b), "\n") {
+					sum, name, ok := strings.Cut(strings.TrimSpace(line), " ")
+					name = strings.TrimPrefix(strings.TrimSpace(name), "*")
+					if ok && len(sum) == 64 && name != "" {
+						assets[name] = asset{download + url.PathEscape(name), "sha256:" + strings.ToLower(sum)}
+					}
+				}
+			}
+		}
+	}
+	return tag, base + "/tag/" + url.PathEscape(tag), assets, nil
 }
 
 // fetchChangelog reads a release's CHANGELOG.md (at most 1 MB).

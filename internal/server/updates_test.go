@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -43,6 +44,47 @@ func TestNewerVersion(t *testing.T) {
 		if got := newerVersion(c.latest, c.current); got != c.want {
 			t.Errorf("newerVersion(%q, %q) = %v, want %v", c.latest, c.current, got, c.want)
 		}
+	}
+}
+
+// GitHub's API refusing (403: its hourly limit, used up by others behind a VPN's shared address - the user's main
+// instance): the check asks GitHub's website instead - the tag from /latest's redirect, the files and sums from
+// SHA256SUMS.
+func TestUpdateCheckAPIRefused(t *testing.T) {
+	e := newEnv(t)
+	e.loginAs("me", "correct horse")
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"message":"API rate limit exceeded"}`, http.StatusForbidden)
+	}))
+	defer api.Close()
+	sum := strings.Repeat("ab", 32)
+	web := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest":
+			http.Redirect(w, r, "/releases/tag/v1.0.5", http.StatusFound)
+		case "/releases/download/v1.0.5/SHA256SUMS":
+			fmt.Fprintf(w, "%s  Vitrine-Setup-1.0.5-x64.exe\n%s  vitrine_1.0.5_linux_amd64.tar.gz\n", sum, strings.Repeat("cd", 32))
+		case "/changelog/v1.0.5":
+			io.WriteString(w, "# Changelog\n\n## 1.0.5 - 2026-11-02\n\n- **Fixed**\n")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer web.Close()
+	e.h.SetInfo(Info{Version: "v1.0.4"})
+	e.h.SetUpdates(UpdateConfig{ReleasesURL: api.URL, ReleasePagesURL: web.URL + "/releases", ChangelogURL: web.URL + "/changelog/%s", UserAgent: "Vitrine/test"})
+	var st struct {
+		Latest, Page, Changelog, Error string
+		Newer                          bool
+	}
+	if code := e.call("POST", "/api/update/check", map[string]any{}, &st); code != 200 || st.Latest != "v1.0.5" || !st.Newer || st.Page != web.URL+"/releases/tag/v1.0.5" || !strings.Contains(st.Changelog, "## 1.0.5") {
+		t.Fatalf("check: %d %+v", code, st)
+	}
+	e.h.updates.mu.Lock()
+	a := e.h.updates.assets["Vitrine-Setup-1.0.5-x64.exe"]
+	e.h.updates.mu.Unlock()
+	if a.url != web.URL+"/releases/download/v1.0.5/Vitrine-Setup-1.0.5-x64.exe" || a.digest != "sha256:"+sum {
+		t.Fatalf("the installer from SHA256SUMS: %+v", a)
 	}
 }
 

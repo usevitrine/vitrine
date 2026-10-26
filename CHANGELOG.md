@@ -5,6 +5,10 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### Fixed
+
+- **Checking for updates** works behind a VPN or another shared internet address: when GitHub refuses ("403 Forbidden" - its hourly limit, used up by others on the same address), Vitrine asks GitHub's website instead.
+
 ## 1.0.4 - 2026-10-26
 
 ### Improved

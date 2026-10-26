@@ -193,6 +193,10 @@ button that uses watchtower would be cool" -> "a silky smooth experience ... a f
 waits before the server comes back up and fades the site back into view". `internal/server/updates.go`.
 - **The check**: once a day (3 min after the start, then hourly checks for a day-old answer) the server asks GitHub's
   API for the latest release (`releases_url`, default `api.github.com/repos/usevitrine/vitrine/releases/latest`;
+  **refused (403/429), GitHub's website instead** (2026-10-26, the user's main instance: "GitHub answered 403
+  Forbidden" - the API allows 60 requests an hour per address, and the VPN's shared exit had used them up): the tag
+  from where `github.com/usevitrine/vitrine/releases/latest` redirects, the files and their sums from the release's
+  `SHA256SUMS` (`fetchLatestPage`, `ReleasePagesURL`);
   "off" never asks - the end-to-end test servers) - only with the shared setting `updateCheck` (missing = on;
   Settings > Updates). A newer `vX.Y.Z` than this program (or `vX.Y.Z-hotfix`: a fix of X.Y.Z, newer than it and older
   than X.Y.Z+1 - the user chose the name, 2026-10-26; a pre-release isn't one): `GET /api/update` says so (`newer`, `latest`,
