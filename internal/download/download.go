@@ -114,6 +114,7 @@ type Downloader struct {
 	off       map[string]bool       // switched-off sites (see siteoff.go)
 	wakes     map[string]chan struct{}
 	stops     map[int64]bool // searches asked to stop (paused or removed) before their next post
+	runs      map[int64]bool // searches being worked now (run)
 	// A search's page request in flight: canceled when it's asked to stop (a
 	// site that hangs would otherwise hold its queue until the request times out).
 	pageCancel map[int64]context.CancelFunc
@@ -129,7 +130,7 @@ type Downloader struct {
 func New(ctx context.Context, lib *library.Library, d *db.DB, plugins map[string]plugin.Manifest,
 	secrets plugin.Secrets, log *slog.Logger) (*Downloader, error) {
 	sites := map[string]*Site{}
-	dl := &Downloader{lib: lib, db: d, log: log, jitter: rand.Float64, pageRetryWait: 3 * time.Second, pauseAfter: -1, asideEvery: 3 * time.Second, now: time.Now, wakes: map[string]chan struct{}{}, stops: map[int64]bool{}, pageCancel: map[int64]context.CancelFunc{}, due: make(chan struct{}, 1), off: map[string]bool{},
+	dl := &Downloader{lib: lib, db: d, log: log, jitter: rand.Float64, pageRetryWait: 3 * time.Second, pauseAfter: -1, asideEvery: 3 * time.Second, now: time.Now, wakes: map[string]chan struct{}{}, stops: map[int64]bool{}, runs: map[int64]bool{}, pageCancel: map[int64]context.CancelFunc{}, due: make(chan struct{}, 1), off: map[string]bool{},
 		retryWaits: []time.Duration{time.Minute, 5 * time.Minute, 30 * time.Minute, 2 * time.Hour, 6 * time.Hour},
 		fileWaits:  []time.Duration{2 * time.Second, 10 * time.Second}, Solver: plugin.NewSolver()}
 	removed := dl.idList(ctx, "removedSites") // built-in sites the user removed
@@ -415,6 +416,19 @@ func (d *Downloader) RunQueue(ctx context.Context, site string) error {
 // run works one search until it is done, fails, or ctx ends (then it stays
 // "running" and resumes on the next start).
 func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
+	d.mu.Lock()
+	d.runs[s.ID] = true
+	d.mu.Unlock()
+	defer func() {
+		d.mu.Lock()
+		delete(d.runs, s.ID)
+		delete(d.stops, s.ID)
+		d.mu.Unlock()
+	}()
+	// Removed since the queue picked it (Remove stops only a search it sees running): nothing to do.
+	if err := d.db.R.QueryRowContext(ctx, "SELECT 1 FROM searches WHERE id = ?", s.ID).Scan(new(int)); errors.Is(err, sql.ErrNoRows) {
+		return
+	}
 	if s.State == StateQueued {
 		s.State = StateRunning
 		d.db.W.ExecContext(ctx, "UPDATE searches SET state = 'running', started_at = ? WHERE id = ? AND state = 'queued'",

@@ -34,6 +34,21 @@ func (d *Downloader) stop(id int64) {
 	}
 }
 
+// stopRunning stops a search that is being worked now (none: nothing to remember - a stop left behind would stop
+// a new search given the same id).
+func (d *Downloader) stopRunning(id int64) {
+	d.mu.Lock()
+	var cancel context.CancelFunc
+	if d.runs[id] {
+		d.stops[id] = true
+		cancel = d.pageCancel[id]
+	}
+	d.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
 // trackPage notes (cancel set) or forgets (nil) a search's page request in
 // flight. Asked to stop already: canceled straight away.
 func (d *Downloader) trackPage(id int64, cancel context.CancelFunc) {
@@ -103,16 +118,17 @@ func (d *Downloader) Resume(ctx context.Context, id int64) error {
 // flight). Its downloaded files stay in the library. Removing a
 // subscription's check skips that check: the next one is a full interval away.
 func (d *Downloader) Remove(ctx context.Context, id int64) error {
-	d.stop(id)
+	// Gone first, then stopped: stopped first, its run could end and the queue pick it up again (still running) before
+	// it was gone - a new run nothing stopped, its page hanging until it timed out (CI saw it).
 	var sub sql.NullInt64
 	err := d.db.W.QueryRowContext(ctx, "DELETE FROM searches WHERE id = ? RETURNING subscription_id", id).Scan(&sub)
 	if errors.Is(err, sql.ErrNoRows) {
-		d.stopped(id, true)
 		return ErrNoSearch
 	}
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
+	d.stopRunning(id)
 	if sub.Valid {
 		if _, err := d.db.W.ExecContext(ctx, "UPDATE subscriptions SET next_check_at = ? + interval_s * 1000 + CAST(min(interval_s * 100, 1800000) * ? AS INTEGER) WHERE id = ?",
 			d.now().UnixMilli(), d.jitter(), sub.Int64); err != nil {
