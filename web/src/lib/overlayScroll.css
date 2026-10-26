@@ -1,0 +1,51 @@
+/* The floating scrollbar (overlayScroll.ts, with a mouse): the scroller's own bar
+   hidden (it took room and shifted the page as it came and went); a thin thumb
+   over the content at its edge, shown while scrolling or pointed at. */
+.oscroll-host,
+.oscroll-page,
+.oscroll-page body {
+  scrollbar-width: none;
+}
+.oscroll-host::-webkit-scrollbar,
+.oscroll-page::-webkit-scrollbar,
+.oscroll-page body::-webkit-scrollbar {
+  display: none;
+}
+.oscroll {
+  position: absolute;
+  z-index: 30;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 32%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.25s,
+    width 0.15s,
+    height 0.15s,
+    background-color 0.15s;
+}
+.oscroll.y {
+  width: 6px;
+}
+.oscroll.x {
+  height: 6px;
+}
+/* (the page's: over everything, with the window) */
+.oscroll.page {
+  position: fixed;
+  z-index: 60;
+}
+.oscroll.on {
+  opacity: 1;
+  pointer-events: auto;
+}
+.oscroll.y:hover,
+.oscroll.y.drag {
+  width: 10px;
+  background: color-mix(in srgb, var(--text) 50%, transparent);
+}
+.oscroll.x:hover,
+.oscroll.x.drag {
+  height: 10px;
+  background: color-mix(in srgb, var(--text) 50%, transparent);
+}

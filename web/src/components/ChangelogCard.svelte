@@ -10,7 +10,8 @@
   let { given = null }: { given?: ChangelogVersion[] | null } = $props();
   let builtIn = $state<ChangelogVersion[] | null>(null);
   let failed = $state(false);
-  let versions = $derived(given ?? builtIn);
+  // (a version with nothing in it - "Unreleased" just after a release - isn't shown: an empty card)
+  let versions = $derived((given ?? builtIn)?.filter((v) => v.intro.length || v.items.length || v.groups.some((g) => g.items.length)) ?? null);
 
   $effect(() => {
     if (given) return;

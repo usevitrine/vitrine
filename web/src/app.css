@@ -1,38 +1,8 @@
-/* Vitrine: Catppuccin Mocha only, accent Mauve. Sizes follow the input
-   device, not the window: compact with a mouse, finger-sized on touch. */
+/* Vitrine: Catppuccin Mocha only, accent Mauve (the colors: lib/tokens.css, shared with the website). Sizes follow
+   the input device, not the window: compact with a mouse, finger-sized on touch. */
+@import './lib/tokens.css';
+
 :root {
-  --crust: #11111b;
-  --mantle: #181825;
-  --base: #1e1e2e;
-  --surface0: #313244;
-  --surface1: #45475a;
-  --surface2: #585b70;
-  --overlay0: #6c7086;
-  --overlay1: #7f849c;
-  --text: #cdd6f4;
-  --subtext: #a6adc8;
-  --mauve: #cba6f7;
-  --lavender: #b4befe;
-  --green: #a6e3a1;
-  --yellow: #f9e2af;
-  --red: #f38ba8;
-  --blue: #89b4fa;
-  --peach: #fab387;
-  --teal: #94e2d5;
-  --sky: #89dceb;
-  --flamingo: #f2cdcd;
-  --maroon: #eba0ac;
-  --pink: #f5c2e7;
-  --sapphire: #74c7ec;
-
-  /* Tag namespaces: each its own color (booru-like: artists red, characters
-     green, series purple, meta orange, general tags blue). */
-  --tag-general: var(--blue);
-  --tag-creator: var(--red);
-  --tag-character: var(--green);
-  --tag-series: var(--mauve);
-  --tag-meta: var(--peach);
-
   /* Mouse (fine pointer): compact. */
   --control-h: 32px;
   --font: 14px;
@@ -485,37 +455,6 @@ a {
 }
 
 
-/* The floating scrollbar (lib/overlayScroll, with a mouse): the scroller's own bar
-   hidden (it took room and shifted the page as it came and went); a thin thumb
-   over the content at the right edge, shown while scrolling or pointed at. */
-.oscroll-host {
-  scrollbar-width: none;
-}
-.oscroll-host::-webkit-scrollbar {
-  display: none;
-}
-.oscroll {
-  position: absolute;
-  z-index: 30;
-  width: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 32%, transparent);
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    opacity 0.25s,
-    width 0.15s,
-    background-color 0.15s;
-}
-.oscroll.on {
-  opacity: 1;
-  pointer-events: auto;
-}
-.oscroll:hover,
-.oscroll.drag {
-  width: 10px;
-  background: color-mix(in srgb, var(--text) 50%, transparent);
-}
 
 /* Menus with pages (lib/pages.svelte.ts): the pages stack in one grid cell, so
    the old and the new can cross; the box's height follows the new page. */

@@ -2,7 +2,7 @@
 
 How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per input device, layout, gestures, the shared building blocks (controls, cards, menus, sheets, dropdowns, spinners), motion, hover, hints, icons and the logo. Read this before any UI work.
 
-## Tokens (web/src/app.css)
+## Tokens (web/src/app.css; the colors in web/src/lib/tokens.css, shared with the website)
 - **Colors**: Catppuccin Mocha only (no light theme). Surfaces `--crust` #11111b, `--mantle` #181825, `--base` #1e1e2e
   (the page), `--surface0/1/2` (#313244 / #45475a / #585b70: fills, borders), `--overlay0/1`; text `--text` #cdd6f4,
   muted `--subtext` #a6adc8. **Accent `--mauve` #cba6f7** (primary buttons, focus, selection, links in the app);

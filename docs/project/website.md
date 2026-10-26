@@ -57,6 +57,16 @@ comics page, the downloader, etc, a mix of serious and unserious."
 - The demo page has its own title and description, and a short text about it that search engines can read.
 
 ## Building and deploying (decided 2026-10-26)
+- **The app's own code, not copies** (the user, 2026-10-26: "why isnt the demo reusing code from the project?" -> a
+  git submodule): the site repository has this one as a submodule at `app/` and uses its colors
+  (`web/src/lib/tokens.css`), its logo (`Logo.svelte`, through Astro's Svelte support) and its floating scrollbar
+  (`lib/overlayScroll.ts`: element mode for the app, `'page'` and sideways modes for the site); the demo is built from
+  the same checkout. The icons come from the same Lucide package (the site's own component, its own names). A change
+  here reaches the site when its submodule is moved on.
+- **The demo's library and the screenshots**: `tools/demolib` builds the library (cached downloads in
+  %LOCALAPPDATA%VitrineDemo; every artwork, comic and clip looked at by eye - nudes, a shunga-style print and a
+  propaganda poster left out by ID, Little Nemo only from 1905: from 1906 it has a racist caricature); `tools/siteshots`
+  takes every screen at desktop (1920x1080) and phone (390x792 @2x) widths into the site's `src/assets/shots`.
 - **Its own repository** (the user): `usevitrine/vitrine.software`, public, with the same git identity as the app.
 - **Astro 6, fully static** (no adapter): pages rendered to HTML at build time; `astro:assets` `<Picture>` for
   AVIF/WebP in several sizes; `@astrojs/sitemap`; Plus Jakarta Sans self-hosted; animations in CSS and the browser's

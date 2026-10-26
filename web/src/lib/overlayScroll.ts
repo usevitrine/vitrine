@@ -1,41 +1,67 @@
 // A scrollbar that floats over the content (with a mouse): the browser's own
 // takes room when it appears, so the page shifted sideways as it came and went.
-// A thin thumb at the right edge, shown while scrolling and when the pointer
-// comes near (wider under it, so it's easy to grab), dragged to scroll; gone
-// when idle or when there's nothing to scroll. Touch screens keep their own
-// (it floats there already). Use as {@attach overlayScroll} on the scroller;
-// its native bar is hidden by the .oscroll-host class (app.css).
+// A thin thumb at the edge, shown while scrolling and when the pointer comes
+// near (wider under it, so it's easy to grab), dragged to scroll; gone when idle
+// or when there's nothing to scroll. Touch screens keep their own (it floats
+// there already). Use as {@attach overlayScroll} on the scroller; its native bar
+// is hidden by the .oscroll-host class (overlayScroll.css). The website
+// (vitrine.software) uses it too: overlayScroll('page') for the page itself (a
+// thumb along the window's right, under its header.top), overlayScroll(el, 'x')
+// for a box that scrolls sideways (a thumb along its bottom).
+import './overlayScroll.css';
+
 const fine = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-export function overlayScroll(el: HTMLElement) {
+export function overlayScroll(target: HTMLElement | 'page', axis: 'x' | 'y' = 'y') {
   if (!fine()) return;
-  const host = el.parentElement;
+  const page = target === 'page';
+  const el = page ? document.documentElement : target;
+  const host = page ? document.body : el.parentElement;
   if (!host) return;
-  el.classList.add('oscroll-host');
-  if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+  el.classList.add(page ? 'oscroll-page' : 'oscroll-host');
+  if (!page && getComputedStyle(host).position === 'static') host.style.position = 'relative';
   const thumb = document.createElement('div');
-  thumb.className = 'oscroll';
+  thumb.className = `oscroll ${axis}${page ? ' page' : ''}`;
   thumb.setAttribute('aria-hidden', 'true'); // the page scrolls with the wheel, keys and touch as ever
   host.appendChild(thumb);
 
+  const view = () => (axis === 'x' ? el.clientWidth : page ? innerHeight : el.clientHeight);
+  const full = () => (axis === 'x' ? el.scrollWidth : el.scrollHeight);
+  const at = () => (axis === 'x' ? el.scrollLeft : page ? scrollY : el.scrollTop);
+  // (instantly: a page that scrolls smoothly for its links cut each step of a drag short)
+  const go = (v: number) => (page ? window : el).scrollTo(axis === 'x' ? { left: v, behavior: 'instant' } : { top: v, behavior: 'instant' });
+  // The page's thumb runs from under its header to the bottom of the window.
+  const head = () => (page ? (document.querySelector<HTMLElement>('header.top')?.offsetHeight ?? 0) : 0);
+  const track = () => (page ? innerHeight - head() : view());
+
   let hideTimer = 0;
-  let dragging: { y: number; top: number } | null = null;
+  let dragging: { p: number; at: number } | null = null;
   let near = false;
 
   function place() {
-    const max = el.scrollHeight - el.clientHeight;
+    const max = full() - view();
     if (max <= 1) {
       thumb.classList.remove('on');
       thumb.style.display = 'none';
       return;
     }
     thumb.style.display = '';
-    const h = el.clientHeight;
-    const size = Math.max(32, (h * h) / el.scrollHeight);
-    const at = (el.scrollTop / max) * (h - size);
-    thumb.style.height = `${size}px`;
-    thumb.style.top = `${el.offsetTop + at}px`;
-    thumb.style.right = `${host!.clientWidth - (el.offsetLeft + el.clientWidth) + 2}px`;
+    const len = track();
+    const size = Math.max(32, (len * view()) / full());
+    const off = (at() / max) * (len - size);
+    if (axis === 'x') {
+      thumb.style.width = `${size}px`;
+      thumb.style.left = `${el.offsetLeft + off}px`;
+      thumb.style.top = `${el.offsetTop + el.clientHeight - 8}px`;
+    } else if (page) {
+      thumb.style.height = `${size}px`;
+      thumb.style.top = `${head() + off}px`;
+      thumb.style.right = '2px';
+    } else {
+      thumb.style.height = `${size}px`;
+      thumb.style.top = `${el.offsetTop + off}px`;
+      thumb.style.right = `${host!.clientWidth - (el.offsetLeft + el.clientWidth) + 2}px`;
+    }
   }
   function show() {
     place();
@@ -46,11 +72,14 @@ export function overlayScroll(el: HTMLElement) {
   }
 
   const onScroll = () => show();
-  // The pointer near the right edge: it shows (and stays while it's there).
+  // The pointer near the edge the thumb runs along: it shows (and stays while it's there).
   const onMove = (e: PointerEvent) => {
-    const r = el.getBoundingClientRect();
+    const r = page ? new DOMRect(0, head(), innerWidth, innerHeight - head()) : el.getBoundingClientRect();
     const was = near;
-    near = e.clientX > r.right - 24 && e.clientX <= r.right + 2 && e.clientY >= r.top && e.clientY <= r.bottom;
+    near =
+      axis === 'x'
+        ? e.clientY > r.bottom - 20 && e.clientY <= r.bottom + 2 && e.clientX >= r.left && e.clientX <= r.right
+        : e.clientX > r.right - 24 && e.clientX <= r.right + 2 && e.clientY >= r.top && e.clientY <= r.bottom;
     if (near) show();
     else if (was) show(); // starts the fade
   };
@@ -58,19 +87,19 @@ export function overlayScroll(el: HTMLElement) {
     near = false;
     show();
   };
+  const coord = (e: PointerEvent) => (axis === 'x' ? e.clientX : e.clientY);
   const onDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    dragging = { y: e.clientY, top: el.scrollTop };
+    dragging = { p: coord(e), at: at() };
     thumb.setPointerCapture(e.pointerId);
     thumb.classList.add('drag');
   };
   const onDrag = (e: PointerEvent) => {
     if (!dragging) return;
-    const size = thumb.offsetHeight;
-    const room = el.clientHeight - size;
+    const room = track() - (axis === 'x' ? thumb.offsetWidth : thumb.offsetHeight);
     if (room <= 0) return;
-    el.scrollTop = dragging.top + ((e.clientY - dragging.y) / room) * (el.scrollHeight - el.clientHeight);
+    go(dragging.at + ((coord(e) - dragging.p) / room) * (full() - view()));
   };
   const onUp = () => {
     dragging = null;
@@ -78,9 +107,11 @@ export function overlayScroll(el: HTMLElement) {
     show();
   };
 
-  el.addEventListener('scroll', onScroll, { passive: true });
-  el.addEventListener('pointermove', onMove);
-  el.addEventListener('pointerleave', onLeave);
+  const scroller: Window | HTMLElement = page ? window : el;
+  const pointer: HTMLElement = page ? document.documentElement : el;
+  scroller.addEventListener('scroll', onScroll, { passive: true });
+  pointer.addEventListener('pointermove', onMove);
+  pointer.addEventListener('pointerleave', onLeave);
   thumb.addEventListener('pointerdown', onDown);
   thumb.addEventListener('pointermove', onDrag);
   thumb.addEventListener('pointerup', onUp);
@@ -89,23 +120,26 @@ export function overlayScroll(el: HTMLElement) {
   thumb.addEventListener('pointerleave', () => ((near = false), show()));
   // The content or the window changing size moves it (nothing to scroll: gone).
   const ro = new ResizeObserver(() => place());
-  ro.observe(el);
-  for (const c of el.children) ro.observe(c);
+  const watched = page ? document.body : el;
+  ro.observe(watched);
+  for (const c of watched.children) ro.observe(c);
   const mo = new MutationObserver(() => {
-    for (const c of el.children) ro.observe(c);
+    for (const c of watched.children) ro.observe(c);
     place();
   });
-  mo.observe(el, { childList: true });
+  mo.observe(watched, { childList: true });
+  addEventListener('resize', place, { passive: true });
   place();
 
   return () => {
     clearTimeout(hideTimer);
-    el.removeEventListener('scroll', onScroll);
-    el.removeEventListener('pointermove', onMove);
-    el.removeEventListener('pointerleave', onLeave);
+    scroller.removeEventListener('scroll', onScroll);
+    pointer.removeEventListener('pointermove', onMove);
+    pointer.removeEventListener('pointerleave', onLeave);
+    removeEventListener('resize', place);
     ro.disconnect();
     mo.disconnect();
     thumb.remove();
-    el.classList.remove('oscroll-host');
+    el.classList.remove('oscroll-host', 'oscroll-page');
   };
 }
