@@ -117,7 +117,8 @@ The user: "one thing i definitely want is a demo of vitrine on the site".
   search syntax and order works exactly as in the app - nothing rewritten in TypeScript.
 - **The app in demo mode** (`npm run build:demo <snapshot folder>` -> `web/dist-demo`; vite `--mode demo`, base
   `/demo/app/`): `src/demo/backend.ts` takes the app's `/api/` fetches and answers from the engine, or with what a
-  library of only those files says (no sites' downloads, notices, relations; saved searches kept for the visit); no
+  library of only those files says (no sites' downloads, notices, relations; saved searches kept for the visit;
+  videos with their sound - `startMuted` off, the user: "make sure videos arent muted by default on the demo"); no
   service worker, install offer, version check or live events. `lib/demo.ts`'s `DEMO` hides the menu, Downloads and
   the bell. The router knows the base (`import.meta.env.BASE_URL`), so the app works in a folder.
 - **The snapshot**: `tools/demosnap` from demolib's library -> `snapshot.json` (`internal/demo.Snapshot`: namespaces,

@@ -22,8 +22,11 @@ test('demo: the media screen with no server - search, details, an edit for the v
   await box.fill('sintel');
   await page.getByRole('option', { name: /sintel, 5/ }).first().click();
   await expect(page.getByText(/^5 files/)).toBeVisible();
-  // The details: tags by kind, where it's from.
+  // The details: tags by kind, where it's from. A clip plays with its sound (the demo's videos aren't muted).
   await page.locator('.tile').first().click();
+  const video = page.locator('.viewer .slide[data-slot="1"] video');
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused)).toBe(true);
+  expect(await video.evaluate((v: HTMLVideoElement) => v.muted)).toBe(false);
   await page.getByRole('button', { name: 'Details', exact: true }).click();
   const panel = page.getByRole('complementary', { name: 'Details' });
   await expect(panel.getByText('blender.org', { exact: true }).first()).toBeVisible();

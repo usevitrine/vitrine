@@ -17,8 +17,9 @@ import { demoIcons } from '../lib/demo';
 
 const base = import.meta.env.BASE_URL; // (the demo's folder: its media, snapshot and engine are beside it)
 
-// The shared settings as a fresh demo library has them: the first steps done, safe for work (no "I came").
-const settings: Record<string, unknown> = { welcome: 'finished', sfwMode: true, cameButton: false, updateCheck: false, hoverPreview: true };
+// The shared settings as a fresh demo library has them: the first steps done, safe for work (no "I came"), videos with
+// their sound (opening one is a tap, so the browser lets it play; where it doesn't, the app plays it muted and offers sound).
+const settings: Record<string, unknown> = { welcome: 'finished', sfwMode: true, cameButton: false, updateCheck: false, hoverPreview: true, startMuted: false };
 
 let engine: Wasm;
 
