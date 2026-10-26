@@ -5863,6 +5863,9 @@ test('"I came" button (off by default): counted in the viewer with Undo; Ranking
   test.skip(isPhone(page), 'keys; the same button on phones');
   const set = (v: boolean) =>
     page.evaluate((v) => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cameButton: v }) }), v);
+  // (nothing counted to start with: another test on this server may have pressed it - the video test does)
+  await page.goto('/api/health');
+  await page.evaluate(() => fetch('/api/climax/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }));
   // Off: no button, no Rankings in the menu.
   await page.goto('/?q=blue_sky');
   await page.locator('.tile[data-i="0"]').click();
