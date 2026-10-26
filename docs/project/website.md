@@ -1,8 +1,13 @@
 # The website (vitrine.software)
 
 **Live since 2026-10-26** at https://vitrine.software (and www): the repository `usevitrine/vitrine.software`
-(public), deployed by its GitHub Actions workflow on every push to main; the demo from its `demo` release
-(`vitrine-demo.tar.gz`, replaced with `gh release upload demo <file> --clobber`, then a push or a re-run deploys it).
+(public), deployed by its GitHub Actions workflow on every push to main. **The demo follows the app by itself**
+(2026-10-26, the user: "when we update the app the demo updates with it?" - it didn't): every deploy builds it from
+the `app/` submodule (`npm run build:demo` with Go and Node in CI), only its library - `demo-library.tar.gz`, demosnap's
+`snapshot.json` and `media/` - from the site's `demo` release; `update-app.yml` checks daily for a new Vitrine release,
+moves the submodule to its tag and starts a deploy (a push by the workflow's token starts no workflow). A release
+reaches the site within a day; a new library is uploaded by hand (`gh release upload demo ... --clobber`). The
+snapshot format (`internal/demo.Snapshot`) must stay readable by newer engines - a change to it means a new library.
 
 The plan for the project's website at https://vitrine.software (its DNS is on Cloudflare). Features first, then how it's built and deployed (not decided yet).
 
