@@ -1,7 +1,10 @@
 # The website (vitrine.software)
 
-The plan for the project's website at https://vitrine.software (the domain is registered; its DNS is on Cloudflare,
-nothing is served yet). Features first, then how it's built and deployed (not decided yet).
+**Live since 2026-10-26** at https://vitrine.software (and www): the repository `usevitrine/vitrine.software`
+(public), deployed by its GitHub Actions workflow on every push to main; the demo from its `demo` release
+(`vitrine-demo.tar.gz`, replaced with `gh release upload demo <file> --clobber`, then a push or a re-run deploys it).
+
+The plan for the project's website at https://vitrine.software (its DNS is on Cloudflare). Features first, then how it's built and deployed (not decided yet).
 
 ## Look, tone, pages (decided 2026-10-26)
 The user: "i want it beautiful, same color scheme as the app, lots of fancy animations, images of the media page,
