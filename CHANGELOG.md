@@ -5,6 +5,8 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+## 1.0.5 - 2026-10-26
+
 ### New
 
 - **Erase every trace of a removed site**: after removing a site, Vitrine offers to wipe it from the server completely - the files only it gave, its tags and links on the rest, its downloads, subscriptions, history, deletion records, notices, login and log lines, and its entries in menus, filters and saved searches. Files another site also gave stay. Older backups go too if you tick the box. Deletion records from before this version can't be traced to a site and stay.
