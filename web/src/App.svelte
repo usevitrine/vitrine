@@ -62,6 +62,7 @@
     if (settings.welcome && settings.welcome !== 'finished') want('firstSteps');
   });
   $effect(() => {
+    if (DEMO) return; // (the website's demo shows the media screen only: the others would load for nothing)
     const t = setTimeout(() => (Object.keys(loaders) as Lazy[]).forEach(want), 3000);
     return () => clearTimeout(t);
   });
