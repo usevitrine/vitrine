@@ -571,7 +571,9 @@ func build(ctx context.Context, dir string, art []artwork, clips []clip, comics 
 		}
 		return lib.SetSitePost(ctx, f.ID, id, p)
 	}
-	// Interleaved, so the newest-first grid mixes paintings, prints, photographs and clips.
+	// Interleaved, so the newest-first grid mixes paintings, prints, photographs and clips; in reverse, so it opens on
+	// the first searches' (impressionist landscapes, woodblock prints) - the screenshots' and the demo's first rows.
+	slices.Reverse(art)
 	ci := 0
 	for i, a := range art {
 		if err := add("artic", a.File, a.post()); err != nil {
