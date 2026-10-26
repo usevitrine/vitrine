@@ -220,10 +220,15 @@ func (u *updates) fetchChangelog(ctx context.Context, tag string) (string, error
 	return string(b), err
 }
 
-// parseVersion reads "v1.2.3" (or "1.2.3"); anything else (dev, test-abc123, a pre-release) isn't one.
-func parseVersion(v string) ([3]int, bool) {
-	var out [3]int
-	parts := strings.Split(strings.TrimPrefix(strings.TrimSpace(v), "v"), ".")
+// parseVersion reads "v1.2.3" (or "1.2.3"), and "v1.2.3-hotfix" - a fix of 1.2.3, newer than it, older than 1.2.4
+// (the fourth number); anything else (dev, test-abc123, a pre-release) isn't one.
+func parseVersion(v string) ([4]int, bool) {
+	var out [4]int
+	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
+	if base, ok := strings.CutSuffix(v, "-hotfix"); ok {
+		v, out[3] = base, 1
+	}
+	parts := strings.Split(v, ".")
 	if len(parts) != 3 {
 		return out, false
 	}

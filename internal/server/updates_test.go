@@ -33,6 +33,11 @@ func TestNewerVersion(t *testing.T) {
 		{"v1.0.2", "dev", false},          // a development build is never behind
 		{"v1.0.2", "test-86eb879", false}, // the dev server's builds
 		{"v1.0.2-rc1", "v1.0.1", false},   // a pre-release isn't one
+		// A hotfix: newer than its version, older than the next.
+		{"v1.0.3-hotfix", "v1.0.3", true},
+		{"v1.0.4", "v1.0.3-hotfix", true},
+		{"v1.0.3-hotfix", "v1.0.3-hotfix", false},
+		{"v1.0.3", "v1.0.3-hotfix", false},
 		{"", "v1.0.1", false},
 	} {
 		if got := newerVersion(c.latest, c.current); got != c.want {

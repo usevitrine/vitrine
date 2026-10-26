@@ -53,5 +53,7 @@ for c in "$iscc" "${LOCALAPPDATA:-}/Programs/Inno Setup 6/ISCC.exe" "/c/Program 
   if [ -n "$c" ] && [ -f "$c" ]; then iscc=$c; break; fi
 done
 [ -f "$iscc" ] || { echo "Inno Setup 6 (ISCC.exe) not found; set ISCC" >&2; exit 1; }
-"$iscc" -Q "-DVersion=$version" "-DStage=$(cygpath -w "$stage")" "-O$(cygpath -w "$out")" "$(cygpath -w "$here/vitrine.iss")"
+# (the file's version is numbers only: 1.2.3-hotfix -> 1.2.3.1)
+num=${version%%-*}.0; [[ "$version" != *-hotfix ]] || num=${version%%-*}.1
+"$iscc" -Q "-DVersion=$version" "-DNumVersion=$num" "-DStage=$(cygpath -w "$stage")" "-O$(cygpath -w "$out")" "$(cygpath -w "$here/vitrine.iss")"
 echo "$out/Vitrine-Setup-$version-x64.exe"

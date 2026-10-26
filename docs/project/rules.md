@@ -41,5 +41,6 @@ examples are written; how decisions are recorded.
   `### New` (features), `### Improved` (better at what it did), `### Fixed` (bugs) - in that order, a section only
   when it has lines (the user, 2026-10-25: "i want the changes sorted into different section such as bug fixes new
   features"). An item mixing kinds is split. At a release that heading becomes `## <version> - <date>` in the same
-  commit the tag goes on, and a new `## Unreleased` starts empty. The app shows the sections as headings
+  commit the tag goes on, and a new `## Unreleased` starts empty (a hotfix: `## X.Y.Z-hotfix - <date>`, the tag
+  `vX.Y.Z-hotfix`). The app shows the sections as headings
   (`lib/changelog`'s groups) and `` `code` `` as code; a version before 1.0.3 reads them as plain lines.

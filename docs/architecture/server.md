@@ -150,7 +150,10 @@ system tray icon etc." - for this user only ("Just me"), phones allowed by defau
   Windows runner (names there ignore case), so the installer shipped the command line as Vitrine.exe (console
   subsystem; run without a command it printed its usage and shut). Now `windows/tray/` and `windows/cli/`, and
   `build.sh` refuses the same file twice. (The local test install had been built from two separate paths, so it
-  never showed.)
+  never showed.) Released as **v1.0.3-hotfix** (the user: "give it a release tag that indiciates that its a hotfix"):
+  `deploy.local.sh release hotfix` tags `v<last>-hotfix`; the installer's file version is numbers only
+  (`NumVersion`, 1.0.3.1). Docker's `:1` and `:1.0` don't move to a hotfix (metadata-action treats the suffix as a
+  pre-release) - fine while hotfixes fix the Windows programs only.
 - Tested on Windows 11 (2026-10-25): silent install into scratch folders, the server up, the command line finding
   the bundled tools, --quit, the in-app update, a clean uninstall; the wizard's pages checked by screenshot.
   Note: the local socket's path must stay under ~108 characters (Windows' AF_UNIX limit) - a very deep data folder
@@ -191,7 +194,8 @@ waits before the server comes back up and fades the site back into view". `inter
 - **The check**: once a day (3 min after the start, then hourly checks for a day-old answer) the server asks GitHub's
   API for the latest release (`releases_url`, default `api.github.com/repos/usevitrine/vitrine/releases/latest`;
   "off" never asks - the end-to-end test servers) - only with the shared setting `updateCheck` (missing = on;
-  Settings > Updates). A newer `vX.Y.Z` than this program: `GET /api/update` says so (`newer`, `latest`,
+  Settings > Updates). A newer `vX.Y.Z` than this program (or `vX.Y.Z-hotfix`: a fix of X.Y.Z, newer than it and older
+  than X.Y.Z+1 - the user chose the name, 2026-10-26; a pre-release isn't one): `GET /api/update` says so (`newer`, `latest`,
   `page`, and `changelog`: that release's CHANGELOG.md, read from `changelog_url` - default the repository's on GitHub
   at the tag, raw.githubusercontent.com; a failure there still offers the update), and the bell gets a notice, once per version (kind `release`, the notice kind "A new Vitrine release",
   leading to Settings > Updates). Development builds (`dev`, the dev server's `test-...`) are never behind.

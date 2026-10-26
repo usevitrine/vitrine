@@ -52,10 +52,11 @@ export function readChangelog(md: string): ChangelogVersion[] {
   return out;
 }
 
-/** A section title's version ("1.0.2 - 2026-11-01" -> [1, 0, 2]); none for "Unreleased". */
+/** A section title's version ("1.0.2 - 2026-11-01" -> [1, 0, 2, 0]; a hotfix, "1.0.2-hotfix", one past it:
+ *  [1, 0, 2, 1]); none for "Unreleased". */
 function versionOf(s: string): number[] | null {
-  const m = s.trim().match(/^v?(\d+)\.(\d+)\.(\d+)/);
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+  const m = s.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(-hotfix)?/);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3]), m[4] ? 1 : 0] : null;
 }
 
 /** The released versions in a changelog newer than the installed one (newest first, as written). */
@@ -65,7 +66,7 @@ export function newerThan(versions: ChangelogVersion[], installed: string): Chan
   return versions.filter((v) => {
     const n = versionOf(v.title);
     if (!n) return false;
-    for (let i = 0; i < 3; i++) if (n[i] !== now[i]) return n[i] > now[i];
+    for (let i = 0; i < 4; i++) if (n[i] !== now[i]) return n[i] > now[i];
     return false;
   });
 }

@@ -12,6 +12,9 @@
 #ifndef Version
   #define Version "0.0.0"
 #endif
+#ifndef NumVersion
+  #define NumVersion "0.0.0.0"
+#endif
 #ifndef Stage
   #error Stage (the folder with the files to install) is not set
 #endif
@@ -28,7 +31,7 @@ AppPublisherURL=https://vitrine.software
 AppSupportURL=https://github.com/usevitrine/vitrine/issues
 AppUpdatesURL=https://github.com/usevitrine/vitrine/releases
 AppCopyright=Vitrine contributors, AGPL-3.0-or-later
-VersionInfoVersion={#Version}
+VersionInfoVersion={#NumVersion}
 PrivilegesRequired=lowest
 DefaultDirName={autopf}\Vitrine
 DisableProgramGroupPage=yes
