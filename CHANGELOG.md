@@ -8,7 +8,6 @@ shows this too (Settings > Updates).
 ### Improved
 
 - **Site filter** (Sort and filters > From): only the sites your files came from are listed, and comic sites no longer show in the media's.
-
 - **No more "Tap for sound" button**: when the browser won't play a video with sound (an iPhone, after a swipe), it plays muted without a button over it - the speaker in the controls shows it and turns the sound on.
 
 ### Fixed
