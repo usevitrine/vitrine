@@ -13,6 +13,9 @@ VIPS_URL=https://github.com/libvips/build-win64-mxe/releases/download/v8.18.7/vi
 VIPS_SHA256=a736af61d3b46499760efa606e469cb14e060445b1f6fd36a1fa2e75009e1197
 
 version=${1#v}; gui=$2; cli=$3; out=$4
+# (the same file twice - e.g. one replaced by the other on Windows, which doesn't tell their names apart: Vitrine.exe
+# would be the command line, which shuts at once)
+if cmp -s "$gui" "$cli"; then echo "$gui and $cli are the same program: Vitrine.exe must be the notification-area build" >&2; exit 1; fi
 here=$(cd "$(dirname "$0")" && pwd); root=$(cd "$here/../.." && pwd)
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
 cache=${VITRINE_DL_CACHE:-$work/dl}; mkdir -p "$cache" "$out"

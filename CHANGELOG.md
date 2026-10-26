@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Updates).
 
+## Unreleased
+
+### Fixed
+
+- **Windows installer**: Vitrine opens after installing (1.0.3's installer put the command-line program in its place, which closed at once).
+
 ## 1.0.3 - 2026-10-26
 
 ### New

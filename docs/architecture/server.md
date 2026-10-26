@@ -145,6 +145,12 @@ system tray icon etc." - for this user only ("Just me"), phones allowed by defau
   Uninstalling stops it, removes the PATH entry, the sign-in entry, the firewall rule, and asks (default No) whether
   to delete the library folder - folders outside it (the originals, backups) are asked about one by one. Not
   code-signed: SmartScreen warns (unknown publisher).
+- **The two programs in folders of their own in the release workflow (2026-10-26, the user: "it doesnt open")**:
+  1.0.3's `windows` artifact held `Vitrine.exe` and `vitrine.exe` side by side - two files on Linux, one on the
+  Windows runner (names there ignore case), so the installer shipped the command line as Vitrine.exe (console
+  subsystem; run without a command it printed its usage and shut). Now `windows/tray/` and `windows/cli/`, and
+  `build.sh` refuses the same file twice. (The local test install had been built from two separate paths, so it
+  never showed.)
 - Tested on Windows 11 (2026-10-25): silent install into scratch folders, the server up, the command line finding
   the bundled tools, --quit, the in-app update, a clean uninstall; the wizard's pages checked by screenshot.
   Note: the local socket's path must stay under ~108 characters (Windows' AF_UNIX limit) - a very deep data folder
