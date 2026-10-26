@@ -3,6 +3,30 @@
 The plan for the project's website at https://vitrine.software (the domain is registered; its DNS is on Cloudflare,
 nothing is served yet). Features first, then how it's built and deployed (not decided yet).
 
+## Look, tone, pages (decided 2026-10-26)
+The user: "i want it beautiful, same color scheme as the app, lots of fancy animations, images of the media page,
+comics page, the downloader, etc, a mix of serious and unserious."
+
+- **The app's look**: Catppuccin Mocha (mauve accent, peach and green highlights), Plus Jakarta Sans, the app's
+  rounded cards - the site and the demo feel like one thing. Big screenshots in laptop and phone frames, a soft
+  mauve glow behind them.
+- **Lots of animation, all smooth** (reduced motion respected): the hero's wall of thumbnails settling into Rows
+  and the laptop rising out of it; sections sliding in on scroll, screenshots tilting a little and settling flat;
+  the app's own moments (new files dropping into the grid with NEW pills, the Downloads stacks fanning out, a comic
+  cover zooming into the reader, a chip typed and the grid reshuffling); a faint glow following the pointer on
+  cards and buttons; counting numbers.
+- **Screenshots of every part, at desktop and phone widths** (the user): media (Rows, squares), the viewer with
+  details, comics and the reader, Downloads and subscriptions, Duplicates, Tags, Settings > Updates. Taken
+  automatically (Playwright) from a library of the demo's CC0 art and Blender clips plus public-domain comics
+  (e.g. Winsor McCay's Little Nemo, golden-age titles from the Digital Comic Museum) - SFW, legal, consistent, and
+  retaken after a release. The downloader with the safebooru plugin and neutral searches.
+- **Serious and unserious**: straight, confident headlines and facts; the jokes in the small print (e.g. "No cloud.
+  No account. No one judging your 40,000 bookmarks."; a 404 that's an empty grid: "No results for this page. Try
+  fewer tags."). The user: about that much.
+- **Never on the site: the "I came" button** (the user: "no i came button"), nor adult sites or content.
+- **Pages**: the landing page (hero, features, the iPhone app, install, FAQ, footer) and **the demo on a page of its
+  own**, opened by a button in the hero (the user).
+
 ## The demo (decided 2026-10-26)
 The user: "one thing i definitely want is a demo of vitrine on the site".
 
