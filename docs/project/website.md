@@ -32,7 +32,10 @@ comics page, the downloader, etc, a mix of serious and unserious."
   learns a site from a small plugin file; installed and updated in Settings > Sites from the plugin list, or from a
   file; the kinds of site it speaks (booru-style image boards - Gelbooru, Danbooru, Shimmie - gallery sites, and
   Mastodon); "write your own" (a YAML file, no code) linking to the plugins repository. Only SFW sites are named
-  (safebooru, built in; Danbooru's safebooru); the repository's own list, with its adult sites, is a click away.
+  (safebooru, built in; Danbooru's safebooru). The link to the plugins repository says what's there (decided with
+  the user, 2026-10-26): "Plugins for more sites, some of them adult, are in the plugins repository." - no surprise
+  for anyone clicking through (linking it is fine: the repository hosts no content, and a page is judged by its own
+  content, not its links).
 - **Never on the site: the "I came" button** (the user: "no i came button"), nor adult sites or content.
 - **Pages**: the landing page (hero, features, the iPhone app, install, FAQ, footer) and **the demo on a page of its
   own**, opened by a button in the hero (the user).
