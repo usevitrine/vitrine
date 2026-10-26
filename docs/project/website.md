@@ -28,6 +28,11 @@ comics page, the downloader, etc, a mix of serious and unserious."
   by a script only when a person presses "Email us" (copied, or the mail app opened), with a plain hint for people
   without scripts that doesn't spell the address out either. (The address is already in Vitrine's User-Agent and Web
   Push subject in the public repository, so this cuts spam from the site's side only.)
+- **Plugins** (the user, 2026-10-26: "also mention plugins somewhere"): a section in the features - the downloader
+  learns a site from a small plugin file; installed and updated in Settings > Sites from the plugin list, or from a
+  file; the kinds of site it speaks (booru-style image boards - Gelbooru, Danbooru, Shimmie - gallery sites, and
+  Mastodon); "write your own" (a YAML file, no code) linking to the plugins repository. Only SFW sites are named
+  (safebooru, built in; Danbooru's safebooru); the repository's own list, with its adult sites, is a click away.
 - **Never on the site: the "I came" button** (the user: "no i came button"), nor adult sites or content.
 - **Pages**: the landing page (hero, features, the iPhone app, install, FAQ, footer) and **the demo on a page of its
   own**, opened by a button in the hero (the user).
