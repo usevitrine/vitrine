@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -68,7 +69,7 @@ func runTray(args []string) int {
 	t := &tray{l: l, c: c, local: local, phones: phones, done: make(chan struct{})}
 	t.ctx, t.stop = context.WithCancel(context.Background())
 	// The installer's update: started, it waits for this program to go (the mutex), updates it and starts it again.
-	setupName = "Vitrine-Setup-%s-x64.exe"
+	setupName = "Vitrine-Setup-%s-" + setupArch() + ".exe"
 	runSetup = func(path string) error {
 		cmd := exec.Command(path, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART")
 		if err := cmd.Start(); err != nil {
@@ -331,4 +332,14 @@ func setStartAtSignIn(on bool) error {
 		return err
 	}
 	return k.SetStringValue("Vitrine", `"`+self+`" --background`) // (as the installer writes it)
+}
+
+// setupArch is the installer for this computer: arm64 on ARM64 Windows (an x64 Vitrine running there emulated moves
+// to the native one at its next update - the same app, installed over it), else x64.
+func setupArch() string {
+	var process, native uint16
+	if runtime.GOARCH == "arm64" || (windows.IsWow64Process2(windows.CurrentProcess(), &process, &native) == nil && native == 0xAA64) { // (IMAGE_FILE_MACHINE_ARM64)
+		return "arm64"
+	}
+	return "x64"
 }

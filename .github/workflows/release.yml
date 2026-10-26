@@ -1,8 +1,9 @@
 name: Release
 
 # A version tag (v1.2.3) builds the release: the program for every platform (with the web app built in), the
-# Windows installer (packaging/windows), the Docker image (amd64 + arm64) at ghcr.io/usevitrine/vitrine, and a GitHub
-# release with the archives, the installer and checksums.
+# Windows installers (packaging/windows: x64 and arm64), the Docker image (amd64 + arm64) at ghcr.io/usevitrine/vitrine,
+# and a GitHub release with the archives (Linux, macOS), the installers and checksums. (Windows: the installers only -
+# no zips since 1.0.6, the user's choice.)
 on:
   push:
     tags: ['v*']
@@ -49,14 +50,16 @@ jobs:
             exe=vitrine; [ "$os" = windows ] && exe=vitrine.exe
             GOOS="$os" GOARCH="$arch" go build -trimpath -buildvcs=false -ldflags "-s -w -X main.version=$VERSION" -o "build/$name/$exe" ./cmd/vitrine
             cp LICENSE README.md config.example.toml "build/$name/"
-            if [ "$os" = windows ]; then (cd build && zip -qr "../dist/$name.zip" "$name"); else tar -C build -czf "dist/$name.tar.gz" "$name"; fi
+            [ "$os" = windows ] || tar -C build -czf "dist/$name.tar.gz" "$name" # (Windows: in the installers)
           done
           # The installer's notification-area program: the same, without a console. (Each in a folder of its own:
           # Windows doesn't tell Vitrine.exe from vitrine.exe - unpacked there, one replaced the other and 1.0.3's
           # installer had the command line as Vitrine.exe, which shut at once.)
-          mkdir -p windows/tray windows/cli
-          GOOS=windows GOARCH=amd64 go build -trimpath -buildvcs=false -ldflags "-s -w -X main.version=$VERSION -X main.gui=1 -H windowsgui" -o windows/tray/Vitrine.exe ./cmd/vitrine
-          cp "build/vitrine_${VERSION#v}_windows_amd64/vitrine.exe" windows/cli/
+          for arch in amd64 arm64; do
+            mkdir -p "windows/$arch/tray" "windows/$arch/cli"
+            GOOS=windows GOARCH=$arch go build -trimpath -buildvcs=false -ldflags "-s -w -X main.version=$VERSION -X main.gui=1 -H windowsgui" -o "windows/$arch/tray/Vitrine.exe" ./cmd/vitrine
+            cp "build/vitrine_${VERSION#v}_windows_$arch/vitrine.exe" "windows/$arch/cli/"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -79,11 +82,13 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
-      - name: Installer
+      - name: Installers
         shell: bash
         env:
           VERSION: ${{ github.ref_name }}
-        run: packaging/windows/build.sh "$VERSION" windows/tray/Vitrine.exe windows/cli/vitrine.exe dist
+        run: |
+          packaging/windows/build.sh "$VERSION" windows/amd64/tray/Vitrine.exe windows/amd64/cli/vitrine.exe dist x64
+          packaging/windows/build.sh "$VERSION" windows/arm64/tray/Vitrine.exe windows/arm64/cli/vitrine.exe dist arm64
       - uses: actions/upload-artifact@v4
         with:
           name: installer
@@ -143,4 +148,4 @@ jobs:
         run: |
           (cd dist && sha256sum * > SHA256SUMS)
           gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Vitrine ${TAG#v}" --generate-notes \
-            --notes "Docker: \`docker pull ghcr.io/usevitrine/vitrine:${TAG#v}\` (see compose.example.yaml). Windows: Vitrine-Setup-${TAG#v}-x64.exe installs it (with ffmpeg and libvips, in the notification area, updates from the app). Programs for Linux, Windows and macOS below; SHA256SUMS to check them."
+            --notes "Docker: \`docker pull ghcr.io/usevitrine/vitrine:${TAG#v}\` (see compose.example.yaml). Windows: Vitrine-Setup-${TAG#v}-x64.exe installs it (Vitrine-Setup-${TAG#v}-arm64.exe on ARM64 Windows; with ffmpeg and libvips, in the notification area, updates from the app). Programs for Linux and macOS below; SHA256SUMS to check them."

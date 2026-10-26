@@ -107,7 +107,7 @@ but for users, so make sure it's all documented" - the guide is [docs/cli.md](..
 The user: "the ready to run version should be an installer where the user can pick the data folders, adds vitrine
 to path, has a launch at startup option, that adds a shortcut to start menu, packages all the libraries, has a
 system tray icon etc." - for this user only ("Just me"), phones allowed by default, Update from the app.
-- **Two programs from one source**: `bin\vitrine.exe` (the command line, the same as the zip's) and `Vitrine.exe`,
+- **Two programs from one source**: `bin\vitrine.exe` (the command line) and `Vitrine.exe`,
   built with `-ldflags "-X main.gui=1 -H windowsgui"` - no console; `main` then runs `runTray`
   (`cmd/vitrine/tray_windows.go`, fyne.io/systray - pure Go on Windows, no cgo). Two names because Windows file
   names ignore case. Both carry the icon and version (go-winres in the release workflow; `cmd/vitrine/vitrine.ico`,
@@ -132,7 +132,11 @@ system tray icon etc." - for this user only ("Just me"), phones allowed by defau
   needs ffmpeg's WebP encoding and decoding, no GPL parts.
 - **The installer** (`packaging/windows/vitrine.iss`, Inno Setup 6; `build.sh` lays out the files and runs ISCC;
   the release workflow's `installer` job on windows-latest): per user (`PrivilegesRequired=lowest`) into
-  %LOCALAPPDATA%\Programs\Vitrine, x64 (arm64 Windows runs it emulated). Pages: the folder, "Your library" (library,
+  %LOCALAPPDATA%\Programs\Vitrine. Two of them since 1.0.6 (the user: "i want a native arm64 installer and remove the
+  windows zip releases"): `-x64` (also allowed on ARM64 Windows, emulated) and `-arm64` (ARM64 only; the tray and
+  command line built for arm64, BtbN's winarm64 ffmpeg and libvips' arm64 build, pinned beside the x64 ones) -
+  `vitrine.iss`'s `Arch`, `build.sh`'s fifth argument. The release has no Windows zips any more (the installers hold
+  the same programs). Pages: the folder, "Your library" (library,
   original files, backups - the latter two follow the first while inside it; default %LOCALAPPDATA%\Vitrine), "Network"
   (port; phones on the Wi-Fi: `listen = ':PORT'`, else `'127.0.0.1:PORT'`), options (start at sign-in, PATH - HKCU
   Environment, `bin`; desktop shortcut), ready (lists the choices). It writes %APPDATA%\vitrine\config.toml - where
@@ -225,7 +229,8 @@ waits before the server comes back up and fades the site back into view". `inter
   on the version it was", Close; the overlay scrolls on a short screen (the group centered with margin: auto). Tests: `TestNewerVersion`, `TestUpdateCheck`, `TestUpdateStart` (Go), "updates: ..."
   (e2e, the API mocked).
 - **Installed with the Windows installer** (2026-10-25, the user: "Yes" to updating from the app): Vitrine.exe sets
-  `UpdateConfig.SetupName` (`Vitrine-Setup-%s-x64.exe`) and `RunSetup`, which makes `can_update` true. Update then
+  `UpdateConfig.SetupName` (`Vitrine-Setup-%s-x64.exe`, or `-arm64.exe` on ARM64 Windows - since 1.0.6 an x64 Vitrine
+  running there emulated moves to the native installer at its next update: `setupArch`, `IsWow64Process2`) and `RunSetup`, which makes `can_update` true. Update then
   backs up, downloads that release asset (its URL and SHA-256 come with the latest-release answer: GitHub's `digest`;
   no digest or a mismatch: not run) to a temp folder and hands it to RunSetup: it starts the installer with
   `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` and quits Vitrine a second later; the installer waits for it (--quit),
@@ -239,3 +244,15 @@ waits before the server comes back up and fades the site back into view". `inter
   UpdateStatus (up to date / the newer one, Release notes, Update, Check now, the daily check), then the newer
   release's versions after this one (`lib/changelog.ts` reads both changelogs; `newerThan`), each card marked New,
   then the installed changelog (ChangelogCard). About keeps the version and a link here.
+- **What's new after an update** (2026-10-26, the user: "when a user updates and it goes to their media, i want a
+  'what's new' popup to show by default that shows the changes for the new version, with a 'don't show again'
+  checkbox and the same option in the settings" - "only once per instance (not once per device) and on mobile it
+  should be a sheet"): `lib/whatsNew.svelte.ts` + `WhatsNew.svelte`. The installed version is the newest released one
+  in the built-in CHANGELOG.md; shared settings `whatsNew` (missing = on) and `whatsNewSeen` (the last version
+  shown - the server's, so once per server). On the library (Comics with Media off), nothing else open, once the
+  settings are read: a newer installed version opens the window with the versions since `whatsNewSeen` (up to five,
+  each under its heading; never shown before: this version's only) - ChangelogCard `bare`. A card in the middle,
+  a sheet on phones (drag down); Got it, Escape, Back or a press outside mark it seen; "Don't show again" sets
+  `whatsNew` false, switched back in Settings > Updates ("Show what's new after an update"). Off: marked seen quietly.
+  A new server's first steps mark the version seen (no window after setting up); the demo never shows it. The e2e
+  login switches it off on its device (the test libraries never saw it). Test: "what's new after an update" (e2e).

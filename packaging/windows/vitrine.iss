@@ -15,6 +15,15 @@
 #ifndef NumVersion
   #define NumVersion "0.0.0.0"
 #endif
+; Arch: x64 (also runs on ARM64 Windows, emulated) or arm64 (native on ARM64 Windows; 2026-10-26).
+#ifndef Arch
+  #define Arch "x64"
+#endif
+#if Arch == "arm64"
+  #define Allowed "arm64"
+#else
+  #define Allowed "x64compatible"
+#endif
 #ifndef Stage
   #error Stage (the folder with the files to install) is not set
 #endif
@@ -36,10 +45,10 @@ PrivilegesRequired=lowest
 DefaultDirName={autopf}\Vitrine
 DisableProgramGroupPage=yes
 DisableReadyPage=no
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed={#Allowed}
+ArchitecturesInstallIn64BitMode={#Allowed}
 MinVersion=10.0.17763
-OutputBaseFilename=Vitrine-Setup-{#Version}-x64
+OutputBaseFilename=Vitrine-Setup-{#Version}-{#Arch}
 SetupIconFile=..\..\cmd\vitrine\vitrine.ico
 UninstallDisplayIcon={app}\Vitrine.exe
 UninstallDisplayName=Vitrine

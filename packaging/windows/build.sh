@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds Vitrine's Windows installer (Git Bash on Windows, with Inno Setup 6):
-#   packaging/windows/build.sh <version> <Vitrine.exe> <vitrine.exe> <out dir>
+#   packaging/windows/build.sh <version> <Vitrine.exe> <vitrine.exe> <out dir> [x64|arm64]
 # Vitrine.exe is the notification-area build (-H windowsgui -X main.gui=1), vitrine.exe the command line. The
 # bundled tools are fetched from the pinned builds below (checked by their SHA-256; VITRINE_DL_CACHE keeps them).
 set -euo pipefail
@@ -8,11 +8,20 @@ set -euo pipefail
 # ffmpeg: BtbN's LGPL build (shared libraries) - only its WebP, H.264-decoding and probing parts are used.
 FFMPEG_URL=https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n8.1.3-9-g29e619e767-win64-lgpl-shared-8.1.zip
 FFMPEG_SHA256=3e47bda1607740550141e37c0e49d1e5182b34699f15adfd137ee266d346811a
+FFMPEG_ARM64_URL=https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n8.1.3-9-g29e619e767-winarm64-lgpl-shared-8.1.zip
+FFMPEG_ARM64_SHA256=7674d11915c95c8f65eeec36b329917c3023f6bae5786549cc47aed52cc1cea7
 # libvips: the official "web" build (LGPL), static - vipsthumbnail.exe and one DLL.
 VIPS_URL=https://github.com/libvips/build-win64-mxe/releases/download/v8.18.7/vips-dev-x64-web-8.18.7-static.zip
 VIPS_SHA256=a736af61d3b46499760efa606e469cb14e060445b1f6fd36a1fa2e75009e1197
+VIPS_ARM64_URL=https://github.com/libvips/build-win64-mxe/releases/download/v8.18.7/vips-dev-arm64-web-8.18.7-static.zip
+VIPS_ARM64_SHA256=701d49f773fca3995d39215643d72b9e0495e02bf60980dd40ca1af59581f575
 
-version=${1#v}; gui=$2; cli=$3; out=$4
+version=${1#v}; gui=$2; cli=$3; out=$4; arch=${5:-x64}
+case "$arch" in
+  x64) ;;
+  arm64) FFMPEG_URL=$FFMPEG_ARM64_URL FFMPEG_SHA256=$FFMPEG_ARM64_SHA256 VIPS_URL=$VIPS_ARM64_URL VIPS_SHA256=$VIPS_ARM64_SHA256 ;;
+  *) echo "arch: x64 or arm64, not $arch" >&2; exit 1 ;;
+esac
 # (the same file twice - e.g. one replaced by the other on Windows, which doesn't tell their names apart: Vitrine.exe
 # would be the command line, which shuts at once)
 if cmp -s "$gui" "$cli"; then echo "$gui and $cli are the same program: Vitrine.exe must be the notification-area build" >&2; exit 1; fi
@@ -55,5 +64,5 @@ done
 [ -f "$iscc" ] || { echo "Inno Setup 6 (ISCC.exe) not found; set ISCC" >&2; exit 1; }
 # (the file's version is numbers only: 1.2.3-hotfix -> 1.2.3.1)
 num=${version%%-*}.0; [[ "$version" != *-hotfix ]] || num=${version%%-*}.1
-"$iscc" -Q "-DVersion=$version" "-DNumVersion=$num" "-DStage=$(cygpath -w "$stage")" "-O$(cygpath -w "$out")" "$(cygpath -w "$here/vitrine.iss")"
-echo "$out/Vitrine-Setup-$version-x64.exe"
+"$iscc" -Q "-DVersion=$version" "-DArch=$arch" "-DNumVersion=$num" "-DStage=$(cygpath -w "$stage")" "-O$(cygpath -w "$out")" "$(cygpath -w "$here/vitrine.iss")"
+echo "$out/Vitrine-Setup-$version-$arch.exe"
