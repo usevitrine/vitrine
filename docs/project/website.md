@@ -56,6 +56,26 @@ comics page, the downloader, etc, a mix of serious and unserious."
   visitors best.
 - The demo page has its own title and description, and a short text about it that search engines can read.
 
+## Building and deploying (decided 2026-10-26)
+- **Its own repository** (the user): `usevitrine/vitrine.software`, public, with the same git identity as the app.
+- **Astro 6, fully static** (no adapter): pages rendered to HTML at build time; `astro:assets` `<Picture>` for
+  AVIF/WebP in several sizes; `@astrojs/sitemap`; Plus Jakarta Sans self-hosted; animations in CSS and the browser's
+  animation APIs, Svelte only for an interactive piece that needs it.
+- **The demo comes from this repository**: the app's web client built in demo mode (a pretend server in the
+  browser, the media screen only), published as a release file (`vitrine-demo.tar.gz`) that the site's build puts
+  at `/demo/`. Its media (~100 MB) is a release file of the site repository, never in git.
+- **Screenshots**: a script runs Vitrine on the screenshot library and Playwright captures every page at desktop and
+  phone widths into the site's images - run when fresh ones are wanted (after a release).
+- **Hosting: Cloudflare Workers with static assets** (Cloudflare's choice for new sites over Pages, which Astro's
+  Cloudflare adapter no longer supports; a static site needs no adapter): `wrangler.jsonc` with `assets.directory:
+  ./dist` and `not_found_handling: 404-page`; vitrine.software as a custom domain, www redirecting to it (the email
+  records on the zone untouched).
+- **Deploys by GitHub Actions** with `wrangler deploy` on every push to main, a preview version per branch - an API
+  token, not the dashboard's Git connection (that needs the Cloudflare GitHub app authorized in the dashboard). The
+  user chose an API token: limited to the account's Workers and the vitrine.software zone, kept by the user - in the
+  site repository's Actions secrets (`CLOUDFLARE_API_TOKEN`, with `CLOUDFLARE_ACCOUNT_ID`) and, for local use, an
+  environment variable on the PC; never printed, never in a file in a repository.
+
 ## The demo (decided 2026-10-26)
 The user: "one thing i definitely want is a demo of vitrine on the site".
 
