@@ -13,7 +13,7 @@ The viewer (slides, gestures, zoom, open/close animation, details panel) and Vit
   above the slides), not inside it - stopping events on controls inside the swipe area still let scrubbing swipe on
   iOS.
 - Sound: a **"Start videos muted" setting** (off by default since 2026-10-26 - the user: "it shouldnt default to muted") decides how every video starts; unmuting affects only the current video
-  (a remembered "sound on" that overrides the setting is unwanted). If iOS blocks autoplay with sound, play muted and show a "Tap for sound" button - unless the video was paused meanwhile (the refusal can come late: it started a paused video again). Loop and speed are
+  (a remembered "sound on" that overrides the setting is unwanted). If iOS blocks autoplay with sound (it allows sound only when playing starts from a tap: not after a swipe or the viewer opening), play muted - quietly, the speaker in the controls shows it (2026-10-26: the big "Tap for sound" button over the video went - with sound on by default it popped up at every swipe; the user: "what the hell is this tap for sound button") - unless the video was paused meanwhile (the refusal can come late: it started a paused video again). Loop and speed are
   remembered.
 - Desktop: the same player with keyboard shortcuts (space, arrows, M, F) and hover previews in the grid.
 - Preload the next file for instant starts; range-request streaming.
@@ -32,7 +32,7 @@ lays them out at the original size.
   Details panel (desktop side panel, phone bottom sheet): facts, Post/Source links, tags (tap = search, x = remove
   with Undo, add with autocomplete). Delete with an Undo toast.
 - **Video player**: own controls in a layer above the slides (scrub bar with buffered range, play/pause, time,
-  loop, speed 0.5-2x, mute); "start muted" setting, unmuting only affects the current video; "Tap for sound" when
+  loop, speed 0.5-2x, mute); "start muted" setting, unmuting only affects the current video; muted quietly when
   autoplay with sound is blocked; loop and speed remembered. Gestures on videos: double-tap the left/right third = -/+10 s (middle =
   play/pause), press and hold = 2x while held, single tap = controls (after a short wait to rule out a double tap).
   On iPhone/iPad an "iOS player (AirPlay)" button opens Apple's player on request, never by default.

@@ -5,6 +5,10 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### Improved
+
+- **No more "Tap for sound" button**: when the browser won't play a video with sound (an iPhone, after a swipe), it plays muted without a button over it - the speaker in the controls shows it and turns the sound on.
+
 ### Fixed
 
 - **Checking for updates** works behind a VPN or another shared internet address: when GitHub refuses ("403 Forbidden" - its hourly limit, used up by others on the same address), Vitrine asks GitHub's website instead.

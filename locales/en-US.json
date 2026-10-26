@@ -1881,8 +1881,7 @@
     "fullscreen": "Full screen",
     "exitFullscreenKey": "Exit full screen (F)",
     "fullscreenKey": "Full screen (F)",
-    "controls": "Video controls",
-    "tapForSound": "Tap for sound"
+    "controls": "Video controls"
   },
   "app": {
     "unreachable": "Vitrine isn't reachable: {error}",

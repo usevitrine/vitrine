@@ -26,7 +26,6 @@
   let time = $state(0);
   let duration = $state(0);
   let buffered = $state(0);
-  let blockedSound = $state(false);
   let scrubbing = $state(false);
   let track = $state<HTMLDivElement>();
 
@@ -51,17 +50,16 @@
       v.muted = settings.startMuted;
       if (volume.settable) v.volume = volume.level; // this device's level
     });
-    blockedSound = false;
     // Paused meanwhile (the space bar, a tap): the browser's refusal can come late - it mustn't start it again.
     let pausedMeanwhile = false;
     const onPause = () => (pausedMeanwhile = true);
     v.addEventListener('pause', onPause, { once: true });
     v.play().catch(() => {
-      // iOS blocks autoplay with sound: play muted and offer sound.
+      // iOS blocks sound unless playing starts from a tap: muted then, quietly - the speaker in the controls shows it
+      // and turns it on (a big "Tap for sound" button over the video popped up at every swipe - the user: "what the hell").
       v.removeEventListener('pause', onPause);
       if (!v.muted && !pausedMeanwhile) {
         v.muted = true;
-        blockedSound = true;
         v.play().catch(() => {});
       }
     });
@@ -112,7 +110,6 @@
   function toggleMute() {
     video.muted = !video.muted; // only this video; the setting decides how the next one starts
     if (!video.muted && volume.settable) video.volume = volume.level; // back to this device's level
-    blockedSound = false;
   }
   // The volume slider (where the browser allows it): moving it unmutes; the
   // level is remembered on this device.
@@ -120,7 +117,6 @@
     volume.set(v);
     video.volume = volume.level;
     video.muted = volume.level === 0;
-    blockedSound = false;
   }
   function wheelVolume(e: WheelEvent) {
     if (!volume.settable) return;
@@ -282,9 +278,6 @@
 </script>
 
 <div class="controls" role="group" aria-label={t('video.controls')} ondragstart={(e) => e.preventDefault()}>
-  {#if blockedSound}
-    <button class="sound" onclick={toggleMute}><Icon name="volume" size={18} /> {t('video.tapForSound')}</button>
-  {/if}
   <div
     class="track"
     bind:this={track}
@@ -395,13 +388,6 @@
     padding: 0 calc(12px + var(--safe-corner, 0px)) calc(8px + var(--safe-bottom) + var(--home-bar, 0px)); /* (clear of the iPhone corners) */
     background: linear-gradient(transparent, rgb(17 17 27 / 0.85));
     touch-action: none;
-  }
-  .sound {
-    justify-self: center;
-    display: inline-flex;
-    gap: 6px;
-    align-items: center;
-    margin-bottom: 8px;
   }
   .track {
     position: relative;
