@@ -6,6 +6,7 @@ Split by topic: open only the files a task needs. Each file starts with what it 
 - `project/overview.md` - what Vitrine is, the key decisions, the build order, where it stands.
 - `project/rules.md` - public-project rules, spelling and texts, working rules, how the docs are kept.
 - `project/features.md` - the planned feature list.
+- `project/website.md` - the website (vitrine.software): its plan, the in-browser demo.
 - `project/background.md` - prior art (Hydrus, Stash, monbooru, ...), libraries, name history, license.
 
 ## Architecture
