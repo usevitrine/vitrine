@@ -239,6 +239,9 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   and open upwards when there's more room there). From opens a page of its own: All sites and each site with how
   many of the search's files came from it, ticked sites in mauve; several at once (one `system:site=a,b` chip, read
   "from a or b"; the row says "All sites", one or two names, or "3 sites"); applies at once and the page stays.
+  **Only the sites the search has files from** (2026-10-26, the user: "if there's 0 files for a site it shouldn't
+  show", "comic sites shouldn't show in the media site filter"): a site with no files for it isn't listed (none before
+  the counts are in), a comic site (a gallery engine) never in the media's; one already picked stays, to take it off.
   A site filter chip's form takes several sites too. (Dropdown fix: a floating list measures its whole height, not
   the room it was first given, so near the bottom of the screen it opens upwards.)
 - **New files at the top follow you up (2026-10-19)**: scrolled to the very top, arriving files come into view -

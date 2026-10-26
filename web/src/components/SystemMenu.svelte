@@ -230,10 +230,16 @@
         /* the row works without numbers */
       });
   });
-  // The sites, those with the most of the search's files first.
+  // The sites, those with the most of the search's files first: only the ones it has files from (as the counts say),
+  // never a comic site in the media's (the user: "if there's 0 files for a site it shouldn't show in the site
+  // filter", "comic sites shouldn't show in the media site filter") - one already picked stays, to take it off.
   const siteIds = $derived(
     Object.keys(sites.names)
-      .filter((id) => !comics || (siteCounts[id] ?? 0) > 0 || currentSites.includes(id)) // (comics: only the sites they came from)
+      .filter((id) => {
+        if (currentSites.includes(id)) return true;
+        if (!comics && sites.engines[id] === 'ehentai') return false;
+        return (siteCounts[id] ?? 0) > 0; // (none listed before the counts are in: no list that shrinks)
+      })
       .sort((a, b) => (siteCounts[b] ?? 0) - (siteCounts[a] ?? 0) || siteLabel(a).localeCompare(siteLabel(b))),
   );
   const setSites = (ids: string[]) => onquery(ids.length ? `${siteParts.rest} system:site=${ids.join(',')}`.trim() : siteParts.rest);

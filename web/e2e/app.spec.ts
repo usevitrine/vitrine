@@ -1979,6 +1979,17 @@ test('video scrubbing: one seek at a time, never queued; exact seek on release; 
 
 
 test('library: Sort and filters > From picks which sites to show files from (one or more: a chip; All sites removes it); phones: a bottom sheet', async ({ page }) => {
+  // (the test library's files come from no site: the counts are made up - two sites with files, safebooru with none,
+  // and a gallery site, which is a comic site: never in the media's list)
+  await page.route('**/api/sites', async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    body.sites.push({ ...body.sites[0], id: 'gallery-site', site: 'gallery.test', host: 'gallery.test', engine: 'ehentai', off: false });
+    await r.fulfill({ response: res, json: body });
+  });
+  await page.route('**/api/search/sites?*', (r) =>
+    r.fulfill({ json: { total: 26, sites: [{ site: 'test-down', count: 3 }, { site: 'test-slow', count: 2 }, { site: 'gallery-site', count: 4 }] } }),
+  );
   await page.goto('/');
   await expect(page.getByText(/^26 files/)).toBeVisible();
   await expect(page.locator('.library .status')).toHaveCount(0); // nothing to say under the search: no line
@@ -2000,7 +2011,9 @@ test('library: Sort and filters > From picks which sites to show files from (one
   const from = page.getByRole('dialog', { name: 'Show files from' });
   await expect(from.getByRole('button', { name: /^All sites/ })).toContainText('26'); // counts for this search
   await expect(from.getByRole('button', { name: /^All sites/ })).toHaveAttribute('aria-pressed', 'true');
-  await expect(from.getByRole('button', { name: /^safebooru.org/ })).toBeVisible(); // sites by address
+  await expect(from.getByRole('button', { name: /^test-down.invalid/ })).toContainText('3'); // sites by address, with their counts
+  await expect(from.getByRole('button', { name: /^safebooru.org/ })).toHaveCount(0); // no files from it: not listed
+  await expect(from.getByRole('button', { name: /^gallery.test/ })).toHaveCount(0); // a comic site: not in the media's
   await from.getByRole('button', { name: /^test-down.invalid/ }).click();
   await expect(page).toHaveURL(/system(%3A|:)site(%3D|=)test-down(&|$)/);
   await expect(page.locator('.bar .chip')).toHaveText(/from test-down.invalid/);
