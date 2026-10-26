@@ -31,7 +31,7 @@ type notices struct {
 	next int64 // (only when meta.db can't be written: numbered on from the last)
 	// read and cleared: how far (notice IDs); marks goes up with each change (the event stream sends it then).
 	read, cleared, marks int64
-	forgets             int64 // goes up when some are dropped (a wiped site's): pages read the list again
+	forgets              int64 // goes up when some are dropped (a wiped site's): pages read the list again
 }
 
 func newNotices(lib *library.Library, log *slog.Logger) *notices {
