@@ -111,6 +111,36 @@ html.standalone {
   --bottom-room: max(var(--safe-bottom), var(--home-bar, 0px));
 }
 
+/* A long line scrolling to its end and back (a download's search, a comic's title): its soft edges, animated with it -
+   only on the side where text is out of view (fixed at both, they covered its first and last letters - the user). */
+@property --edge-l {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --edge-r {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 14px;
+}
+@keyframes marquee-edges {
+  0%,
+  15% {
+    --edge-l: 0px;
+    --edge-r: 14px;
+  }
+  27%,
+  73% {
+    --edge-l: 14px;
+    --edge-r: 14px;
+  }
+  85%,
+  100% {
+    --edge-l: 14px;
+    --edge-r: 0px;
+  }
+}
+
 /* No double-tap-to-zoom delay on controls; no long-press preview on tiles. */
 button,
 a,

@@ -4559,6 +4559,40 @@ test('library: the downloads menu shows no scrollbar as downloads come in, and s
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+// A long search scrolls to its end and back: soft edges only where text is out of view (fixed at both, they covered
+// its first and last letters - the user: "the gradient covers text on the left and right").
+test('library: the downloads menu: a long search scrolling sideways keeps its first and last letters clear', async ({ page }, info) => {
+  const s = {
+    id: 1, site: 'test-down', query: 'menu_1', label: 'a_very_long_search_that_does_not_fit_its_line_at_all another_tag', state: 'queued', max_posts: 10,
+    site_total: 0, handled: 0, downloaded: 0, already: 0, deleted: 0, skipped: 0, blacklisted: 0, position: 1, failed: 0, created_at: 0,
+  };
+  await page.route('**/api/downloads?active=1', (r) => r.fulfill({ json: { searches: [s], sites_paused: {} } }));
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Downloads/ }).click();
+  const name = page.getByRole('dialog', { name: 'Downloads' }).locator('.name');
+  await expect(name).toHaveClass(/long/);
+  await page.waitForTimeout(400);
+  // (both animations - the text's and its edges' - paused at a point of the way there)
+  const at = async (k: number) => {
+    await name.evaluate((el, k) => {
+      for (const a of [...el.getAnimations(), ...el.firstElementChild!.getAnimations()]) {
+        a.pause();
+        const t = a.effect!.getComputedTiming();
+        a.currentTime = (t.delay ?? 0) + (t.duration as number) * k;
+      }
+    }, k);
+    return name.evaluate((el) => [getComputedStyle(el).getPropertyValue('--edge-l'), getComputedStyle(el).getPropertyValue('--edge-r')]);
+  };
+  const shot = (n: string) => name.screenshot({ path: info.outputPath(`${n}.png`) });
+  expect(await at(0)).toEqual(['0px', '14px']); // the start: its first letters clear, a soft edge where it goes on
+  await shot('start');
+  expect(await at(0.5)).toEqual(['14px', '14px']); // on the way: both
+  await shot('middle');
+  expect(await at(0.999)).toEqual(['14px', '0px']); // the end: its last letters clear
+  await shot('end');
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('library: the downloads menu counts a gallery by its pages, not as one file', async ({ page }) => {
   // (a made-up gallery site: the site list and the downloads mocked)
   await page.route('**/api/sites', async (r) => {

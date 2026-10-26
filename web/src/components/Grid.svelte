@@ -2030,7 +2030,7 @@
     /* (whole pixels, the chip's too: the foot's parts then sit on whole pixels - at 1.3 (16.9 px) they sat between
        pixels, drawn one way at rest and another while the card moved, so the icon stepped as a hover zoom ended) */
     line-height: 17px;
-    mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 var(--edge-l), #000 calc(100% - var(--edge-r)), transparent);
   }
   .comic-title > span {
     display: inline-block;
@@ -2039,13 +2039,17 @@
     .tile:hover .comic-title:global(.long) > span {
       animation: marquee var(--dur, 4s) ease-in-out 0.3s infinite alternate;
     }
+    /* (its soft edges only where text is out of view, moving with it: marquee-edges, app.css) */
+    .tile:hover .comic-title:global(.long) {
+      animation: marquee-edges var(--dur, 4s) ease-in-out 0.3s infinite alternate;
+    }
   }
   @keyframes marquee {
     0%,
-    12% {
+    15% {
       transform: translateX(0);
     }
-    88%,
+    85%,
     100% {
       transform: translateX(var(--shift, 0));
     }
@@ -2066,6 +2070,7 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
+    .tile:hover .comic-title:global(.long),
     .tile:hover .comic-title:global(.long) > span {
       animation: none;
     }

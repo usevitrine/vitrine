@@ -370,8 +370,10 @@
   .name > span {
     display: inline-block;
   }
+  /* (its soft edges only where text is out of view, moving with it: marquee-edges, app.css) */
   .name:global(.long) {
-    mask-image: linear-gradient(to right, transparent, #000 6px, #000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 var(--edge-l), #000 calc(100% - var(--edge-r)), transparent);
+    animation: marquee-edges var(--dur, 4s) ease-in-out 0.6s infinite alternate;
   }
   .name:global(.long) > span {
     animation: marquee var(--dur, 4s) ease-in-out 0.6s infinite alternate;
@@ -472,6 +474,7 @@
     .dl.running .arrow,
     .counter,
     .bar.striped,
+    .name:global(.long),
     .name:global(.long) > span {
       animation: none;
     }

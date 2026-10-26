@@ -28,6 +28,7 @@ shows this too (Settings > Updates).
 
 - **Files arriving in any order**: sorted other than newest first (oldest first, by size, random...), downloads coming in no longer change the file you're viewing, shift what's on screen or make a tap open the neighboring file.
 - **The Downloads menu and the bell** no longer show a scrollbar for a moment when a download or notification comes in while they're open.
+- **Long names that scroll** (a download's search in the Downloads menu, a comic's title on hover): the soft edge shows only where text is out of view, so the first and last letters are no longer faded.
 - Pressing "I came" or the heart on a video no longer freezes its picture while the sound plays on.
 - **Tiles keep their insides**: as a cover zooms, a row resizes or a collection opens, the picture keeps its proportions and the title, chips, marks and badges keep their size and place (they shrank and grew back, the pages icon drifted, and the title vanished as a comic's cover zoomed); a comic's title, chips and gradient stay sharp and still while its cover zooms.
 - **Comics downloads count pages**: the Downloads menu, the bell and notifications say how many pages a gallery brought ("40 new pages"), not "1 new file".
