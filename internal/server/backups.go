@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/usevitrine/vitrine/internal/backup"
+	"github.com/usevitrine/vitrine/internal/i18n"
+	"github.com/usevitrine/vitrine/internal/library"
 )
 
 // Backups: copies of meta.db (see internal/backup), made daily and on demand,
@@ -80,6 +82,8 @@ func (s *Server) RunDailyBackups(ctx context.Context) {
 		if err != nil {
 			s.backups.lastErr = err.Error()
 			s.log.Error("daily backup failed", "err", err)
+			// (a notice too: Settings > Backups shows it only to whoever looks there)
+			s.notices.put(library.Notice{At: time.Now().UnixMilli(), Kind: "app", Text: i18n.For("").T("backups.dailyFailed", "error", err.Error()), Tone: "error", Category: "errors"})
 		} else {
 			s.backups.lastErr = ""
 			s.log.Info("daily backup made", "name", b.Name, "size", b.Size)

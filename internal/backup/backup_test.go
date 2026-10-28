@@ -137,3 +137,32 @@ func TestStageRejects(t *testing.T) {
 		t.Fatalf("cancel: %v", err)
 	}
 }
+
+// Each backup is read back as a restore would read it: a sound one passes, one cut short (a full disk, a crash while
+// writing) doesn't - and leaves no unpacked copy behind.
+func TestVerify(t *testing.T) {
+	dir := t.TempDir()
+	m := New(newLibrary(t, dir, `"first"`), filepath.Join(dir, "backups"))
+	b, err := m.Create(context.Background(), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	good := filepath.Join(m.Dir(), b.Name)
+	if err := verify(good); err != nil {
+		t.Fatalf("a sound backup: %v", err)
+	}
+	data, err := os.ReadFile(good)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := filepath.Join(m.Dir(), "vitrine-20261016-030000.db.gz")
+	if err := os.WriteFile(bad, data[:len(data)/2], 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := verify(bad); err == nil {
+		t.Fatal("a backup cut short passed")
+	}
+	if left, _ := filepath.Glob(filepath.Join(m.Dir(), ".verify-*")); len(left) != 0 {
+		t.Fatalf("left behind: %v", left)
+	}
+}

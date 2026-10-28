@@ -814,6 +814,7 @@
   "backups": {
     "title": "Backups",
     "hint": "Tags, subscriptions and settings - not your files.",
+    "dailyFailed": "The daily backup failed: {error}",
     "done": "Backed up ({size})",
     "deleteTitle": "Delete the backup from {when}?",
     "deleted": "Deleted the backup from {when}",

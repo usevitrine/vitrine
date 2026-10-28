@@ -101,6 +101,11 @@ func (m *Manager) Create(ctx context.Context, keep int) (Info, error) {
 	if err != nil {
 		return Info{}, fmt.Errorf("backup: %w", err)
 	}
+	// Read back as a restore would read it (unpacked from the file on disk, checked): a backup that can't be
+	// restored is found the day it's made, not the day it's needed - and never pushes good ones out (no pruning).
+	if err := verify(final); err != nil {
+		return Info{Name: name, Size: st.Size(), CreatedAt: t.UnixMilli()}, fmt.Errorf("backup %s made, but it can't be restored: %w", name, err)
+	}
 	if keep > 0 {
 		if err := m.prune(keep); err != nil {
 			return Info{}, err
@@ -244,6 +249,21 @@ func Check(path string) error {
 		return fmt.Errorf("backup: the database is damaged (%s)", ok)
 	}
 	return nil
+}
+
+// verify unpacks a backup file beside it and checks it (see Check); the unpacked copy goes again.
+func verify(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	tmp := filepath.Join(filepath.Dir(path), ".verify-"+filepath.Base(path)+".db")
+	defer os.Remove(tmp)
+	if err := unpack(f, tmp); err != nil {
+		return err
+	}
+	return Check(tmp)
 }
 
 // ApplyPending puts a staged backup in place of the meta.db at dbPath, before
