@@ -204,6 +204,14 @@ func (d *Downloader) InstallFromIndex(ctx context.Context, id string) (Installed
 			if err != nil {
 				return Installed{}, err
 			}
+			// An update whose file isn't newer than what's installed (the
+			// list's version out of step with the file) would report
+			// "Updated" and offer the same update again.
+			if p.Update {
+				if m, err := plugin.Parse(raw); err == nil && !plugin.NewerVersion(m.Version, p.InstalledVersion) {
+					return Installed{}, fmt.Errorf("the plugin list offers %s %s, but its file is still %s - nothing to update", p.Name, p.Version, m.Version)
+				}
+			}
 			return d.InstallPlugin(ctx, raw)
 		}
 	}

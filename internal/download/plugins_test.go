@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,6 +92,15 @@ func TestPluginIndex(t *testing.T) {
 	}
 	if _, err := e.dl.InstallFromIndex(ctx, "fake"); err == nil {
 		t.Fatal("installed a plugin whose file is missing")
+	}
+	// The list offers 2.0.1 but the file is still 2.0.0: no false "Updated".
+	os.WriteFile(filepath.Join(repo, "index.json"), []byte(`{"plugins": [
+		{"id": "other", "name": "Other", "site": "other.test", "version": "2.0.1", "file": "plugins/other.yaml"}]}`), 0o644)
+	if list, _ = e.dl.Plugins(ctx, true); !list[0].Update {
+		t.Fatalf("2.0.1 should be offered: %+v", list[0])
+	}
+	if _, err := e.dl.InstallFromIndex(ctx, "other"); err == nil || !strings.Contains(err.Error(), "still 2.0.0") {
+		t.Fatalf("an update to the same version: %v", err)
 	}
 	e.dl.PluginIndex = filepath.Join(repo, "missing")
 	if _, err := e.dl.Plugins(ctx, true); err == nil {

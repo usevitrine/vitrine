@@ -28,6 +28,10 @@ shows this too (Settings > Updates).
 - **Less downloading twice**: when a site lists an out-of-date checksum for a file it has since replaced (common on rule34's older videos), Vitrine checks two small pieces of it again instead of downloading the whole file a second time. The log says so once per site, not for every file.
 - **Reorder the download that's running**: drag it below another (a big first check, say) and the one now ahead takes over after the file in flight; the one moved down carries on later from where it was.
 
+### Fixed
+
+- **No false "Updated" for a plugin**: when the plugin list offers a version its file doesn't have yet, updating says so instead of reporting success and offering the same update again.
+
 ## 1.0.5 - 2026-10-26
 
 ### New
