@@ -42,6 +42,16 @@ those: the post fails (listed in Failed, retried later; the error names the md5)
 bytes as the first wrong one, they're kept with a warning in the log: the site's md5 is wrong for its file (another
 version's), and failing would lose the post for good - corruption doesn't repeat byte for byte. Only the post's
 main file is checked (an alternative - a webm for a missing mp4 - has its own md5). Test: `TestFileMD5Checked`.
+**Checked by two pieces, not a second download (2026-10-28)**: rule34's older videos often aren't the file their
+listed md5 names (replaced on the site since: checked by hand - the file itself, with or without `?<id>`, has
+another md5), and a big first check met 68 in a few minutes - each downloaded twice through a slow VPN route. Now a
+file that came **in one piece over HTTPS, as long as the site said** (`plugin.slotBody.InOnePiece`: no carrying
+on from a later request, which could mix two copies; HTTPS lets no byte change on the way) has two 64 KB pieces
+asked for again - from its middle and its end (`Client.FileSample`, Range requests, inside the file's own
+connection slot: waiting for another deadlocked) - and compared with what came (`library.ImportVerified` /
+`store.PutVerified` hand the decision the temp file before it's kept). The same: kept. Any doubt (different
+pieces - a broken copy -, no Range support, a file under 128 KB, an error): downloaded again as before. The warning
+is logged once per site while Vitrine runs (each file: debug). Test: `TestWrongMD5CheckedByPieces`.
 
 ## A site that stops answering pauses by itself (2026-10-21)
 - `plugin.Client` counts each site's **connection failures in a row** (no answer, a 5xx, a Cloudflare block it can't

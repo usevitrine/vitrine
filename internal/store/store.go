@@ -90,6 +90,15 @@ func (e *MD5MismatchError) Error() string {
 // PutChecked is Put that keeps the file only when its md5 is one of want (none given: any); otherwise it leaves
 // nothing behind and says so with an *MD5MismatchError.
 func (s *Store) PutChecked(r io.Reader, want ...[16]byte) (Result, error) {
+	if len(want) == 0 {
+		return s.PutVerified(r, nil)
+	}
+	return s.PutVerified(r, func(got [16]byte, _ io.ReaderAt, _ int64) bool { return slices.Contains(want, got) })
+}
+
+// PutVerified is Put that keeps the file only when ok (nil: always) accepts it - asked with its md5 and content once
+// the whole file is read; otherwise it leaves nothing behind and says so with an *MD5MismatchError.
+func (s *Store) PutVerified(r io.Reader, ok func(md5 [16]byte, content io.ReaderAt, size int64) bool) (Result, error) {
 	var res Result
 
 	tmp, err := os.CreateTemp(filepath.Join(s.root, tmpDir), "put-*")
@@ -127,7 +136,7 @@ func (s *Store) PutChecked(r io.Reader, want ...[16]byte) (Result, error) {
 	res.Size = int64(n) + rest
 	sha.Sum(res.SHA256[:0])
 	md.Sum(res.MD5[:0])
-	if len(want) > 0 && !slices.Contains(want, res.MD5) {
+	if ok != nil && !ok(res.MD5, tmp, res.Size) {
 		return res, &MD5MismatchError{Got: res.MD5} // (the deferred cleanup removes the temp file)
 	}
 

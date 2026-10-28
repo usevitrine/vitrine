@@ -1,6 +1,7 @@
 package download
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"database/sql"
@@ -111,6 +112,34 @@ func TestFileMD5Checked(t *testing.T) {
 	}
 	if failed, _ := e.dl.FailedPosts(ctx); len(failed) != 1 || failed[0].Post != 2 || !strings.Contains(failed[0].Error, "md5") {
 		t.Fatalf("failed: %+v", failed)
+	}
+}
+
+// A file that came whole over HTTPS with another md5 than the site lists (a file replaced on the site since) is kept
+// once two small pieces asked for again are the same - not downloaded a second time. One with a byte wrong (a broken
+// copy, different each time) isn't: its pieces differ, so it's downloaded again and the right one kept.
+func TestWrongMD5CheckedByPieces(t *testing.T) {
+	e := newEnv(t, 5)
+	ctx := context.Background()
+	e.dl.fileWaits = []time.Duration{time.Millisecond, time.Millisecond}
+	e.fb.mu.Lock()
+	e.fb.ranges = true
+	for _, id := range []int64{3, 4} { // big enough for two pieces (a PNG with bytes after its end still is one)
+		e.fb.files[id] = append(e.fb.files[id], bytes.Repeat([]byte{byte(id)}, 3*sampleBytes)...)
+	}
+	e.fb.wrongMD5[3] = true // the site lists another md5; its file always comes the same
+	e.fb.garbled[4] = 2     // its last byte wrong twice, differently
+	e.fb.mu.Unlock()
+	id, _ := e.dl.Add(ctx, "fake", "common", 0)
+	e.dl.RunQueue(ctx, "fake")
+	if s, _ := e.dl.Get(ctx, id); s.Downloaded != 5 || s.Failed != 0 {
+		t.Fatalf("search: %+v", s)
+	}
+	if e.fb.fileHits[3] != 3 || e.fb.ranged[3] != 2 {
+		t.Fatalf("the replaced file: %d requests, %d of them for a piece (want 3, 2: one download, two pieces)", e.fb.fileHits[3], e.fb.ranged[3])
+	}
+	if m, err := e.lib.FindMD5(ctx, md5.Sum(e.fb.files[4])); err != nil || m.FileID == 0 {
+		t.Fatalf("the broken copy kept, not the site's file: %+v, %v", m, err)
 	}
 }
 

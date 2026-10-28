@@ -9,10 +9,12 @@
 package download
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"maps"
 	"math/rand/v2"
@@ -97,7 +99,8 @@ type Downloader struct {
 	checksOff  bool
 	asideEvery time.Duration // how often a running download looks for a check waiting (tests: 0)
 	// aside: running searches a reorder put a waiting search ahead of - they step aside at their next post. Under mu.
-	aside map[int64]bool
+	aside     map[int64]bool
+	md5Warned sync.Map // sites whose md5s were found wrong for a file (warned once)
 
 	runCtx  context.Context               // Run's context (sites installed later start their worker in it)
 	cancels map[string]context.CancelFunc // stops a site's worker
@@ -1215,15 +1218,30 @@ func (d *Downloader) fetchFile(ctx context.Context, st *Site, u string, md5 [16]
 			if m, ok := body.(interface{ Modified() time.Time }); ok {
 				modified = m.Modified()
 			}
+			// A file that came in one piece over HTTPS (as long as the site said) with another md5 than the site gave:
+			// usually the site's own mistake (a file replaced since - rule34's older videos came 68 times in a few
+			// minutes). Two small pieces asked for again and the same as ours: it's what the site has - kept, not
+			// downloaded a whole second time to be sure. Otherwise (one carried on from a later request could mix two
+			// copies; a site without Range requests) it's downloaded again, as before.
+			whole, _ := body.(interface{ InOnePiece() bool })
 			body = d.countBody(ctx, body, size)
-			f, err = d.lib.ImportChecked(ctx, body, bulk, want...)
+			f, err = d.lib.ImportVerified(ctx, body, bulk, func(got [16]byte, content io.ReaderAt, n int64) bool {
+				if len(want) == 0 || slices.Contains(want, got) {
+					return true
+				}
+				return whole != nil && whole.InOnePiece() && d.sameAsSite(ctx, st, u, content, n)
+			})
 			body.Close()
 		}
 		var wrong *store.MD5MismatchError
 		if errors.As(err, &wrong) {
 			want = [][16]byte{md5, wrong.Got} // (the same again: the site's md5 is wrong, not the download)
 		} else if err == nil && md5 != ([16]byte{}) && f.MD5 != md5 {
-			d.log.Warn("the site's md5 doesn't match its file (the same file came twice): kept", "site", st.Client.Manifest().ID, "url", u)
+			// Once per site while Vitrine runs (it came 68 times in a few minutes on a big first check).
+			if _, said := d.md5Warned.LoadOrStore(st.Client.Manifest().ID, true); !said {
+				d.log.Warn("the site's md5 doesn't match some of its files (replaced on the site since): kept as they came", "site", st.Client.Manifest().ID, "url", u)
+			}
+			d.log.Debug("the site's md5 doesn't match its file: kept", "site", st.Client.Manifest().ID, "url", u)
 		}
 		d.log.Debug("file", "site", st.Client.Manifest().ID, "url", u, "attempt", attempt+1, "bytes", size, "new", f.New, "file_id", f.ID,
 			"took", d.now().Sub(fileStart).Round(time.Millisecond), "err", err)
@@ -1307,3 +1325,30 @@ func (d *Downloader) OtherHosts(host string) []string {
 
 // Site returns a site by plugin ID (nil if unknown).
 func (d *Downloader) Site(id string) *Site { return d.all()[id] }
+
+// sampleBytes: the size of each piece sameAsSite asks for again.
+const sampleBytes = 64 << 10
+
+// sameAsSite reports whether two pieces of the file - from its middle and its end - asked for again (Range requests)
+// are the same as in content: the file came as the site has it. Any doubt (an error, a site without Range requests,
+// a file too small for two pieces) is no.
+func (d *Downloader) sameAsSite(ctx context.Context, st *Site, u string, content io.ReaderAt, size int64) bool {
+	if size < 2*sampleBytes+1 {
+		return false
+	}
+	for _, off := range []int64{size / 2, size - sampleBytes} {
+		got, err := st.Client.FileSample(ctx, u, off, sampleBytes)
+		if err != nil {
+			d.log.Debug("file sample", "site", st.Client.Manifest().ID, "err", err)
+			return false
+		}
+		ours := make([]byte, sampleBytes)
+		if _, err := content.ReadAt(ours, off); err != nil && !errors.Is(err, io.EOF) {
+			return false
+		}
+		if !bytes.Equal(got, ours) {
+			return false
+		}
+	}
+	return true
+}

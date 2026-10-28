@@ -49,6 +49,8 @@ type fakeBooru struct {
 	flaky     map[int64]int           // files that answer 503 this many more times
 	garbled   map[int64]int           // files sent with a byte wrong this many more times (a corrupted download)
 	wrongMD5  map[int64]bool          // posts the site lists with another md5 than their file's
+	ranges    bool                    // files answer Range requests (206 with the rest from that byte)
+	ranged    map[int64]int           // Range requests per post
 	hold      map[int64]chan struct{} // these files wait until their channel closes
 	partial   map[int64]chan struct{} // these send half the file, then wait until their channel closes
 	hangOn    string                  // searches with this tag never get an answer (until the request is canceled)
@@ -78,7 +80,7 @@ func (fb *fakeBooru) upload(k int) {
 
 func newFakeBooru(t *testing.T, n int) *fakeBooru {
 	t.Helper()
-	fb := &fakeBooru{files: map[int64][]byte{}, fileHits: map[int64]int{}, fileQuery: map[int64]string{}, flaky: map[int64]int{}, garbled: map[int64]int{}, wrongMD5: map[int64]bool{}, hidden: map[int64]bool{}, hold: map[int64]chan struct{}{}, partial: map[int64]chan struct{}{}}
+	fb := &fakeBooru{files: map[int64][]byte{}, fileHits: map[int64]int{}, fileQuery: map[int64]string{}, flaky: map[int64]int{}, garbled: map[int64]int{}, wrongMD5: map[int64]bool{}, ranged: map[int64]int{}, hidden: map[int64]bool{}, hold: map[int64]chan struct{}{}, partial: map[int64]chan struct{}{}}
 	fb.upload(n)
 	idBelow := regexp.MustCompile(`id:<(\d+)`)
 	idExact := regexp.MustCompile(`(?:^|\s)id:(\d+)(?:\s|$)`)
@@ -143,6 +145,17 @@ func newFakeBooru(t *testing.T, n int) *fakeBooru {
 				w.Write(file[len(file)/2:])
 				return
 			}
+			if from, ok := strings.CutPrefix(r.Header.Get("Range"), "bytes="); ok && fb.ranges {
+				n, _ := strconv.Atoi(strings.TrimSuffix(from, "-"))
+				fb.mu.Lock()
+				fb.ranged[id]++
+				fb.mu.Unlock()
+				w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", n, len(file)-1, len(file)))
+				w.WriteHeader(http.StatusPartialContent)
+				w.Write(file[n:])
+				return
+			}
+			w.Header().Set("Content-Length", strconv.Itoa(len(file))) // (as file servers do; Go adds it only to small bodies)
 			w.Write(file)
 			return
 		}

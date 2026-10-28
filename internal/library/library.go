@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -114,7 +115,17 @@ func (l *Library) ImportAs(ctx context.Context, r io.Reader, bulk bool) (File, e
 // ImportChecked is ImportAs that keeps the file only when its md5 is one of want (none given: any) - a download
 // checked against the md5 its site gave. A mismatch adds nothing and returns a *store.MD5MismatchError.
 func (l *Library) ImportChecked(ctx context.Context, r io.Reader, bulk bool, want ...[16]byte) (File, error) {
-	res, err := l.store.PutChecked(r, want...)
+	if len(want) == 0 {
+		return l.ImportVerified(ctx, r, bulk, nil)
+	}
+	return l.ImportVerified(ctx, r, bulk, func(got [16]byte, _ io.ReaderAt, _ int64) bool { return slices.Contains(want, got) })
+}
+
+// ImportVerified is ImportAs that keeps the file only when ok (nil: always) accepts it (its md5 and content), asked
+// once it's all read.
+// A refusal adds nothing and returns a *store.MD5MismatchError.
+func (l *Library) ImportVerified(ctx context.Context, r io.Reader, bulk bool, ok func(md5 [16]byte, content io.ReaderAt, size int64) bool) (File, error) {
+	res, err := l.store.PutVerified(r, ok)
 	if err != nil {
 		return File{}, err
 	}

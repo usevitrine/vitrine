@@ -504,6 +504,30 @@ func (c *Client) Modified(ctx context.Context, rawURL string) (time.Time, error)
 	return t, nil
 }
 
+// FileSample reads n bytes of a file from offset from (a Range request; a site that answers with the whole file
+// instead is an error). Used to check that a file came as the site has it (see download.fetchFile) - while that
+// file's own download still holds its slot, so it takes none (waiting for one could wait forever).
+func (c *Client) FileSample(ctx context.Context, rawURL string, from, n int64) ([]byte, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || from < 1 {
+		return nil, fmt.Errorf("bad file sample from %s", c.m.Site)
+	}
+	part, err := c.openFile(ctx, u, from)
+	if err != nil {
+		return nil, err
+	}
+	defer part.close()
+	if part.resp.StatusCode != http.StatusPartialContent || !strings.HasPrefix(part.resp.Header.Get("Content-Range"), fmt.Sprintf("bytes %d-", from)) {
+		return nil, fmt.Errorf("%s: no part of a file (Range) answered", c.m.Site)
+	}
+	b := make([]byte, n)
+	k, err := io.ReadFull(part.body, b)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return nil, err
+	}
+	return b[:k], nil
+}
+
 // Picture reads a small picture from the site's own addresses (a cover, a sheet of page thumbnails - browsing):
 // with its login and referer, but apart from the downloads (not their connection slots; a failure doesn't count
 // towards pausing the site), up to 8 at once, at most 4 MB.
@@ -701,6 +725,12 @@ func (b *resumingBody) Close() error {
 	return nil
 }
 
+// inOnePiece: read to the end in one go over HTTPS (whose encryption lets no byte change on the way), as long as the
+// site said - never carried on from a later request (which could have come from another copy of the file).
+func (b *resumingBody) inOnePiece() bool {
+	return b.u.Scheme == "https" && b.resumes == 0 && b.total > 0 && b.got == b.total
+}
+
 // SetFileIdle changes how long a file download may go without data (tests).
 func (c *Client) SetFileIdle(d time.Duration) { c.fileIdle = d }
 
@@ -765,6 +795,12 @@ type slotBody struct {
 // Modified is the file's Last-Modified time, if the site sent one (zero if not). Some sites keep it as the upload
 // time - realbooru's pages say only the day of a post, its files' Last-Modified the moment.
 func (b *slotBody) Modified() time.Time { return b.modified }
+
+// InOnePiece reports whether the file came in one piece, as long as the site said (see resumingBody.inOnePiece).
+func (b *slotBody) InOnePiece() bool {
+	r, ok := b.ReadCloser.(*resumingBody)
+	return ok && r.inOnePiece()
+}
 
 func (b *slotBody) Close() error {
 	err := b.ReadCloser.Close()
