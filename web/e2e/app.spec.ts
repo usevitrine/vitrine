@@ -1050,11 +1050,10 @@ test('downloads: pause, resume, reorder, remove, retry (offline test sites)', as
   await rowMenu(page, 'the download slow_b', 'Resume');
   await expect(item('slow_b').locator('.state')).toHaveText('Waiting');
 
-  // Drag slow_c above slow_b (the waiting ones reorder; slow_a, downloading, stays in front - no handle).
+  // Drag slow_c above slow_b.
   const order = () =>
     queue.locator('.stack .item .query').allTextContents().then((t) => t.filter((x) => x.startsWith('slow_')));
   expect(await order()).toEqual(['slow_a', 'slow_b', 'slow_c']);
-  await expect(page.getByRole('button', { name: /^Reorder slow_a/ })).toHaveCount(0);
   const grip = (await page.getByRole('button', { name: /^Reorder slow_c/ }).boundingBox())!;
   const top = (await item('slow_b').boundingBox())!;
   await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
@@ -1067,6 +1066,11 @@ test('downloads: pause, resume, reorder, remove, retry (offline test sites)', as
   // Arrow keys on the handle move it too.
   await page.getByRole('button', { name: /^Reorder slow_c/ }).press('ArrowDown');
   await expect.poll(order).toEqual(['slow_a', 'slow_b', 'slow_c']);
+  // The one downloading moves too: below slow_b, it steps aside after its file in flight and slow_b takes over.
+  await page.getByRole('button', { name: /^Reorder slow_a/ }).press('ArrowDown');
+  await expect.poll(order).toEqual(['slow_b', 'slow_a', 'slow_c']);
+  await expect(item('slow_b').locator('.state')).toHaveText('Downloading', { timeout: 30_000 });
+  await expect(item('slow_a').locator('.state')).toHaveText('Waiting');
 
   // Retry a failed one (it fails again: the site is down), remove the rest.
   await dlTab(page, 'History');

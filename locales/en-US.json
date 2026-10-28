@@ -2116,6 +2116,7 @@
     "percentTitle": "Shown at {n} % of its own size",
     "percent": "{n} %",
     "loading": "Loading the picture",
+    "buffering": "Loading the video",
     "favoriteKey": "Add to favorites (L)",
     "unfavoriteKey": "Remove from favorites (L)",
     "cameSoFar": "I came ({n} so far)",

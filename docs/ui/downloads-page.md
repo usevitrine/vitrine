@@ -44,7 +44,9 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   only, 0.42 s), each sliding out from under the one before it (the front card stays on top, folded or not -
   2026-10-24: with one level for all unfolded, the later cards slid over it), back on "Show less"; cards coming and
   going fade and the rest glide. Reduced motion: at once. In the
-  queue only the waiting downloads have handles (they reorder among themselves; the running one stays in front).
+  queue every download has a handle, the running one too (2026-10-28, the user: "I can't reorder an active initial
+  download"): dragged below another, it steps aside after its file in flight (`Reorder` flags it) and the one now ahead
+  starts; retries come first in the stack, so the searches' rows stay together while dragging.
 - **Retries in the queue**: Retry (or Retry all) on a failed file runs in the background (`StartRetry`) - the card
   shows in its site's queue ("Retrying", the file's bytes and speed from the live stream: `FileProgress.key`), then its
   result for 6 s (Downloaded, or back in Failed files with why); a retry started here gets a notice.

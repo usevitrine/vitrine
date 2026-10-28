@@ -96,6 +96,8 @@ type Downloader struct {
 	// for them (Settings > Downloads; on unless turned off). Read under mu.
 	checksOff  bool
 	asideEvery time.Duration // how often a running download looks for a check waiting (tests: 0)
+	// aside: running searches a reorder put a waiting search ahead of - they step aside at their next post. Under mu.
+	aside map[int64]bool
 
 	runCtx  context.Context               // Run's context (sites installed later start their worker in it)
 	cancels map[string]context.CancelFunc // stops a site's worker
@@ -130,7 +132,7 @@ type Downloader struct {
 func New(ctx context.Context, lib *library.Library, d *db.DB, plugins map[string]plugin.Manifest,
 	secrets plugin.Secrets, log *slog.Logger) (*Downloader, error) {
 	sites := map[string]*Site{}
-	dl := &Downloader{lib: lib, db: d, log: log, jitter: rand.Float64, pageRetryWait: 3 * time.Second, pauseAfter: -1, asideEvery: 3 * time.Second, now: time.Now, wakes: map[string]chan struct{}{}, stops: map[int64]bool{}, runs: map[int64]bool{}, pageCancel: map[int64]context.CancelFunc{}, due: make(chan struct{}, 1), off: map[string]bool{},
+	dl := &Downloader{lib: lib, db: d, log: log, jitter: rand.Float64, pageRetryWait: 3 * time.Second, pauseAfter: -1, asideEvery: 3 * time.Second, now: time.Now, wakes: map[string]chan struct{}{}, stops: map[int64]bool{}, runs: map[int64]bool{}, pageCancel: map[int64]context.CancelFunc{}, aside: map[int64]bool{}, due: make(chan struct{}, 1), off: map[string]bool{},
 		retryWaits: []time.Duration{time.Minute, 5 * time.Minute, 30 * time.Minute, 2 * time.Hour, 6 * time.Hour},
 		fileWaits:  []time.Duration{2 * time.Second, 10 * time.Second}, Solver: plugin.NewSolver()}
 	removed := dl.idList(ctx, "removedSites") // built-in sites the user removed
@@ -450,13 +452,17 @@ func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
 	d.db.R.QueryRowContext(ctx, "SELECT favorite FROM searches WHERE id = ?", s.ID).Scan(&favorite)
 	// Paused or removed: stop before the next post (the state is already set).
 	defer d.stopped(s.ID, true)
-	// A download (or a subscription's first check: not a check for what's new) steps aside for a subscription check that's waiting (Settings > Downloads): it goes
-	// back in the queue, where it was, and carries on from its last post once the checks are done. (Looked at every
-	// few seconds, not for every post.)
+	// It steps aside for a waiting search the queue now puts first: a subscription check (Settings > Downloads) ahead
+	// of a download or a first check (looked for every few seconds, not for every post), or one dragged above it on the
+	// Downloads page (Reorder). It goes back in the queue at its place and carries on from its last post in its turn.
 	yielded := false
 	var lookedAt time.Time
 	stepAside := func() bool {
 		if yielded {
+			return true
+		}
+		if d.takeAside(s.ID) {
+			yielded = true
 			return true
 		}
 		if s.isCheck() || !d.checksFirst() || time.Since(lookedAt) < d.asideEvery {
@@ -469,7 +475,7 @@ func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
 	defer func() {
 		if yielded {
 			d.db.W.ExecContext(context.WithoutCancel(ctx), "UPDATE searches SET state = 'queued' WHERE id = ? AND state = 'running'", s.ID)
-			d.log.Info("download steps aside for subscription checks", "site", s.Site, "search", s.ID)
+			d.log.Info("download steps aside for a search ahead of it in the queue", "site", s.Site, "search", s.ID)
 			d.Changed()
 		}
 	}()
@@ -802,6 +808,27 @@ func (d *Downloader) checksFirst() bool {
 func (d *Downloader) checkWaiting(ctx context.Context, siteID uint32) bool {
 	var n int
 	d.db.R.QueryRowContext(ctx, `SELECT count(*) FROM searches s WHERE s.site_id = ? AND s.state = 'queued' AND `+checkSQL, siteID).Scan(&n)
+	return n > 0
+}
+
+// takeAside reports (once) whether a reorder put a waiting search ahead of the running one.
+func (d *Downloader) takeAside(id int64) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	on := d.aside[id]
+	delete(d.aside, id)
+	return on
+}
+
+// aheadWaiting reports whether a waiting search on the site comes before the running one in next's order (checks
+// first unless turned off, then position - the running one's own, which a reorder may have changed): it steps aside.
+func (d *Downloader) aheadWaiting(ctx context.Context, siteID uint32, run Search) bool {
+	first := d.checksFirst()
+	var n int
+	d.db.R.QueryRowContext(ctx, `SELECT count(*) FROM searches s WHERE s.site_id = ?1 AND s.state = 'queued' AND (
+		(?2 AND `+checkSQL+`) > ?3 OR
+		((?2 AND `+checkSQL+`) = ?3 AND s.position < (SELECT position FROM searches WHERE id = ?4)))`,
+		siteID, first, first && run.isCheck(), run.ID).Scan(&n)
 	return n > 0
 }
 

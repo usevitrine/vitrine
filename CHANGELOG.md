@@ -13,6 +13,8 @@ shows this too (Settings > Updates).
 ### Improved
 
 - **Windows downloads**: the release has just the two installers now; the separate Windows zip files are gone.
+- **A spinner over a video while it loads**: when a video opens, after you jump or scrub to a part not loaded yet, and whenever playback waits for the connection.
+- **Reorder the download that's running**: drag it below another (a big first check, say) and the one now ahead takes over after the file in flight; the one moved down carries on later from where it was.
 
 ## 1.0.5 - 2026-10-26
 

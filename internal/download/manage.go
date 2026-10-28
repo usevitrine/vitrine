@@ -149,9 +149,9 @@ func (d *Downloader) ClearFinished(ctx context.Context) (int, error) {
 }
 
 // Reorder sets the order of a site's queue: ids first, in that order, then
-// the site's other searches in their current order. A change above a running
-// search takes effect when it finishes its current file... in practice, when
-// the worker next picks a search.
+// the site's other searches in their current order. A waiting search put ahead
+// of the running one takes over after the running one's post in flight (it
+// steps aside, back in the queue at its new place).
 func (d *Downloader) Reorder(ctx context.Context, site string, ids []int64) error {
 	st, ok := d.all()[site]
 	if !ok {
@@ -194,7 +194,20 @@ func (d *Downloader) Reorder(ctx context.Context, site string, ids []int64) erro
 			return fmt.Errorf("download: %w", err)
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	// A waiting search now ahead of the running one (a big first check dragged down, another dragged above it): the
+	// running one steps aside at its next post, not only when it's done.
+	var run int64
+	if d.db.R.QueryRowContext(ctx, "SELECT id FROM searches WHERE site_id = ? AND state = 'running'", st.ID).Scan(&run) == nil {
+		if s, err := d.Get(ctx, run); err == nil && d.aheadWaiting(ctx, st.ID, s) {
+			d.mu.Lock()
+			d.aside[run] = true
+			d.mu.Unlock()
+		}
+	}
+	return nil
 }
 
 func retryWaitsJSON(w []time.Duration) string {

@@ -14,7 +14,7 @@ func TestTagRefresh(t *testing.T) {
 	e := newEnvWith(t, 25, typesManifest)
 	e.fb.types = true
 	ctx := context.Background()
-	advance := e.clock()
+	advance := e.clockAt(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)) // (the posts are from 1 January 2026)
 	e.dl.Add(ctx, "fake", "common", 0)
 	if err := e.dl.RunQueue(ctx, "fake"); err != nil {
 		t.Fatal(err)

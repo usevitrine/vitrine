@@ -14,7 +14,7 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
 - **Ask the library before downloading**: both first sites give the md5 up front; skip files the library has or has
   tombstoned.
 - **A worker per site**: sites download in parallel; queue order top-to-bottom per site, switching only at file
-  boundaries (reordering above the running item takes effect at the next file). (One worker for everything never
+  boundaries (a search dragged above the running one takes over after the post in flight: the running one steps aside). (One worker for everything never
   preempted.)
 - **Per-site limits from the plugin** (requests/s, connections); ETA from measured speed.
 - **Parallel downloads** (discussed 2026-10-14): sites always run in parallel (a worker each); within a site, up to
@@ -180,7 +180,8 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   IDs for Undo). Matching library files are found with a search per entry, so tag parents/siblings count too.
 - **Managing searches (decided 2026-10-14)**: pause/resume (pausing stops new starts, an
   in-flight file finishes; resume continues from `low_id`), remove (finished, failed or running - a running one stops
-  at the next file boundary), drag to reorder (takes effect at the next file). **Removing a search only takes it off
+  at the next file boundary), drag to reorder (a search put ahead of the running one takes over after its post in flight - `Reorder` flags the
+  running one, which steps aside like it does for a check; before 2026-10-28 only when the running one was done). **Removing a search only takes it off
   the list; its downloaded files stay in the library** (deleting files is a library action). A **"Clear finished"**
   button removes all done searches at once, besides a remove button on each; **"Retry failed"** (2026-10-19) resumes
   every failed search at once, each from where it stopped.

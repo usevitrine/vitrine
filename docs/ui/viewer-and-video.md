@@ -41,6 +41,10 @@ lays them out at the original size.
   soon as a move towards it starts (PhotoSwipe's `contentActivate` on release), so it loads during the slide; the
   thumbnail stays underneath, the same element that slid in; a removed video is paused and its `src` dropped so it
   stops downloading. (The first attempt - fading the video in on `canplay` - wasn't clean on iOS.)
+  **Buffering spinner (2026-10-28, the user)**: while the current video waits for data - opening (no frame yet), a
+  jump or scrub to a part not loaded (`seeking`), playback stalled (`waiting` until time moves again or `playing`) - a
+  spinner on a dark disc in its middle, after 300 ms (a quick load doesn't flash one); not while the scrub preview
+  shows. Pops in and out.
   **2026-10-18: the video fades in (0.24 s) over the thumbnail** - the cut from the soft thumbnail to the sharp
   picture was too abrupt. It starts only once a frame is really on screen (`requestVideoFrameCallback` after
   `loadeddata`/`playing`; a 700 ms timer if that never comes), and the thumbnail is hidden once the fade is over.

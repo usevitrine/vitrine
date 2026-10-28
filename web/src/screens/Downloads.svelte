@@ -534,7 +534,8 @@
   // ---- the stacks: each site's queue, finished downloads and failed files fold into a stack (the active one in
   // front); unfolded on a tap.
   let unfolded = $state<Record<string, boolean>>({});
-  // (wi: its place among the site's waiting downloads - those reorder; the one running stays in front)
+  // (wi: its place in the site's queue - every one reorders, the running one too: dragged down, it steps aside for
+  // the one now ahead of it after its file in flight; retries first, so the searches' rows stay together while dragging)
   type QueueEntry = { kind: 'search'; s: DownloadSearch; wi: number } | { kind: 'retry'; r: RetryJob };
   const entryKey = (e: QueueEntry) => (e.kind === 'search' ? 's' + e.s.id : 'r' + postKey(e.r));
   let queueSites = $derived.by(() => {
@@ -542,13 +543,11 @@
     return order.map((site) => {
       const list = queues.find((q) => q.site === site)?.list ?? [];
       const rs = retriesShown.filter((r) => r.site === site);
-      const waiting = list.filter((s) => s.state !== 'running');
       const entries: QueueEntry[] = [
-        ...list.filter((s) => s.state === 'running').map((s) => ({ kind: 'search' as const, s, wi: -1 })),
         ...rs.map((r) => ({ kind: 'retry' as const, r })),
-        ...waiting.map((s, wi) => ({ kind: 'search' as const, s, wi })),
+        ...list.map((s, wi) => ({ kind: 'search' as const, s, wi })),
       ];
-      return { site, list, waiting, entries };
+      return { site, list, entries };
     });
   });
   /** A list grouped by site, the sites in the order their first item comes. */
@@ -1128,13 +1127,11 @@
     return 0;
   }
 
-  /** Moves a site's waiting download (from/to: places among the waiting ones; the running one stays in front). */
+  /** Moves a site's download from one place in its queue to another (the running one too: see queueSites). */
   async function move(site: string, from: number, to: number) {
-    const list = queues.find((q) => q.site === site)?.list ?? [];
-    const waiting = list.filter((s) => s.state !== 'running').map((s) => s.id);
-    const [id] = waiting.splice(from, 1);
-    waiting.splice(to, 0, id);
-    const ids = [...list.filter((s) => s.state === 'running').map((s) => s.id), ...waiting];
+    const ids = (queues.find((q) => q.site === site)?.list ?? []).map((s) => s.id);
+    const [id] = ids.splice(from, 1);
+    ids.splice(to, 0, id);
     // Show the new order at once, then save it.
     const pos = new Map(ids.map((x, k) => [x, k]));
     searches = [...searches].sort((a, b) =>
@@ -1627,9 +1624,9 @@
                   {#if e.kind === 'retry'}
                     {@render retryCard(e.r)}
                   {:else}
-                    {@const grips = c.open && q.waiting.length > 1}
+                    {@const grips = c.open && q.list.length > 1}
                     <div class="row" class:has-grip={grips} data-wi={e.wi >= 0 ? e.wi : undefined}>
-                      {#if grips && e.wi >= 0}
+                      {#if grips}
                         <button
                           class="grip"
                           aria-label={t('saved.reorder', { name: nameOf(e.s) })}
@@ -1638,9 +1635,7 @@
                           onpointermove={dragMove}
                           onpointerup={dragEnd}
                           onpointercancel={dragEnd}
-                          onkeydown={(ev) => handleKey(ev, q.site, e.wi, q.waiting.length)}><Icon name="grip" size={16} /></button>
-                      {:else if grips}
-                        <span class="grip-space" aria-hidden="true"></span>
+                          onkeydown={(ev) => handleKey(ev, q.site, e.wi, q.list.length)}><Icon name="grip" size={16} /></button>
                       {/if}
                       <div class="main">{@render searchInfo(e.s)}</div>
                       <div class="acts">{@render searchActs(e.s, false)}</div>
@@ -1988,9 +1983,6 @@
   .row.has-grip {
     grid-template-columns: 20px minmax(0, 1fr) auto;
     padding-left: 2px;
-  }
-  .grip-space {
-    width: 20px;
   }
   .grip {
     align-self: stretch;

@@ -228,6 +228,50 @@
   let isVideo = $derived(cur?.mime.startsWith('video/') ?? false);
   let videoEl = $derived(cur ? (videoEls[cur.id] ?? undefined) : undefined);
 
+  // The current video waits for data (opening, after a jump, a slow connection): a spinner over it, after a moment
+  // (a quick load doesn't flash one). Stalled = 'waiting' until it plays on (time moving again, or 'playing').
+  let buffering = $state(false);
+  $effect(() => {
+    const v = videoEl;
+    buffering = false;
+    if (!v) return;
+    let timer = 0;
+    let stalled = false;
+    let shown = false; // (not read from buffering: the effect would depend on it and start over when it changes)
+    let last = v.currentTime;
+    const update = () => {
+      const want = !v.ended && (v.seeking || stalled || v.readyState < 2);
+      if (!want) {
+        clearTimeout(timer);
+        timer = 0;
+        buffering = shown = false;
+      } else if (!shown && !timer) {
+        timer = window.setTimeout(() => {
+          timer = 0;
+          buffering = shown = true;
+        }, 300);
+      }
+    };
+    const on: Record<string, () => void> = {
+      waiting: () => ((stalled = true), update()),
+      playing: () => ((stalled = false), update()),
+      canplay: () => ((stalled = !v.paused && v.readyState < 3 && stalled), update()),
+      timeupdate: () => {
+        if (v.currentTime !== last && !v.seeking) stalled = false;
+        last = v.currentTime;
+        update();
+      },
+      emptied: () => ((stalled = false), update()),
+    };
+    for (const e of ['seeking', 'seeked', 'loadeddata', 'pause', 'ended']) on[e] = update;
+    for (const [e, f] of Object.entries(on)) v.addEventListener(e, f);
+    update();
+    return () => {
+      clearTimeout(timer);
+      for (const [e, f] of Object.entries(on)) v.removeEventListener(e, f);
+    };
+  });
+
   // ---- moving
 
   // A move slides the next file in, then makes it current. A new swipe or key
@@ -1150,6 +1194,9 @@
                   </div>
                 </div>
               {/if}
+              {#if s.slot === 1 && buffering && !scrubFrame}
+                <span class="buffering" role="status" aria-label={t('viewer.buffering')} transition:pop><span class="spinner"></span></span>
+              {/if}
             {:else}
               {@const src = imgSrc(f, s.slot === 1)}
               <!-- The thumbnail under it until the picture has faded in over it (then gone: not through a transparent
@@ -1334,6 +1381,28 @@
   /* Springing back from past a limit: a little overshoot, settling. */
   .zoom-anim.spring {
     transition: transform 0.45s cubic-bezier(0.34, 1.45, 0.64, 1);
+  }
+  /* Waiting for the video's data: a spinner in the middle of it, on a dark disc (seen on any picture). */
+  .buffering {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 56px;
+    height: 56px;
+    margin: -28px 0 0 -28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 0.45);
+    pointer-events: none;
+  }
+  .buffering .spinner {
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    border-width: 3px;
+    border-color: rgb(255 255 255 / 0.25);
+    border-top-color: var(--mauve);
   }
   .scrub-wrap {
     position: absolute;

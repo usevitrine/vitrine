@@ -19,8 +19,10 @@ import (
 )
 
 // clock lets a test move the downloader's time forward.
-func (e *env) clock() func(time.Duration) {
-	now := time.Now()
+func (e *env) clock() func(time.Duration) { return e.clockAt(time.Now()) }
+
+// clockAt: the same, starting at a given moment (a test whose outcome depends on how old the posts are).
+func (e *env) clockAt(now time.Time) func(time.Duration) {
 	e.dl.now = func() time.Time { return now }
 	return func(d time.Duration) { now = now.Add(d) }
 }
@@ -681,6 +683,45 @@ func TestChecksGoAheadOfDownloads(t *testing.T) {
 				t.Fatalf("%s: the check came at %d, before the download's last post at %d", what, firstCheck, lastBig)
 			}
 		}
+	}
+}
+
+// A waiting search dragged above the running one takes over after the post in flight (not when the running one is
+// done - a big first check could take hours); the one that stepped aside carries on afterwards and gets everything.
+func TestReorderAboveRunning(t *testing.T) {
+	e := newEnv(t, 25)
+	ctx := context.Background()
+	big, _ := e.dl.Add(ctx, "fake", "common", 0)
+	other, _ := e.dl.Add(ctx, "fake", "rare", 0)
+	var mu sync.Mutex
+	var order []int64
+	e.dl.OnPost = func(s Search, p plugin.Post, outcome int, err error) {
+		mu.Lock()
+		order = append(order, s.ID)
+		n := len(order)
+		mu.Unlock()
+		if n == 3 {
+			if err := e.dl.Reorder(ctx, "fake", []int64{other, big}); err != nil {
+				t.Error(err)
+			}
+		}
+	}
+	if err := e.dl.RunQueue(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	if s, _ := e.dl.Get(ctx, big); s.State != StateDone || s.Handled != 25 {
+		t.Fatalf("the one that stepped aside: %+v", s)
+	}
+	lastBig, firstOther := -1, -1
+	for i, id := range order {
+		if id == big {
+			lastBig = i
+		} else if firstOther < 0 {
+			firstOther = i
+		}
+	}
+	if firstOther < 0 || firstOther > 4 || firstOther > lastBig {
+		t.Fatalf("the search dragged above came at %d (the running one's last post at %d): %v", firstOther, lastBig, order)
 	}
 }
 
