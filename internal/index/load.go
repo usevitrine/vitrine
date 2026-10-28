@@ -72,7 +72,27 @@ func (ix *Index) loadNamespaces(ctx context.Context, tx *sql.Tx) error {
 	return rows.Err()
 }
 
+// trashFiles: the deleted files, as a subquery (the files_deleted partial index makes it quick).
+const trashFiles = "(SELECT id FROM files WHERE deleted_at IS NOT NULL)"
+
+// only narrows a query's rows to the deleted files' (by its file ID column col) in the trash's index: it holds a few
+// files, so building it again after writes reads only theirs - all 330k files' links, 170k tags and their trigrams
+// took ~2 s, after nearly every write while a download ran (2026-10-28). The library's index: no narrowing.
+func (ix *Index) only(col string) string {
+	if !ix.trash {
+		return ""
+	}
+	return " AND " + col + " IN " + trashFiles
+}
+
 func (ix *Index) loadTags(ctx context.Context, tx *sql.Tx) error {
+	if ix.trash { // the deleted files' tags, and those in parents and siblings (a search by a parent finds them)
+		return ix.loadTagRows(ctx, tx, `SELECT id, namespace_id, name FROM tags WHERE id IN (
+			SELECT tag_id FROM file_tags WHERE file_id IN `+trashFiles+`
+			UNION SELECT tag_id FROM hidden_tags WHERE file_id IN `+trashFiles+`
+			UNION SELECT child_id FROM tag_parents UNION SELECT parent_id FROM tag_parents
+			UNION SELECT from_id FROM tag_siblings UNION SELECT to_id FROM tag_siblings)`)
+	}
 	return ix.loadTagRows(ctx, tx, "SELECT id, namespace_id, name FROM tags")
 }
 
@@ -109,21 +129,24 @@ func (ix *Index) loadFiles(ctx context.Context, tx *sql.Tx) error {
 	ix.growFiles(uint32(maxID.Int64))
 
 	// (flag 64: only a comic page, not in the library; the trash: the deleted files, "modified" = when deleted)
-	which, modified := "deleted_at IS NULL", "modified_at"
-	if ix.trash {
-		which, modified = "deleted_at IS NOT NULL", "deleted_at"
+	which, modified, order := "deleted_at IS NULL", "modified_at", " ORDER BY id"
+	if ix.trash { // (no order: by ID, SQLite read the whole table instead of the deleted files' index; a bitmap takes them in any order)
+		which, modified, order = "deleted_at IS NOT NULL", "deleted_at", ""
 	}
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, size, type, coalesce(width, 0), coalesce(height, 0), coalesce(duration_ms, 0),
 		       coalesce(has_audio, 0), imported_at, `+modified+`, coalesce(site_rating, 0), coalesce(posted_at, 0), bulk
-		FROM files WHERE `+which+` AND flags & 64 = 0 ORDER BY id`)
+		FROM files WHERE `+which+` AND flags & 64 = 0`+order)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
-	posts, err := dayOnlyPosts(ctx, tx)
-	if err != nil {
-		return err
+	// (not for the trash: it reads all of seen_posts - 1 s on a big library - only to order files posted the same day)
+	posts := map[uint32]int64{}
+	if !ix.trash {
+		if posts, err = dayOnlyPosts(ctx, tx); err != nil {
+			return err
+		}
 	}
 	ids := make([]uint32, 0, maxID.Int64)
 	for rows.Next() {
@@ -221,7 +244,7 @@ func (ix *Index) loadFileTags(ctx context.Context, tx *sql.Tx) error {
 	hidden, err := tx.QueryContext(ctx, `
 		SELECT h.file_id, h.tag_id FROM hidden_tags h
 		WHERE NOT EXISTS (SELECT 1 FROM file_tags ft
-		                  WHERE ft.file_id = h.file_id AND ft.tag_id = h.tag_id AND ft.origin = 0)`)
+		                  WHERE ft.file_id = h.file_id AND ft.tag_id = h.tag_id AND ft.origin = 0)`+ix.only("h.file_id"))
 	if err != nil {
 		return err
 	}
@@ -284,7 +307,7 @@ func (ix *Index) loadRelations(ctx context.Context, tx *sql.Tx) error {
 }
 
 func (ix *Index) loadFavorites(ctx context.Context, tx *sql.Tx) error {
-	rows, err := tx.QueryContext(ctx, "SELECT file_id, added_at FROM favorites")
+	rows, err := tx.QueryContext(ctx, "SELECT file_id, added_at FROM favorites WHERE 1"+ix.only("file_id"))
 	if err != nil {
 		return err
 	}
@@ -303,7 +326,7 @@ func (ix *Index) loadFavorites(ctx context.Context, tx *sql.Tx) error {
 }
 
 func (ix *Index) loadClimaxes(ctx context.Context, tx *sql.Tx) error {
-	rows, err := tx.QueryContext(ctx, "SELECT file_id, count(*) FROM climaxes GROUP BY file_id")
+	rows, err := tx.QueryContext(ctx, "SELECT file_id, count(*) FROM climaxes WHERE 1"+ix.only("file_id")+" GROUP BY file_id")
 	if err != nil {
 		return err
 	}

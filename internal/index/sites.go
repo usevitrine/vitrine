@@ -34,7 +34,7 @@ func (ix *Index) loadSites(ctx context.Context, tx *sql.Tx) error {
 	if err := ix.loadSiteAliases(ctx, tx); err != nil {
 		return err
 	}
-	rows, err := tx.QueryContext(ctx, "SELECT DISTINCT file_id, site_id FROM file_urls")
+	rows, err := tx.QueryContext(ctx, "SELECT DISTINCT file_id, site_id FROM file_urls WHERE 1"+ix.only("file_id"))
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (ix *Index) SiteCounts(ids []uint32) map[uint32]int {
 // the Downloads page open as a search).
 
 func (ix *Index) loadFoundBy(ctx context.Context, tx *sql.Tx) error {
-	rows, err := tx.QueryContext(ctx, "SELECT file_id, subscription_id FROM file_sources WHERE subscription_id IS NOT NULL AND downloaded = 1")
+	rows, err := tx.QueryContext(ctx, "SELECT file_id, subscription_id FROM file_sources WHERE subscription_id IS NOT NULL AND downloaded = 1"+ix.only("file_id"))
 	if err != nil {
 		return err
 	}
