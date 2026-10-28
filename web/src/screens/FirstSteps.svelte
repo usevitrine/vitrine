@@ -14,6 +14,7 @@
   import { api, type LibraryStats, type UpdateState } from '../lib/api';
   import { updater } from '../lib/updater.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
+  import { toasts } from '../lib/toast.svelte';
   import { settings } from '../lib/settings.svelte';
   import { whatsNew } from '../lib/whatsNew.svelte';
   import { router } from '../lib/router.svelte';
@@ -57,16 +58,29 @@
   const back = () => at > 0 && go(steps[at - 1]);
 
   // ---- a newer Vitrine: updated from here, setup starts over on it (what it shows may have changed)
-  let update = $state<UpdateState | null>(null);
+  let info = $state<UpdateState | null>(null);
+  const update = $derived(info?.newer ? info : null);
+  let checking = $state(false);
+  let checked = $state(false); // (asked here: "Up to date" says so)
   onMount(async () => {
     try {
-      let u = await api.updateState();
-      if (!u.latest && !u.error) u = await api.checkForUpdate(); // (just installed: not asked yet)
-      if (u.newer) update = u;
+      info = await api.updateState();
+      if (!info.latest && !info.error) info = await api.checkForUpdate(); // (just installed: not asked yet)
     } catch {
       /* no update API, or offline: nothing shown */
     }
   });
+  async function checkNow() {
+    checking = true;
+    try {
+      info = await api.checkForUpdate();
+      checked = true;
+    } catch (e) {
+      toasts.error(t('updates.checkFailed', { error: (e as Error).message }));
+    } finally {
+      checking = false;
+    }
+  }
   async function updateNow() {
     if (!update) return;
     if (!(await confirmAction({ title: t('updates.confirmTitle', { version: update.latest }), body: t('setup.update.confirm'), action: t('updates.update'), icon: 'download' }))) return;
@@ -139,7 +153,16 @@
         {#if update.can_update}<button class="primary" onclick={updateNow}>{t('updates.update')}</button>{/if}
       </div>
     {/if}
-    <p class="count">{t('setup.stepOf', { n: at + 1, total: steps.length })}</p>
+    <div class="count">
+      <span>{t('setup.stepOf', { n: at + 1, total: steps.length })}</span>
+      {#if info && !update}
+        {#key checked}
+          <span class="check-update" in:fade={{ duration: 150 }}>
+            {#if checked && !info.error}<Icon name="check" size={14} /> {t('updates.upToDate')}{:else}<button class="link" onclick={checkNow} disabled={checking}>{checking ? t('updates.checking') : t('setup.update.check')}</button>{/if}
+          </span>
+        {/key}
+      {/if}
+    </div>
     <div class="stage">
     {#key step}
     <div class="step" in:stepIn out:stepOut>
@@ -368,6 +391,26 @@
   .progress span.now {
     background: var(--mauve);
   }
+  .check-update {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    font-weight: 500;
+  }
+  .check-update .link {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--mauve);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .check-update .link:disabled {
+    color: var(--subtext);
+    cursor: default;
+  }
   .update {
     display: flex;
     gap: 12px;
@@ -393,6 +436,10 @@
     flex: none;
   }
   .count {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
     margin: 4px 0 -8px;
     color: var(--subtext);
     font-size: var(--font-small);

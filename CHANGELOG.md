@@ -27,7 +27,7 @@ shows this too (Settings > Updates).
 - **Settings > Stats opens at once on a big library** (it took several seconds with hundreds of thousands of files).
 - **Less downloading twice**: when a site lists an out-of-date checksum for a file it has since replaced (common on rule34's older videos), Vitrine checks two small pieces of it again instead of downloading the whole file a second time. The log says so once per site, not for every file.
 - **Reorder the download that's running**: drag it below another (a big first check, say) and the one now ahead takes over after the file in flight; the one moved down carries on later from where it was.
-- **Update during setup**: when a newer Vitrine is out, the first steps offer it at the top; after the update, setup starts over on the new version.
+- **Update during setup**: when a newer Vitrine is out, the first steps offer it at the top; after the update, setup starts over on the new version. Otherwise a Check for updates link sits beside the step count.
 
 ### Fixed
 

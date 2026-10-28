@@ -8537,13 +8537,14 @@ test("library: pressing on the hover card's video and moving sideways scrubs it 
   await expect(page.locator('.grid-scroller.scrubbing')).toHaveCount(0);
 });
 
-test('first steps: a newer Vitrine is offered at the top - Update runs the updater and setup starts over on the new version; a big disk in TB', async ({ page }, info) => {
+test('first steps: Check for updates on the step line (Up to date when none); a newer Vitrine is offered at the top - Update runs the updater and setup starts over on the new version; a big disk in TB', async ({ page }, info) => {
   let current = 'v1.0.1';
+  let latest = 'v1.0.1';
   let away = false;
-  await page.route('**/api/update', (r) => {
-    if (r.request().method() === 'POST') return r.fulfill({ status: 202, json: { started: true } });
+  await page.route('**/api/update**', (r) => {
+    if (r.request().method() === 'POST' && !r.request().url().endsWith('/check')) return r.fulfill({ status: 202, json: { started: true } });
     if (away) return r.fulfill({ status: 502, body: 'Bad Gateway' });
-    return r.fulfill({ json: { current, latest: 'v9.9.9', page: '', newer: current !== 'v9.9.9', checked_at: Date.now(), error: '', check: true, can_update: true, updating: '', update_error: '', changelog: '' } });
+    return r.fulfill({ json: { current, latest, page: '', newer: current !== latest, checked_at: Date.now(), error: '', check: true, can_update: true, updating: '', update_error: '', changelog: '' } });
   });
   await page.route('**/api/stats*', async (r) => {
     const res = await r.fetch();
@@ -8557,7 +8558,14 @@ test('first steps: a newer Vitrine is offered at the top - Update runs the updat
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByRole('heading', { name: 'Storage', level: 1 })).toBeVisible();
     await expect(page.getByText('4.9 TB free of 5.4 TB')).toBeVisible();
+    // Nothing newer: Check for updates says so; a release out by the next load is offered at once.
+    await page.getByRole('button', { name: 'Check for updates' }).click();
+    await expect(page.getByText('Up to date')).toBeVisible();
+    if (process.env.SHOTS) await page.waitForTimeout(600), await page.screenshot({ path: `${process.env.SHOTS}/fs-uptodate-${info.project.name}.png` });
+    latest = 'v9.9.9';
+    await page.reload();
     await expect(page.getByText('Vitrine v9.9.9 is out')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Check for updates' })).toHaveCount(0);
     if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/fs-update-${info.project.name}.png` });
     await page.getByRole('button', { name: 'Update', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Update', exact: true }).click();
