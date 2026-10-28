@@ -57,6 +57,9 @@ type Library struct {
 	trashAt      int64
 	comicTrashIx *index.Index
 	comicTrashAt int64
+	// Bumped when the blacklist or the download rules change: a running download reads them again (see
+	// DownloadListsVersion).
+	listsVer atomic.Int64
 }
 
 // Deps are what a library is built from.

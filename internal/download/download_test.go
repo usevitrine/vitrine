@@ -795,3 +795,29 @@ func TestRecordFileRemovedMeanwhile(t *testing.T) {
 		t.Fatalf("seen post: file %v, %v", file, err)
 	}
 }
+
+// A tag blacklisted while a download runs applies from its next post, not only from the next download (2026-10-28,
+// the user: "when you add new blacklisted tags, the changes [don't] apply to running downloads").
+func TestBlacklistMidDownload(t *testing.T) {
+	e := newEnv(t, 25)
+	ctx := context.Background()
+	var once sync.Once
+	e.dl.OnPost = func(Search, plugin.Post, int, error) {
+		once.Do(func() {
+			if _, err := e.lib.SetBlacklist(ctx, []string{"tag_3"}); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	id, err := e.dl.Add(ctx, "fake", "common", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.dl.RunQueue(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := e.dl.Get(ctx, id)
+	if s.Blacklisted != 1 || e.count(t, "tag_3") != 0 || e.count(t, "tag_4") != 1 {
+		t.Fatalf("blacklisted %d, tag_3 %d, tag_4 %d: %+v", s.Blacklisted, e.count(t, "tag_3"), e.count(t, "tag_4"), s)
+	}
+}

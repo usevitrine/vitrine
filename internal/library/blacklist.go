@@ -124,11 +124,17 @@ func (l *Library) SetBlacklist(ctx context.Context, entries []string) ([]string,
 	if err != nil {
 		return nil, err
 	}
+	l.listsVer.Add(1)
 	if clean == nil {
 		clean = []string{}
 	}
 	return clean, nil
 }
+
+// DownloadListsVersion changes whenever the blacklist or the download rules do: running downloads compare it before
+// each post and read them again, so a tag blacklisted mid-download applies from the next post (2026-10-28, the user:
+// "when you add new blacklisted tags, the changes [don't] apply to running downloads").
+func (l *Library) DownloadListsVersion() int64 { return l.listsVer.Load() }
 
 func jsonList(s []string) string {
 	var b strings.Builder

@@ -174,7 +174,10 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   case, spaces as underscores). A blacklisted post is recorded as seen (outcome 6, counter `blacklisted`), so a rerun
   doesn't page through it again - a gallery-dl problem where filtered posts didn't count as seen - but it is
   checked again on every run, so removing an entry lets it download. The downloader reads the blacklist at the start
-  of each search. Edited on the Tags screen (moved from Downloads 2026-10-14; paste a whole list) or `vitrine blacklist list|add|remove|matches`.
+  of each search, **and again before a post whenever it or the download rules changed** (2026-10-28, the user: changes
+  didn't apply to running downloads): `Library.DownloadListsVersion` (bumped by `SetBlacklist` and by `SetSettings`
+  with `skipVideoMB`/`skipImageMP`), `downloadLists` + `freshLists` in `runPage`; posts already in flight keep the
+  old list. Test: `TestBlacklistMidDownload`. Edited on the Tags screen (moved from Downloads 2026-10-14; paste a whole list) or `vitrine blacklist list|add|remove|matches`.
   API: `GET/POST /api/blacklist`, `GET /api/blacklist/matches` (per-tag counts, total, size),
   `POST /api/blacklist/delete` (deletes matching library files the normal way - undoable, tombstoned; returns the
   IDs for Undo). Matching library files are found with a search per entry, so tag parents/siblings count too.

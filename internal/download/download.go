@@ -456,14 +456,10 @@ func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
 			d.now().UnixMilli(), s.ID)
 		d.Changed()
 	}
-	// Read once per run: changes apply from the next search (or resume).
-	bl, err := d.lib.Blacklist(ctx)
-	if err != nil {
-		d.finish(s, StateFailed, err.Error())
-		return
-	}
-	rules, err := d.lib.DownloadRules(ctx)
-	if err != nil {
+	// Read now, and again before a post whenever they've changed since (lists.fresh): a tag blacklisted mid-download
+	// applies from its next post.
+	lists := &downloadLists{}
+	if err := d.loadLists(ctx, lists); err != nil {
 		d.finish(s, StateFailed, err.Error())
 		return
 	}
@@ -593,9 +589,41 @@ func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
 			return
 		}
 		seen(page.Posts)
-		if !d.runPage(ctx, st, &s, page.Posts, bl, rules, favorite, stop, more) {
+		if !d.runPage(ctx, st, &s, page.Posts, lists, favorite, stop, more) {
 			return
 		}
+	}
+}
+
+// downloadLists are what a download checks each post against: the blacklist and the download rules, as of ver.
+type downloadLists struct {
+	bl    *library.Blacklist
+	rules library.DownloadRules
+	ver   int64
+}
+
+// loadLists reads the blacklist and the download rules (the version first: a change made while reading shows next time).
+func (d *Downloader) loadLists(ctx context.Context, l *downloadLists) error {
+	ver := d.lib.DownloadListsVersion()
+	bl, err := d.lib.Blacklist(ctx)
+	if err != nil {
+		return err
+	}
+	rules, err := d.lib.DownloadRules(ctx)
+	if err != nil {
+		return err
+	}
+	*l = downloadLists{bl: bl, rules: rules, ver: ver}
+	return nil
+}
+
+// freshLists reads them again if they've changed (kept as they were if that fails: tried again before the next post).
+func (d *Downloader) freshLists(ctx context.Context, l *downloadLists) {
+	if d.lib.DownloadListsVersion() == l.ver {
+		return
+	}
+	if err := d.loadLists(ctx, l); err != nil {
+		d.log.Warn("reading the blacklist again", "err", err)
 	}
 }
 
@@ -607,8 +635,8 @@ func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
 // once every newer post on the page is done - a crash may fetch a file
 // again, never skip one. Pausing stops new posts and lets the ones in flight
 // finish. It reports whether the search goes on to the next page.
-func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []plugin.Post, bl *library.Blacklist,
-	rules library.DownloadRules, favorite bool, stop func() bool, more func(below int64) []plugin.Post) bool {
+func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []plugin.Post, lists *downloadLists,
+	favorite bool, stop func() bool, more func(below int64) []plugin.Post) bool {
 	// Files from a subscription's regular check (it stops at the newest post the last
 	// check saw) are "new" in the strict sense; anything else came in bulk.
 	bulk := !s.isCheck()
@@ -668,6 +696,8 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 			if s.StopID > 0 && p.ID <= s.StopID {
 				s.pastStop++ // (a resumed check starts its depth again: a few posts more, never fewer)
 			}
+			d.freshLists(ctx, lists)
+			bl, rules := lists.bl, lists.rules
 			inflight++
 			next := slices.Clone(posts[i+1 : min(i+4, len(posts))]) // (the posts after it: one may have its page opened ahead)
 			go func(i int, p plugin.Post) {

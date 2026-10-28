@@ -332,7 +332,13 @@ func (l *Library) SetSettings(ctx context.Context, values map[string]json.RawMes
 			return fmt.Errorf("library: %w", err)
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if values["skipVideoMB"] != nil || values["skipImageMP"] != nil {
+		l.listsVer.Add(1) // (the download rules: see DownloadListsVersion)
+	}
+	return nil
 }
 
 // isOrder checks a result order ("imported", "favorite_asc").
