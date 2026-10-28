@@ -246,7 +246,7 @@ func (s *Server) newFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 // withNew fills in what system:new compares with: the request's new_since and new_bulk=0 (the NEW pills' own: a saved
-// search opened from the menu has its own time), else the shared settings seenAt and newFromBulk (missing = on).
+// search opened from the menu has its own time), else the shared settings seenAt and newFromBulk (missing = off).
 func (s *Server) withNew(r *http.Request, q *search.Query) {
 	var atoms []*search.Atom
 	for i := range q.Terms {
@@ -264,7 +264,7 @@ func (s *Server) withNew(r *http.Request, q *search.Query) {
 	if since <= 0 {
 		if set, err := s.lib.Settings(r.Context()); err == nil {
 			json.Unmarshal(set["seenAt"], &since)
-			skip = string(set["newFromBulk"]) == "false"
+			skip = string(set["newFromBulk"]) != "true"
 		}
 	}
 	for _, a := range atoms {

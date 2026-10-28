@@ -38,7 +38,7 @@ class Settings {
   newMode = $state(load('newMode', 'button'));
   /** Whether files from one-off downloads, subscriptions' first checks and imports count as
    *  new (off: only files from subscriptions' regular checks). */
-  newFromBulk = $state(load('newFromBulk', true));
+  newFromBulk = $state(load('newFromBulk', false)); // (only a subscription's checks bring new files unless this is on - the user)
   /** A database backup every day, keeping the newest backupKeep (Settings > Backups). */
   backupAuto = $state(load('backupAuto', true));
   backupKeep = $state(load('backupKeep', 7));

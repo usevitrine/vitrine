@@ -73,6 +73,7 @@ function makeTemplate() {
   // The test sites below never answer: they'd pause after a few errors (their searches waiting instead of failing).
   // Off here; the test of pausing turns it on for itself.
   run(bin, ['setting', '-data-dir', data, 'pauseAfter', '0']);
+  run(bin, ['setting', '-data-dir', data, 'newFromBulk', 'true']); // (the test library is an import: bulk - its files count as new for the tests)
 
   // Two test sites that never deliver anything (no real site is contacted by the
   // download tests): test-down refuses at once (searches fail), test-slow never

@@ -70,7 +70,7 @@ var settingCheck = map[string]func(json.RawMessage) error{
 	// once, "button" shows the N new files button.
 	"seenAt":      numberIn(0, 1e15),
 	"newOrder":    oneOf("imported", "imported_asc", "uploaded"),
-	"newFromBulk": isBool,           // one-off downloads, first checks and imports count as new (missing = yes)
+	"newFromBulk": isBool,           // one-off downloads, first checks and imports count as new (missing = no)
 	"backupAuto":  isBool,           // a backup every day (missing = on)
 	"backupKeep":  numberIn(1, 365), // how many backups to keep
 	// Ask GitHub once a day whether a newer Vitrine is out (missing = on).

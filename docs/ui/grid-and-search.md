@@ -169,10 +169,12 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   marks them all as seen (seenAt = the result's time).
 - **"Bulk downloads count as new" (2026-10-16)**: files remember whether they came in bulk (`files.bulk`, migration
   0014; set on import: one-off downloads, a subscription's first check and `vitrine import` are bulk, a subscription's
-  regular check - one that stops at the last check's newest post - is not). Setting `newFromBulk` (default on, Settings
+  regular check - one that stops at the last check's newest post - is not). Setting `newFromBulk` (default **off** since 2026-10-28, Settings
   > Library): off sends `new_bulk=0` to `/api/search` and `/api/new`, so only files from regular checks are pinned
   first, marked NEW, counted in the "N new ×" pill and the app icon. The NEW mark follows the server (the first
-  `pinned` files).
+  `pinned` files). **Off by default (2026-10-28)** (the user: a new download's files all went to NEW and the top of
+  the page - "it should only do that for subscription refreshes, not initial downloads that happen to be subscribed
+  to"): missing on the server = off; the e2e library is seeded with it on (`e2e/setup.ts`: an import, so bulk).
 - **Search bar (2026-10-16)**: chips and the typing box on **one line** that scrolls sideways (no scrollbar, soft
   fades at an edge with more chips beyond - overlays, not a CSS mask, which hid the suggestions inside it; the typing
   box is a small target at the end, 2.5em plus what is typed, filling the line only when the chips leave room; a tap
