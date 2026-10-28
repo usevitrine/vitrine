@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -60,6 +61,34 @@ func TestReadPoolIsReadOnly(t *testing.T) {
 	d, _ := openTest(t)
 	if _, err := d.R.Exec("INSERT INTO urls (url) VALUES ('x')"); err == nil {
 		t.Fatal("write through the read pool succeeded")
+	}
+}
+
+// Each database's connections, both pools, get its page cache size (and the shared pragmas still apply).
+func TestCacheSizes(t *testing.T) {
+	ctx := context.Background()
+	meta, _ := openTest(t)
+	thumbs, err := OpenThumbs(ctx, filepath.Join(t.TempDir(), "thumbs.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer thumbs.Close()
+	for _, c := range []struct {
+		name string
+		d    *DB
+		kb   int
+	}{{"meta.db", meta, metaCacheKB}, {"thumbs.db", thumbs, thumbsCacheKB}} {
+		for pool, p := range map[string]interface {
+			QueryRowContext(context.Context, string, ...any) *sql.Row
+		}{"W": c.d.W, "R": c.d.R} {
+			var size, fk int
+			if err := p.QueryRowContext(ctx, "SELECT (SELECT cache_size FROM pragma_cache_size), (SELECT foreign_keys FROM pragma_foreign_keys)").Scan(&size, &fk); err != nil {
+				t.Fatal(err)
+			}
+			if size != -c.kb || fk != 1 {
+				t.Errorf("%s %s: cache_size %d (want %d), foreign_keys %d", c.name, pool, size, -c.kb, fk)
+			}
+		}
 	}
 }
 

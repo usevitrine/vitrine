@@ -40,10 +40,19 @@ var pragmas = []string{
 	"foreign_keys(1)",
 	"temp_store(MEMORY)",
 	"mmap_size(268435456)",
-	"cache_size(-65536)", // 64 MB
 }
 
-func dsn(path string, extra ...string) string {
+// Page cache per connection (KB). thumbs.db's is small: its pictures are read past the cache (blobs straight from the
+// file) except the newest, still in the WAL, which every connection copied in up to 64 MB - measured with thumbnails
+// written while 8 connections read them: 154 MB of SQLite memory at 64 MB, 44 MB at 16, writes and reads as fast
+// (2026-10-28, the user: optimize "for speed and system resources").
+const (
+	metaCacheKB   = 65536
+	thumbsCacheKB = 16384
+)
+
+func dsn(path string, cacheKB int, extra ...string) string {
+	extra = append(extra, "cache_size(-"+strconv.Itoa(cacheKB)+")")
 	q := url.Values{}
 	for _, p := range append(pragmas, extra...) {
 		q.Add("_pragma", p)
@@ -54,16 +63,24 @@ func dsn(path string, extra ...string) string {
 // Open opens (creating if needed) meta.db at path and applies any
 // pending migrations.
 func Open(ctx context.Context, path string) (*DB, error) {
-	return open(ctx, path, "migrations")
+	return open(ctx, path, "migrations", metaCacheKB)
 }
 
 // OpenThumbs opens (creating if needed) thumbs.db, the thumbnail store.
 func OpenThumbs(ctx context.Context, path string) (*DB, error) {
-	return open(ctx, path, "thumbs")
+	d, err := open(ctx, path, "thumbs", thumbsCacheKB)
+	if err != nil {
+		return nil, err
+	}
+	// Its readers stay open between bursts: a screen of the grid asks for dozens of thumbnails at once, and with Go's
+	// default of 2 kept, each burst opened (and set up) up to 6 connections again and closed them - measured, 4000
+	// thumbnails in bursts of 40: 602 connections, 147 ms; kept, 8 and 69 ms, the same memory (2026-10-28).
+	d.R.SetMaxIdleConns(8)
+	return d, nil
 }
 
-func open(ctx context.Context, path, schema string) (*DB, error) {
-	w, err := sql.Open("sqlite", dsn(path)+"&_txlock=immediate")
+func open(ctx context.Context, path, schema string, cacheKB int) (*DB, error) {
+	w, err := sql.Open("sqlite", dsn(path, cacheKB)+"&_txlock=immediate")
 	if err != nil {
 		return nil, fmt.Errorf("db: %w", err)
 	}
@@ -76,7 +93,7 @@ func open(ctx context.Context, path, schema string) (*DB, error) {
 		return nil, err
 	}
 
-	r, err := sql.Open("sqlite", dsn(path, "query_only(1)"))
+	r, err := sql.Open("sqlite", dsn(path, cacheKB, "query_only(1)"))
 	if err != nil {
 		w.Close()
 		return nil, fmt.Errorf("db: %w", err)

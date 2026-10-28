@@ -67,6 +67,7 @@ func (l *Library) lookupTags(ctx context.Context, tx *sql.Tx, tags []tag.Tag, cr
 	}
 	var newNS []ns
 	nsIDs := map[string]uint32{"": 0}
+	st := newTxStmts(ctx, tx) // (the same few statements for every tag)
 
 	for _, t := range tags {
 		if t.Name == "" {
@@ -74,12 +75,12 @@ func (l *Library) lookupTags(ctx context.Context, tx *sql.Tx, tags []tag.Tag, cr
 		}
 		nsID, ok := nsIDs[t.Namespace]
 		if !ok {
-			err := tx.QueryRowContext(ctx, "SELECT id FROM namespaces WHERE name = ?", t.Namespace).Scan(&nsID)
+			err := st.QueryRow("SELECT id FROM namespaces WHERE name = ?", t.Namespace).Scan(&nsID)
 			switch {
 			case errors.Is(err, sql.ErrNoRows) && !create:
 				continue
 			case errors.Is(err, sql.ErrNoRows):
-				err = tx.QueryRowContext(ctx, "INSERT INTO namespaces (name) VALUES (?) RETURNING id", t.Namespace).Scan(&nsID)
+				err = st.QueryRow("INSERT INTO namespaces (name) VALUES (?) RETURNING id", t.Namespace).Scan(&nsID)
 				newNS = append(newNS, ns{nsID, t.Namespace})
 			}
 			if err != nil {
@@ -89,40 +90,40 @@ func (l *Library) lookupTags(ctx context.Context, tx *sql.Tx, tags []tag.Tag, cr
 		}
 
 		// A tag the user moved to another namespace: there (what a site still calls it lands with it).
-		nsID, err := nsOverride(ctx, tx, nsID, t.Name)
+		nsID, err := nsOverride(st, nsID, t.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("library: tag %q: %w", t, err)
 		}
 		var id uint32
-		err = tx.QueryRowContext(ctx, "SELECT id FROM tags WHERE namespace_id = ? AND name = ?", nsID, t.Name).Scan(&id)
+		err = st.QueryRow("SELECT id FROM tags WHERE namespace_id = ? AND name = ?", nsID, t.Name).Scan(&id)
 		if errors.Is(err, sql.ErrNoRows) && nsID == 0 {
 			// No plain tag by that name, but one namespaced tag (some_artist ->
 			// creator:some_artist, after a site said it's an artist): that's the one.
 			// Not counting tags only comics have (a gallery site's other:3d made "3d"
 			// look ambiguous: a plain 3d was made, and files moved over to it).
 			var n int
-			if e := tx.QueryRowContext(ctx, "SELECT count(*) FROM tags WHERE name = ? AND namespace_id != 0"+notComicOnly,
+			if e := st.QueryRow("SELECT count(*) FROM tags WHERE name = ? AND namespace_id != 0"+notComicOnly,
 				t.Name).Scan(&n); e != nil {
 				return nil, nil, fmt.Errorf("library: tag %q: %w", t, e)
 			}
 			if n == 1 {
-				err = tx.QueryRowContext(ctx, "SELECT id FROM tags WHERE name = ? AND namespace_id != 0"+notComicOnly, t.Name).Scan(&id)
+				err = st.QueryRow("SELECT id FROM tags WHERE name = ? AND namespace_id != 0"+notComicOnly, t.Name).Scan(&id)
 			}
 		}
 		switch {
 		case errors.Is(err, sql.ErrNoRows) && !create:
 			continue
 		case errors.Is(err, sql.ErrNoRows) && move && nsID != 0:
-			err = tx.QueryRowContext(ctx, "UPDATE tags SET namespace_id = ? WHERE namespace_id = 0 AND name = ? RETURNING id",
+			err = st.QueryRow("UPDATE tags SET namespace_id = ? WHERE namespace_id = 0 AND name = ? RETURNING id",
 				nsID, t.Name).Scan(&id)
 			if errors.Is(err, sql.ErrNoRows) {
-				err = tx.QueryRowContext(ctx, "INSERT INTO tags (namespace_id, name) VALUES (?, ?) RETURNING id", nsID, t.Name).Scan(&id)
+				err = st.QueryRow("INSERT INTO tags (namespace_id, name) VALUES (?, ?) RETURNING id", nsID, t.Name).Scan(&id)
 			}
 			// Registering an existing ID with another namespace renames it in
 			// the index (its files stay).
 			newTags = append(newTags, index.Tag{ID: id, NamespaceID: nsID, Name: t.Name})
 		case errors.Is(err, sql.ErrNoRows):
-			err = tx.QueryRowContext(ctx, "INSERT INTO tags (namespace_id, name) VALUES (?, ?) RETURNING id", nsID, t.Name).Scan(&id)
+			err = st.QueryRow("INSERT INTO tags (namespace_id, name) VALUES (?, ?) RETURNING id", nsID, t.Name).Scan(&id)
 			newTags = append(newTags, index.Tag{ID: id, NamespaceID: nsID, Name: t.Name})
 		}
 		if err != nil {
@@ -260,12 +261,13 @@ func fileExists(ctx context.Context, tx *sql.Tx, id uint32) error {
 // AddTags gives files tags as the user's own (they survive site re-syncs).
 func (l *Library) AddTags(ctx context.Context, files []uint32, tags []tag.Tag) error {
 	return l.changeTags(ctx, files, tags, true, false, nil, func(tx *sql.Tx, f uint32, ids []uint32) error {
+		st := newTxStmts(ctx, tx)
 		for _, t := range ids {
-			if _, err := tx.ExecContext(ctx,
+			if _, err := st.Exec(
 				"INSERT INTO file_tags (file_id, tag_id, origin) VALUES (?, ?, 0) ON CONFLICT DO NOTHING", f, t); err != nil {
 				return err
 			}
-			if _, err := tx.ExecContext(ctx, "DELETE FROM hidden_tags WHERE file_id = ? AND tag_id = ?", f, t); err != nil {
+			if _, err := st.Exec("DELETE FROM hidden_tags WHERE file_id = ? AND tag_id = ?", f, t); err != nil {
 				return err
 			}
 		}
@@ -277,12 +279,13 @@ func (l *Library) AddTags(ctx context.Context, files []uint32, tags []tag.Tag) e
 // rather than deleted, so re-syncing the site doesn't bring it back.
 func (l *Library) RemoveTags(ctx context.Context, files []uint32, tags []tag.Tag) error {
 	return l.changeTags(ctx, files, tags, false, false, nil, func(tx *sql.Tx, f uint32, ids []uint32) error {
+		st := newTxStmts(ctx, tx)
 		for _, t := range ids {
-			if _, err := tx.ExecContext(ctx,
+			if _, err := st.Exec(
 				"DELETE FROM file_tags WHERE file_id = ? AND tag_id = ? AND origin = 0", f, t); err != nil {
 				return err
 			}
-			if _, err := tx.ExecContext(ctx, `
+			if _, err := st.Exec(`
 				INSERT INTO hidden_tags (file_id, tag_id)
 				SELECT ?1, ?2 WHERE EXISTS (SELECT 1 FROM file_tags WHERE file_id = ?1 AND tag_id = ?2)
 				ON CONFLICT DO NOTHING`, f, t); err != nil {
@@ -313,8 +316,9 @@ func (l *Library) SetSiteTags(ctx context.Context, file, site uint32, tags []tag
 		if _, err := tx.ExecContext(ctx, "DELETE FROM file_tags WHERE file_id = ? AND origin = ?", f, site); err != nil {
 			return err
 		}
+		st := newTxStmts(ctx, tx)
 		for _, t := range ids {
-			if _, err := tx.ExecContext(ctx,
+			if _, err := st.Exec(
 				"INSERT INTO file_tags (file_id, tag_id, origin) VALUES (?, ?, ?)", f, t, site); err != nil {
 				return err
 			}

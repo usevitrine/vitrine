@@ -7,6 +7,7 @@ shows this too (Settings > Updates).
 
 ### Improved
 
+- **Faster downloads and less memory**: recording each downloaded post takes about half the database work, emptying the trash is many times faster on a big library (it no longer pauses downloads for long), and the server holds far less memory for thumbnails while downloading.
 - **A steadier download speed**: the speed shown is the last 10 seconds' average of every byte, so it no longer jumps between a big video's speed and a run of small files'.
 - **Faster downloads of files whose md5 the site lists wrongly** (common with rule34's older videos): the two small pieces that check such a file are asked for together, one wait instead of two.
 - **Subscriptions keep checking during their first download**: while a subscription's initial download is still going (hours, for a big search), its regular checks run on schedule as usual and bring in new posts as they come out.

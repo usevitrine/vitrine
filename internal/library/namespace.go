@@ -162,9 +162,9 @@ func (l *Library) SetNamespace(ctx context.Context, from tag.Tag, ns string) (ta
 
 // nsOverride is where a tag a site calls namespace:name goes, if the user moved
 // it (else the same namespace).
-func nsOverride(ctx context.Context, tx *sql.Tx, nsID uint32, name string) (uint32, error) {
+func nsOverride(st *txStmts, nsID uint32, name string) (uint32, error) {
 	var to uint32
-	err := tx.QueryRowContext(ctx, "SELECT to_ns FROM ns_overrides WHERE from_ns = ? AND name = ?", nsID, name).Scan(&to)
+	err := st.QueryRow("SELECT to_ns FROM ns_overrides WHERE from_ns = ? AND name = ?", nsID, name).Scan(&to)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nsID, nil
 	}

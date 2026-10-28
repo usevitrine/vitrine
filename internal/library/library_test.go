@@ -7,6 +7,7 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/usevitrine/vitrine/internal/db"
@@ -194,5 +195,40 @@ func TestEmptyTrashInBatches(t *testing.T) {
 	}
 	if n, _ := l.EmptyTrash(ctx); n != 0 {
 		t.Fatalf("an empty trash emptied %d", n)
+	}
+}
+
+// BenchmarkSetSitePost measures recording a downloaded post with a booru's usual number of tags (45: an artist, a
+// few new, the rest seen before) - the database side of every download.
+func BenchmarkSetSitePost(b *testing.B) {
+	l := newTest(b)
+	ctx := context.Background()
+	site, err := l.Site(ctx, "site")
+	if err != nil {
+		b.Fatal(err)
+	}
+	var files []uint32
+	for i := range 200 {
+		f, err := l.Import(ctx, bytes.NewReader(fakePNG(byte(i))))
+		if err != nil {
+			b.Fatal(err)
+		}
+		files = append(files, f.ID)
+	}
+	for i := 0; b.Loop(); i++ {
+		p := SitePost{Namespaces: map[string]string{}, PostURL: "https://site.example.test/post/" + strconv.Itoa(i),
+			FileURL: "https://site.example.test/img/" + strconv.Itoa(i) + ".png", Rating: media.RatingGeneral, PostedAt: 1e12}
+		artist := "artist_" + strconv.Itoa(i%300)
+		p.Tags = append(p.Tags, artist)
+		p.Namespaces[artist] = "creator"
+		for k := range 40 {
+			p.Tags = append(p.Tags, "tag_"+strconv.Itoa((i*7+k*13)%2000))
+		}
+		for k := range 4 {
+			p.Tags = append(p.Tags, "new_"+strconv.Itoa(i)+"_"+strconv.Itoa(k))
+		}
+		if err := l.SetSitePost(ctx, files[i%len(files)], site, p); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

@@ -136,5 +136,29 @@ fast storage (SSD), **search index** in RAM.
   (category errors); a database problem: an error and a notice. Settings > Stats has a Health check row (counts in
   red; else how far this round has read). Why: one HDD with no offsite copy of the originals - a failing disk or a
   damaged file is found while the backups still hold a good copy. Test: `TestHealthCheck`.
+- **Speed and memory audit (2026-10-28)**, the user: "optimize things for speed and system resources ... without
+  changing current functionality". Measured on the main instance mid-download (40k files, 56k tags, 111k seen posts):
+  786 MB resident, of which the Go heap ~260 MB and **~405 MB SQLite's own memory** (modernc's allocator, outside Go's
+  numbers: 447 blocks of ~1 MB). Every change below was measured before and after; the tests guard them.
+  - **`thumbs.db` page cache 16 MB per connection** (`thumbsCacheKB`; meta.db keeps 64 MB, `metaCacheKB` - no evidence
+    there): thumbnails are blobs read straight from the file past the cache, except the newest, still in the WAL,
+    which every reader copied in. Thumbnails written while 8 connections read them: 154 MB of SQLite memory at 64 MB,
+    44 MB at 16, just as fast. Test: `TestCacheSizes`.
+  - **`thumbs.db` keeps its 8 readers open** (`SetMaxIdleConns(8)`; Go's default keeps 2): a grid screen asks for
+    dozens of thumbnails at once, and each burst opened and set up connections again - 4000 thumbnails in bursts of
+    40: 602 connections and 147 ms before, 8 and 69 ms after, the same memory.
+  - **Statements prepared once per transaction** in the loops over a post's tags (`library.txStmts`: `lookupTags`,
+    `nsOverride`, the tag edits): each tag parsed the same few statements again.
+  - **Indexes** (migration 0044): `tags(name)` - a tag new to the library was looked up by name alone, reading every
+    tag (nearly every post of a big first download); `seen_posts(file_id)` and `fav_members(file_id)` - a file removed
+    for good (the trash emptied) cleared its foreign keys by reading those whole tables (1000 files at 111k seen posts:
+    7.9 s under the write lock before, 0.19 s after). Together with the statements: recording a post with 45 tags
+    (`BenchmarkSetSitePost`) went from 2.95 ms to ~1.5 ms of database work, more on a big library (the scan grew with it).
+  - Found to be fine already: the index (25 MB, 0.6 s to load at 40k files), files streamed (never read whole into
+    memory), thumbnails (shrink-on-load, half the cores), the web app's assets compressed once and cached for good,
+    every other full-table read rare (start-up, stats, a site wiped, cleanups - checked by logging every distinct
+    statement of the test suite and asking SQLite's query plan). Kept on purpose: the fsync of every original before
+    its row (crash safety; most of a download's wait), the Downloads page's tag-refresh count read on every change
+    (~13 ms at 111k seen posts; cached, it would lag).
 - Considered and rejected: an embedded key-value store (Pebble/bbolt) - faster raw writes, but SQLite is fast enough
   when the hot path is in RAM, and its tooling/backups are better.
