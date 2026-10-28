@@ -686,6 +686,87 @@ func TestChecksGoAheadOfDownloads(t *testing.T) {
 	}
 }
 
+// A subscription's regular checks go on while its first check (everything: hours, for a big search) runs: due, a
+// check for what's new comes up beside it, goes first, stops at the newest post the first check reached and brings
+// its posts in as new; the first check carries on afterwards and takes the rest.
+func TestChecksBesideFirstCheck(t *testing.T) {
+	e := newEnv(t, 25)
+	ctx := context.Background()
+	advance := e.clock()
+	e.dl.asideEvery = 0
+	id, err := e.dl.Subscribe(ctx, "fake", "common", time.Hour, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.dl.StartDue(ctx); err != nil { // the first check
+		t.Fatal(err)
+	}
+	// Not due yet when the first check is a few posts in: nothing beside it.
+	var mu sync.Mutex
+	var order []int64 // the search of each post handled, in turn
+	var first int64
+	e.dl.OnPost = func(s Search, p plugin.Post, outcome int, err error) {
+		mu.Lock()
+		order = append(order, s.ID)
+		n := len(order)
+		mu.Unlock()
+		switch n {
+		case 2:
+			first = s.ID
+			if err := e.dl.StartDue(ctx); err != nil {
+				t.Error(err)
+			}
+			if n := e.subSearches(id); n != 1 {
+				t.Errorf("a check before it was due: %d", n)
+			}
+		case 4: // an hour on, 3 new posts on the site: the regular check is due
+			advance(time.Hour)
+			e.fb.upload(3)
+			if err := e.dl.StartDue(ctx); err != nil {
+				t.Error(err)
+			}
+			if n := e.subSearches(id); n != 2 {
+				t.Errorf("no check beside the first: %d", n)
+			}
+		}
+	}
+	if err := e.dl.RunQueue(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	s := e.sub(t, id)
+	if s.Checks != 2 || s.Downloaded != 27 || s.highID != 28 || s.Check != nil {
+		t.Fatalf("after both checks: %+v", s)
+	}
+	// The check's 3 posts came while the first check was under way, and no post twice.
+	lastFirst, firstCheck, check := -1, -1, 0
+	for i, sid := range order {
+		if sid == first {
+			lastFirst = i
+		} else {
+			check++
+			if firstCheck < 0 {
+				firstCheck = i
+			}
+		}
+	}
+	if check != 3 || firstCheck > lastFirst {
+		t.Fatalf("the check's posts: %d, from %d; the first check's last post at %d", check, firstCheck, lastFirst)
+	}
+	for p, n := range e.fb.fileHits {
+		if n > 1 {
+			t.Fatalf("post %d fetched %d times", p, n)
+		}
+	}
+	// The check's files are new; the first check's came in bulk.
+	var bulk, regular int
+	if err := e.dl.db.R.QueryRow("SELECT count(*) FILTER (WHERE bulk = 1), count(*) FILTER (WHERE bulk = 0) FROM files").Scan(&bulk, &regular); err != nil {
+		t.Fatal(err)
+	}
+	if bulk != 24 || regular != 3 {
+		t.Fatalf("bulk %d, regular %d; want 24, 3", bulk, regular)
+	}
+}
+
 // A waiting search dragged above the running one takes over after the post in flight (not when the running one is
 // done - a big first check could take hours); the one that stepped aside carries on afterwards and gets everything.
 func TestReorderAboveRunning(t *testing.T) {
@@ -803,4 +884,11 @@ func TestSubscriptionLooks(t *testing.T) {
 	if res := e.lib.Index().Search(q, time.Now()); res.Total != 0 {
 		t.Fatalf("another subscription's: %d", res.Total)
 	}
+}
+
+// subSearches counts a subscription's checks in progress.
+func (e *env) subSearches(id int64) int {
+	var n int
+	e.dl.db.R.QueryRow("SELECT count(*) FROM searches WHERE subscription_id = ?", id).Scan(&n)
+	return n
 }

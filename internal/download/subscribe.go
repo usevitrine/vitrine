@@ -284,10 +284,18 @@ func (d *Downloader) GetSubscription(ctx context.Context, id int64) (Subscriptio
 // ErrNoSubscription means there is no subscription with that ID.
 var ErrNoSubscription = errors.New("no such subscription")
 
-// checks returns every subscription's check in progress, by subscription.
+// A subscription has one check in progress - or two while its first check runs: that one takes everything (hours,
+// for a big search), and its regular checks go on beside it as usual, each stopping at the newest post the first
+// check reached (2026-10-28, the user: a subscription "should still check hourly while the massive initial download
+// is running").
+
+// checkOrder puts the check a subscription shows first: a running one, then a regular check, then the first check.
+const checkOrder = " ORDER BY s.state = 'running' DESC, s.stop_id > 0 DESC, s.id"
+
+// checks returns every subscription's check in progress (the one it shows: see checkOrder), by subscription.
 func (d *Downloader) checks(ctx context.Context) (map[int64]Search, error) {
 	rows, err := d.db.R.QueryContext(ctx, "SELECT "+searchColumns+
-		" FROM searches s JOIN sites si ON si.id = s.site_id WHERE s.subscription_id IS NOT NULL")
+		" FROM searches s JOIN sites si ON si.id = s.site_id WHERE s.subscription_id IS NOT NULL"+checkOrder)
 	if err != nil {
 		return nil, fmt.Errorf("download: %w", err)
 	}
@@ -298,18 +306,62 @@ func (d *Downloader) checks(ctx context.Context) (map[int64]Search, error) {
 		if err != nil {
 			return nil, err
 		}
-		out[s.SubscriptionID] = s
+		if _, ok := out[s.SubscriptionID]; !ok {
+			out[s.SubscriptionID] = s
+		}
 	}
 	return out, rows.Err()
 }
 
+// check returns the subscription's check in progress (the one it shows: see checkOrder).
 func (d *Downloader) check(ctx context.Context, subID int64) (Search, bool, error) {
-	s, err := scanSearch(d.db.R.QueryRowContext(ctx, "SELECT "+searchColumns+
-		" FROM searches s JOIN sites si ON si.id = s.site_id WHERE s.subscription_id = ?", subID))
-	if errors.Is(err, sql.ErrNoRows) {
-		return s, false, nil
+	all, err := d.subChecks(ctx, subID)
+	if err != nil || len(all) == 0 {
+		return Search{}, false, err
 	}
-	return s, err == nil, err
+	return all[0], true, nil
+}
+
+// subChecks returns all of the subscription's checks in progress (two while its first check runs), in checkOrder.
+func (d *Downloader) subChecks(ctx context.Context, subID int64) ([]Search, error) {
+	rows, err := d.db.R.QueryContext(ctx, "SELECT "+searchColumns+
+		" FROM searches s JOIN sites si ON si.id = s.site_id WHERE s.subscription_id = ?"+checkOrder, subID)
+	if err != nil {
+		return nil, fmt.Errorf("download: %w", err)
+	}
+	defer rows.Close()
+	var out []Search
+	for rows.Next() {
+		s, err := scanSearch(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// firstAndRegular splits a subscription's checks into its first check and its regular one (nil: none).
+func firstAndRegular(all []Search) (first, regular *Search) {
+	for i := range all {
+		if all[i].FirstCheck {
+			first = &all[i]
+		} else {
+			regular = &all[i]
+		}
+	}
+	return first, regular
+}
+
+// besideFirst reports whether a regular check can go on beside the subscription's first check (if any): the first
+// check is waiting or running and has reached a post (the regular check stops there), and the subscription isn't a
+// favorites one (its regular checks go through the whole list - to find favorites removed on the site - twice the
+// work beside a first check). The regular check stops at stop.
+func besideFirst(sub Subscription, first *Search) (stop int64, ok bool) {
+	if first == nil || (first.State != StateQueued && first.State != StateRunning) || first.HighID == 0 || plugin.IsFavorites(sub.Query) {
+		return 0, false
+	}
+	return max(sub.highID, first.HighID), true
 }
 
 // SubscriptionChange is an edit of a subscription; nil fields stay as they are.
@@ -356,7 +408,11 @@ func (d *Downloader) UpdateSubscription(ctx context.Context, id int64, c Subscri
 		if _, err := d.db.W.ExecContext(ctx, "UPDATE subscriptions SET paused = ? WHERE id = ?", *c.Paused, id); err != nil {
 			return fmt.Errorf("download: %w", err)
 		}
-		if ch := sub.Check; ch != nil {
+		all, err := d.subChecks(ctx, id)
+		if err != nil {
+			return err
+		}
+		for _, ch := range all {
 			switch {
 			case *c.Paused && (ch.State == StateQueued || ch.State == StateRunning):
 				err = d.Pause(ctx, ch.ID)
@@ -379,23 +435,38 @@ func (d *Downloader) CheckNow(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	if ch := sub.Check; ch != nil {
-		if ch.State == StatePaused || ch.State == StateFailed {
-			return d.Resume(ctx, ch.ID)
+	all, err := d.subChecks(ctx, id)
+	if err != nil {
+		return err
+	}
+	first, regular := firstAndRegular(all)
+	if regular != nil {
+		if regular.State == StatePaused || regular.State == StateFailed {
+			return d.Resume(ctx, regular.ID)
 		}
 		return nil // already waiting or running
+	}
+	if first != nil {
+		if first.State == StatePaused || first.State == StateFailed {
+			return d.Resume(ctx, first.ID)
+		}
+		if stop, ok := besideFirst(sub, first); ok { // a check for what's new beside the first check
+			sub.highID = stop
+			return d.startCheck(ctx, sub, true)
+		}
+		return nil // the first check (waiting, or it hasn't reached a post yet)
 	}
 	return d.startCheck(ctx, sub, true) // asked for now: next in line
 }
 
-// Unsubscribe removes a subscription and stops its check in progress. The
+// Unsubscribe removes a subscription and stops its checks in progress. The
 // files it downloaded stay in the library.
 func (d *Downloader) Unsubscribe(ctx context.Context, id int64) error {
-	c, ok, err := d.check(ctx, id)
+	all, err := d.subChecks(ctx, id)
 	if err != nil {
-		return fmt.Errorf("download: %w", err)
+		return err
 	}
-	if ok {
+	for _, c := range all {
 		d.stop(c.ID)
 	}
 	res, err := d.db.W.ExecContext(ctx, "DELETE FROM subscriptions WHERE id = ?", id) // the check goes with it
@@ -430,10 +501,17 @@ func (d *Downloader) startCheck(ctx context.Context, sub Subscription, now bool)
 	_, err := d.db.W.ExecContext(ctx, `
 		INSERT INTO searches (site_id, query, max_posts, stop_id, subscription_id, position, created_at, favorite, stop_depth)
 		SELECT ?, ?, ?, ?, ?, `+pos+`, ?, (SELECT favorite FROM subscriptions WHERE id = ?), ?
-		WHERE NOT EXISTS (SELECT 1 FROM searches WHERE subscription_id = ?)`,
+		WHERE NOT EXISTS (SELECT 1 FROM searches WHERE subscription_id = ? AND (?4 = 0 OR stop_id > 0))`,
 		sub.siteID, sub.Query, maxPosts, sub.highID, sub.ID, sub.siteID, d.now().UnixMilli(), sub.ID, depth, sub.ID)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
+	}
+	if sub.highID == 0 {
+		// The first check: the next regular check (beside it, if it's still going) is an interval away.
+		if _, err := d.db.W.ExecContext(ctx, "UPDATE subscriptions SET next_check_at = ? + interval_s * 1000 WHERE id = ?",
+			d.now().UnixMilli(), sub.ID); err != nil {
+			return fmt.Errorf("download: %w", err)
+		}
 	}
 	d.wake(sub.Site)
 	return nil
@@ -446,11 +524,11 @@ func (d *Downloader) finishCheck(s Search, state, msg string) {
 	defer d.Changed()
 	now := d.now().UnixMilli()
 	// For notifications: what the check found, and whether the last one failed too.
-	var downloaded, checks int
+	var downloaded int
 	var failedBefore bool
 	var pages int
 	d.db.R.QueryRow("SELECT downloaded, pages FROM searches WHERE id = ?", s.ID).Scan(&downloaded, &pages)
-	d.db.R.QueryRow("SELECT error IS NOT NULL, checks FROM subscriptions WHERE id = ?", s.SubscriptionID).Scan(&failedBefore, &checks)
+	d.db.R.QueryRow("SELECT error IS NOT NULL FROM subscriptions WHERE id = ?", s.SubscriptionID).Scan(&failedBefore)
 	err := func() error {
 		tx, err := d.db.W.Begin()
 		if err != nil {
@@ -493,7 +571,7 @@ func (d *Downloader) finishCheck(s Search, state, msg string) {
 		return
 	}
 	switch {
-	case state == StateDone && checks == 0: // the first check: its initial download finished
+	case state == StateDone && s.FirstCheck: // the first check: its initial download finished (regular checks may have run beside it)
 		d.emit(s, Event{Kind: EventDone, New: downloaded, First: true, Pages: pages})
 	case state == StateDone && (downloaded > 0 || pages > 0):
 		d.emit(s, Event{Kind: EventNewFiles, New: downloaded, Pages: pages})
@@ -529,20 +607,44 @@ func (d *Downloader) StartDue(ctx context.Context) error {
 		if _, ok := d.all()[sub.Site]; !ok || d.IsOff(sub.Site) {
 			continue // its plugin isn't installed (any more), or the site is switched off
 		}
-		c, ok, err := d.check(ctx, sub.ID)
-		switch {
-		case err != nil:
-			return err
-		case !ok:
-			err = d.startCheck(ctx, sub, false)
-		case c.State == StateFailed:
-			err = d.Resume(ctx, c.ID)
-		}
+		all, err := d.subChecks(ctx, sub.ID)
 		if err != nil {
+			return err
+		}
+		if err := d.startDueOne(ctx, sub, all); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// startDueOne starts a due subscription's check: a new one if it has none, a retry of a failed one, and a regular
+// check beside its first check (see besideFirst).
+func (d *Downloader) startDueOne(ctx context.Context, sub Subscription, all []Search) error {
+	if len(all) == 0 {
+		return d.startCheck(ctx, sub, false)
+	}
+	first, regular := firstAndRegular(all)
+	for _, c := range []*Search{regular, first} {
+		if c != nil && c.State == StateFailed {
+			if err := d.Resume(ctx, c.ID); err != nil {
+				return err
+			}
+			c.State = StateQueued
+		}
+	}
+	if regular != nil || first == nil {
+		return nil
+	}
+	if stop, ok := besideFirst(sub, first); ok {
+		sub.highID = stop
+		return d.startCheck(ctx, sub, false)
+	}
+	// Nothing to start beside the first check (it hasn't reached a post yet, or it's paused): due again an interval
+	// from now, not at once on the next look.
+	_, err := d.db.W.ExecContext(ctx, "UPDATE subscriptions SET next_check_at = ? + interval_s * 1000 WHERE id = ?",
+		d.now().UnixMilli(), sub.ID)
+	return err
 }
 
 // kick makes the scheduler look for due checks now.

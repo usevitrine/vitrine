@@ -84,6 +84,19 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   aside; a subscription's first check (it takes everything) waits its turn and steps aside for checks like any download
   (before, any search with a subscription counted - a big first check held up every check behind it). `/api/downloads`
   marks it `first_check` (the page's order follows).
+- **Regular checks beside a first check** (2026-10-28, the user: a subscription "should still check hourly while the
+  massive initial download is running"): a subscription has one check in progress, or two while its first check is
+  going. Queuing the first check moves `next_check_at` an interval on. When the subscription is due and its first
+  check is waiting or running and has reached a post, `StartDue` (`startDueOne`, `besideFirst`) queues a regular check
+  with `stop_id` = max(the subscription's `high_id`, the first check's `high_id`). That's the newest post the first
+  check met, so the regular check gets only what came out since. Like any check it goes first, and the first check
+  steps aside for it and carries on afterwards. Done, it moves its counts to the subscription and sets the next check
+  an interval later. Not for favorites subscriptions: their regular checks go through the whole list to find removed
+  favorites, which would double the first check's work. A due subscription with nothing to start beside its first
+  check (no post reached yet, or paused) is due again an interval later. Check now does the same (a regular check
+  beside the first one). Pause, resume and Unsubscribe act on both checks. The subscription shows one of them
+  (`checkOrder`: the running one, else the regular one). The "initial download finished" notice comes from the first
+  check (`FirstCheck`), not from the subscription's check count.
 - **Post pages opened ahead** (`prefetch.go`): engines whose list pages give only IDs (HTML gelbooru, Shimmie2,
   favorites pages) open each post's page before its file; while a file downloads, the next post that will need its page
   (not seen, not a known deleted file) has it opened, at the same request pace; the post takes it (or asks again if it
