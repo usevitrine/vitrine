@@ -541,6 +541,60 @@
   let shownFrom = $derived(layout ? (slots[0] ?? 0) : firstRow * cols - lead);
   let shownTo = $derived(layout ? (slots.length ? slots[slots.length - 1] + 1 : 0) : lastRow * cols - lead);
 
+  // ---- The tiles' shapes, drawn under them ahead of time (2026-10-28, the user's recording: flicking fast on an
+  // iPhone showed the dark background - a whole screen of it for over a second). iOS moves the page itself, faster
+  // than any page can make tiles for it (WebKit: ~35-50 ms a step with tiles coming in). So the page's own background,
+  // in bands, is a picture of where the tiles go - rounded boxes in the tiles' color, exactly at their places: a flick
+  // that outruns the tiles shows the boxes they'll fill, never nothing. A few pictures (one per band, made once each),
+  // kept from four screens above to five below, moving with the page without the page doing anything.
+  const BAND = 2048;
+  let bandColor = $state('');
+  $effect(() => {
+    void width;
+    if (el) bandColor = getComputedStyle(el).getPropertyValue('--surface0').trim() || '#313244';
+  });
+  const bandCache = new Map<number, string>();
+  let bandKey = '';
+  /** A band's picture: the boxes of the tiles in it (CSS background-image). */
+  function bandURL(b: number): string {
+    const y0 = b * BAND;
+    const y1 = y0 + BAND;
+    const slotsIn: number[] = [];
+    if (layout) slotsIn.push(...visible(layout, y0 - 1, y1));
+    else if (rowH) {
+      for (let r = Math.floor(y0 / rowH); r * rowH < y1 && r < rows; r++) {
+        for (let c = Math.max(r * cols, lead); c < Math.min((r + 1) * cols, results.total + lead); c++) slotsIn.push(c);
+      }
+    }
+    const radius = layout ? (coarse ? 6 : 8) : 0;
+    let rects = '';
+    for (const c of slotsIn) {
+      const p = place(c);
+      if (p.y + p.h < y0 || p.y > y1) continue;
+      rects += `<rect x="${p.x}" y="${p.y - y0}" width="${p.w}" height="${p.h}" rx="${radius}"/>`;
+    }
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="${BAND}"><g fill="${bandColor}">${rects}</g></svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  }
+  let bands = $derived.by(() => {
+    if (!size || !contentH || !bandColor || !results.total) return [];
+    // (the cache holds while the boxes would be the same: same list, sizes and color)
+    const key = `${results.searches} ${results.total} ${lead} ${cols} ${size} ${width} ${bandColor} ${layout ? layout.height : 0}`;
+    if (key !== bandKey) {
+      bandCache.clear();
+      bandKey = key;
+    }
+    const from = Math.max(0, Math.floor((listTop - 4 * height) / BAND));
+    const to = Math.min(Math.ceil(contentH / BAND), Math.ceil((listTop + 6 * height) / BAND));
+    const out: { b: number; url: string }[] = [];
+    for (let b = from; b < to; b++) {
+      let url = bandCache.get(b);
+      if (url === undefined) bandCache.set(b, (url = bandURL(b)));
+      out.push({ b, url });
+    }
+    return out;
+  });
+
   /** Where a slot's tile goes in the list - on whole pixels: the columns' width is the grid's divided up (237.33...
    *  px), and a tile between pixels was snapped onto them the moment it zoomed (becoming a layer of its own): it
    *  jumped up and to the left before growing (the user, more than once). Its edges are rounded, not its size, so the
@@ -1543,6 +1597,11 @@
   onpointercancel={up}
   oncontextmenu={contextmenu}>
   <div class="sizer" style:height="{Math.max(0, contentH - GAP)}px">
+    <!-- (the tiles' shapes, under them: what a flick that outruns them shows - see bands; the last one ends with the
+         list - a whole band's height went past it, and the page scrolled further than its end) -->
+    {#each clearedView ? [] : bands as band (band.b)}
+      <div class="band" aria-hidden="true" style:top="{band.b * BAND}px" style:height="{Math.max(0, Math.min(BAND, contentH - GAP - band.b * BAND))}px" style:background-image={band.url}></div>
+    {/each}
     {#each tiles as tile (tile.i)}
       {@const z = hover?.i === tile.i ? hover : null}
       {@const back = z ? undefined : shrinking.find((s) => s.i === tile.i)}
@@ -2269,5 +2328,15 @@
   /* Another page's tiles (stale): hidden while they leave as ghosts and this page's list comes. */
   .cleared :global(.sizer > .tile:not(.ghost)) {
     visibility: hidden;
+  }
+  /* The tiles' shapes ahead of time (bands): under every tile, never taking a tap. */
+  .band {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: -2; /* (under removed tiles fading out too: -1) */
+    pointer-events: none;
+    background-repeat: no-repeat;
+    background-position: 0 0;
   }
 </style>

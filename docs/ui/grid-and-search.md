@@ -335,6 +335,17 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   it scrolls and half a screen the other way (never less than 3 rows; it was 3 rows each way). iOS moves the page
   itself, ahead of the app, so with 3 rows the empty background showed at the bottom while scrolling, even at an
   easy pace; tiles beyond the screen show their color preview at least.
+- **The tiles' shapes under them (2026-10-28, the user's recording: a fast flick on an iPhone showed the dark
+  background, a whole screen of it for over a second)**: measured (5,000 made-up files, a scripted 9 px/ms scroll):
+  idle 16 ms a frame; scrolling, Chromium at 4x slower CPU ~25 ms, WebKit ~50 ms (pictures ~15 ms of it, making and
+  placing the tiles coming in the rest; the rounded clip-path, the waiting spinner, `contain` made no difference).
+  However fast the page, iOS's own scrolling can outrun it - so the sizer's background, in bands of 2,048 px
+  (`bands`: from four screens above to six below), is an SVG picture of the tiles' boxes (their places from `place`,
+  `--surface0`, their rounding) - a flick that outruns the tiles shows the boxes they'll fill, never nothing; the tiles
+  cover them exactly. One picture per band, made once (cached while the list, sizes and color are the same), a few
+  elements in all: no measurable cost per frame. Under removed tiles fading out (z-index -2); none while another
+  page's list is held back (`clearedView`); the last band ends with the list (a whole band past it made the page
+  scroll further than its end - caught by the e2e tests).
 - **No sound from the move animation's copies (2026-10-21, user: audio started on the grid as downloads came in)**:
   the list changing animates by copies of the tiles on screen (`cloneNode`); a copy of the open hover card kept its
   video's address and autoplay but not its muting (a property), and the copies of tiles that stay are never put on the

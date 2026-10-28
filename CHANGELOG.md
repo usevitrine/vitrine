@@ -14,6 +14,7 @@ shows this too (Settings > Updates).
 
 - **Windows downloads**: the release has just the two installers now; the separate Windows zip files are gone.
 - **A spinner over a video while it loads**: when a video opens, after you jump or scrub to a part not loaded yet, and whenever playback waits for the connection.
+- **No more dark gaps when flicking fast**: when a fast flick outruns the thumbnails (iPhones especially), you see the shapes of the tiles that are about to fill in, exactly where they'll land, instead of an empty background.
 - **Clearer counts in the downloads menu**: a subscription check says "Checking…" before it has looked at anything, then how many new files it found and how many posts it looked at ("3 new · 24 looked at") instead of a bare number; a first download says "Starting…" until it begins.
 - **The trash is quick and smooth**: it opens at once even while downloads run (it took a couple of seconds on a big library), the library's files no longer flash on it - they leave and the trash's appear one after another, as anywhere in the media - and files deleted for good disappear as they go, not all at the end.
 - **Roomier download queue**: each download is one line - the search, how far it is and how fast - with a short summary under its bar. Tap it for all its numbers with their names, the time left, and its actions. Removing a download from the queue asks first.
