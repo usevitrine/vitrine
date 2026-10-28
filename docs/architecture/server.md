@@ -159,7 +159,9 @@ system tray icon etc." - for this user only ("Just me"), phones allowed by defau
   never showed.) Released as **v1.0.3-hotfix** (the user: "give it a release tag that indiciates that its a hotfix"):
   `deploy.local.sh release hotfix` tags `v<last>-hotfix`; the installer's file version is numbers only
   (`NumVersion`, 1.0.3.1). Docker's `:1` and `:1.0` don't move to a hotfix (metadata-action treats the suffix as a
-  pre-release) - fine while hotfixes fix the Windows programs only.
+  pre-release) - fine while hotfixes fix the Windows programs only. **Since 2026-10-28 they do** (`type=match` lines in
+  `release.yml`): v1.0.6-hotfix fixed the server, and Watchtower on `:1` "found no newer image" (the user: "latest should
+  get all new releases including hotfixes" - `latest` always did).
 - Tested on Windows 11 (2026-10-25): silent install into scratch folders, the server up, the command line finding
   the bundled tools, --quit, the in-app update, a clean uninstall; the wizard's pages checked by screenshot.
   Note: the local socket's path must stay under ~108 characters (Windows' AF_UNIX limit) - a very deep data folder

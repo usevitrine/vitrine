@@ -113,6 +113,10 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
+            # A hotfix (v1.2.3-hotfix) is a pre-release to semver, so the two above skip it: 1 and 1.2 follow it too,
+            # or installs on :1 never get it (2026-10-28: Watchtower "found no newer image" for v1.0.6-hotfix).
+            type=match,pattern=v(\d+)\.\d+\.\d+-hotfix$,group=1
+            type=match,pattern=v(\d+\.\d+)\.\d+-hotfix$,group=1
             type=raw,value=latest
           labels: |
             org.opencontainers.image.title=Vitrine
