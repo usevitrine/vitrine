@@ -55,8 +55,16 @@
   const named = (s: DownloadSearch) => s.label || s.query || t('push.everything');
   /** A subscription's check ("Sub"), or a first download - a new subscription's first check, or a download once. */
   const isSub = (s: DownloadSearch) => !!s.subscription_id && !s.first_check;
-  /** "57,734/72,588" - the posts gone through out of the goal (the limit, the site's count; none: the count). */
+  /** "57,734/72,588" - the posts gone through out of the goal (the limit, the site's count; none: the count). A
+   *  subscription's check has no goal (it goes until the posts the last one saw): "24 looked at" (its new files go
+   *  before it - newOf); nothing gone through yet: "Checking…" / "Starting…" (not a bare 0 - the user), waiting: nothing
+   *  (its state says it). */
   function count(s: DownloadSearch): string {
+    if (!s.handled && !(gallery(s) && galleryNow(s, live.files))) {
+      if (shownState(s) !== 'running') return '';
+      return t(isSub(s) ? 'dlMenu.checking' : 'dlMenu.starting');
+    }
+    if (isSub(s) && !gallery(s)) return t('dlMenu.lookedAt', { n: num(s.handled) });
     const goal = goalOf(s);
     const posts = goal ? `${num(s.handled)}/${num(goal)}` : num(s.handled);
     if (!gallery(s)) return posts;
@@ -201,7 +209,7 @@
         <span class="name" title={named(s)} {@attach marquee}><span>{named(s)}</span></span>
         <span class="kind" class:sub={isSub(s)} title={isSub(s) ? t('dlMenu.subTitle') : t('dlMenu.initialTitle')}>{isSub(s) ? t('dlMenu.sub') : t('dlMenu.initial')}</span>
       </span>
-      <span class="meta"><span class="count">{count(s)}</span>{#if st !== 'running'}{(count(s) ? ' · ' : '') + t(`downloads.state.${st}`)}{/if}</span>
+      <span class="meta"><span class="count">{#if isSub(s) && s.downloaded && !gallery(s)}<b class="new">{t('dlMenu.newN', { n: num(s.downloaded) })}</b>{' · '}{/if}{count(s)}</span>{#if st !== 'running'}{(count(s) ? ' · ' : '') + t(`downloads.state.${st}`)}{/if}</span>
       {#if st === 'running' && !measurable(s, live.files)}
         <span class="bar striped" role="progressbar" aria-label={t('downloads.noEstimate')}></span>
       {:else}
@@ -406,6 +414,10 @@
   .count {
     font-variant-numeric: tabular-nums;
     color: var(--subtext);
+  }
+  .count .new {
+    color: var(--green);
+    font-weight: 600;
   }
   /* (a stack's cards: a little room around each, and under the folded edges) */
   /* One on its own: a card like a stack's (Stack's framed cards - the user) */

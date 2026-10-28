@@ -226,6 +226,10 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   paused downloads and the paused sites - at most once a second (a change meanwhile read when the second is up).
   It read the whole page (history, subscriptions, groups) on every live change; while downloads ran that was a lot
   of work on the page, and scrolling the library stalled (the user saw the background at the bottom).
+- **The menu's counts by phase (2026-10-28, the user: a check said "0" at first)**: nothing gone through yet -
+  "Checking…" (a subscription's check) / "Starting…" (a first download), waiting - nothing (the state says it); a
+  check has no goal (it goes until the posts the last one saw): "3 new · 24 looked at" (the new count green and first,
+  left out at 0); a first download keeps "57,734/72,588".
 - **No scrollbar as downloads come in (2026-10-25, user)**: the menu's list (and the bell's) scrolls only when its
   rows' own boxes don't fit (`lib/scrollsWhenFull.ts`: `overflow: hidden`, `.full` = `overflow-y: auto`). A row
   sliding in from the side stuck out 10 px (a scrolling list scrolls sideways too) and a stack's new card stood below

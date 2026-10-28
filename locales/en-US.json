@@ -2468,7 +2468,11 @@
     "sub": "Sub",
     "initial": "Initial",
     "subTitle": "A subscription’s check for new posts",
-    "initialTitle": "A first download"
+    "initialTitle": "A first download",
+    "checking": "Checking…",
+    "starting": "Starting…",
+    "lookedAt": "{n} looked at",
+    "newN": "{n} new"
   },
   "newDl": {
     "open": "New download",
