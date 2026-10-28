@@ -14,6 +14,10 @@ shows this too (Settings > Updates).
 - **Blacklist changes apply to running downloads**: a tag added to the blacklist (or a new size limit) counts from the download's next post, not only from the next download.
 - **Only a subscription's regular checks bring NEW files** on a new library: a first download (once, or a subscription's first check) no longer fills NEW and the top of the library. Settings > Library > "Bulk downloads count as new" brings the old way back.
 
+### Fixed
+
+- An opened download on the Downloads page showed its speed twice, and its hover highlight touched the line below it.
+
 ## 1.0.6-hotfix - 2026-10-28
 
 ### Fixed

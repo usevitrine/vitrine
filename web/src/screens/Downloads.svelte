@@ -1430,7 +1430,7 @@
             {:else if goalOf(s)}{t(gal ? 'downloads.stat.galleriesOf' : 'downloads.stat.postsOf', { done: num(s.handled), n: goalOf(s) })}
             {:else}<b>{num(s.handled)}</b> {t(gal ? 'downloads.stat.galleries' : 'downloads.stat.posts', { n: s.handled })}{/if}
           </span>
-          <span>{leftOf(s) || speedOf(s.id)}</span>
+          {#if leftOf(s)}<span>{leftOf(s)}</span>{/if}<!-- (the speed is in the header) -->
         </div>
       {/if}
       {#if s.handled || s.pages}
@@ -2206,10 +2206,11 @@
     color: var(--subtext);
     font-variant-numeric: tabular-nums;
   }
+  /* (8 px on top: the header's hover reaches 12 px below its bar - the facts line sat right against it) */
   .qbody {
     display: grid;
     gap: 10px;
-    padding: 0 12px 12px 14px;
+    padding: 8px 12px 12px 14px;
   }
   .qfacts {
     display: flex;
