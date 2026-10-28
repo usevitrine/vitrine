@@ -155,6 +155,12 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   point at). Skip tour / Esc / Done end it for good on that device (`vitrine.tour` in localStorage: per device, as
   gestures differ). The rows' preview uses plain columns: CSS multi-column made WebKit (and so Playwright) count the
   card as never settling.
+- **A newer Vitrine during the first steps (2026-10-28)** (the user, setting up a wiped instance: "if theres an update
+  during initial setup the user should be able to update there and it resets the initial setup and they start again"):
+  a banner above the steps (`/api/update`; asked once if never checked yet) - Update (with Watchtower or the Windows
+  installer) sets `welcome` back to the first step and runs the full-screen updater, so the new version starts setup
+  over; without it, how to update by hand. Disk sizes there (`bytes`) go up to TB (from 1000 GB on). Test: "first
+  steps: a newer Vitrine is offered" (e2e).
 - **Installing as an app, every platform (2026-10-20)**: `InstallHelp` (first steps, Settings > This device > App):
   installed - says so; Chromium's own install offer (`beforeinstallprompt`, kept from start-up by lib/install) - an
   Install Vitrine button; else steps for the platform and browser: iPhone/iPad (Safari's Share; Chrome's Share in

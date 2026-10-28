@@ -8536,3 +8536,41 @@ test("library: pressing on the hover card's video and moving sideways scrubs it 
   await expect(page.locator('.tile.selected')).toHaveCount(0);
   await expect(page.locator('.grid-scroller.scrubbing')).toHaveCount(0);
 });
+
+test('first steps: a newer Vitrine is offered at the top - Update runs the updater and setup starts over on the new version; a big disk in TB', async ({ page }, info) => {
+  let current = 'v1.0.1';
+  let away = false;
+  await page.route('**/api/update', (r) => {
+    if (r.request().method() === 'POST') return r.fulfill({ status: 202, json: { started: true } });
+    if (away) return r.fulfill({ status: 502, body: 'Bad Gateway' });
+    return r.fulfill({ json: { current, latest: 'v9.9.9', page: '', newer: current !== 'v9.9.9', checked_at: Date.now(), error: '', check: true, can_update: true, updating: '', update_error: '', changelog: '' } });
+  });
+  await page.route('**/api/stats*', async (r) => {
+    const res = await r.fetch();
+    const j = await res.json();
+    j.storage.disks = [{ for: 'both', path: '/files', total: 5538 * 2 ** 30, free: 5000 * 2 ** 30 }];
+    return r.fulfill({ response: res, json: j });
+  });
+  try {
+    await page.goto('/settings/account');
+    await page.getByRole('button', { name: 'Show them again' }).click();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByRole('heading', { name: 'Storage', level: 1 })).toBeVisible();
+    await expect(page.getByText('4.9 TB free of 5.4 TB')).toBeVisible();
+    await expect(page.getByText('Vitrine v9.9.9 is out')).toBeVisible();
+    if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/fs-update-${info.project.name}.png` });
+    await page.getByRole('button', { name: 'Update', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Update', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Updating to v9.9.9' })).toBeVisible();
+    away = true;
+    await page.waitForTimeout(1500);
+    current = 'v9.9.9';
+    away = false;
+    // Back on the new version: setup from its first step, no update offered any more.
+    await expect(page.getByRole('heading', { name: 'What will you use?', level: 1 })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Step 1 of 9')).toBeVisible();
+    await expect(page.getByText('Vitrine v9.9.9 is out')).toHaveCount(0);
+  } finally {
+    await page.evaluate(() => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ welcome: 'finished' }) }));
+  }
+});

@@ -1413,6 +1413,10 @@
   },
   "setup": {
     "skipAll": "Skip setup",
+    "update": {
+      "hint": "Update first: setup starts over on the new version.",
+      "confirm": "Vitrine restarts on the new version, then setup starts over."
+    },
     "label": "Setup",
     "stepOf": "Step {n} of {total}",
     "title": {

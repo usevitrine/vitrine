@@ -27,9 +27,11 @@ shows this too (Settings > Updates).
 - **Settings > Stats opens at once on a big library** (it took several seconds with hundreds of thousands of files).
 - **Less downloading twice**: when a site lists an out-of-date checksum for a file it has since replaced (common on rule34's older videos), Vitrine checks two small pieces of it again instead of downloading the whole file a second time. The log says so once per site, not for every file.
 - **Reorder the download that's running**: drag it below another (a big first check, say) and the one now ahead takes over after the file in flight; the one moved down carries on later from where it was.
+- **Update during setup**: when a newer Vitrine is out, the first steps offer it at the top; after the update, setup starts over on the new version.
 
 ### Fixed
 
+- **Big disks in TB** in the first steps ("5.4 TB", not "5,538 GB").
 - **No false "Updated" for a plugin**: when the plugin list offers a version its file doesn't have yet, updating says so instead of reporting success and offering the same update again.
 
 ## 1.0.5 - 2026-10-26

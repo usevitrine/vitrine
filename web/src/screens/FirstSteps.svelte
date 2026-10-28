@@ -11,7 +11,9 @@
   import { cubicOut } from 'svelte/easing';
   import { reducedMotion } from '../lib/hero';
   import { newDownloadDialog } from '../lib/newDownload.svelte';
-  import { api, type LibraryStats } from '../lib/api';
+  import { api, type LibraryStats, type UpdateState } from '../lib/api';
+  import { updater } from '../lib/updater.svelte';
+  import { confirmAction } from '../lib/confirm.svelte';
   import { settings } from '../lib/settings.svelte';
   import { whatsNew } from '../lib/whatsNew.svelte';
   import { router } from '../lib/router.svelte';
@@ -53,6 +55,25 @@
   const stepOut = (node: Element) => fade(node, { duration: moving() ? 120 : 0 });
   const next = () => go(steps[at + 1] ?? 'finished');
   const back = () => at > 0 && go(steps[at - 1]);
+
+  // ---- a newer Vitrine: updated from here, setup starts over on it (what it shows may have changed)
+  let update = $state<UpdateState | null>(null);
+  onMount(async () => {
+    try {
+      let u = await api.updateState();
+      if (!u.latest && !u.error) u = await api.checkForUpdate(); // (just installed: not asked yet)
+      if (u.newer) update = u;
+    } catch {
+      /* no update API, or offline: nothing shown */
+    }
+  });
+  async function updateNow() {
+    if (!update) return;
+    if (!(await confirmAction({ title: t('updates.confirmTitle', { version: update.latest }), body: t('setup.update.confirm'), action: t('updates.update'), icon: 'download' }))) return;
+    dir = -1;
+    settings.welcome = 'sections';
+    updater.start(update);
+  }
 
   // ---- storage
   let stats = $state<LibraryStats | null>(null);
@@ -108,6 +129,16 @@
         <span class:done={i < at} class:now={i === at}></span>
       {/each}
     </div>
+    {#if update}
+      <div class="update" transition:reveal>
+        <Icon name="download" size={18} />
+        <span class="field">
+          <strong>{t('updates.notice', { version: update.latest })}</strong>
+          <span class="hint">{update.can_update ? t('setup.update.hint') : t('updates.howTo')}</span>
+        </span>
+        {#if update.can_update}<button class="primary" onclick={updateNow}>{t('updates.update')}</button>{/if}
+      </div>
+    {/if}
     <p class="count">{t('setup.stepOf', { n: at + 1, total: steps.length })}</p>
     <div class="stage">
     {#key step}
@@ -336,6 +367,30 @@
   }
   .progress span.now {
     background: var(--mauve);
+  }
+  .update {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--mauve) 12%, var(--mantle));
+    color: var(--mauve);
+  }
+  .update .field {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--text);
+  }
+  .update .hint {
+    color: var(--subtext);
+    font-size: var(--font-small);
+  }
+  .update button {
+    flex: none;
   }
   .count {
     margin: 4px 0 -8px;
