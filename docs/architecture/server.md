@@ -100,7 +100,9 @@ but for users, so make sure it's all documented" - the guide is [docs/cli.md](..
   and open the library themselves when it doesn't. Flags may follow the words (`parseMixed`: only the command's own
   flags; a search's `-cloud` stays a word). Sites are plugin IDs passed to the server - none is built into the CLI.
 - `GET /api/logs?n=&after=&level=` - the log ring's records as JSON (not anonymized, unlike the problem report);
-  `after` lets `vitrine logs -f` follow along.
+  `after` lets `vitrine logs -f` follow along. With `level`, the newest n at that level out of the whole log
+  (`logring.RecordsAt`; warn and error from the warnings' log, which reaches back weeks) - before 2026-10-28 they were
+  picked out of the newest 5,000 records only, minutes on a busy downloader.
 - Tested by `TestLiveCommands` (a real `serve` in the test, the commands through its socket, then offline again).
 
 ## Windows installer and notification-area program (2026-10-25)

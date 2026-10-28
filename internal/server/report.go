@@ -43,8 +43,8 @@ func (s *Server) listLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []record{}
 	if s.logs != nil {
-		for _, rec := range s.logs.Records(5000) {
-			if rec.Level < floor || rec.Time.UnixMilli() <= after {
+		for _, rec := range s.logs.RecordsAt(5000, floor) { // (the newest 5000 at that level, out of the whole log)
+			if rec.Time.UnixMilli() <= after {
 				continue
 			}
 			x := record{T: rec.Time.UnixMilli(), Level: rec.Level.String(), Msg: rec.Msg}
@@ -327,22 +327,33 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 		}
 		p("")
 	}
-	var recs []logring.Record
+	write := func(recs []logring.Record) {
+		for _, rec := range recs {
+			line := rec.Time.Format("2006-01-02 15:04:05") + " " + rec.Level.String() + " " + red.text(rec.Msg)
+			for _, a := range rec.Attrs {
+				line += " " + red.attr(a)
+			}
+			b.WriteString(line + "\n")
+		}
+	}
+	// Warnings and errors first, from their own log (it reaches back weeks; the whole log, hours on a busy
+	// downloader).
+	var warns, recs []logring.Record
 	if s.logs != nil {
+		warns = s.logs.RecordsAt(300, slog.LevelWarn)
 		recs = s.logs.Records(5000)
+	}
+	if len(warns) > 0 {
+		p("Warnings and errors (the last %d, since %s)", len(warns), warns[0].Time.Format("2006-01-02 15:04"))
+		write(warns)
+		p("")
 	}
 	if len(recs) > 0 {
 		p("Log (the last %d records, since %s; earlier runs too)", len(recs), recs[0].Time.Format("2006-01-02 15:04"))
 	} else {
 		p("Log (empty)")
 	}
-	for _, rec := range recs {
-		line := rec.Time.Format("2006-01-02 15:04:05") + " " + rec.Level.String() + " " + red.text(rec.Msg)
-		for _, a := range rec.Attrs {
-			line += " " + red.attr(a)
-		}
-		b.WriteString(line + "\n")
-	}
+	write(recs)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")

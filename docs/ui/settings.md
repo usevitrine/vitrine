@@ -88,8 +88,11 @@ Settings sections and cards: Sites, Library, Download rules, Backups, Stats and 
   CPUs, Docker, memory, uptime, ffmpeg/libvips), the counts, storage and disks, per site its engine, version,
   login (how many fields set, never values), on/off and counts; the queue by state, the last failed searches and
   failing subscriptions with their errors; the settings (numbers and booleans as they are, text and lists only
-  "set"/"empty"); then the last 5,000 log records. The server writes every log record to a small log file too
-  (DataDir/logs/vitrine.log, JSON lines with the attributes apart, rotated at 4 MB with one older file kept -
+  "set"/"empty"); then the last 300 warnings and errors and the last 5,000 log records. The server writes every log
+  record to a log file too (DataDir/logs/vitrine.log, JSON lines with the attributes apart, rotated at 16 MB with one
+  older file kept; **warnings and errors also to vitrine-warnings.log**, rotated at 4 MB - 2026-10-28: the main log
+  is mostly debug lines, one per post, and reached back only ~2.5 h on a busy downloader, so a warning was gone within
+  hours) -
   `internal/logring`, a tee in front of the text handler; HTTP server errors and handler panics go there too), so
   the report spans restarts and crashes (a deploy restarts the server: memory alone held only minutes) and
   private values are hidden by key: searches, tags, names, links, hosts, paths become placeholders (search-1,

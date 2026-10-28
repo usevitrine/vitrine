@@ -14,6 +14,7 @@ shows this too (Settings > Updates).
 
 - **Windows downloads**: the release has just the two installers now; the separate Windows zip files are gone.
 - **A spinner over a video while it loads**: when a video opens, after you jump or scrub to a part not loaded yet, and whenever playback waits for the connection.
+- **Warnings are kept for weeks**: warnings and errors also go to a log of their own, so `vitrine logs -level warn` and the problem report reach back far beyond the last few hours of a busy downloader.
 - **Settings > Stats opens at once on a big library** (it took several seconds with hundreds of thousands of files).
 - **Less downloading twice**: when a site lists an out-of-date checksum for a file it has since replaced (common on rule34's older videos), Vitrine checks two small pieces of it again instead of downloading the whole file a second time. The log says so once per site, not for every file.
 - **Reorder the download that's running**: drag it below another (a big first check, say) and the one now ahead takes over after the file in flight; the one moved down carries on later from where it was.

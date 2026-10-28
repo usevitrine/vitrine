@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -95,5 +96,40 @@ func TestForget(t *testing.T) {
 	defer r2.Close()
 	if recs := r2.Records(10); len(recs) != 2 {
 		t.Errorf("file = %+v", recs)
+	}
+}
+
+// Warnings and errors outlast a flood of debug lines: they're also kept in the warnings' log (a quarter of the
+// main one's size, but only them), and asked for by level they're picked out of the whole log, not out of the newest
+// records. A site wiped goes from both files.
+func TestWarningsKept(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "vitrine.log")
+	r, err := Open(path, 10, 8000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	log := slog.New(Tee(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug}), r))
+	log.Warn("an old warning", "site", "blue_site")
+	log.Error("an old error")
+	for i := 0; i < 500; i++ { // far more than the main log holds
+		log.Debug("post", "n", i)
+	}
+	if recs := r.Records(1000); len(recs) == 0 || recs[0].Msg == "an old warning" {
+		t.Fatalf("the main log kept everything (%d records): the test needs it to rotate", len(recs))
+	}
+	recs := r.RecordsAt(10, slog.LevelWarn)
+	if len(recs) != 2 || recs[0].Msg != "an old warning" || recs[1].Level != slog.LevelError {
+		t.Fatalf("warnings: %+v", recs)
+	}
+	if recs := r.RecordsAt(10, slog.LevelError); len(recs) != 1 {
+		t.Fatalf("errors: %+v", recs)
+	}
+	if _, err := os.Stat(WarningsPath(path)); err != nil || filepath.Base(WarningsPath(path)) != "vitrine-warnings.log" {
+		t.Fatalf("the warnings' log: %v", err)
+	}
+	r.Forget("blue_site")
+	if recs := r.RecordsAt(10, slog.LevelWarn); len(recs) != 1 {
+		t.Fatalf("after forgetting the site: %+v", recs)
 	}
 }
