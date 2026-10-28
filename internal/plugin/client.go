@@ -56,6 +56,7 @@ type Client struct {
 	rateMu sync.Mutex
 	rate   float64
 	brk    breaker // pauses the site when it keeps failing to answer (breaker.go)
+	tune   *tuner  // files at once found by measuring (tune.go); nil: the plugin's number, fixed
 }
 
 // NewClient returns a client for a plugin with the user's credentials for
@@ -78,7 +79,7 @@ func NewClient(m Manifest, creds map[string]string) *Client {
 				return nil
 			},
 		},
-		files:    make(chan struct{}, m.Limits.Connections),
+		files:    make(chan struct{}, max(m.Limits.MaxConnections, m.Limits.Connections)),
 		urgent:   make(chan struct{}, 1),
 		tooMany:  time.Minute,
 		fileIdle: 20 * time.Second, // (short: a file that breaks off carries on - see resumingBody)
@@ -87,7 +88,18 @@ func NewClient(m Manifest, creds map[string]string) *Client {
 	if m.Auth.Login == "shimmie2" || m.Auth.Login == "ehentai" || m.Auth.Login == "gelbooru" {
 		c.http.Jar = newSessionJar() // the site's session after logging in
 	}
+	if m.Limits.MaxConnections > m.Limits.Connections {
+		c.tune = newTuner(c, m.Limits.Connections, m.Limits.MaxConnections)
+	}
 	return c
+}
+
+// Connections is how many files may download at once now: the plugin's number, or what tuning found (tune.go).
+func (c *Client) Connections() int {
+	if c.tune == nil {
+		return c.m.Limits.Connections
+	}
+	return c.tune.Target()
 }
 
 // WithCredentials is a copy of the client with other credentials and a fresh state (no waits, no pause, a login
@@ -422,6 +434,9 @@ func (c *Client) credential(field string) string {
 // backOff makes the site's next request wait: Retry-After if the site sent
 // one (at most 10 minutes), else a minute.
 func (c *Client) backOff(retryAfter string) {
+	if c.tune != nil {
+		c.tune.tooMany() // (fewer files at once for a while too)
+	}
 	wait := c.tooMany
 	if s, err := strconv.Atoi(strings.TrimSpace(retryAfter)); err == nil && s > 0 {
 		wait = min(time.Duration(s)*time.Second, 10*time.Minute)
@@ -473,7 +488,12 @@ func (c *Client) File(ctx context.Context, rawURL string) (io.ReadCloser, int64,
 	b := &resumingBody{c: c, ctx: ctx, u: u, part: part, total: part.resp.ContentLength,
 		ranges: part.resp.Header.Get("Accept-Ranges") == "bytes", start: time.Now()}
 	modified, _ := http.ParseTime(part.resp.Header.Get("Last-Modified"))
-	return &slotBody{ReadCloser: b, release: func() { <-slots }, modified: modified}, part.resp.ContentLength, nil
+	release := func() { <-slots }
+	if c.tune != nil {
+		c.tune.started()
+		release = func() { c.tune.ended(); <-slots }
+	}
+	return &slotBody{ReadCloser: b, release: release, modified: modified}, part.resp.ContentLength, nil
 }
 
 // Modified asks for a file only for its Last-Modified time (zero if the site sends none): the request is dropped as
@@ -681,6 +701,9 @@ type resumingBody struct {
 func (b *resumingBody) Read(p []byte) (int, error) {
 	n, err := b.part.body.Read(p)
 	b.got += int64(n)
+	if b.c.tune != nil {
+		b.c.tune.read.Add(int64(n))
+	}
 	b.since += int64(n)
 	// (also one that came slowly after the slow connections were let be: the line itself is slower now - the usual
 	// speed follows it down, and a slow line isn't held to its old speed file after file)

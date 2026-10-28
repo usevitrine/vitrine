@@ -52,6 +52,9 @@ type Manifest struct {
 	Limits struct {
 		RequestsPerSec float64 `yaml:"requests_per_sec"` // API requests
 		Connections    int     `yaml:"connections"`      // files at once
+		// MaxConnections above Connections: Vitrine tries more files at once, up to this, keeping more only while
+		// they bring more in total (tune.go). 0: Connections, fixed.
+		MaxConnections int `yaml:"max_connections"`
 	} `yaml:"limits"`
 	Search struct {
 		PerPage int `yaml:"per_page"`
@@ -138,6 +141,7 @@ func Parse(data []byte) (Manifest, error) {
 	if m.Limits.Connections <= 0 {
 		m.Limits.Connections = 1
 	}
+	m.Limits.MaxConnections = min(max(m.Limits.MaxConnections, m.Limits.Connections), 16)
 	if m.Search.Or != "" && !strings.Contains(m.Search.Or, "{tags}") {
 		return m, fmt.Errorf("plugin %s: search.or %q has no {tags}", m.ID, m.Search.Or)
 	}

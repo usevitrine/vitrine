@@ -596,9 +596,10 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 	// Files from a subscription's regular check (it stops at the newest post the last
 	// check saw) are "new" in the strict sense; anything else came in bulk.
 	bulk := !s.isCheck()
-	conns := max(1, st.Client.Manifest().Limits.Connections)
+	// Files at once: the plugin's number, or what tuning found (plugin/tune.go) - read again as each post starts.
+	conns := func() int { return max(1, st.Client.Connections()) }
 	if _, ok := st.Engine.(plugin.GalleryEngine); ok {
-		conns = 1 // one gallery at a time: its pages share the connections (see handleGallery)
+		conns = func() int { return 1 } // one gallery at a time: its pages share the connections (see handleGallery)
 	}
 	type result struct {
 		i       int
@@ -624,7 +625,7 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 			ending = "done"
 		}
 		enoughInFlight := s.MaxPosts > 0 && s.Handled+inflight >= s.MaxPosts
-		if i == len(posts) && inflight > 0 && inflight < conns && ending == "" && !enoughInFlight && !exhausted {
+		if i == len(posts) && inflight > 0 && inflight < conns() && ending == "" && !enoughInFlight && !exhausted {
 			// A connection is free and the page is used up: the next page now, not once its last files are in.
 			if np := more(posts[len(posts)-1].ID); len(np) > 0 {
 				posts = append(posts, np...)
@@ -634,7 +635,7 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 			}
 			continue
 		}
-		if i < len(posts) && inflight < conns && ending == "" && !enoughInFlight {
+		if i < len(posts) && inflight < conns() && ending == "" && !enoughInFlight {
 			p := posts[i]
 			switch {
 			case ctx.Err() != nil || stop():

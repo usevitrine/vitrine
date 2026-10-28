@@ -32,6 +32,21 @@ type IndexEntry struct {
 	Description string `json:"description,omitempty"`
 	Kind        string `json:"kind,omitempty"` // what sort of site, for the filters in Add site: booru, gallery or social
 	NSFW        bool   `json:"nsfw,omitempty"`
+	// MinVitrine: the oldest Vitrine that reads this version of the plugin (a manifest field older ones don't know
+	// is an error for them: manifests are read strictly). Older ones aren't offered it (Supported).
+	MinVitrine string `json:"min_vitrine,omitempty"`
+}
+
+// AppVersion is the running Vitrine's version ("dev" or "test-..." for a build of the code: as new as any).
+var AppVersion = "dev"
+
+// Supported reports whether this Vitrine reads the entry's plugin (see MinVitrine).
+func (e IndexEntry) Supported() bool {
+	v := strings.TrimPrefix(AppVersion, "v")
+	if e.MinVitrine == "" || v == "" || v[0] < '0' || v[0] > '9' {
+		return true
+	}
+	return !NewerVersion(e.MinVitrine, v)
 }
 
 // Index is the plugin list.

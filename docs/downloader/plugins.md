@@ -34,13 +34,21 @@ Request URLs to sites with API keys carry the key - never log or print them unfi
 
 ## As built (from step 1, 2026-10-14 on)
 - **Plugins** (`internal/plugin`): YAML manifests (`id`, `name`, `version`, `engine`, `base`, `post_url` with `{id}`,
-  `domains`, `auth {fields, required, help}`, `limits {requests_per_sec, connections}`, `search {per_page}`,
+  `domains`, `auth {fields, required, help}`, `limits {requests_per_sec, connections, max_connections}`, `search {per_page}`,
   `ratings` site value -> general/sensitive/questionable/explicit); unknown keys are errors. Built in: the neutral
   example **safebooru** (gelbooru 0.2, SFW, no account) - also the live test target. User plugins: `.yaml` files (or
   `*/plugin.yaml`) in `<data_dir>/plugins`, overriding built-ins with the same ID. The plugins repo
   (`usevitrine/vitrine-plugins`, MIT) holds the site plugins.
 - **HTTP client per plugin**: only the plugin's domains (and their subdomains), http(s) only; API requests spaced by
-  `requests_per_sec`; file downloads capped at `connections`; `User-Agent: Vitrine/<version>
+  `requests_per_sec`; file downloads capped at `connections` - or, with `max_connections` above it (2026-10-28,
+  `plugin/tune.go`), at what measuring finds: a minute with every connection busy measures the total speed; after
+  two, one more is tried and kept only if the total rises 10 %+ (else back, and no new try for 30 min); a 429 goes
+  back to `connections` at once. The slot channel has room for the maximum and the tuner holds the unused slots as
+  its own tokens; the downloader reads `Client.Connections()` as each post starts. Only for sites that give each
+  connection its own speed (not realbooru's per-IP throttle). **Index `min_vitrine`** (same day): manifests are
+  read strictly, so a plugin using a new field breaks older Vitrines - an index entry can name the oldest Vitrine
+  that reads it, and older ones aren't offered it (`IndexEntry.Supported`; builds of the code read anything);
+  1.0.5 and older don't know the field, so a plugin needing it is published only after that version is out; `User-Agent: Vitrine/<version>
   (+https://github.com/usevitrine/vitrine; hello@vitrine.software)` (a site's admins can write to the project). Errors never contain request URLs (they carry the api_key): Go's
   `url.Error` is unwrapped to its cause.
 - **Credentials**: `<data_dir>/secrets.toml` (owner-only, atomic writes), one table per site; set with `vitrine

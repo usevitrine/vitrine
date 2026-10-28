@@ -176,10 +176,13 @@ func (d *Downloader) Plugins(ctx context.Context, refresh bool) ([]PluginInfo, e
 	out := make([]PluginInfo, 0, len(ix.Plugins))
 	for _, e := range ix.Plugins {
 		p := PluginInfo{IndexEntry: e}
-		if st, ok := sites[e.ID]; ok {
+		st, ok := sites[e.ID]
+		if ok {
 			p.Installed = true
 			p.InstalledVersion = st.Client.Manifest().Version
-			p.Update = plugin.NewerVersion(e.Version, p.InstalledVersion)
+			p.Update = plugin.NewerVersion(e.Version, p.InstalledVersion) && e.Supported()
+		} else if !e.Supported() {
+			continue // (needs a newer Vitrine: not offered)
 		}
 		out = append(out, p)
 	}
@@ -194,6 +197,9 @@ func (d *Downloader) InstallFromIndex(ctx context.Context, id string) (Installed
 	}
 	for _, p := range list {
 		if p.ID == id {
+			if !p.Supported() {
+				return Installed{}, fmt.Errorf("%s %s needs Vitrine %s or newer - update Vitrine first", p.Name, p.Version, p.MinVitrine)
+			}
 			_, raw, err := plugin.FetchPlugin(ctx, d.PluginIndex, p.IndexEntry)
 			if err != nil {
 				return Installed{}, err

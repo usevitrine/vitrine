@@ -33,6 +33,7 @@ func userAgent() string {
 // newDownloader loads the plugins and credentials and prepares a downloader.
 func newDownloader(ctx context.Context, c config.Config, lib *library.Library, d *db.DB, log *slog.Logger) (*download.Downloader, error) {
 	plugin.UserAgent = userAgent()
+	plugin.AppVersion = version
 	plugins, err := plugin.Load(pluginsDir(c))
 	if err != nil {
 		return nil, err
