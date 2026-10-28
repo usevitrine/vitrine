@@ -155,10 +155,10 @@ const (
 	backgroundBackoff = 15 * time.Minute
 )
 
-// background works on a site while its queue is empty: first files whose
-// tags' types aren't known yet, then posts due for a tag refresh, one post at
-// a time, until there's nothing left, the site gets a search or a
-// subscription check, or ctx ends.
+// background works on a site beside its queue: first files whose tags' types
+// aren't known yet, then posts due for a tag refresh, one post at a time,
+// until there's nothing left or ctx ends (its requests: plugin.Idle - after
+// the queue's).
 func (d *Downloader) background(ctx context.Context, site string) {
 	st := d.all()[site]
 	// (a paused site: nothing until its next try is due - then the next lookup or refresh is that try)
@@ -171,7 +171,7 @@ func (d *Downloader) background(ctx context.Context, site string) {
 			d.log.Info("background work done", "site", site, "types_looked_up", learned, "refreshed", refreshed)
 		}
 	}()
-	for ctx.Err() == nil && len(d.wakeChan(site)) == 0 {
+	for ctx.Err() == nil {
 		more, err := d.LearnTypes(ctx, site)
 		if err == nil && more {
 			learned++

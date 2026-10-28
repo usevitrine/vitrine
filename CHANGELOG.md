@@ -14,6 +14,7 @@ shows this too (Settings > Updates).
 
 - **Windows downloads**: the release has just the two installers now; the separate Windows zip files are gone.
 - **A spinner over a video while it loads**: when a video opens, after you jump or scrub to a part not loaded yet, and whenever playback waits for the connection.
+- **Tags keep up during big downloads**: looking up tag types and refreshing older files' tags no longer waits for a site's downloads to finish (a big first check could hold them up for days). It runs alongside, slowly, and only takes the site's turn when no download or check needs it.
 - **More files at once where it pays**: a site plugin can let Vitrine try more simultaneous downloads; it keeps an extra connection only while it adds at least a tenth to the total speed, and backs off at the first "too many requests". Plugins can also say which Vitrine version they need, so older versions aren't offered an update they can't read.
 - **A health check of your library**: every week Vitrine checks its database and that every file is still on the disk, and every day it reads back a share of your files to check they haven't been damaged (all of them about every four weeks, slowly). Anything it finds is a notice, and Settings > Stats shows how it's going.
 - **Every backup is checked**: right after it's made, Vitrine reads it back as a restore would. A backup that couldn't be restored is reported (a notice for the daily one) and never replaces the older, good ones.

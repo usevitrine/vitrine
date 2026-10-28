@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -71,5 +72,24 @@ func TestMinVitrine(t *testing.T) {
 	AppVersion = "1.0.0"
 	if !(IndexEntry{Version: "1.0.0"}).Supported() {
 		t.Error("no min_vitrine: not supported")
+	}
+}
+
+// Idle requests (tag lookups) take a turn only when no other request waits: a download's request asked after an idle
+// one still goes first; with nothing else waiting the idle one goes at the usual pace.
+func TestIdleGoesLast(t *testing.T) {
+	var m Manifest
+	m.Limits.RequestsPerSec = 10
+	c := NewClient(m, nil)
+	ctx := context.Background()
+	if err := c.waitTurn(ctx); err != nil { // (the next turn is 100 ms away now)
+		t.Fatal(err)
+	}
+	order := make(chan string, 2)
+	go func() { c.waitTurn(Idle(ctx)); order <- "idle" }()
+	time.Sleep(20 * time.Millisecond)
+	go func() { c.waitTurn(ctx); order <- "download" }()
+	if first, second := <-order, <-order; first != "download" || second != "idle" {
+		t.Fatalf("order: %s, %s", first, second)
 	}
 }

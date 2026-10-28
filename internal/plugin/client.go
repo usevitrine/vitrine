@@ -37,6 +37,7 @@ type Client struct {
 	mu         sync.Mutex
 	next       time.Time // earliest time for the next API request
 	foreground int       // foreground requests waiting for a turn (they go first: see Foreground)
+	normal     int       // other requests waiting, but not idle ones (those go last: see Idle)
 	// tooMany is how long all requests wait after a 429 without Retry-After.
 	tooMany time.Duration
 
@@ -322,33 +323,48 @@ func Foreground(ctx context.Context) context.Context {
 	return context.WithValue(ctx, foregroundKey{}, true)
 }
 
+type idleKey struct{}
+
+// Idle marks requests nobody waits for (tag lookups and refreshes): they take a turn only when no other request waits
+// for one, so they run beside a big download without slowing its searches or a subscription check - the rate stays
+// the same.
+func Idle(ctx context.Context) context.Context {
+	return context.WithValue(ctx, idleKey{}, true)
+}
+
 // waitTurn blocks until the rate limit allows another API request: the next turn goes to a foreground request
 // when one waits. A request called off while it waits never takes a turn (a search replaced by a newer one doesn't
 // hold the next one up).
 func (c *Client) waitTurn(ctx context.Context) error {
 	fg, _ := ctx.Value(foregroundKey{}).(bool)
+	idle, _ := ctx.Value(idleKey{}).(bool)
+	idle = idle && !fg
 	interval := time.Duration(float64(time.Second) / c.m.Limits.RequestsPerSec)
+	count := &c.normal
 	if fg {
+		count = &c.foreground
+	}
+	if !idle {
 		c.mu.Lock()
-		c.foreground++
+		*count++
 		c.mu.Unlock()
 		defer func() {
 			c.mu.Lock()
-			c.foreground--
+			*count--
 			c.mu.Unlock()
 		}()
 	}
 	for {
 		c.mu.Lock()
 		now := time.Now()
-		if !now.Before(c.next) && (fg || c.foreground == 0) {
+		if !now.Before(c.next) && (fg || c.foreground == 0) && (!idle || c.normal == 0) {
 			c.next = now.Add(interval)
 			c.mu.Unlock()
 			return nil
 		}
 		wait := time.Until(c.next)
 		if wait <= 0 {
-			wait = 25 * time.Millisecond // (this turn is a foreground request's: a look again in a moment)
+			wait = 25 * time.Millisecond // (this turn is a waiting foreground or download request's: a look again in a moment)
 		}
 		c.mu.Unlock()
 		t := time.NewTimer(wait)

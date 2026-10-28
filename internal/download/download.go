@@ -368,6 +368,23 @@ func (d *Downloader) startWorker(parent context.Context, id string) {
 	}
 	d.cancels[id] = cancel // removing the site stops its worker (a running search resumes when it's back)
 	d.mu.Unlock()
+	// Tag types of older files and the tag refresh: beside the queue (2026-10-28, the user: the tag fetching "gets
+	// stuck behind huge initial downloads" - it waited for an empty queue, days behind a first check of 700k posts),
+	// slowly and taking the site's turns only when no search or check waits for one (plugin.Idle).
+	d.workers.Add(1)
+	go func() {
+		defer d.workers.Done()
+		for ctx.Err() == nil {
+			if _, ok := d.all()[id]; !ok || d.IsOff(id) {
+				return
+			}
+			d.background(plugin.Idle(ctx), id)
+			select {
+			case <-time.After(time.Minute):
+			case <-ctx.Done():
+			}
+		}
+	}()
 	d.workers.Add(1)
 	go func() {
 		defer d.workers.Done()
@@ -379,7 +396,6 @@ func (d *Downloader) startWorker(parent context.Context, id string) {
 			if err := d.RunQueue(ctx, id); err != nil && ctx.Err() == nil {
 				d.log.Error("download queue", "site", id, "err", err)
 			}
-			d.background(ctx, id) // tag types of older files, tag refresh: while nothing else runs
 			wait := time.Minute
 			if st, ok := d.all()[id]; ok {
 				if p := st.Client.Paused(); !p.Until.IsZero() {
