@@ -20,7 +20,7 @@
   import { router } from '../lib/router.svelte';
   import { depthChoice, depthLabel, siteDepth } from '../lib/depth';
   import { siteLabel, engineLabel, tagQuery, tagsQuery, canOr, sites as siteInfo } from '../lib/sites.svelte';
-  import { t, num, time } from '../lib/i18n.svelte';
+  import { t, num, short, time } from '../lib/i18n.svelte';
   import { intervals, DEFAULT_INTERVAL, cap, every } from '../lib/schedule';
   import type { SitePause } from '../lib/api';
   import { siteOn } from '../lib/sections';
@@ -406,6 +406,62 @@
     const sp = speeds[id];
     return sp && now - sp.at < 4000 ? t('downloads.speed', { size: bytes(sp.v) }) : '';
   }
+
+  // ---- the queue's cards (2026-10-28, the user: "too cramped" - direction D of the prototypes): one line each
+  // (the search, how far, the speed), a tap opens its numbers and actions.
+  let qopen = $state<Record<number, boolean>>({});
+  // How fast a running search goes through its posts (its count over the last 10 minutes): its time left.
+  const paces: Record<number, { at: number; n: number }[]> = {};
+  $effect(() => {
+    const at = Date.now();
+    for (const s of searches) {
+      if (s.state !== 'running') {
+        delete paces[s.id];
+        continue;
+      }
+      const list = (paces[s.id] ??= []);
+      if (!list.length || list[list.length - 1].n !== s.handled) list.push({ at, n: s.handled });
+      while (list.length > 2 && at - list[0].at > 10 * 60_000) list.shift();
+    }
+  });
+  /** "about 2 d left" for a running search with a goal, once a minute of its pace is known ("" before). */
+  function leftOf(s: DownloadSearch): string {
+    const goal = goalOf(s);
+    const list = paces[s.id];
+    if (!goal || shownState(s) !== 'running' || !list || list.length < 2) return '';
+    const a = list[0], b = list[list.length - 1];
+    if (b.at - a.at < 60_000 || b.n <= a.n) return '';
+    return t('downloads.timeLeft', { span: span(((goal - s.handled) * (b.at - a.at)) / (b.n - a.n)) });
+  }
+  /** A queue card's numbers, as the opened card shows them (new and had always; the rest when there are some). */
+  function cellsOf(s: DownloadSearch): { n: number; label: string; cls?: string }[] {
+    const out: { n: number; label: string; cls?: string }[] = [];
+    if (isGallery(s) && oneGallery(s)) {
+      out.push({ n: s.pages ?? 0, label: t('downloads.stat.newPages', { n: s.pages ?? 0 }), cls: 'good' });
+    } else {
+      out.push({ n: s.downloaded, label: t('downloads.stat.new'), cls: 'good' }, { n: s.already, label: t('downloads.stat.had') });
+    }
+    if (s.deleted) out.push({ n: s.deleted, label: t('downloads.stat.deletedBefore') });
+    if (s.blacklisted) out.push({ n: s.blacklisted, label: t('downloads.stat.blacklisted'), cls: 'warn' });
+    if (s.skipped) out.push({ n: s.skipped, label: t('downloads.stat.skipped') });
+    if (s.failed) out.push({ n: s.failed, label: t('downloads.stat.failed'), cls: 'bad' });
+    return out;
+  }
+  /** What a closed card says under its bar. */
+  function summaryOf(s: DownloadSearch): string {
+    if (s.state === 'queued' && !s.handled) return t('downloads.notStarted');
+    const parts: string[] = [];
+    if (s.state === 'failed' && !s.subscription_id && s.retry_at) parts.push(s.retry_at <= now ? t('downloads.tryingNow') : t('downloads.tryingIn', { span: span(s.retry_at - now) }));
+    if (isGallery(s) && oneGallery(s)) {
+      if (s.pages) parts.push(`${short(s.pages)} ${t('downloads.stat.newPages', { n: s.pages })}`);
+    } else if (s.downloaded) parts.push(`${short(s.downloaded)} ${t('downloads.stat.new')}`);
+    if (s.failed) parts.push(`${short(s.failed)} ${t('downloads.stat.failed')}`);
+    const left = leftOf(s);
+    if (left) parts.push(left);
+    return parts.join(' · ');
+  }
+  const detailsLabel = (s: DownloadSearch) =>
+    s.subscription_id ? t('common.detailsFor', { name: nameOf(s) }) : t('downloads.detailsForDownload', { query: named(s) || t('push.everything') });
 
   // Your own favorites on the site: they can become favorites here too (on unless unticked).
   let ownFavs = $derived(/^fav:me$/i.test(query.trim()));
@@ -1329,6 +1385,65 @@
   {/if}
 {/snippet}
 
+<!-- A queue card: one line (the search, how far and how fast - or its state), its bar and a short summary; a tap
+     opens its numbers, what went wrong and its actions. -->
+{#snippet queueCard(s: DownloadSearch)}
+  {@const open = !!qopen[s.id]}
+  {@const st = shownState(s)}
+  {@const gal = isGallery(s)}
+  {@const g = s.state === 'running' && gal ? galleryNow(s) : null}
+  {@const sum = summaryOf(s)}
+  <div class="qhead">
+    <button class="qtoggle" aria-expanded={open} aria-label={detailsLabel(s)} onclick={() => (qopen[s.id] = !open)}>
+      <span class="query one-line qname" title={s.query || t('push.everything')}>{named(s) || t('push.everything')}</span>
+      {#if st === 'running'}
+        <span class="qnow">
+          {#if measurable(s)}<b>{Math.floor(progress(s) * 100)}%</b>{/if}
+          {#if speedOf(s.id)}<span>{speedOf(s.id)}</span>{/if}
+          {#if !measurable(s) && !speedOf(s.id)}<span class="state running">{stateLabel(st)}</span>{/if}
+        </span>
+      {:else}
+        <span class="state {st}">{stateLabel(st)}</span>
+      {/if}
+      <span class="chev" class:open aria-hidden="true"><Icon name="chevron" size={16} /></span>
+    </button>
+    {#if st === 'running' || s.handled}{@render bar(s)}{/if}
+    {#if !open && sum}<span class="qsum" transition:reveal>{sum}</span>{/if}
+  </div>
+  {#if open}
+    <div class="qbody" transition:reveal>
+      {#if s.handled || goalOf(s) || g}
+        <div class="qfacts">
+          <span>
+            {#if g}{t('downloads.stat.pageOf', { done: num(g.done), pages: num(g.pages) })}
+            {:else if goalOf(s)}{t(gal ? 'downloads.stat.galleriesOf' : 'downloads.stat.postsOf', { done: num(s.handled), n: goalOf(s) })}
+            {:else}<b>{num(s.handled)}</b> {t(gal ? 'downloads.stat.galleries' : 'downloads.stat.posts', { n: s.handled })}{/if}
+          </span>
+          <span>{leftOf(s) || speedOf(s.id)}</span>
+        </div>
+      {/if}
+      {#if s.handled || s.pages}
+        <div class="qgrid">
+          {#each cellsOf(s) as c (c.label)}
+            <div class="qcell {c.cls ?? ''}"><b>{num(c.n)}</b><span>{c.label}</span></div>
+          {/each}
+        </div>
+      {/if}
+      {#if s.error}<p class="error small">{s.error}</p>{/if}
+      {#if s.state === 'failed' && !s.subscription_id && (s.attempts ?? 0) > 1 && !s.retry_at}
+        <p class="retry small">{t('downloads.gaveUp', { n: s.attempts ?? 0 })}</p>
+      {:else if s.state === 'failed' && !s.subscription_id && (s.attempts ?? 0) > 1}
+        <p class="retry small">{t('downloads.attempt', { n: (s.attempts ?? 0) + 1 })}</p>
+      {/if}
+      <div class="qacts">
+        {#each searchItems(s, false) as it (it.label)}
+          <button class="quiet qact" class:danger={it.danger} title={it.hint} onclick={() => it.run?.()}>{#if it.icon}<Icon name={it.icon} size={15} />{/if}{it.label}</button>
+        {/each}
+      </div>
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet searchActs(s: DownloadSearch, finishedRow: boolean)}
   <ActionMenu label={s.subscription_id ? t('common.moreFor', { name: nameOf(s) }) : t('downloads.moreForDownload', { query: named(s) || t('push.everything') })} title={s.query || t('push.everything')} items={searchItems(s, finishedRow)} />
 {/snippet}
@@ -1625,7 +1740,7 @@
                     {@render retryCard(e.r)}
                   {:else}
                     {@const grips = c.open && q.list.length > 1}
-                    <div class="row" class:has-grip={grips} data-wi={e.wi >= 0 ? e.wi : undefined}>
+                    <div class="row qrow" class:has-grip={grips} data-wi={e.wi >= 0 ? e.wi : undefined}>
                       {#if grips}
                         <button
                           class="grip"
@@ -1637,8 +1752,7 @@
                           onpointercancel={dragEnd}
                           onkeydown={(ev) => handleKey(ev, q.site, e.wi, q.list.length)}><Icon name="grip" size={16} /></button>
                       {/if}
-                      <div class="main">{@render searchInfo(e.s)}</div>
-                      <div class="acts">{@render searchActs(e.s, false)}</div>
+                      <div class="main">{@render queueCard(e.s)}</div>
                     </div>
                   {/if}
                 {/snippet}
@@ -1983,6 +2097,171 @@
   .row.has-grip {
     grid-template-columns: 20px minmax(0, 1fr) auto;
     padding-left: 2px;
+  }
+  /* The queue's cards (queueCard): the header opens them - all of it (the button's ::after covers the bar and the
+     summary too). */
+  .qrow {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+  }
+  .qrow.has-grip {
+    grid-template-columns: 20px minmax(0, 1fr);
+    padding-left: 2px;
+  }
+  .qrow .main {
+    gap: 0;
+  }
+  .qhead {
+    position: relative;
+    display: grid;
+    gap: 8px;
+    padding: 12px 12px 12px 14px;
+  }
+  .qrow.has-grip .qhead,
+  .qrow.has-grip .qbody {
+    padding-left: 6px;
+  }
+  .qhead .qtoggle.qtoggle,
+  .qhead .qtoggle.qtoggle:hover:not(:disabled) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    min-height: 28px;
+    height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    white-space: normal;
+  }
+  .qtoggle::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+  }
+  .qtoggle:focus-visible {
+    outline: none;
+  }
+  .qtoggle:focus-visible::after {
+    outline: 2px solid var(--mauve);
+    outline-offset: -2px;
+  }
+  @media (hover: hover) {
+    .qtoggle:hover::after {
+      background: color-mix(in srgb, var(--text) 3%, transparent);
+    }
+  }
+  .qname {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .qnow {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .qnow b {
+    color: var(--peach);
+    font-weight: 700;
+  }
+  .qnow b + span::before {
+    content: '·';
+    margin-right: 6px;
+    color: var(--overlay0);
+  }
+  .chev {
+    flex: none;
+    display: grid;
+    color: var(--overlay0);
+    transition: transform 0.2s ease;
+  }
+  .chev.open {
+    transform: rotate(180deg);
+  }
+  .qsum {
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .qbody {
+    display: grid;
+    gap: 10px;
+    padding: 0 12px 12px 14px;
+  }
+  .qfacts {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .qfacts b {
+    color: var(--text);
+  }
+  /* Phones: three across (labels may take two lines); wider: as many as fit, up to all six in a row. */
+  .qgrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  @media (min-width: 640px) {
+    .qgrid {
+      grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+    }
+  }
+  .qcell {
+    min-width: 0;
+    display: grid;
+    gap: 1px;
+    align-content: start;
+    padding: 7px 9px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface0) 55%, transparent);
+  }
+  .qcell b {
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .qcell span {
+    font-size: var(--font-small);
+    line-height: 1.25;
+    color: var(--subtext);
+  }
+  .qcell.good b {
+    color: var(--green);
+  }
+  .qcell.warn b {
+    color: var(--yellow);
+  }
+  .qcell.bad b {
+    color: var(--red);
+  }
+  .qacts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .qact {
+    flex: 1 1 auto;
+  }
+  @media (min-width: 640px) {
+    .qact {
+      flex: none; /* (desktop: buttons their own width, not stretched across a wide card) */
+    }
   }
   .grip {
     align-self: stretch;

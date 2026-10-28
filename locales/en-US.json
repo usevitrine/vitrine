@@ -450,6 +450,7 @@
       "other": "{n} tags"
     },
     "moreFor": "More for {name}",
+    "detailsFor": "Details for {name}",
     "more": "More",
     "save": "Save",
     "fileId": "file #{id}",
@@ -1249,6 +1250,8 @@
       "other": "Stopped trying after {n} attempts - press Retry to try again"
     },
     "moreForDownload": "More for the download {query}",
+    "detailsForDownload": "Details for the download {query}",
+    "timeLeft": "about {span} left",
     "favGone": "{n} no longer in your favorites",
     "keep": "Keep",
     "checkNow": "Check now",

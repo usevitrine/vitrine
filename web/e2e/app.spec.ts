@@ -59,6 +59,13 @@ async function unfoldStacks(scope: import('@playwright/test').Locator) {
 
 /** Picks an action (and a choice on its page) from the ⋯ menu of a subscription or group. */
 async function rowMenu(page: import('@playwright/test').Page, row: string, item: string, choice?: string) {
+  // A queue card has no ⋯: its actions are buttons in it, shown once it's opened (its header: "Details for ...").
+  const head = page.getByRole('button', { name: `Details for ${row}`, exact: true });
+  if (await head.count()) {
+    if ((await head.getAttribute('aria-expanded')) !== 'true') await head.click();
+    await page.locator('.item', { has: head }).getByRole('button', { name: new RegExp('^' + item) }).click();
+    return;
+  }
   // (Opened again if a refresh of the list closed it before it showed - the row re-rendering under the click.)
   const entry = page.getByRole('menuitem', { name: new RegExp('^' + item) });
   for (let i = 0; i < 3; i++) {
@@ -2171,7 +2178,7 @@ test('downloads: a running search without an estimate has a moving striped bar; 
   const d = await addDownload(page, 'test-hang', 'progress_demo'); // a site of its own: nothing else waits in its queue
   await page.reload(); // (shown live too - another test - but this one is about the bar)
   const row = page.locator('.stack .item', { hasText: 'progress_demo' });
-  await expect(row.locator('.state')).toHaveText('Downloading');
+  await expect(row.locator('.qnow .state')).toHaveText('Downloading'); // (no estimate, no speed yet: the state instead)
   // The test site never answers: no total, no file limit - a striped bar, not an empty one.
   await expect(row.getByRole('progressbar', { name: 'Downloading (no estimate)' })).toBeVisible();
   await expect(row.locator('.bar.striped')).toHaveCSS('animation-name', /stripes/);
@@ -2188,7 +2195,7 @@ data: ${data}
 ` });
   });
   await page.reload();
-  await expect(row.locator('.stat.speed')).toHaveText(/\d.* MB\/s$/);
+  await expect(row.locator('.qnow')).toHaveText(/^\s*\d.* MB\/s\s*$/);
   await expect(row.locator('.now, .fbar')).toHaveCount(0);
   await removeDownload(page, d.id);
 });
@@ -3003,7 +3010,7 @@ test('details: a close button, Escape, a tap outside; phones: a sheet (the stand
   }
 });
 
-test('downloads on phones: rows keep their actions behind ⋯; numbers say what they are, on one line', async ({ page }) => {
+test('downloads on phones: a queue card is one line and a summary; opened, its numbers say what they are and its actions show', async ({ page }) => {
   test.skip(test.info().project.name !== 'iphone', 'the phone layout');
   const now = Date.now();
   const s = { id: 1, site: 'safebooru', query: 'blue_sky', state: 'paused', max_posts: 0, site_total: 400, handled: 120, downloaded: 100, already: 20, deleted: 0, skipped: 0, blacklisted: 0, failed: 0, position: 0, created_at: now };
@@ -3011,25 +3018,25 @@ test('downloads on phones: rows keep their actions behind ⋯; numbers say what 
   await page.route('**/api/downloads', (r) => r.fulfill({ json: { sites: ['safebooru'], searches: [s], subscriptions: [sub], groups: [], refresh: [] } }));
   await page.goto('/downloads');
   const queue = page.locator('section.card', { has: page.getByRole('heading', { name: 'Queue' }) });
-  // The posts gone through out of the goal (no limit: the site's count), then each kind as an icon and its count.
-  await expect(queue.locator('.stat.lead')).toHaveAttribute('title', '120 of 400 posts');
-  await expect(queue.locator('.stat.lead b')).toHaveText('120');
-  await expect(queue.locator('.stat.lead .of')).toHaveText('/400');
-  await expect(queue.locator('.stat.good')).toHaveAttribute('title', '100 new');
-  await expect(queue.locator('.stat.good b')).toHaveText('100');
-  const counts = queue.locator('.counts');
-  const one = await counts.evaluate((el) => {
-    // (by their middles: the chips are taller than the lead count, all on the one line)
-    const kids = [...el.children].map((c) => {
-      const r = c.getBoundingClientRect();
-      return r.top + r.height / 2;
-    });
-    return Math.max(...kids) - Math.min(...kids) < 2;
-  });
-  expect(one).toBe(true); // one line, never wrapping
-  await page.getByRole('button', { name: 'More for the download blue_sky' }).click();
-  await expect(page.getByRole('menuitem', { name: /^Resume/ })).toBeInViewport();
-  await page.keyboard.press('Escape');
+  // Closed: the search, its state, its bar and a short summary - no numbers grid, no actions.
+  const head = queue.getByRole('button', { name: 'Details for the download blue_sky', exact: true });
+  await expect(head).toHaveAttribute('aria-expanded', 'false');
+  await expect(queue.locator('.qhead .state')).toHaveText('Paused');
+  await expect(queue.locator('.qsum')).toHaveText('100 new');
+  await expect(queue.locator('.qgrid')).toHaveCount(0);
+  // Opened (a tap anywhere on it): how far out of the goal (no limit: the site's count), each kind with its name,
+  // and the actions as buttons, all on screen.
+  await queue.locator('.qsum').click({ force: true }); // (at its place: the header's button lies over the whole card)
+  await expect(head).toHaveAttribute('aria-expanded', 'true');
+  await expect(queue.locator('.qfacts')).toContainText('120 of 400 posts');
+  await expect(queue.locator('.qcell')).toHaveText(['100new', '20had']);
+  await expect(queue.locator('.qcell.good b')).toHaveText('100');
+  const resume = queue.getByRole('button', { name: /^Resume/ });
+  await resume.scrollIntoViewIfNeeded();
+  await expect(resume).toBeInViewport();
+  await expect(queue.getByRole('button', { name: /^Remove/ })).toBeVisible();
+  await head.click();
+  await expect(queue.locator('.qgrid')).toHaveCount(0);
   // A subscription: its facts on one line; its actions behind ⋯ (no strip).
   await dlTab(page, 'Subscriptions');
   const row = page.locator('li[data-sub="7"]');
