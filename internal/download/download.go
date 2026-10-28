@@ -998,7 +998,14 @@ func (d *Downloader) record(s Search, siteID uint32, postID int64, fileID uint32
 	defer tx.Rollback()
 	var file any
 	if fileID != 0 {
-		file = fileID
+		// Removed for good since the post was handled (the trash emptied meanwhile): recorded without its file - left
+		// in, the insert broke the foreign key and failed the whole check (2026-10-28, on the main instance).
+		var one int
+		if tx.QueryRow("SELECT 1 FROM files WHERE id = ?", fileID).Scan(&one) == nil {
+			file = fileID
+		} else {
+			fileID = 0
+		}
 	}
 	// Recorded by this same search already (it was resumed: the posts finished past its resume point come again)?
 	// Then it isn't counted twice - only moved to its new outcome's count.

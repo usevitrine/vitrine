@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -772,5 +773,25 @@ func TestFileQuery(t *testing.T) {
 		WHERE sp.post_id = 2 AND fu.kind = 3`).Scan(&kept)
 	if !strings.HasSuffix(kept, "/img/2.png") {
 		t.Fatalf("kept %q", kept)
+	}
+}
+
+// A post whose file was removed for good after it was handled (the trash emptied meanwhile) is recorded without it:
+// the foreign key failed the whole check (2026-10-28, on the main instance).
+func TestRecordFileRemovedMeanwhile(t *testing.T) {
+	e := newEnv(t, 1)
+	ctx := context.Background()
+	id, err := e.dl.Add(ctx, "fake", "common", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, _ := e.dl.Get(ctx, id)
+	site := e.dl.Site("fake").ID
+	if _, err := e.dl.record(s, site, 77, 999999, Already, 77, nil); err != nil {
+		t.Fatalf("recording a post whose file is gone: %v", err)
+	}
+	var file sql.NullInt64
+	if err := e.db.R.QueryRow("SELECT file_id FROM seen_posts WHERE site_id = ? AND post_id = 77", site).Scan(&file); err != nil || file.Valid {
+		t.Fatalf("seen post: file %v, %v", file, err)
 	}
 }

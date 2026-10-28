@@ -78,3 +78,7 @@ is logged once per site while Vitrine runs (each file: debug). Test: `TestWrongM
   `library.SetSitePause`), and a site's client starts with it (`Client.RestorePause`, also after a plugin update):
   still paused, its next try and its tries as they were - a restart doesn't start the waits over or tell the user
   again. Answering again deletes it.
+- **A file removed for good mid-check (2026-10-28)** (the main instance: both first checks failed with "FOREIGN KEY
+  constraint failed" while the trash was emptied): a post handled with a file that the trash then removed for good
+  is recorded without it (`record` checks the file in its own transaction; no "found by" row) - the check goes on.
+  Test: `TestRecordFileRemovedMeanwhile`.

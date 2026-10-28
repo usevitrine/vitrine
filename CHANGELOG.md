@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Updates).
 
+## Unreleased
+
+### Fixed
+
+- **Emptying the trash during a download no longer stops it**: a check that met a file just removed for good failed with "FOREIGN KEY constraint failed"; it now carries on.
+
 ## 1.0.6 - 2026-10-28
 
 ### New
