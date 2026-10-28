@@ -488,7 +488,8 @@ export const api = {
   /** The trash: what it holds, and after how many days it empties itself (0 = never). */
   trashInfo: () => get<{ files: number; bytes: number; comics: number; comic_bytes: number; days: number }>('/api/trash'),
   purgeTrash: (ids: number[]) => post<{ purged: number }>('/api/trash/purge', { ids }),
-  emptyTrash: () => post<{ purged: number }>('/api/trash/empty', {}),
+  /** limit: only that many (the last deleted first) and how many are left - the page empties it in turns. */
+  emptyTrash: (limit = 0) => post<{ purged: number; left?: number }>('/api/trash/empty', limit ? { limit } : {}),
   purgeComicsTrash: (ids: number[]) => post<{ purged: number }>('/api/trash/purge-comics', { ids }),
   emptyComicsTrash: () => post<{ purged: number }>('/api/trash/empty-comics', {}),
   /** A favorites subscription's files no longer in the site's favorites, and what to do with them. */

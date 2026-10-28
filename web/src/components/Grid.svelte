@@ -45,6 +45,7 @@
     oncrop,
     noHover = false,
     hideId,
+    stale = false,
   }: {
     onopen: (index: number, details?: boolean) => void;
     pad?: number;
@@ -52,6 +53,7 @@
     oncrop?: (index: number) => void;
     noHover?: boolean; // (an open/close animation is playing over the grid: no cards meanwhile)
     hideId?: number; // (the file whose open/close animation is playing: that picture is its tile - not shown twice)
+    stale?: boolean; // (the list is another page's - the library on the way to its trash: see cleared)
   } = $props();
   // The library's files, or (on the Comics page) comics - always in masonry, each cover in its own shape.
   const { results, selection, kind } = useScope();
@@ -821,6 +823,11 @@
   let morphing: typeof results.morph = null;
   let lastKey = '';
   let skipFlip = false;
+  // (another page's list on screen - stale: see below; declared here, the effect just after reads it at once)
+  let cleared = false;
+  let clearedView = $state(false);
+  let wasHidden = false; // (and the first showing's: see "Shown again" below)
+  let firstShown = false;
   let sameSearch = true; // the last new list was the same search again (else: another search)
   $effect(() => {
     results.focus = { from: shownFrom, to: shownTo };
@@ -836,7 +843,7 @@
       flip = null;
       const skip = skipFlip;
       skipFlip = false;
-      if (skip || !el || !size || reducedMotion()) return;
+      if (skip || cleared || !el || !size || reducedMotion()) return;
       flip = snapshot();
       tick().then(playFlip);
     });
@@ -961,9 +968,31 @@
     }
     appear(list);
   }
+  // Another page's list (stale: the library on the way to its trash, or opened from another screen with the library's
+  // list still in the store): never shown here - the tiles on screen leave at once like removed ones, the rest stay
+  // hidden; when this page's list comes, its tiles appear one after another (2026-10-28, the user: the library showed
+  // a moment in the trash - "it should be beautiful").
+  $effect.pre(() => {
+    const s = stale;
+    untrack(() => {
+      if (s && !cleared) {
+        cleared = clearedView = true;
+        if (el && !reducedMotion()) {
+          const sizer = el.querySelector<HTMLElement>('.sizer');
+          if (sizer) {
+            const sr = sizer.getBoundingClientRect();
+            for (const b of snapshot().values()) depart(sizer, b, sr);
+          }
+        }
+      } else if (!s && cleared) {
+        cleared = clearedView = false;
+        firstShown = anyShown = true; // (the appearing below is this list's: not again as a first showing)
+        wasHidden = false;
+        tick().then(appearAll);
+      }
+    });
+  });
   // Shown again (the other page was on screen: this one hidden, no size), or shown with its first results.
-  let wasHidden = false;
-  let firstShown = false;
   $effect(() => {
     const h = height;
     const ready = results.total > 0 && tiles.length > 0;
@@ -1462,6 +1491,7 @@
   style:padding-top="{pad}px"
   style:padding-bottom="calc({GAP}px + var(--bottom-room))"
   class:selecting={selection.active}
+  class:cleared={clearedView}
   bind:this={el}
   bind:clientWidth={width}
   bind:clientHeight={height}
@@ -2218,5 +2248,9 @@
   .tile.selected .check {
     background: var(--mauve);
     border-color: var(--mauve);
+  }
+  /* Another page's tiles (stale): hidden while they leave as ghosts and this page's list comes. */
+  .cleared :global(.sizer > .tile:not(.ghost)) {
+    visibility: hidden;
   }
 </style>

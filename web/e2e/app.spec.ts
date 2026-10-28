@@ -8130,12 +8130,29 @@ test('trash: going there shows none of the library meanwhile, and Empty trash sp
   const grid = page.locator('.library .grid');
   await page.getByRole('button', { name: 'Menu' }).click();
   await unfold(page, 'library');
+  // Every frame from here: on /trash, no file that isn't the trash's is ever drawn (the library's leave as ghosts -
+  // their fading copies - the real tiles hidden until the trash's come).
+  await page.evaluate((trashIds) => {
+    const w = window as unknown as { __strays: number };
+    w.__strays = 0;
+    const look = () => {
+      if (location.pathname === '/trash') {
+        for (const t of document.querySelectorAll<HTMLElement>('.library .tile:not(.ghost)')) {
+          if (getComputedStyle(t).visibility !== 'hidden' && !trashIds.includes(Number(t.dataset.id))) w.__strays++;
+        }
+      }
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  }, ids);
   await page.locator('#nav-drawer').getByRole('button', { name: 'Trash' }).click();
   await expect(page).toHaveURL(/\/trash$/);
-  await expect(grid).toHaveCSS('opacity', '0'); // (the library's files: not shown while the trash's are on the way)
+  await page.waitForTimeout(400); // (the trash's answer held: a slow one)
   releaseSearch();
-  await expect(page.locator('.tile')).toHaveCount(2);
-  await expect(grid).toHaveCSS('opacity', '1');
+  await expect(page.locator('.tile:not(.ghost)')).toHaveCount(2);
+  await expect(page.locator('.tile:not(.ghost)').first()).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __strays: number }).__strays)).toBe(0);
+  await expect(grid).toBeVisible();
 
   const button = page.locator('.library .empty-trash'); // (not the dialog's, closing)
   await button.click();

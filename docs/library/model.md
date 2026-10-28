@@ -46,6 +46,19 @@ Files, tags (one tag set, origins, namespaces), parents and siblings, delete/und
   again). In batches of 500 (`purgeBatch`, 2026-10-23), each its own transaction - a big trash (or a whole section
   deleted) no longer holds every other change up (a setting and a notice once waited 11 s); each batch's originals go
   after its rows are committed. Tests: `TestTrash`, `TestEmptyTrashInBatches` (Go), "trash: its own page" (e2e).
+  **2026-10-28 (the user: slow to load "considering how few there are"; the library showing a moment; files staying
+  until all were gone)**: the trash's index read only its files' *links* but every tag (170k, with trigrams), every
+  file's sites and the day-only post order over all of seen_posts - ~1.9 s, and built again after nearly every write
+  while a download ran. Now each step reads only the deleted files' rows (`Index.only`: tags those files or relations
+  use, sites, found-by, favorites, climaxes, hidden tags; no post order, no `ORDER BY id`, which made SQLite read the
+  whole table instead of migration 0043's `files_deleted` index): ~9 ms on that library. Switching pages: the store
+  records which index the list on screen came from (`results.shown`); another page's list is `stale` for the grid -
+  the tiles on screen leave (the removal motion: a fade with a slight shrink) and the rest stay hidden; this page's
+  appear one after another (`appearAll`) - Library and Comics, also arriving from another screen (the old
+  `switching` hid the grid only after a frame, and not at all from another screen). Removing for good goes in turns of
+  50 (`TURN`, lib/trash): Delete forever in the list's order, Empty trash with `{limit}` (`EmptyTrashSome`: the last
+  deleted first, `left` counted) - the list refreshed after each, so the files leave as they go. Tests:
+  `TestEmptyTrashSome`; e2e "trash: going there" checks every frame for a file not in the trash.
 - **Wiping a removed site (2026-10-26)** (the user: removing a site can "completely wipe their server of any hint that
   they ever had it enabled. That means deleting all files/metadata/deleted files history/any entry in every menu such
   as the sites filter"): after Remove, when anything of it is left, a second dialog asks to erase every trace

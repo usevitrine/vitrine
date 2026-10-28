@@ -46,7 +46,12 @@ export const trash = new Trash();
 interface Refreshable {
   refresh(): Promise<unknown>;
   readonly index: string; // 'comics': the comics trash
+  indexOf?(id: number): number; // (a file's place in the list: removed in that order)
 }
+
+/** How many files go in one turn of a removal for good: the list refreshed after each, so they leave as they go
+ *  (2026-10-28, the user: they all stayed until every one was gone). */
+const TURN = 50;
 const ofComics = (r: Refreshable) => r.index === 'comics';
 
 /** Files (or comics) back from the trash. */
@@ -73,10 +78,18 @@ export async function purgeFiles(results: Refreshable, ids: number[], thumbs: st
     thumbs,
   });
   if (!ok) return false;
+  // In turns, in the list's order (from the top): each turn's files leave the grid before the next goes.
+  const order = (id: number) => results.indexOf?.(id) ?? 0;
+  const left = [...ids].sort((a, b) => (order(a) < 0 ? 1e9 : order(a)) - (order(b) < 0 ? 1e9 : order(b)));
   try {
-    await (comics ? api.purgeComicsTrash(ids) : api.purgeTrash(ids));
+    while (left.length) {
+      const turn = left.splice(0, TURN);
+      await (comics ? api.purgeComicsTrash(turn) : api.purgeTrash(turn));
+      if (left.length) await Promise.all([results.refresh(), trash.load()]);
+    }
   } catch (e) {
     toasts.error((e as Error).message);
+    await Promise.all([results.refresh(), trash.load()]);
     return false;
   }
   toasts.show(ids.length === 1 ? t('trash.purgedOne', { what: itemName(ids[0], comics) }) : t(comics ? 'trash.purgedComics' : 'trash.purged', { n: ids.length }), { cat: 'deleted', kind: 'removed' });
@@ -97,7 +110,17 @@ export async function emptyTrash(results: Refreshable) {
   if (!ok) return;
   trash.emptying = true;
   try {
-    const { purged } = await (comics ? api.emptyComicsTrash() : api.emptyTrash());
+    let purged = 0;
+    if (comics) purged = (await api.emptyComicsTrash()).purged;
+    else {
+      // In turns, the last deleted first (the grid's top): the files leave as they go, the counts going down.
+      for (;;) {
+        const res = await api.emptyTrash(TURN);
+        purged += res.purged;
+        if (!res.left || !res.purged) break;
+        await Promise.all([results.refresh(), trash.load()]);
+      }
+    }
     toasts.show(t(comics ? 'trash.purgedComics' : 'trash.purged', { n: purged }), { cat: 'deleted', kind: 'removed' });
   } catch (e) {
     toasts.error((e as Error).message);

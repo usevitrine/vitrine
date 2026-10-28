@@ -279,6 +279,18 @@ func (l *Library) EmptyTrash(ctx context.Context) (int, error) {
 	return l.purge(ctx, "deleted_at IS NOT NULL AND flags & 64 = 0", nil, -1)
 }
 
+// EmptyTrashSome removes up to n deleted library files for good, the last deleted first (the trash page's order: its
+// tiles go from the top as it empties), and says how many are left - the page empties the trash in such turns, its
+// files leaving as they go (2026-10-28, the user: they all stayed until every one was gone).
+func (l *Library) EmptyTrashSome(ctx context.Context, n int) (purged, left int, err error) {
+	purged, err = l.purgeSome(ctx, "deleted_at IS NOT NULL AND flags & 64 = 0 ORDER BY deleted_at DESC, id DESC", nil, -1, n)
+	if err != nil {
+		return purged, 0, err
+	}
+	err = l.db.R.QueryRowContext(ctx, "SELECT count(*) FROM files WHERE deleted_at IS NOT NULL AND flags & 64 = 0").Scan(&left)
+	return purged, left, err
+}
+
 // Purge permanently removes files deleted before cutoff: their rows go (with
 // tags and URLs) and their originals are deleted from the store. Tombstones
 // stay. It returns how many files were purged.
@@ -296,7 +308,7 @@ func (l *Library) purge(ctx context.Context, where string, whereArgs []any, comi
 	total := 0
 	var errs []error
 	for {
-		n, err := l.purgeSome(ctx, where, whereArgs, comicsBefore)
+		n, err := l.purgeSome(ctx, where, whereArgs, comicsBefore, purgeBatch)
 		total += n
 		if err != nil {
 			errs = append(errs, err)
@@ -312,9 +324,9 @@ func (l *Library) purge(ctx context.Context, where string, whereArgs []any, comi
 	return total, errors.Join(errs...)
 }
 
-// purgeSome removes up to purgeBatch of the files the condition picks: their rows in one transaction, then their
+// purgeSome removes up to limit of the files the condition picks: their rows in one transaction, then their
 // originals and thumbnails.
-func (l *Library) purgeSome(ctx context.Context, where string, whereArgs []any, comicsBefore int64) (int, error) {
+func (l *Library) purgeSome(ctx context.Context, where string, whereArgs []any, comicsBefore int64, limit int) (int, error) {
 	type gone struct {
 		id  uint32
 		sha store.Hash
@@ -327,7 +339,7 @@ func (l *Library) purgeSome(ctx context.Context, where string, whereArgs []any, 
 				return nil, err
 			}
 		}
-		rows, err := tx.QueryContext(ctx, "SELECT id, sha256, type FROM files WHERE "+where+" LIMIT "+strconv.Itoa(purgeBatch), whereArgs...)
+		rows, err := tx.QueryContext(ctx, "SELECT id, sha256, type FROM files WHERE "+where+" LIMIT "+strconv.Itoa(limit), whereArgs...)
 		if err != nil {
 			return nil, err
 		}

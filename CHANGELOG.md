@@ -14,6 +14,7 @@ shows this too (Settings > Updates).
 
 - **Windows downloads**: the release has just the two installers now; the separate Windows zip files are gone.
 - **A spinner over a video while it loads**: when a video opens, after you jump or scrub to a part not loaded yet, and whenever playback waits for the connection.
+- **The trash is quick and smooth**: it opens at once even while downloads run (it took a couple of seconds on a big library), the library's files no longer flash on it - they leave and the trash's appear one after another, as anywhere in the media - and files deleted for good disappear as they go, not all at the end.
 - **Roomier download queue**: each download is one line - the search, how far it is and how fast - with a short summary under its bar. Tap it for all its numbers with their names, the time left, and its actions. Removing a download from the queue asks first.
 - **Tags keep up during big downloads**: looking up tag types and refreshing older files' tags no longer waits for a site's downloads to finish (a big first check could hold them up for days). It runs alongside, slowly, and only takes the site's turn when no download or check needs it.
 - **More files at once where it pays**: a site plugin can let Vitrine try more simultaneous downloads; it keeps an extra connection only while it adds at least a tenth to the total speed, and backs off at the first "too many requests". Plugins can also say which Vitrine version they need, so older versions aren't offered an update they can't read.

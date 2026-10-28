@@ -69,3 +69,31 @@ func TestHealthCheck(t *testing.T) {
 		t.Fatalf("read again the same day: %+v -> %+v", before, after)
 	}
 }
+
+// The trash emptied in turns (the page's): a few at a time, the last deleted first, and how many are left.
+func TestEmptyTrashSome(t *testing.T) {
+	l := newTest(t)
+	ctx := context.Background()
+	ids := importN(t, l, 5)
+	for _, id := range ids { // one at a time: the last one in ids is the last deleted
+		if err := l.Delete(ctx, []uint32{id}, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	n, left, err := l.EmptyTrashSome(ctx, 2)
+	if err != nil || n != 2 || left != 3 {
+		t.Fatalf("first turn: %d purged, %d left, %v", n, left, err)
+	}
+	for _, id := range ids[3:] {
+		var n int
+		l.db.R.QueryRowContext(ctx, "SELECT count(*) FROM files WHERE id = ?", id).Scan(&n)
+		if n != 0 {
+			t.Fatalf("file %d (among the last deleted) still in the trash", id)
+		}
+	}
+	for n, left = 0, 3; left > 0; {
+		if n, left, err = l.EmptyTrashSome(ctx, 2); err != nil || n == 0 {
+			t.Fatalf("a turn: %d purged, %d left, %v", n, left, err)
+		}
+	}
+}

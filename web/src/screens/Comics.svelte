@@ -69,8 +69,9 @@
   let current = $derived(collections.list.find((k) => k.id === inCollection));
   let queryOutside = ''; // (the search on the page a collection was opened from: back on leaving it)
   let cameFromGrid = false; // (opened from its tile: Back steps back)
-  /** A page switch under way: the last page's comics hidden until the new page's come. */
-  let switching = $state(false);
+  /** The list in the store is another page's (the comics' on the way to their trash): the grid never shows it here -
+   *  its tiles leave, this page's appear when they come (Grid's stale). */
+  const stale = $derived(results.searches > 0 && results.shown !== results.searched);
   $effect(() => {
     if (!here() || /^\d+$/.test(router.sub)) return; // (reading: the page under the reader stays)
     const now = router.sub === 'favorites';
@@ -83,7 +84,6 @@
       fav = now;
       inTrash = nowTrash;
       inCollection = nowCollection;
-      const pageChanged = results.scope !== (fav ? 'favorites' : nowTrash ? 'trash' : '');
       results.scope = fav ? 'favorites' : nowTrash ? 'trash' : '';
       if (nowTrash) {
         trash.load();
@@ -102,10 +102,8 @@
         sort = loadSort();
         cameFromGrid = false;
       }
-      // Another page (the comics, the trash, favorites): its comics only once they come (a collection's own morph
-      // keeps showing - its comics fly).
-      if (pageChanged) switching = true;
-      search(query).finally(() => (switching = false));
+      // (another page - the trash: the grid's stale; favorites: the usual motion from the comics to its own)
+      search(query);
     });
   });
   function leaveCollection() {
@@ -529,8 +527,8 @@
       </div>
     {/if}
   </header>
-  <div class="grid" class:switching>
-    {#if results.total === 0 && !results.busy && !results.error && results.searches > 0}
+  <div class="grid">
+    {#if results.total === 0 && !results.busy && !results.error && results.searches > 0 && !stale}
       {#if query}
         <div class="empty" in:swap><p>{t('comics.noMatch')}</p></div>
       {:else if fav}
@@ -545,7 +543,7 @@
         </div>
       {/if}
     {:else}
-      <Grid bind:this={grid} noHover={heroing} hideId={heroId ?? openID ?? undefined} {pad} inset={topbar.h + headH} onopen={open} oncrop={(i) => (cropping = results.fileAt(i)?.comic ?? null)} />
+      <Grid bind:this={grid} {stale} noHover={heroing} hideId={heroId ?? openID ?? undefined} {pad} inset={topbar.h + headH} onopen={open} oncrop={(i) => (cropping = results.fileAt(i)?.comic ?? null)} />
     {/if}
   </div>
   {#if selection.active}<SelectionBar />{/if}
@@ -609,11 +607,6 @@
     position: relative;
     min-height: 0;
     transition: opacity 0.2s ease-out;
-  }
-  /* Another page's files (the library, the trash, favorites) gone at once, the new page's fading in when they come. */
-  .grid.switching {
-    opacity: 0;
-    transition: none;
   }
   /* The search bar floats over the grid under the top bar, sliding away with it (as in the library). */
   header {

@@ -68,6 +68,9 @@ export class Results {
   shapes = $state.raw<Uint16Array | null>(null);
   /** Bumped by every finished search (a new list, even with the same length). */
   searches = $state(0);
+  /** The index the list on screen came from (searched, when it was committed): another page's list - the library's
+   *  on the way to its trash - is never shown on this one (the grid's stale). */
+  shown = $state<Scope | ''>('');
   private snapshotAt = 0;
   /** Bumped whenever more IDs or file details arrive (cheap re-render signal). */
   version = $state(0);
@@ -109,6 +112,7 @@ export class Results {
       this.pendingSlices.clear();
       this.snapshotAt = res.now;
       this.searches++;
+      this.shown = this.searched;
       this.arrived = 0;
       this.fresh = res.new ?? 0;
       this.pinned = res.pinned ?? 0;

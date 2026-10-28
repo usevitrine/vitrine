@@ -49,6 +49,28 @@ func (s *Server) purgeTrash(w http.ResponseWriter, r *http.Request) {
 
 // emptyTrash: POST /api/trash/empty -> {purged}: every deleted file removed for good.
 func (s *Server) emptyTrash(w http.ResponseWriter, r *http.Request) {
+	// {limit}: only that many, the last deleted first, and how many are left (the page empties it in turns).
+	var req struct {
+		Limit int `json:"limit"`
+	}
+	if r.ContentLength != 0 {
+		if err := readJSON(r, &req); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+	}
+	if req.Limit > 0 {
+		n, left, err := s.lib.EmptyTrashSome(r.Context(), min(req.Limit, 500))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if left == 0 {
+			s.log.Info("emptied the trash", "files", n)
+		}
+		writeJSON(w, http.StatusOK, map[string]int{"purged": n, "left": left})
+		return
+	}
 	n, err := s.lib.EmptyTrash(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)

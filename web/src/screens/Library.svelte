@@ -95,9 +95,9 @@
     search(q).then(() => top && grid?.toTop(true));
   });
 
-  /** A page switch under way: the last page's files are hidden until the new page's arrive (it showed the library a
-   *  moment on the way to the trash). */
-  let switching = $state(false);
+  /** The list in the store is another page's (the library's, on the way to its trash - or opened from another screen):
+   *  the grid never shows it here; its tiles leave, this page's appear when they come (Grid's stale). */
+  const stale = $derived(results.searches > 0 && results.shown !== results.searched);
 
   // Switching between the library and Favorites (the menu, Back): the page's own
   // search and order come back from its URL; its default order otherwise.
@@ -113,8 +113,7 @@
       const typed = extractSort(router.param('q'));
       query = typed.q;
       sort = router.param('sort') || typed.sort || defaultSort();
-      switching = true;
-      results.search(query, sort).finally(() => (switching = false));
+      results.search(query, sort);
     });
   });
 
@@ -373,9 +372,9 @@
     </div>
     {/if}
   </header>
-  <div class="grid" class:switching>
+  <div class="grid">
     <!-- (only once a search has finished: before the first one - the app starting - the welcome flashed) -->
-    {#if results.total === 0 && !results.busy && !results.error && results.searches > 0}
+    {#if results.total === 0 && !results.busy && !results.error && results.searches > 0 && !stale}
       {#if query}
         <div class="empty" in:swap><p>{t('library.noMatch')}</p></div>
       {:else if fav}
@@ -390,6 +389,7 @@
         bind:this={grid}
         {pad}
         {hideId}
+        {stale}
         inset={pad}
         onopen={(i, details) => open(i, details)} />
     {/if}
@@ -413,11 +413,6 @@
     position: relative;
     min-height: 0;
     transition: opacity 0.2s ease-out;
-  }
-  /* Another page's files (the library, the trash, favorites) gone at once, the new page's fading in when they come. */
-  .grid.switching {
-    opacity: 0;
-    transition: none;
   }
   /* The search bar floats over the grid under the top bar, sliding away with it
      (the grid scrolls under both - nothing moves when they go). */
