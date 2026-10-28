@@ -8130,15 +8130,24 @@ test('trash: going there shows none of the library meanwhile, and Empty trash sp
   const grid = page.locator('.library .grid');
   await page.getByRole('button', { name: 'Menu' }).click();
   await unfold(page, 'library');
-  // Every frame from here: on /trash, no file that isn't the trash's is ever drawn (the library's leave as ghosts -
-  // their fading copies - the real tiles hidden until the trash's come).
+  // Every frame from here: on /trash, a file that isn't the trash's shows only as the library fades out - fainter
+  // from the first frame on, gone within 250 ms - never later, never at full strength (the user's recording: the
+  // library's tiles came back a moment after leaving).
   await page.evaluate((trashIds) => {
-    const w = window as unknown as { __strays: number };
-    w.__strays = 0;
-    const look = () => {
+    const w = window as unknown as { __strays: string[] };
+    w.__strays = [];
+    let start = 0;
+    let frame = 0;
+    const look = (now: number) => {
       if (location.pathname === '/trash') {
-        for (const t of document.querySelectorAll<HTMLElement>('.library .tile:not(.ghost)')) {
-          if (getComputedStyle(t).visibility !== 'hidden' && !trashIds.includes(Number(t.dataset.id))) w.__strays++;
+        start ||= now;
+        frame++;
+        const sizer = document.querySelector<HTMLElement>('.library .sizer');
+        const opacity = sizer ? Number(getComputedStyle(sizer).opacity) : 1;
+        for (const t of document.querySelectorAll<HTMLElement>('.library .tile')) {
+          if (getComputedStyle(t).visibility === 'hidden' || trashIds.includes(Number(t.dataset.id))) continue;
+          if (now - start > 250 || (frame > 2 && opacity > 0.98)) w.__strays.push(`${Math.round(now - start)} ms, opacity ${opacity}`);
+          break;
         }
       }
       requestAnimationFrame(look);
@@ -8151,7 +8160,7 @@ test('trash: going there shows none of the library meanwhile, and Empty trash sp
   releaseSearch();
   await expect(page.locator('.tile:not(.ghost)')).toHaveCount(2);
   await expect(page.locator('.tile:not(.ghost)').first()).toBeVisible();
-  expect(await page.evaluate(() => (window as unknown as { __strays: number }).__strays)).toBe(0);
+  expect(await page.evaluate(() => (window as unknown as { __strays: string[] }).__strays)).toEqual([]);
   await expect(grid).toBeVisible();
 
   const button = page.locator('.library .empty-trash'); // (not the dialog's, closing)

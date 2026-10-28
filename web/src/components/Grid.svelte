@@ -969,26 +969,43 @@
     appear(list);
   }
   // Another page's list (stale: the library on the way to its trash, or opened from another screen with the library's
-  // list still in the store): never shown here - the tiles on screen leave at once like removed ones, the rest stay
-  // hidden; when this page's list comes, its tiles appear one after another (2026-10-28, the user: the library showed
-  // a moment in the trash - "it should be beautiful").
+  // list still in the store): never shown here. What was on screen fades out where it is - all of it at once, a
+  // slight shrink about the middle of the view - and only then do this page's tiles appear one after another; if they
+  // come sooner, they wait hidden (2026-10-28, the user's recording: copies of the library's tiles leaving came back
+  // a moment later at full strength, moved down by the trash's header, over the trash's own tiles appearing).
+  let leaving: Animation | null = null;
   $effect.pre(() => {
     const s = stale;
     untrack(() => {
+      const sizer = el?.querySelector<HTMLElement>('.sizer');
       if (s && !cleared) {
-        cleared = clearedView = true;
-        if (el && !reducedMotion()) {
-          const sizer = el.querySelector<HTMLElement>('.sizer');
-          if (sizer) {
-            const sr = sizer.getBoundingClientRect();
-            for (const b of snapshot().values()) depart(sizer, b, sr);
-          }
+        cleared = true;
+        if (!sizer || reducedMotion() || !tiles.length) {
+          clearedView = true;
+          return;
         }
+        sizer.style.transformOrigin = `50% ${el!.scrollTop + el!.clientHeight / 2}px`;
+        leaving = sizer.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.97)' }], {
+          duration: 180,
+          easing: MOTION.exitEase,
+          fill: 'forwards',
+        });
+        leaving.finished.then(() => cleared && (clearedView = true), () => {});
       } else if (!s && cleared) {
-        cleared = clearedView = false;
+        cleared = false;
         firstShown = anyShown = true; // (the appearing below is this list's: not again as a first showing)
         wasHidden = false;
-        tick().then(appearAll);
+        clearedView = true; // (this page's tiles hidden until the old ones have gone)
+        const show = () => {
+          if (cleared) return; // (stale again meanwhile)
+          leaving?.cancel();
+          leaving = null;
+          if (sizer) sizer.style.transformOrigin = '';
+          clearedView = false;
+          tick().then(appearAll);
+        };
+        if (leaving?.playState === 'running') leaving.finished.then(show, show);
+        else show();
       }
     });
   });
