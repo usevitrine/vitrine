@@ -120,6 +120,13 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   with the file menu open. Phones: none.
   Shared setting `hoverPreview` (Settings > Videos > "Play videos on hover", on by default): off, a video's card
   shows its thumbnail, grown (the card itself always opens; until 2026-10-21 the setting turned cards off too).
+  **Scrubbing a card's video (2026-10-28, the user: "click and hold and move left and right to scrub")**: pressed
+  on a playing card and moved 4 px sideways, it scrubs instead of starting a drag to select - paused, the moment
+  under the pointer (the card's left edge the start, its right edge the end; the line along its foot follows), one
+  seek at a time with only the latest place kept (one `seeked` listener for the whole scrub - one per seek lost the
+  later places); the card stays wherever the pointer goes (`scrubbing` holds hoverTile/leaveGrid off, a frame past
+  the release); an ew-resize cursor. Let go on the card: it plays on from there (if it was playing), no viewer; let
+  go off it: the card goes with the mouse, as ever. A click that doesn't move still opens the viewer.
 - **Filter menu (built 2026-10-15; like hydrus-web's system predicate menu, but
   only what Vitrine has)**: a filter button in the search bar (left of the star) opens a list grouped When (Imported,
   Uploaded, Modified) / File (Type, Length, File size, Width, Height, Has audio, No audio) / Other (Number of tags,

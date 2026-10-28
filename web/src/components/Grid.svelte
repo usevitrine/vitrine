@@ -103,6 +103,7 @@
   let hoverReady = $state(false); // the preview has a frame to show (fades in then)
   let opened = $state<Hover | null>(null); // the zoom that has finished growing (its media loads then)
   let hoverProgress = $state(0);
+  let scrubbing = $state(false); // the hover card's video being scrubbed (see scrubTo)
   let hoverTimer = 0;
   let hoverAt = -1; // the tile under the mouse
   // ... the file there and the first row's gaps then: new files arriving (everything moves
@@ -138,7 +139,7 @@
     openHover(i, lastMove.x, lastMove.y);
   }
   function hoverTile(e: PointerEvent) {
-    if (!canHover || e.pointerType !== 'mouse' || noHover) return;
+    if (!canHover || e.pointerType !== 'mouse' || noHover || scrubbing) return; // (scrubbing: the card stays)
     const now = e.timeStamp;
     const dt = now - lastMove.t;
     const v = dt > 0 && dt < 100 ? Math.hypot(e.clientX - lastMove.x, e.clientY - lastMove.y) / dt : 0;
@@ -463,6 +464,7 @@
   }
 
   function leaveGrid() {
+    if (scrubbing) return; // (the card stays while its video is scrubbed, wherever the pointer goes)
     hoverAt = -1;
     afterScroll = false;
     clearTimeout(hoverTimer);
@@ -1287,6 +1289,7 @@
     touch: boolean;
     long: boolean; // held still long enough (touch)
     dragging: boolean;
+    scrub?: { video: HTMLVideoElement; resume: boolean }; // scrubbing the hover card's video (see scrubTo)
   };
   let press: Press | null = null;
   let longTimer: number | undefined;
@@ -1360,7 +1363,29 @@
   function move(e: PointerEvent) {
     if (!press || e.pointerId !== press.id) return;
     lastPoint = { x: e.clientX, y: e.clientY };
+    if (press.scrub) {
+      scrubTo(e.clientX);
+      return;
+    }
     const d = Math.hypot(e.clientX - press.x, e.clientY - press.y);
+    // Pressed on the hover card's video: moved sideways, it scrubs (never a drag to select).
+    const video = !press.touch && hover?.i === press.i ? cardVideo() : null;
+    if (video && !press.dragging) {
+      if (Math.abs(e.clientX - press.x) > 4 && video.duration > 0) {
+        press.scrub = { video, resume: !video.paused };
+        seekPending = null;
+        video.addEventListener('seeked', scrubSeeked);
+        video.pause();
+        scrubbing = true;
+        try {
+          el?.setPointerCapture(press.id);
+        } catch {
+          /* fine */
+        }
+        scrubTo(e.clientX);
+      }
+      return;
+    }
     if (!press.dragging) {
       if (press.touch && !press.long) {
         if (d > 10) {
@@ -1379,6 +1404,38 @@
       applyDrag();
     }
     autoScroll();
+  }
+
+  // ---- Scrubbing the hover card's video (2026-10-28, the user): press on it and move sideways - the moment under the
+  // pointer, the card's left edge the start and its right edge the end (the line along its foot shows where); let go
+  // and it plays on from there. A click that doesn't move still opens the viewer; the card stays while scrubbing,
+  // wherever the pointer goes.
+  /** The hover card's video, once it has a frame. */
+  const cardVideo = () => el?.querySelector<HTMLVideoElement>('.tile.zoomed video.zoom-media') ?? null;
+  let seekPending: number | null = null;
+  function scrubTo(clientX: number) {
+    const s = press?.scrub;
+    if (!s) return;
+    const card = s.video.closest<HTMLElement>('.tile');
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    hoverProgress = f;
+    // One seek at a time, only the latest place kept (a seek on top of another queues up and lags behind the hand):
+    // the scrub's own 'seeked' listener takes the next (scrubSeeked).
+    const t = f * s.video.duration;
+    if (s.video.seeking) seekPending = t;
+    else seekVideo(s.video, t);
+  }
+  function seekVideo(v: HTMLVideoElement & { fastSeek?: (t: number) => void }, at: number) {
+    if (v.fastSeek) v.fastSeek(at);
+    else v.currentTime = at;
+  }
+  function scrubSeeked(e: Event) {
+    if (seekPending === null) return;
+    const next = seekPending;
+    seekPending = null;
+    seekVideo(e.currentTarget as HTMLVideoElement, next);
   }
 
   // While dragging near the top or bottom edge, scroll and keep selecting.
@@ -1411,6 +1468,16 @@
     clearTimeout(longTimer);
     const p = press;
     press = null;
+    if (p.scrub) {
+      // (let go: it plays on from there if it was playing - and the viewer doesn't open; the card held a frame longer:
+      // WebKit sends the grid a leave as it lets the pointer go, which closed the card and opened it again from the start)
+      requestAnimationFrame(() => (scrubbing = false));
+      p.scrub.video.removeEventListener('seeked', scrubSeeked);
+      if (seekPending !== null) seekVideo(p.scrub.video, seekPending); // (the last place, if a seek was still on)
+      seekPending = null;
+      if (p.scrub.resume) p.scrub.video.play().catch(() => {});
+      return;
+    }
     if (p.dragging) {
       // Fill in any part of the range whose IDs weren't loaded during the drag.
       const ids = await results.idsInRange(p.i, dragTo);
@@ -1562,6 +1629,7 @@
   style:padding-top="{pad}px"
   style:padding-bottom="calc({GAP}px + var(--bottom-room))"
   class:selecting={selection.active}
+  class:scrubbing
   class:cleared={clearedView}
   bind:this={el}
   bind:clientWidth={width}
@@ -2338,5 +2406,10 @@
     pointer-events: none;
     background-repeat: no-repeat;
     background-position: 0 0;
+  }
+  /* Scrubbing the hover card's video: a sideways cursor wherever the pointer goes. */
+  .scrubbing,
+  .scrubbing :global(*) {
+    cursor: ew-resize !important;
   }
 </style>

@@ -7,6 +7,7 @@ shows this too (Settings > Updates).
 
 ### New
 
+- **Scrub a video right on its hover card**: press on a playing hover card and move left or right to jump through the video - the spot under the pointer, start to end across the card. Let go and it plays on from there; a plain click still opens it.
 - **What's new after an update**: the first time you open your library after an update, a window shows what changed in the new version. Tick "Don't show again" to stop it, or switch it in Settings > Updates.
 - **A native installer for Windows on ARM**: `Vitrine-Setup-<version>-arm64.exe` runs Vitrine (with its ffmpeg and libvips) natively on ARM64 PCs. If you installed the x64 version on one, its next update moves it to the ARM64 one by itself.
 

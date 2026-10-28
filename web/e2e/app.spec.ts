@@ -8501,3 +8501,38 @@ test('updates: a newer release in Settings > Updates with the changes in it, Upd
   await expect(failed).toHaveCount(0);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
+
+test("library: pressing on the hover card's video and moving sideways scrubs it - the moment under the pointer - and it plays on from there when let go (no viewer)", async ({ page }) => {
+  test.skip(isPhone(page), 'mouse only');
+  await page.goto('/');
+  const tile = page.locator('.tile[aria-label$="1280×720"]').first(); // the landscape video
+  await expect(tile).toBeVisible();
+  await tile.hover();
+  const card = page.locator('.tile.zoomed');
+  await expect(card.locator('.zoom-media')).toHaveClass(/\bready\b/); // playing
+  const video = card.locator('video');
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.duration || 0)).toBeGreaterThan(1);
+  const duration = await video.evaluate((v: HTMLVideoElement) => v.duration);
+  const cb = (await card.boundingBox())!;
+  const y = cb.y + cb.height / 2;
+  await page.mouse.move(cb.x + cb.width / 2, y);
+  await page.mouse.down();
+  // A quarter of the way along: a quarter of the way in, paused while held.
+  await page.mouse.move(cb.x + cb.width * 0.25, y, { steps: 6 });
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(duration * 0.25, 0);
+  expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+  await expect(page.locator('.grid-scroller.scrubbing')).toHaveCount(1);
+  // Off the card (and over other tiles): still scrubbing it, the card stays.
+  await page.mouse.move(cb.x + cb.width * 0.75, y + cb.height, { steps: 6 });
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(duration * 0.75, 0);
+  await expect(card).toHaveCount(1);
+  // Back on the card, let go: playing on from there, no viewer, nothing selected. (Let go off the card, the card goes
+  // with the mouse, as it always does.)
+  await page.mouse.move(cb.x + cb.width * 0.75, y, { steps: 3 });
+  await page.mouse.up();
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused)).toBe(true);
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(duration * 0.6); // (the last seek landing)
+  await expect(page.locator('.viewer')).toHaveCount(0);
+  await expect(page.locator('.tile.selected')).toHaveCount(0);
+  await expect(page.locator('.grid-scroller.scrubbing')).toHaveCount(0);
+});
