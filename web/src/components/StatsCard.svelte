@@ -46,6 +46,7 @@
     if (h) return t('stats.uptime.hours', { h, m });
     return t('stats.uptime.minutes', { m: Math.max(1, m) });
   }
+  const short = (ms: number) => date(new Date(ms), { day: 'numeric', month: 'short' });
   const day = (offset: number) => {
     const d = new Date();
     d.setDate(d.getDate() - offset);
@@ -133,6 +134,21 @@
       <div><dt>{t('stats.untagged')}</dt><dd>{n(st.untagged)}</dd></div>
       <div><dt>{t('stats.trash')}</dt><dd>{n(st.trash.files)}{#if st.trash.files}<small>&nbsp;· {formatSize(st.trash.bytes)}</small>{/if}</dd></div>
       <div><dt>{t('stats.removed')}</dt><dd>{n(st.removed)}<small>&nbsp;· {t('stats.removedHint')}</small></dd></div>
+      {#if st.health}
+        {@const h = st.health}
+        <div>
+          <dt>{t('stats.health.label')}</dt>
+          <dd>
+            {#if !h.db_checked_at}
+              {t('stats.health.never')}
+            {:else if h.missing_count || h.damaged_count || h.db_problem}
+              <span class="bad">{[h.missing_count && t('stats.health.missing', { n: h.missing_count }), h.damaged_count && t('stats.health.damaged', { n: h.damaged_count }), h.db_problem && t('stats.health.database')].filter(Boolean).join(' · ')}</span>
+            {:else}
+              {t('stats.health.fine')}<small>&nbsp;· {h.cursor || !h.last_pass_at ? t('stats.health.reading', { pct: Math.min(99, Math.floor((h.verified / Math.max(1, st.files)) * 100)) }) : t('stats.health.allRead', { date: short(h.last_pass_at) })}</small>
+            {/if}
+          </dd>
+        </div>
+      {/if}
     </dl>
   </section>
 

@@ -201,6 +201,53 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		}
 	}()
 
+	// The library's health check (library.HealthCheck): looked at hourly, from 15 minutes after the start. The
+	// database and every original weekly; a 28th of the originals (at least 10 GB) read back daily at 40 MB/s - a
+	// whole pass about every four weeks. What's found: each file in the log (warnings: kept for weeks), a notice.
+	go func() {
+		wait := 15 * time.Minute
+		for {
+			select {
+			case <-time.After(wait):
+			case <-ctx.Done():
+				return
+			}
+			wait = time.Hour
+			var total int64
+			for _, n := range lib.Index().Census(0, 0, 0).Types {
+				total += n[1]
+			}
+			missing, damaged := 0, 0
+			before, _ := lib.Health(ctx)
+			h, err := lib.HealthCheck(ctx, max(total/28, 10<<30), 40<<20, func(f library.HealthFinding) {
+				if f.Missing {
+					missing++
+					log.Warn("health check: an original is missing", "file", f.ID, "path", f.Path)
+				} else {
+					damaged++
+					log.Warn("health check: an original is damaged (no longer matches its checksum)", "file", f.ID, "path", f.Path)
+				}
+			})
+			if err != nil && ctx.Err() == nil {
+				log.Error("health check", "err", err)
+			}
+			tr := i18n.For("")
+			if missing > 0 {
+				handler.AppNotice(tr.T("health.missing", "n", missing), "error", "errors")
+			}
+			if damaged > 0 {
+				handler.AppNotice(tr.T("health.damaged", "n", damaged), "error", "errors")
+			}
+			if h.DBCheckedAt != before.DBCheckedAt && h.DBProblem != "" {
+				log.Error("health check: the database has a problem", "problem", h.DBProblem)
+				handler.AppNotice(tr.T("health.database", "problem", h.DBProblem), "error", "errors")
+			}
+			if h.LastPassAt != before.LastPassAt {
+				log.Info("health check: every original read back", "files", h.Verified, "damaged", h.DamagedCount)
+			}
+		}
+	}()
+
 	// Near-duplicates: every file's thumbnail hashed and compared with the
 	// library (new downloads within a minute; the existing library in batches).
 	go func() {

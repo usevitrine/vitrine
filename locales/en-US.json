@@ -811,6 +811,17 @@
     "yesterdayAt": "Yesterday at {time}",
     "dayAt": "{date} at {time}"
   },
+  "health": {
+    "missing": {
+      "one": "Health check: {n} file's original is missing from the disk - the log names it (vitrine logs -level warn)",
+      "other": "Health check: {n} files' originals are missing from the disk - the log names them (vitrine logs -level warn)"
+    },
+    "damaged": {
+      "one": "Health check: {n} file's original is damaged (it no longer matches its checksum) - the log names it",
+      "other": "Health check: {n} files' originals are damaged (they no longer match their checksums) - the log names them"
+    },
+    "database": "Health check: the library's database has a problem ({problem}) - restore a backup in Settings > Backups"
+  },
   "backups": {
     "title": "Backups",
     "hint": "Tags, subscriptions and settings - not your files.",
@@ -1590,6 +1601,16 @@
     "trash": "Deleted, can be undone",
     "removed": "Deleted for good",
     "removedHint": "never downloaded again",
+    "health": {
+      "label": "Health check",
+      "never": "Not run yet",
+      "fine": "No problems",
+      "reading": "{pct} % of the files read back this round",
+      "allRead": "every file read back by {date}",
+      "missing": "{n} missing",
+      "damaged": "{n} damaged",
+      "database": "the database has a problem"
+    },
     "imports": "Imports",
     "lastDays": "<b>{n}</b> in the last {days} days",
     "first": "first {date}",

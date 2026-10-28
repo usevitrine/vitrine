@@ -65,8 +65,9 @@ type serverStat struct {
 
 type statsReply struct {
 	library.Stats
-	Storage storageStat `json:"storage"`
-	Server  serverStat  `json:"server"`
+	Storage storageStat    `json:"storage"`
+	Server  serverStat     `json:"server"`
+	Health  library.Health `json:"health"` // the health check's findings (library.HealthCheck)
 }
 
 func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
@@ -82,6 +83,8 @@ func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
 	out := statsReply{Stats: st}
 	out.Storage = s.storage(st)
 	out.Server = s.serverInfo(r.Context())
+	out.Health, _ = s.lib.Health(r.Context())
+	out.Health.Missing, out.Health.Damaged = nil, nil // (the counts are enough here; the log names the files)
 	writeJSON(w, http.StatusOK, out)
 }
 

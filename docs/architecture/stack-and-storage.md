@@ -126,5 +126,15 @@ fast storage (SSD), **search index** in RAM.
   stops the server (exit 0) so Docker/systemd start it again. CLI: `vitrine backup [-keep N]`, `vitrine restore
   <file>`. The raw upload is the one non-JSON POST: it needs the `X-Vitrine-Upload: 1` header (no CORS, so a
   cross-site page can't send it).
+- **Health check (2026-10-28, `library.HealthCheck`, run from `serve`)**: looked at hourly from 15 min after the start.
+  Weekly: `PRAGMA quick_check(20)` on meta.db and an `os.Stat` of every original (in the library or comics, not
+  deleted); daily: originals read back and hashed against their SHA-256, from where the last day stopped - a 28th of
+  the library's bytes (at least 10 GB) at 40 MB/s, so a whole pass takes about four weeks and an hour or less a day
+  on the disk that also serves and downloads. State in `meta` ("health": times, the cursor, counts and the first
+  1,000 file IDs missing/damaged; a new pass finds damaged ones again, the weekly look missing ones). A file newly
+  found: a warning in the log (the warnings' log keeps it for weeks) with its ID and path, and one notice per kind
+  (category errors); a database problem: an error and a notice. Settings > Stats has a Health check row (counts in
+  red; else how far this round has read). Why: one HDD with no offsite copy of the originals - a failing disk or a
+  damaged file is found while the backups still hold a good copy. Test: `TestHealthCheck`.
 - Considered and rejected: an embedded key-value store (Pebble/bbolt) - faster raw writes, but SQLite is fast enough
   when the hot path is in RAM, and its tooling/backups are better.

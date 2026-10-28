@@ -150,6 +150,12 @@ func (n *notices) last() int64 {
 // Notice records one of the downloader's events for the bell.
 func (s *Server) Notice(e download.Event) { s.notices.add(e) }
 
+// AppNotice adds a notice of the server's own (text in the server's language; tone: done, error...; category: the
+// notice settings' group).
+func (s *Server) AppNotice(text, tone, category string) {
+	s.notices.put(library.Notice{At: time.Now().UnixMilli(), Kind: "app", Text: text, Tone: tone, Category: category})
+}
+
 // addNotice: POST /api/notices {text, tone, category} - something done in the app that's set to go to the bell
 // (Settings > Notifications): in every device's bell -> {id}.
 func (s *Server) addNotice(w http.ResponseWriter, r *http.Request) {

@@ -642,6 +642,8 @@ export interface LibraryStats {
   sites: { site: string; files: number; posts: number }[];
   subscriptions: { total: number; paused: number; failing: number };
   took_ms: number;
+  // The health check (Unix ms; 0: not yet): the database and every original weekly, originals read back daily.
+  health: { db_checked_at: number; db_problem?: string; files_checked_at: number; missing_count: number; damaged_count: number; cursor: number; last_pass_at: number; verified: number };
   storage: {
     originals: number;
     database: number;
