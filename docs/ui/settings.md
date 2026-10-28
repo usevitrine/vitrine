@@ -78,6 +78,11 @@ Settings sections and cards: Sites, Library, Download rules, Backups, Stats and 
   they share a disk; red under 10 % free), then originals, database (+WAL), thumbnails, previews, backups. Server:
   version, uptime, memory, OS/arch and CPUs (Docker or not), ffmpeg and libvips versions, Go. Counted by SQL on
   meta.db (milliseconds; the time is shown) plus the disks (`internal/diskfree`: statfs / GetDiskFreeSpaceEx).
+  **2026-10-28: the live files' numbers from the index** (`index.Census`: kinds and sizes, first import, imports per
+  day, untagged, tag links - each tag once per live file; `index.SiteFiles`: files per site, as the From filter
+  counts them) - the SQL took 4-6 s on a library of 330k files and 16M tag links (measured per query: counting
+  file_tags 1.5 s + the user's 1.3 s, files per site 0.8 s, untagged 0.6 s, four scans of files ~0.8 s). The user's
+  links and the trash use partial indexes (migration 0043); posts per site group seen_posts along its key.
 - **Problem report (2026-10-19)**: the last card of Settings > Stats - Download (a .txt), Copy, Show (the text in
   the card, wrapped). Made by the server (`GET /api/report`, internal/server/report.go): the setup (version, OS,
   CPUs, Docker, memory, uptime, ffmpeg/libvips), the counts, storage and disks, per site its engine, version,

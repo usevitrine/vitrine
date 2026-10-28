@@ -507,6 +507,59 @@ func (ix *Index) Stats() Stats {
 	return s
 }
 
+// Census is the live files at a glance (Settings > Stats), counted in one pass over the index - the same numbers from
+// the database scanned millions of rows (5 s at 330k files and 16M tag links).
+type Census struct {
+	Types       map[media.Type][2]int64 // files and bytes per type
+	FirstImport int64                   // the oldest import (Unix ms; 0: no files)
+	Untagged    int64
+	TagLinks    int64   // links between live files and their tags (each tag once per file)
+	Imports     []int64 // imports per day: days days from first (see Census)
+}
+
+// Census counts the live files. Imports per day: days days, the first starting at first (Unix seconds shifted by
+// tzOffset, as the import times are, so days end at the caller's midnight).
+func (ix *Index) Census(days int, first, tzOffset int64) Census {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	c := Census{Types: map[media.Type][2]int64{}, Imports: make([]int64, max(days, 0))}
+	it := ix.alive.Iterator()
+	for it.HasNext() {
+		id := it.Next()
+		t := c.Types[ix.typ[id]]
+		t[0]++
+		t[1] += ix.size[id]
+		c.Types[ix.typ[id]] = t
+		if at := ix.imported[id]; c.FirstImport == 0 || at < c.FirstImport {
+			c.FirstImport = at
+		}
+		if n := ix.tagCount[id]; n == 0 {
+			c.Untagged++
+		} else {
+			c.TagLinks += int64(n)
+		}
+		if s := ix.imported[id]/1000 + tzOffset; s >= first {
+			if d := (s - first) / 86400; d < int64(days) {
+				c.Imports[d]++
+			}
+		}
+	}
+	return c
+}
+
+// SiteFiles counts the live files from each site (by site ID).
+func (ix *Index) SiteFiles() map[uint32]int64 {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	out := map[uint32]int64{}
+	for site, bm := range ix.siteFiles {
+		if n := int64(ix.alive.AndCardinality(bm)); n > 0 {
+			out[site] = n
+		}
+	}
+	return out
+}
+
 // SizeOf adds up the files' sizes in bytes.
 func (ix *Index) SizeOf(ids []uint32) int64 {
 	ix.mu.RLock()
