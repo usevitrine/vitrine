@@ -1086,8 +1086,16 @@ test('downloads: pause, resume, reorder, remove, retry (offline test sites)', as
   await rowMenu(page, 'the download down_a', 'Remove');
   await expect(item('down_a')).toHaveCount(0);
   await dlTab(page, 'Queue');
+  // Removing one from the queue asks first (it stops for good): Cancel keeps it.
+  await rowMenu(page, 'the download slow_a', 'Remove');
+  const ask = page.getByRole('alertdialog', { name: 'Remove the download "slow_a"?' });
+  await expect(ask).toBeVisible();
+  await ask.getByRole('button', { name: 'Cancel' }).click();
+  await expect(ask).toHaveCount(0);
+  await expect(item('slow_a')).toHaveCount(1);
   for (const q of ['slow_a', 'slow_b', 'slow_c']) {
     await rowMenu(page, `the download ${q}`, 'Remove');
+    await page.getByRole('alertdialog', { name: `Remove the download "${q}"?` }).getByRole('button', { name: 'Remove', exact: true }).click();
     // (said at once - a slow browser takes longer than the notice shows to see the row go)
     await expect(page.getByText(`Removed "${q}" (its files stay in the library)`)).toBeVisible();
     await expect(item(q)).toHaveCount(0);

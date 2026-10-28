@@ -521,6 +521,17 @@
       if (action === 'pause') await api.pauseDownload(s.id);
       if (action === 'resume') await api.resumeDownload(s.id);
       if (action === 'remove') {
+        // A download in the queue is asked about first: it stops and doesn't carry on later. (A finished one leaving
+        // the history, or a subscription's check skipped, isn't.)
+        if (active(s) && !s.subscription_id) {
+          const ok = await confirmAction({
+            title: t('downloads.removeTitle', { query: named(s) || t('push.everything') }),
+            body: s.downloaded ? t('downloads.removeBodyFiles', { n: s.downloaded }) : t('downloads.removeBody'),
+            action: t('sites.remove'),
+            icon: 'close',
+          });
+          if (!ok) return;
+        }
         await api.removeDownload(s.id);
         searches = searches.filter((x) => x.id !== s.id);
         toasts.show(t('downloads.removed', { query: named(s) }), { cat: 'downloadsStarted', kind: 'removed' });

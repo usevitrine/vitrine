@@ -96,7 +96,9 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   phones - labels may wrap -, auto-fill 124 px wider), the error, then the ⋯ menu's actions as buttons (stretched on
   phones, their own width on desktop). Time left: the search's count over the last 10 minutes (`paces`, from a
   minute of it). The history keeps the old one-line card (`searchInfo` + ⋯). E2E: `rowMenu` opens a queue card and
-  presses the action in it.
+  presses the action in it. **Removing one asks first (same day, the user)**: "Remove the download \"x\"?" - it stops
+  and won't carry on later; the files it downloaded stay (counted). Only for downloads in the queue: a finished one
+  leaving the history and a subscription's check skipped aren't asked.
 - **Steady queue rows (2026-10-15, user: rows jumping as files start and finish)**: a running search shows its files
   in flight as **one line of fixed height** - a thin bar of their combined progress and "3 files · 34 of 120 MB ·
   10 MB/s" (an unknown size slides) - or "Looking for the next post…" between files, instead of a bar per big file

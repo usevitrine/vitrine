@@ -1168,6 +1168,12 @@
     "favGoneBody": "No longer in your favorites on {site}. You can still undo it.",
     "unsubTitle": "Unsubscribe from \"{query}\"?",
     "unsubBody": "Its files stay.",
+    "removeTitle": "Remove the download \"{query}\"?",
+    "removeBody": "It stops and won't carry on later.",
+    "removeBodyFiles": {
+      "one": "It stops and won't carry on later. The file it downloaded stays.",
+      "other": "It stops and won't carry on later. The {n} files it downloaded stay."
+    },
     "unsubscribe": "Unsubscribe",
     "unsubscribed": "Unsubscribed from \"{query}\" (its files stay in the library)",
     "interval": "\"{query}\" is now checked {every}",
