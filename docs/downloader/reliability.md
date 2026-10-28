@@ -51,7 +51,10 @@ asked for again - from its middle and its end (`Client.FileSample`, Range reques
 connection slot: waiting for another deadlocked) - and compared with what came (`library.ImportVerified` /
 `store.PutVerified` hand the decision the temp file before it's kept). The same: kept. Any doubt (different
 pieces - a broken copy -, no Range support, a file under 128 KB, an error): downloaded again as before. The warning
-is logged once per site while Vitrine runs (each file: debug). Test: `TestWrongMD5CheckedByPieces`.
+is logged once per site while Vitrine runs (each file: debug). Test: `TestWrongMD5CheckedByPieces`. **Both pieces at once
+(2026-10-28)**: asked for one after the other, they cost two round trips more per such file (~0.2-0.8 s each through
+the VPN) while the file held its connection, and most of a rule34 video first check's files were such files - now the
+two requests go out together (one round trip).
 
 ## A site that stops answering pauses by itself (2026-10-21)
 - `plugin.Client` counts each site's **connection failures in a row** (no answer, a 5xx, a Cloudflare block it can't

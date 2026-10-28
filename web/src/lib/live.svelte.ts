@@ -22,7 +22,7 @@ export interface FileProgress {
 class Live {
   /** Files downloading now. */
   files = $state<FileProgress[]>([]);
-  /** Bytes per second per search (smoothed). */
+  /** Bytes per second per search: the server's average over the last 10 s (every byte, small files too). */
   speed = $state<Record<number, number>>({});
   /** Whether the stream is open (else pages fall back to polling). */
   connected = $state(false);
@@ -32,7 +32,6 @@ class Live {
   private retries = 0;
   private staleTimer = 0;
   private listeners = new Set<() => void>();
-  private last: { at: number; read: Record<string, number> } | null = null;
 
   start() {
     if (this.es || typeof EventSource === 'undefined') return;
@@ -109,7 +108,14 @@ class Live {
     });
     es.addEventListener('progress', (e) => {
       try {
-        this.setFiles(JSON.parse((e as MessageEvent).data) as FileProgress[]);
+        this.files = JSON.parse((e as MessageEvent).data) as FileProgress[];
+      } catch {
+        /* ignore a bad message */
+      }
+    });
+    es.addEventListener('speed', (e) => {
+      try {
+        this.speed = JSON.parse((e as MessageEvent).data) as Record<number, number>;
       } catch {
         /* ignore a bad message */
       }
@@ -119,34 +125,10 @@ class Live {
   private clearProgress() {
     this.files = [];
     this.speed = {};
-    this.last = null;
   }
 
   private emit() {
     for (const fn of this.listeners) fn();
-  }
-
-  private setFiles(files: FileProgress[]) {
-    const now = performance.now();
-    const read: Record<string, number> = {};
-    for (const f of files) read[`${f.search}/${f.post}`] = f.read;
-    if (this.last) {
-      const dt = (now - this.last.at) / 1000;
-      const gained: Record<number, number> = {};
-      for (const f of files) {
-        const before = this.last.read[`${f.search}/${f.post}`] ?? 0;
-        gained[f.search] = (gained[f.search] ?? 0) + Math.max(0, f.read - before);
-      }
-      const speed: Record<number, number> = {};
-      for (const [id, bytes] of Object.entries(gained)) {
-        const rate = bytes / Math.max(dt, 0.1);
-        const prev = this.speed[+id];
-        speed[+id] = prev === undefined ? rate : prev * 0.6 + rate * 0.4;
-      }
-      this.speed = speed;
-    }
-    this.last = files.length ? { at: now, read } : null;
-    this.files = files;
   }
 }
 

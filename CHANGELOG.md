@@ -7,6 +7,8 @@ shows this too (Settings > Updates).
 
 ### Improved
 
+- **A steadier download speed**: the speed shown is the last 10 seconds' average of every byte, so it no longer jumps between a big video's speed and a run of small files'.
+- **Faster downloads of files whose md5 the site lists wrongly** (common with rule34's older videos): the two small pieces that check such a file are asked for together, one wait instead of two.
 - **Subscriptions keep checking during their first download**: while a subscription's initial download is still going (hours, for a big search), its regular checks run on schedule as usual and bring in new posts as they come out.
 - **Blacklist changes apply to running downloads**: a tag added to the blacklist (or a new size limit) counts from the download's next post, not only from the next download.
 - **Only a subscription's regular checks bring NEW files** on a new library: a first download (once, or a subscription's first check) no longer fills NEW and the top of the library. Settings > Library > "Bulk downloads count as new" brings the old way back.

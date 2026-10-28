@@ -1,7 +1,9 @@
 package download
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"testing"
 	"time"
 )
@@ -48,5 +50,33 @@ func TestLiveProgress(t *testing.T) {
 	case <-changes:
 	default:
 		t.Fatal("no signal for the handled posts")
+	}
+}
+
+// The speed counts every byte a search reads - a small file begun and done between two looks too - over the last
+// few seconds, not file by file.
+func TestLiveSpeeds(t *testing.T) {
+	e := newEnv(t, 1)
+	ctx := context.Background()
+	if sp := e.dl.Speeds(); len(sp) != 0 {
+		t.Fatalf("speeds before anything: %v", sp)
+	}
+	read := func(search, post int64, n int) {
+		pctx, done := e.dl.trackPost(ctx, search, post)
+		body := e.dl.countBody(pctx, io.NopCloser(bytes.NewReader(make([]byte, n))), int64(n))
+		io.Copy(io.Discard, body)
+		body.Close()
+		done()
+	}
+	read(7, 1, 1000) // (before the first look: not in the speed)
+	if sp := e.dl.Speeds(); len(sp) != 0 {
+		t.Fatalf("a speed from one look: %v", sp)
+	}
+	read(7, 2, 300_000) // two small files, both done before the next look
+	read(7, 3, 200_000)
+	time.Sleep(300 * time.Millisecond)
+	// (at least a second counted: a fraction of one would make a burst look fast)
+	if sp := e.dl.Speeds(); len(sp) != 1 || sp[7] != 500_000 {
+		t.Fatalf("speeds: %v, want 500000 for search 7", sp)
 	}
 }

@@ -11,6 +11,8 @@ import (
 //   event: downloads  - the download queue or subscriptions changed (re-read /api/downloads)
 //   event: progress   - the files downloading now: [{search, post, read, total}], twice a
 //                       second while any are (and one empty list when they stop)
+//   event: speed      - each running search's download speed, bytes a second over the last 10 s: {"<search>": n}
+//                       (with progress)
 //   event: notice     - the downloader's new events for the bell: [{id, at, kind, ...}] (see notices.go)
 //   event: notices-state - how far the bell's notices are read and cleared changed (on another device), or some
 //                          were dropped (forgets went up: a wiped site's): {read, cleared, forgets}
@@ -69,12 +71,15 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 		}
 		if s.dl != nil {
 			p := s.dl.Progress()
-			if len(p) > 0 || wasActive {
+			sp := s.dl.Speeds()
+			if len(p) > 0 || len(sp) > 0 || wasActive {
 				b, _ := json.Marshal(p)
 				fmt.Fprintf(w, "event: progress\ndata: %s\n\n", b)
+				b, _ = json.Marshal(sp)
+				fmt.Fprintf(w, "event: speed\ndata: %s\n\n", b)
 				wrote = true
 			}
-			wasActive = len(p) > 0
+			wasActive = len(p) > 0 || len(sp) > 0
 		}
 		if quiet++; !wrote && quiet >= int(20*time.Second/eventTick) {
 			fmt.Fprint(w, ": ping\n\n")

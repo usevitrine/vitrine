@@ -1390,19 +1390,26 @@ func (d *Downloader) sameAsSite(ctx context.Context, st *Site, u string, content
 	if size < 2*sampleBytes+1 {
 		return false
 	}
-	for _, off := range []int64{size / 2, size - sampleBytes} {
-		got, err := st.Client.FileSample(ctx, u, off, sampleBytes)
-		if err != nil {
-			d.log.Debug("file sample", "site", st.Client.Manifest().ID, "err", err)
-			return false
-		}
-		ours := make([]byte, sampleBytes)
-		if _, err := content.ReadAt(ours, off); err != nil && !errors.Is(err, io.EOF) {
-			return false
-		}
-		if !bytes.Equal(got, ours) {
-			return false
-		}
+	// Both pieces at once: one after the other, each was a round trip more for every such file while its connection
+	// waited - rule34's older videos through the VPN, ~0.2-0.8 s each (2026-10-28, the user: "my download speed on
+	// rule34xxx keeps jumping around").
+	offs := []int64{size / 2, size - sampleBytes}
+	same := make([]bool, len(offs))
+	var wg sync.WaitGroup
+	for i, off := range offs {
+		wg.Go(func() {
+			got, err := st.Client.FileSample(ctx, u, off, sampleBytes)
+			if err != nil {
+				d.log.Debug("file sample", "site", st.Client.Manifest().ID, "err", err)
+				return
+			}
+			ours := make([]byte, sampleBytes)
+			if _, err := content.ReadAt(ours, off); err != nil && !errors.Is(err, io.EOF) {
+				return
+			}
+			same[i] = bytes.Equal(got, ours)
+		})
 	}
-	return true
+	wg.Wait()
+	return !slices.Contains(same, false)
 }

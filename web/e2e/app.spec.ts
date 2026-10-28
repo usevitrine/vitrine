@@ -2190,7 +2190,8 @@ test('downloads: a running search without an estimate has a moving striped bar; 
   // The test site never answers: no total, no file limit - a striped bar, not an empty one.
   await expect(row.getByRole('progressbar', { name: 'Downloading (no estimate)' })).toBeVisible();
   await expect(row.locator('.bar.striped')).toHaveCSS('animation-name', /stripes/);
-  // Files in flight (a made-up stream, every 300 ms, 2 MB more each time): only the speed shows.
+  // Files in flight (a made-up stream, every 300 ms, 2 MB more each time, and the server's speed - its 10 s average):
+  // only the speed shows, the server's.
   let read = 0;
   await page.route('**/api/events', (route) => {
     read += 2_000_000;
@@ -2200,10 +2201,13 @@ test('downloads: a running search without an estimate has a moving striped bar; 
 event: progress
 data: ${data}
 
+event: speed
+data: {"${d.id}": 15200000}
+
 ` });
   });
   await page.reload();
-  await expect(row.locator('.qnow')).toHaveText(/^\s*\d.* MB\/s\s*$/);
+  await expect(row.locator('.qnow')).toHaveText(/^\s*14 MB\/s\s*$/);
   await expect(row.locator('.now, .fbar')).toHaveCount(0);
   await removeDownload(page, d.id);
 });

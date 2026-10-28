@@ -392,8 +392,8 @@
     };
   });
 
-  // A running search's download speed: kept a few seconds between files (the
-  // stream has no files in flight while the next post is looked up), so it doesn't flicker.
+  // A running search's download speed (the server's average over the last 10 s): kept a few seconds after it stops
+  // coming (the next page of posts looked up), so it doesn't flicker.
   let speeds = $state<Record<number, { v: number; at: number }>>({});
   $effect(() => {
     const sp = live.speed;

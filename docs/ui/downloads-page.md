@@ -128,7 +128,11 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
 - **Queue progress (2026-10-16, user)**: a running search with no estimate (no site total, no file limit - e.g.
   Mastodon) shows a moving striped bar instead of an empty one (also a subscription's check). The per-file line
   (thin bar, file count, bytes) is gone; the download speed is a stat on the stats line, kept 4 s between files so it
-  doesn't flicker.
+  doesn't flicker. **The server's 10 s average (2026-10-28)**, the user: rule34's speed "keeps jumping around from
+  40 MB/s down to single digit MB/s" while the minute average was a steady 10-20 MB/s. The page had worked it out from
+  the files in flight, two looks a second apart: a big video showed 40, a run of small files a few, and a small file
+  begun and done between two looks not at all. Now the server counts every byte per search (`Downloader.Speeds`, a
+  reading at most every 250 ms, the last 10 s, at least 1 s counted) and sends it as `event: speed` with `progress`.
 - **Subscription groups start folded (2026-10-16, user)**: the device remembers the groups you open
   (`vitrine.expandedGroups`); a filter shows every match; jumping to a subscription opens its group.
 - **Sites fold on the Downloads page (2026-10-19)**: with more than one site (or a switched-off one), each site's
