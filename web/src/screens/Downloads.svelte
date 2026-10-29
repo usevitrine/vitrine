@@ -870,6 +870,27 @@
   const intervalOptions = $derived(intervals.map((v) => ({ value: String(v), label: cap(every(v)) })));
 
 
+  // ---- How long each download has worked (2026-10-29, the user: "Downloads should have how long they've been running
+  // for somewhere. That pauses when the download is paused for any reason"): the server counts only its runs; while
+  // one works the page counts on from its answer, a tick a second.
+  let tickNow = $state(Date.now());
+  $effect(() => {
+    if (!searches.some((x) => x.run_now)) return;
+    const timer = setInterval(() => (tickNow = Date.now()), 1000);
+    return () => clearInterval(timer);
+  });
+  const runOf = (s: DownloadSearch) => (s.run_now ? s.run_now + Math.max(0, tickNow - lastRefresh) : (s.run_ms ?? 0));
+  /** "45 s", "13 min", "2 h 13 min", "1 d 4 h" for a run time in ms. */
+  function runSpan(ms: number): string {
+    const sec = Math.floor(ms / 1000);
+    if (sec < 60) return t('downloads.ran.s', { n: sec });
+    const min = Math.floor(sec / 60);
+    if (min < 60) return t('downloads.ran.min', { n: min });
+    const h = Math.floor(min / 60);
+    if (h < 48) return t('downloads.ran.hMin', { h, m: min % 60 });
+    return t('downloads.ran.dH', { d: Math.floor(h / 24), h: h % 24 });
+  }
+
   /** "5 min", "3 h", "2 d" for a span in ms. */
   function span(ms: number): string {
     const m = Math.round(Math.abs(ms) / 60000);
@@ -1388,7 +1409,8 @@
       {#if s.skipped}{@render iconStat(s.skipped, 'filter', t('downloads.stat.skipped'))}{/if}
       {#if s.failed}{@render iconStat(s.failed, 'alert', t('downloads.stat.failed'), 'bad')}{/if}
     </div>
-    {#if s.state === 'running' && speedOf(s.id)}<span class="stat speed" title={t('downloads.speedTitle')}>{speedOf(s.id)}</span>{/if}
+    {#if s.state === 'running' && speedOf(s.id)}<span class="stat speed" title={t('downloads.speedTitle')}>{speedOf(s.id)}</span>
+    {:else if (s.state === 'done' || s.state === 'failed') && (s.run_ms ?? 0) >= 1000}<span class="stat meta" title={t('downloads.ran.title')}><Icon name="clock" size={13} /> {runSpan(s.run_ms ?? 0)}</span>{/if}
   </div>
   {#if s.error}<p class="error small" transition:reveal>{s.error}</p>{/if}
   {#if s.state === 'failed' && !s.subscription_id && s.retry_at}
@@ -1427,14 +1449,17 @@
   </div>
   {#if open}
     <div class="qbody" transition:reveal>
-      {#if s.handled || goalOf(s) || g}
+      {#if s.handled || goalOf(s) || g || runOf(s)}
         <div class="qfacts">
           <span>
             {#if g}{t('downloads.stat.pageOf', { done: num(g.done), pages: num(g.pages) })}
             {:else if goalOf(s)}{t(gal ? 'downloads.stat.galleriesOf' : 'downloads.stat.postsOf', { done: num(s.handled), n: goalOf(s) })}
             {:else}<b>{num(s.handled)}</b> {t(gal ? 'downloads.stat.galleries' : 'downloads.stat.posts', { n: s.handled })}{/if}
           </span>
-          {#if leftOf(s)}<span>{leftOf(s)}</span>{/if}<!-- (the speed is in the header) -->
+          <span class="qtime">
+            {#if runOf(s) >= 1000}<span class="ran" title={t('downloads.ran.title')}><Icon name="clock" size={13} />{runSpan(runOf(s))}</span>{/if}
+            {#if leftOf(s)}<span>{leftOf(s)}</span>{/if}<!-- (the speed is in the header) -->
+          </span>
         </div>
       {/if}
       {#if s.handled || s.pages}
@@ -2226,6 +2251,27 @@
   }
   .qfacts b {
     color: var(--text);
+  }
+  /* (its run time, then the time left: "🕐 2 h 13 min · about 1 d left") */
+  .qtime {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .qtime > span + span::before {
+    content: '·';
+    margin-right: 6px;
+    color: var(--overlay0);
+  }
+  .ran {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .ran :global(svg) {
+    color: var(--overlay1);
   }
   /* Phones: three across (labels may take two lines); wider: as many as fit, up to all six in a row. */
   .qgrid {

@@ -96,7 +96,10 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   The header's button opens it, its `::after` covering the whole header (bar and summary tap too); aria-label
   "Details for the download X" / "Details for the check of X". Opened: "493,815 of 713,667 posts" and the time left
   (not the speed: the header has it - 2026-10-28, the user: "has the download speed twice, not needed"; the opened
-  part starts 8 px down, so the header's hover ends clear of that line), a grid of labelled numbers (new and had always, the rest when there are some; three across on
+  part starts 8 px down, so the header's hover ends clear of that line) - with **how long it has worked** before it
+  (2026-10-29, a clock: "2 h 13 min · about 1 d left"; counting on a tick a second while it runs - `runOf`: the
+  server's `run_now` plus the time since its answer, so the phone's clock needn't match the server's; standing still
+  otherwise; History's finished ones show it at the end of their line), a grid of labelled numbers (new and had always, the rest when there are some; three across on
   phones - labels may wrap -, auto-fill 124 px wider), the error, then the ⋯ menu's actions as buttons (stretched on
   phones, their own width on desktop). Time left: the search's count over the last 10 minutes (`paces`, from a
   minute of it). The history keeps the old one-line card (`searchInfo` + ⋯). E2E: `rowMenu` opens a queue card and

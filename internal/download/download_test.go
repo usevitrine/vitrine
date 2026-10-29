@@ -821,3 +821,60 @@ func TestBlacklistMidDownload(t *testing.T) {
 		t.Fatalf("blacklisted %d, tag_3 %d, tag_4 %d: %+v", s.Blacklisted, e.count(t, "tag_3"), e.count(t, "tag_4"), s)
 	}
 }
+
+// A download's run time counts only while it works: paused (or waiting of any kind), the clock stands; it shows when
+// its run now began (a page counts on from there) and keeps what came before.
+func TestRunTime(t *testing.T) {
+	e := newEnv(t, 12)
+	ctx := context.Background()
+	advance := e.clock()
+	id, err := e.dl.Add(ctx, "fake", "common", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	worked := time.Duration(0) // the time the clock moved while it ran
+	var sawSince bool
+	var liveErr string
+	e.dl.OnPost = func(s Search, p plugin.Post, outcome int, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		advance(time.Minute)
+		worked += time.Minute
+		got, _ := e.dl.Get(ctx, id)
+		if got.RunningSince > 0 {
+			sawSince = true
+			// (live: the run time up to this moment - run_ms already holds the part up to the last post, not twice)
+			if got.RunNow != worked.Milliseconds() && liveErr == "" {
+				liveErr = fmt.Sprintf("run_now %d ms after %v of work", got.RunNow, worked)
+			}
+		}
+		if worked == 4*time.Minute {
+			e.dl.Pause(ctx, id)
+		}
+	}
+	if err := e.dl.RunQueue(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	if liveErr != "" {
+		t.Fatal(liveErr)
+	}
+	s, _ := e.dl.Get(ctx, id)
+	if s.State != StatePaused || s.RunningSince != 0 || s.RunNow != 0 || !sawSince {
+		t.Fatalf("paused: %+v (running since seen: %v)", s, sawSince)
+	}
+	if s.RunMS != worked.Milliseconds() {
+		t.Fatalf("run time when paused: %d ms, want %d", s.RunMS, worked.Milliseconds())
+	}
+	advance(time.Hour) // (paused: not counted)
+	if err := e.dl.Resume(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.dl.RunQueue(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	s, _ = e.dl.Get(ctx, id)
+	if s.State != StateDone || s.RunMS != worked.Milliseconds() {
+		t.Fatalf("done: %+v, run time %d ms, want %d (the paused hour left out)", s.State, s.RunMS, worked.Milliseconds())
+	}
+}

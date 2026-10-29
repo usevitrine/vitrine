@@ -279,6 +279,8 @@ export interface DownloadSearch {
   finished_at?: number;
   subscription_id?: number; // set on a subscription's check
   first_check?: boolean; // its first check: a bulk download (it doesn't go first)
+  run_ms?: number; // how long it has worked (waiting of any kind doesn't count)
+  run_now?: number; // working now: that at the server's answer (count on from when it came)
 }
 
 export interface BrowsedTag {

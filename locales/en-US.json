@@ -1154,6 +1154,13 @@
       "h": "{n} h",
       "d": "{n} d"
     },
+    "ran": {
+      "title": "Time downloading (waiting and pauses don't count)",
+      "s": "{n} s",
+      "min": "{n} min",
+      "hMin": "{h} h {m} min",
+      "dH": "{d} d {h} h"
+    },
     "notChecked": "not checked yet",
     "checkedAgo": "checked {span} ago",
     "retryIn": "retry in {span}",

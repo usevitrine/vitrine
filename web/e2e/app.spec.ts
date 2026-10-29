@@ -2648,6 +2648,32 @@ test('settings: a plugin update shows what the newer versions changed; Version h
   await expect(history).toHaveCount(0);
 });
 
+test('downloads: how long a download has worked - on its opened card, counting on while it runs; a finished one in History', async ({ page }) => {
+  await page.route('**/api/downloads', async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    const base = { site: 'safebooru', max_posts: 500, site_total: 900, handled: 40, downloaded: 30, already: 2, deleted: 0, skipped: 0, blacklisted: 8, failed: 0, position: 1, created_at: Date.now() };
+    body.searches = [
+      ...body.searches,
+      { ...base, id: 99101, query: 'timed_run', state: 'running', run_ms: 50_000, run_now: 58_000 },
+      { ...base, id: 99102, query: 'timed_done', state: 'done', handled: 500, run_ms: 3_725_000, finished_at: Date.now() },
+    ];
+    await r.fulfill({ response: res, json: body });
+  });
+  await page.goto('/downloads');
+  await page.getByRole('tab', { name: /Queue/ }).click();
+  const head = page.getByRole('button', { name: 'Details for the download timed_run', exact: true });
+  await head.click();
+  const ran = page.locator('.item', { has: head }).locator('.qfacts .ran');
+  await expect(ran).toHaveText('58 s');
+  await expect(ran).toHaveText('1 min', { timeout: 5000 }); // (counting on between answers)
+  if (process.env.SHOTS) await page.locator('.item', { has: head }).screenshot({ path: process.env.SHOTS + '/runtime-' + test.info().project.name + '.png' });
+  await page.getByRole('tab', { name: /History/ }).click();
+  const done = page.locator('.item', { hasText: 'timed_done' });
+  await expect(done.locator('.stat.meta')).toHaveText(/1 h 2 min/);
+  if (process.env.SHOTS) await done.screenshot({ path: process.env.SHOTS + '/runtime-done-' + test.info().project.name + '.png' });
+});
+
 test('downloads: on phones the summary is one row - too many for the width, it scrolls sideways with a soft edge', async ({ page }) => {
   test.skip(test.info().project.name !== 'iphone', 'phones');
   await page.setViewportSize({ width: 320, height: 640 });

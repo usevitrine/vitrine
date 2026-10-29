@@ -5,6 +5,10 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### New
+
+- **How long each download has been running**: on its card in the queue (counting on while it works, standing still while it's paused or waiting for any reason), and on finished downloads in History.
+
 ### Fixed
 
 - **New downloads no longer show at the top of the library for a moment** in upload order: each file comes in already in its place by upload time.

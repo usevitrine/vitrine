@@ -302,7 +302,7 @@ func (d *Downloader) checks(ctx context.Context) (map[int64]Search, error) {
 	defer rows.Close()
 	out := map[int64]Search{}
 	for rows.Next() {
-		s, err := scanSearch(rows)
+		s, err := d.scan(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -332,7 +332,7 @@ func (d *Downloader) subChecks(ctx context.Context, subID int64) ([]Search, erro
 	defer rows.Close()
 	var out []Search
 	for rows.Next() {
-		s, err := scanSearch(rows)
+		s, err := d.scan(rows)
 		if err != nil {
 			return nil, err
 		}

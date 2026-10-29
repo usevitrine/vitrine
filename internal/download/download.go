@@ -118,8 +118,9 @@ type Downloader struct {
 	retryJobs map[string]*RetryJob  // ... in the background, and their results for a while (see StartRetry)
 	off       map[string]bool       // switched-off sites (see siteoff.go)
 	wakes     map[string]chan struct{}
-	stops     map[int64]bool // searches asked to stop (paused or removed) before their next post
-	runs      map[int64]bool // searches being worked now (run)
+	stops     map[int64]bool     // searches asked to stop (paused or removed) before their next post
+	runs      map[int64]bool     // searches being worked now (run)
+	runSince  map[int64][2]int64 // ... since when (Unix ms: Search.RunningSince) and their run time before (ms)
 	// A search's page request in flight: canceled when it's asked to stop (a
 	// site that hangs would otherwise hold its queue until the request times out).
 	pageCancel map[int64]context.CancelFunc
@@ -135,7 +136,7 @@ type Downloader struct {
 func New(ctx context.Context, lib *library.Library, d *db.DB, plugins map[string]plugin.Manifest,
 	secrets plugin.Secrets, log *slog.Logger) (*Downloader, error) {
 	sites := map[string]*Site{}
-	dl := &Downloader{lib: lib, db: d, log: log, jitter: rand.Float64, pageRetryWait: 3 * time.Second, pauseAfter: -1, asideEvery: 3 * time.Second, now: time.Now, wakes: map[string]chan struct{}{}, stops: map[int64]bool{}, runs: map[int64]bool{}, pageCancel: map[int64]context.CancelFunc{}, aside: map[int64]bool{}, due: make(chan struct{}, 1), off: map[string]bool{},
+	dl := &Downloader{lib: lib, db: d, log: log, jitter: rand.Float64, pageRetryWait: 3 * time.Second, pauseAfter: -1, asideEvery: 3 * time.Second, now: time.Now, wakes: map[string]chan struct{}{}, stops: map[int64]bool{}, runs: map[int64]bool{}, runSince: map[int64][2]int64{}, pageCancel: map[int64]context.CancelFunc{}, aside: map[int64]bool{}, due: make(chan struct{}, 1), off: map[string]bool{},
 		retryWaits: []time.Duration{time.Minute, 5 * time.Minute, 30 * time.Minute, 2 * time.Hour, 6 * time.Hour},
 		fileWaits:  []time.Duration{2 * time.Second, 10 * time.Second}, Solver: plugin.NewSolver()}
 	removed := dl.idList(ctx, "removedSites") // built-in sites the user removed
@@ -208,6 +209,7 @@ type Search struct {
 	StopDepth   int    `json:"-"` // ... and this many posts past it (the check depth)
 	pastStop    int    // posts at or below StopID gone through so far (this run)
 	runFrom     int64  // when this run of it began (Unix ms; a resumed search's earlier posts are from before)
+	runBase     int64  // its run time before this run (RunMS when it began)
 	SiteTotal   int    `json:"site_total"`
 	Handled     int    `json:"handled"`
 	Downloaded  int    `json:"downloaded"`
@@ -222,6 +224,13 @@ type Search struct {
 	RetryAt     int64  `json:"retry_at,omitempty"` // when it is tried again automatically (0 = not)
 	CreatedAt   int64  `json:"created_at"`
 	FinishedAt  int64  `json:"finished_at,omitempty"`
+	// How long it has been working: RunMS in its runs before (kept as it goes - each post), RunningSince when its run
+	// now began (Unix ms; 0 = not running now) - a page counts on from there. Waiting of any kind doesn't count.
+	RunMS        int64 `json:"run_ms"`
+	RunningSince int64 `json:"running_since,omitempty"`
+	// RunNow: running, its run time at this answer (the page counts on from when it got it - its clock may not be the
+	// server's).
+	RunNow int64 `json:"run_now,omitempty"`
 	// SubscriptionID is set on a subscription's check.
 	SubscriptionID int64 `json:"subscription_id,omitempty"`
 	FirstCheck     bool  `json:"first_check,omitempty"` // a subscription's first check: a bulk download, not one of its checks
@@ -279,18 +288,42 @@ func (d *Downloader) wake(site string) {
 const searchColumns = `s.id, si.name, s.site_id, s.query, s.state, s.max_posts, s.low_id, s.site_total, s.handled,
 	s.downloaded, s.already, s.deleted, s.skipped, s.blacklisted, s.failed, coalesce(s.error, ''), s.position, s.created_at,
 	coalesce(s.finished_at, 0), s.high_id, s.stop_id, coalesce(s.subscription_id, 0), s.attempts, coalesce(s.retry_at, 0),
-	s.stop_depth, s.pages, coalesce(s.label, (SELECT label FROM subscriptions WHERE id = s.subscription_id), (SELECT title FROM comics c WHERE rtrim(c.url, '/') = rtrim(s.query, '/') AND c.deleted_at IS NULL LIMIT 1), '')`
+	s.stop_depth, s.pages, s.run_ms, coalesce(s.label, (SELECT label FROM subscriptions WHERE id = s.subscription_id), (SELECT title FROM comics c WHERE rtrim(c.url, '/') = rtrim(s.query, '/') AND c.deleted_at IS NULL LIMIT 1), '')`
 
 func scanSearch(row interface{ Scan(...any) error }) (Search, error) {
 	var s Search
 	err := row.Scan(&s.ID, &s.Site, &s.siteID, &s.Query, &s.State, &s.MaxPosts, &s.LowID, &s.SiteTotal, &s.Handled,
 		&s.Downloaded, &s.Already, &s.Deleted, &s.Skipped, &s.Blacklisted, &s.Failed, &s.Error, &s.Position, &s.CreatedAt, &s.FinishedAt,
-		&s.HighID, &s.StopID, &s.SubscriptionID, &s.Attempts, &s.RetryAt, &s.StopDepth, &s.Pages, &s.Label)
+		&s.HighID, &s.StopID, &s.SubscriptionID, &s.Attempts, &s.RetryAt, &s.StopDepth, &s.Pages, &s.RunMS, &s.Label)
 	s.FirstCheck = s.SubscriptionID != 0 && s.StopID == 0
 	return s, err
 }
 
 // List returns all searches, each site's queue in order.
+// runSoFar is its run time up to now in this run (0 outside one: run_ms stays as it is - max).
+func (s Search) runSoFar(now time.Time) int64 {
+	if s.runFrom == 0 {
+		return 0
+	}
+	return s.runBase + now.UnixMilli() - s.runFrom
+}
+
+// scan is scanSearch with when its run now began, if it's running (RunningSince).
+func (d *Downloader) scan(row interface{ Scan(...any) error }) (Search, error) {
+	s, err := scanSearch(row)
+	if err == nil {
+		d.mu.Lock()
+		r, ok := d.runSince[s.ID]
+		d.mu.Unlock()
+		if ok {
+			// (from the run's start - run_ms already has the part up to its last post)
+			s.RunningSince = r[0]
+			s.RunNow = r[1] + max(0, d.now().UnixMilli()-r[0])
+		}
+	}
+	return s, err
+}
+
 func (d *Downloader) List(ctx context.Context) ([]Search, error) {
 	rows, err := d.db.R.QueryContext(ctx, "SELECT "+searchColumns+
 		" FROM searches s JOIN sites si ON si.id = s.site_id ORDER BY si.name, s.position")
@@ -300,7 +333,7 @@ func (d *Downloader) List(ctx context.Context) ([]Search, error) {
 	defer rows.Close()
 	var out []Search
 	for rows.Next() {
-		s, err := scanSearch(rows)
+		s, err := d.scan(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -311,7 +344,7 @@ func (d *Downloader) List(ctx context.Context) ([]Search, error) {
 
 // Get returns one search.
 func (d *Downloader) Get(ctx context.Context, id int64) (Search, error) {
-	return scanSearch(d.db.R.QueryRowContext(ctx, "SELECT "+searchColumns+
+	return d.scan(d.db.R.QueryRowContext(ctx, "SELECT "+searchColumns+
 		" FROM searches s JOIN sites si ON si.id = s.site_id WHERE s.id = ?", id))
 }
 
@@ -504,6 +537,18 @@ func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
 	}
 	began := d.now()
 	s.runFrom = began.UnixMilli()
+	// Its run time: counted from now until this run ends (each post keeps it: record), then kept.
+	s.runBase = s.RunMS
+	d.mu.Lock()
+	d.runSince[s.ID] = [2]int64{s.runFrom, s.runBase}
+	d.mu.Unlock()
+	defer func() {
+		d.mu.Lock()
+		delete(d.runSince, s.ID)
+		d.mu.Unlock()
+		d.db.W.ExecContext(context.WithoutCancel(ctx), "UPDATE searches SET run_ms = ? WHERE id = ?", s.runBase+d.now().UnixMilli()-s.runFrom, s.ID)
+		d.Changed()
+	}()
 	d.log.Debug("search started", "site", s.Site, "search", s.ID, "query", s.Query, "resumed", s.LowID != 0, "below", s.LowID, "subscription", s.SubscriptionID)
 	defer func() {
 		d.log.Debug("search ended", "site", s.Site, "search", s.ID, "handled", s.Handled, "downloaded", s.Downloaded, "already", s.Already,
@@ -1069,8 +1114,8 @@ func (d *Downloader) record(s Search, siteID uint32, postID int64, fileID uint32
 			counts = col + ` = ` + col + ` + 1, failed = max(0, failed - 1)`
 		}
 	}
-	if _, err := tx.Exec(`UPDATE searches SET low_id = ?, high_id = max(high_id, ?), attempts = 0, `+counts+` WHERE id = ?`,
-		low, postID, s.ID); err != nil {
+	if _, err := tx.Exec(`UPDATE searches SET low_id = ?, high_id = max(high_id, ?), attempts = 0, run_ms = max(run_ms, ?), `+counts+` WHERE id = ?`,
+		low, postID, s.runSoFar(d.now()), s.ID); err != nil {
 		return false, err
 	}
 	if err := tx.Commit(); err != nil {

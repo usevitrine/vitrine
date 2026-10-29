@@ -84,6 +84,14 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   aside; a subscription's first check (it takes everything) waits its turn and steps aside for checks like any download
   (before, any search with a subscription counted - a big first check held up every check behind it). `/api/downloads`
   marks it `first_check` (the page's order follows).
+- **Run time (2026-10-29)**, the user: "Downloads should have how long they've been running for somewhere. That pauses
+  when the download is paused for any reason". `searches.run_ms` (migration 0045): the time in its runs - a run being
+  `run()`, which ends whenever it stops working (paused, stepping aside for a check or a reorder, its site paused,
+  done, failed, the server stopping), so waiting of any kind never counts. Kept with each post (`record`:
+  `max(run_ms, runSoFar)`; a crash loses at most a post) and when the run ends. While it runs the API adds
+  `running_since` and `run_now` (its time at that answer, from the run's start and its time before - run_ms already
+  holds the part up to the last post). A subscription's check keeps its own while it runs (its row goes when it's
+  done). Test: `TestRunTime`.
 - **Regular checks beside a first check** (2026-10-28, the user: a subscription "should still check hourly while the
   massive initial download is running"): a subscription has one check in progress, or two while its first check is
   going. Queuing the first check moves `next_check_at` an interval on. When the subscription is due and its first
