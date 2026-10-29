@@ -2845,6 +2845,13 @@ test('subscriptions: a filter and an order once there are several (the order is 
   const card = page.locator('section.card', { has: page.getByRole('heading', { name: 'Subscriptions' }) });
   const filter = card.getByLabel('Filter subscriptions');
   await expect(filter).toBeVisible();
+  // The order is an icon inside the filter, on its line (never a second line, even on a phone).
+  const fb = (await filter.boundingBox())!;
+  const ob = (await card.getByRole('button', { name: 'Order subscriptions by' }).boundingBox())!;
+  expect(ob.y).toBeGreaterThanOrEqual(fb.y);
+  expect(ob.y + ob.height).toBeLessThanOrEqual(fb.y + fb.height + 1);
+  expect(ob.x + ob.width).toBeLessThanOrEqual(fb.x + fb.width + 1);
+  await page.screenshot({ path: test.info().outputPath('subs-tools.png') });
   await filter.fill('zeta');
   await expect(card.locator('li .query')).toHaveText(['list_zeta']);
   await expect(card.getByText('Showing 1 of 6')).toBeVisible();
@@ -2856,7 +2863,7 @@ test('subscriptions: a filter and an order once there are several (the order is 
   await expect(card.locator('li .query').first()).toHaveText('list_alpha');
   await expect(card.locator('li .query').last()).toHaveText('list_zeta');
   await page.reload();
-  await expect(card.getByRole('button', { name: 'Order subscriptions by' })).toHaveText(/Name/);
+  await expect(card.getByRole('button', { name: 'Order subscriptions by' })).toHaveAttribute('data-value', 'name');
   await expect(card.locator('li .query').first()).toHaveText('list_alpha');
   await page.evaluate(async (ids) => {
     for (const id of ids) await fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });

@@ -80,7 +80,9 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   overlap.
 - **Subscriptions list tools (2026-10-15)**: from 6 subscriptions, a filter box (matches the search or the site's
   address; "Showing 3 of 24" / "No subscriptions match ...") and an order dropdown (Next check - paused last -, Most new
-  last check, Most files, Last checked, Name; remembered per device in `vitrine.subSort`). "Found by > Open" clears
+  last check, Most files, Last checked, Name; remembered per device in `vitrine.subSort`). The order is an icon button
+  inside the filter box, as in the library's search bar (2026-10-29: never a second line; a dot when it isn't Next
+  check; a sheet on phones like every menu). "Found by > Open" clears
   the filter so the subscription it jumps to is shown.
 - **Subscription groups in the UI (2026-10-15)**: the Subscriptions card shows site (a heading when there are
   several) > its groups (a framed block: fold arrow, name, "N subscriptions · files · new last checks · paused";

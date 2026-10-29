@@ -12,6 +12,7 @@ shows this too (Settings > Updates).
 ### Improved
 
 - **Finished downloads and the downloads menu match the new download cards**: finished ones in History are cards like the queue's (tap one for its numbers and actions), and the top bar's menu shows each download's progress and speed the same way, more compactly.
+- **The Subscriptions tab's order is an icon inside the filter box**, as in the library's search bar, instead of a dropdown on a line of its own.
 
 ### Fixed
 

@@ -4,7 +4,7 @@
   import { slide } from 'svelte/transition';
   import { live, bytes } from '../lib/live.svelte';
   import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf, goalOf, oneGallery } from '../lib/downloadProgress';
-  import { reveal, moved, glide, nudge } from '../lib/motion';
+  import { reveal, moved, glide, nudge, pop } from '../lib/motion';
   import Stack from '../components/Stack.svelte';
   import { api, type DownloadSearch, type RefreshStatus, type Subscription, type SubGroup, type FailedPost, type RetryJob, type SubLook, type SubPic } from '../lib/api';
   import SiteIcon from '../components/SiteIcon.svelte';
@@ -1266,6 +1266,10 @@
   const progress = (s: DownloadSearch) => progressOf(s, live.files, isGallery(s));
 </script>
 
+{#snippet sortIcon()}
+  <Icon name="sort" size={19} />{#if subSort !== 'next'}<span class="sort-dot" transition:pop></span>{/if}
+{/snippet}
+
 {#snippet siteHead(key: string, siteId: string, count: number, offWhat: string)}
   {@const open = !siteFolded(key) || (key.startsWith('subs:') && subFilter.trim() !== '')}
   <h3 class="site-head">
@@ -1781,8 +1785,10 @@
           {#if subs.length >= SUB_TOOLS_FROM || attentionCount}
             <div class="sub-tools" transition:reveal>
               {#if subs.length >= SUB_TOOLS_FROM}
-                <label class="sub-filter">
-                  <Icon name="search" size={16} />
+                <!-- The order is an icon inside the filter, as in the library's search bar (2026-10-29, the user: the
+                     dropdown on a second line "which I hate"). -->
+                <div class="sub-filter">
+                  <span class="glass"><Icon name="search" size={16} /></span>
                   <input
                     type="search"
                     bind:value={subFilter}
@@ -1791,14 +1797,15 @@
                     autocapitalize="off"
                     autocomplete="off"
                     spellcheck="false" />
-                </label>
+                  <span class="sub-sort">
+                    <Dropdown value={subSort} options={subSortOptions} onchange={setSubSort} label={t('downloads.orderSubs')} heading={t('downloads.orderBy')}
+                      align="end" trigger={sortIcon} triggerClass="icon sub-sort-button" />
+                  </span>
+                </div>
               {/if}
               {#if attentionCount}
                 <button class="attention-toggle" class:on={attentionOnly} aria-pressed={attentionOnly} onclick={() => (attentionOnly = !attentionOnly)}
                    transition:nudge><Icon name="alert" size={14} /> {t('downloads.needsLook')}<span class="tab-count">{num(attentionCount)}</span></button>
-              {/if}
-              {#if subs.length >= SUB_TOOLS_FROM}
-                <Dropdown value={subSort} options={subSortOptions} onchange={setSubSort} label={t('downloads.orderSubs')} heading={t('downloads.orderBy')} align="end" />
               {/if}
             </div>
             {#if subFilter.trim()}
@@ -2690,15 +2697,43 @@
     display: flex;
     align-items: center;
   }
-  .sub-filter :global(svg) {
+  .sub-filter .glass {
     position: absolute;
     left: 11px;
+    display: flex;
     color: var(--overlay0);
     pointer-events: none;
   }
   .sub-filter input {
     width: 100%;
     padding-left: 34px;
+    padding-right: 42px;
+  }
+  .sub-sort {
+    position: absolute;
+    right: 3px;
+    display: flex;
+  }
+  .sub-sort :global(.sub-sort-button) {
+    position: relative;
+    width: 34px;
+    min-width: 0;
+    min-height: 0;
+    height: calc(var(--control-h) - 6px);
+    padding: 0;
+    color: var(--subtext);
+  }
+  .sub-sort :global(.sub-sort-button:hover) {
+    color: var(--text);
+  }
+  .sort-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--mauve);
   }
   .sub-count {
     margin: 0;
