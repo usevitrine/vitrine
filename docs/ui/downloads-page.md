@@ -102,7 +102,7 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   otherwise; History's finished ones show it at the end of their line), a grid of labelled numbers (new and had always, the rest when there are some; three across on
   phones - labels may wrap -, auto-fill 124 px wider), the error, then the ⋯ menu's actions as buttons (stretched on
   phones, their own width on desktop). Time left: the search's count over the last 10 minutes (`paces`, from a
-  minute of it). The history keeps the old one-line card (`searchInfo` + ⋯). E2E: `rowMenu` opens a queue card and
+  minute of it). **History's finished downloads are the same cards** (2026-10-29, the user: "update completed downloads to be inline" - they kept the old one-line row with ⋯ until then): their state pill, bar and summary (with how long they took), a tap opens their numbers and the finished list's actions (Retry, Subscribe, Remove from list: `queueCard(s, true)`). E2E: `rowMenu` opens a queue card and
   presses the action in it. **Removing one asks first (same day, the user)**: "Remove the download \"x\"?" - it stops
   and won't carry on later; the files it downloaded stay (counted). Only for downloads in the queue: a finished one
   leaving the history and a subscription's check skipped aren't asked.
@@ -159,6 +159,13 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   "Manage sites" cog sits muted in the card's title row. **`--overlay1` (#7f849c) was missing from the palette**:
   ten places that meant to be muted (Off chips, "Not started", subscription row icons, Settings chevrons...) showed
   in full text color.
+- **The downloads menu's rows: small queue cards (2026-10-29)**, the user: "downloads in the download dropdown need to be
+  updated. Obviously doesn't need to be as verbose as the downloads page design but it kinda feels outdated now":
+  each row is its site icon, then the search with how far and how fast on the right (the percent in peach and the
+  speed, as the page's cards - or Downloading / Waiting / Paused as a pill), the page's bar, and one quiet line - Sub
+  or Initial as a colored word, its new files, the posts gone through ("57,734/72,588", "24 looked at"). (Before: a
+  Sub/Initial chip by the name and "57,734/72,588 · Waiting" in grey, no percent or speed.) The text below describes
+  the menu as first built.
 - **The downloads menu in the top bar (2026-10-23)** (the user: "the download button on media should be converted
   into a current downloads dropdown similar to the notifications with a button to add a new download and a list of
   current downloads with a counter on the icon"): the download icon (`DownloadsMenu`, left of the bell - in the app's top bar on every page since 2026-10-24, the user;

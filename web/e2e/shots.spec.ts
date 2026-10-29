@@ -90,9 +90,8 @@ test('screens', async ({ page, browser }, info) => {
     await page.reload();
     await page.getByRole('heading', { name: 'Queue' }).scrollIntoViewIfNeeded();
     await shot('7e-queue-rows');
-    await page.getByRole('button', { name: /^More for the download blue_sky/ }).click();
+    await page.getByRole('button', { name: /^Details for the download blue_sky/ }).first().click(); // (queue cards: opened, their actions)
     await shot('7f-queue-row-menu');
-    await page.keyboard.press('Escape');
     await page.unroute('**/api/downloads');
   }
   const subIds: number[] = await page.evaluate(async () => {

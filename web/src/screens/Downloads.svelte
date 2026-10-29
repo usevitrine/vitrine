@@ -1,6 +1,6 @@
 <script lang="ts">
   import { overlayScroll } from '../lib/overlayScroll';
-  import { onMount, tick, untrack, type ComponentProps } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { slide } from 'svelte/transition';
   import { live, bytes } from '../lib/live.svelte';
   import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf, goalOf, oneGallery } from '../lib/downloadProgress';
@@ -462,6 +462,7 @@
     if (s.failed) parts.push(`${short(s.failed)} ${t('downloads.stat.failed')}`);
     const left = leftOf(s);
     if (left) parts.push(left);
+    if ((s.state === 'done' || s.state === 'failed') && (s.run_ms ?? 0) >= 1000) parts.push(runSpan(s.run_ms ?? 0)); // (how long it took)
     return parts.join(' · ');
   }
   const detailsLabel = (s: DownloadSearch) =>
@@ -1348,20 +1349,7 @@
 
 <!-- The lead count: the posts (galleries) gone through, out of the goal - the limit picked (the site's count when
      that's smaller), else the site's count; none known: just the count (the bar is striped). -->
-{#snippet goalCount(s: DownloadSearch, galleries: boolean)}
-  {@const goal = goalOf(s)}
-  {@const words = goal
-    ? t(galleries ? 'downloads.stat.galleriesOf' : 'downloads.stat.postsOf', { done: num(s.handled), n: goal })
-    : t(galleries ? 'downloads.stat.galleries' : 'downloads.stat.posts', { n: s.handled })}
-  <span class="stat lead" title={goal ? words : undefined}><b>{num(s.handled)}</b>{#if goal}<span class="of">/{num(goal)}</span>{/if}<span class="vh">{goal ? words : ' ' + words}</span></span>
-{/snippet}
-
 <!-- A kind of post, as an icon and its count (its name when pointed at, and for screen readers). -->
-{#snippet iconStat(n: number, icon: ComponentProps<typeof Icon>['name'], label: string, cls = '')}
-  <span class="stat icon-stat {cls}" title="{num(n)} {label}"><Icon name={icon} size={14} /><b>{num(n)}</b><span class="vh"> {label}</span></span>
-{/snippet}
-
-
 <!-- Progress: how far through the estimate; without one (no total from the site,
      no file limit) a running search shows a moving striped bar. -->
 {#snippet bar(s: DownloadSearch)}
@@ -1372,59 +1360,9 @@
   {/if}
 {/snippet}
 
-{#snippet searchInfo(s: DownloadSearch)}
-  {@const gal = isGallery(s)}
-  {@const g = s.state === 'running' && gal ? galleryNow(s) : null}
-  <div class="head">
-    <span class="query one-line" title={s.query || t('push.everything')} {@attach edgeFades}><span>{named(s) || t('push.everything')}</span></span>
-    <span class="state {shownState(s)}">{stateLabel(shownState(s))}</span>
-  </div>
-  {@render bar(s)}
-  <!-- One line: the counts (scrolling sideways when they don't fit), the speed at the end. -->
-  <div class="line-stats">
-    <div class="counts" {@attach edgeFades}>
-      {#if gal && oneGallery(s)}
-        <!-- One gallery: counted by page. -->
-        {#if g}<span class="stat lead"><b>{num(g.done)}</b> {t('downloads.stat.ofPages', { n: g.pages })}</span>
-        {:else if s.pages}{@render stat(s.pages, t('downloads.stat.newPages', { n: s.pages }), 'lead good')}
-        {:else if s.already}<span class="stat">{t('downloads.stat.hadAll')}</span>
-        {:else if s.state === 'queued'}<span class="stat quiet">{t('downloads.notStarted')}</span>{/if}
-      {:else if gal}
-        <!-- A search of many galleries: counted by gallery (the one downloading now: which page). -->
-        {#if s.handled || s.site_total > 1}
-          {@render goalCount(s, true)}
-        {:else if s.state === 'queued'}<span class="stat quiet">{t('downloads.notStarted')}</span>{/if}
-        {#if g}<span class="stat quiet">{t('downloads.stat.pageOf', { done: num(g.done), pages: num(g.pages) })}</span>{/if}
-      {:else if s.handled || goalOf(s)}
-        {@render goalCount(s, false)}
-      {:else if s.state === 'queued'}
-        <span class="stat quiet">{t('downloads.notStarted')}</span>
-      {/if}
-      {#if !(gal && oneGallery(s))}
-        {#if s.downloaded}{@render iconStat(s.downloaded, 'sparkles', t('downloads.stat.new'), 'good')}{/if}
-        {#if s.already}{@render iconStat(s.already, 'check', t('downloads.stat.had'))}{/if}
-      {/if}
-      {#if s.deleted}{@render iconStat(s.deleted, 'trash', t('downloads.stat.deletedBefore'))}{/if}
-      {#if s.blacklisted}{@render iconStat(s.blacklisted, 'eyeoff', t('downloads.stat.blacklisted'), 'warn')}{/if}
-      {#if s.skipped}{@render iconStat(s.skipped, 'filter', t('downloads.stat.skipped'))}{/if}
-      {#if s.failed}{@render iconStat(s.failed, 'alert', t('downloads.stat.failed'), 'bad')}{/if}
-    </div>
-    {#if s.state === 'running' && speedOf(s.id)}<span class="stat speed" title={t('downloads.speedTitle')}>{speedOf(s.id)}</span>
-    {:else if (s.state === 'done' || s.state === 'failed') && (s.run_ms ?? 0) >= 1000}<span class="stat meta" title={t('downloads.ran.title')}><Icon name="clock" size={13} /> {runSpan(s.run_ms ?? 0)}</span>{/if}
-  </div>
-  {#if s.error}<p class="error small" transition:reveal>{s.error}</p>{/if}
-  {#if s.state === 'failed' && !s.subscription_id && s.retry_at}
-    <p class="retry small" transition:reveal>
-      <Icon name="retry" size={13} /> {s.retry_at <= now ? t('downloads.tryingNow') : t('downloads.tryingIn', { span: span(s.retry_at - now) })}{(s.attempts ?? 0) > 1 ? ' ' + t('downloads.attempt', { n: (s.attempts ?? 0) + 1 }) : ''}
-    </p>
-  {:else if s.state === 'failed' && !s.subscription_id && (s.attempts ?? 0) > 1}
-    <p class="retry small" transition:reveal>{t('downloads.gaveUp', { n: s.attempts ?? 0 })}</p>
-  {/if}
-{/snippet}
-
 <!-- A queue card: one line (the search, how far and how fast - or its state), its bar and a short summary; a tap
      opens its numbers, what went wrong and its actions. -->
-{#snippet queueCard(s: DownloadSearch)}
+{#snippet queueCard(s: DownloadSearch, finishedRow = false)}
   {@const open = !!qopen[s.id]}
   {@const st = shownState(s)}
   {@const gal = isGallery(s)}
@@ -1476,18 +1414,13 @@
         <p class="retry small">{t('downloads.attempt', { n: (s.attempts ?? 0) + 1 })}</p>
       {/if}
       <div class="qacts">
-        {#each searchItems(s, false) as it (it.label)}
+        {#each searchItems(s, finishedRow) as it (it.label)}
           <button class="quiet qact" class:danger={it.danger} title={it.hint} onclick={() => it.run?.()}>{#if it.icon}<Icon name={it.icon} size={15} />{/if}{it.label}</button>
         {/each}
       </div>
     </div>
   {/if}
 {/snippet}
-
-{#snippet searchActs(s: DownloadSearch, finishedRow: boolean)}
-  <ActionMenu label={s.subscription_id ? t('common.moreFor', { name: nameOf(s) }) : t('downloads.moreForDownload', { query: named(s) || t('push.everything') })} title={s.query || t('push.everything')} items={searchItems(s, finishedRow)} />
-{/snippet}
-
 
 {#snippet subRow(s: Subscription)}
   {@const st = subState(s)}
@@ -2073,9 +2006,9 @@
     {@render stackHead(key, g.site, g.list.length, g.list.length > 1, '')}
     <Stack items={g.list} key={(s) => s.id} bind:open={() => !!unfolded[key], (v) => (unfolded[key] = v)} label={t('downloads.finishedOn', { site: siteLabel(g.site) })}>
       {#snippet card(s: DownloadSearch)}
-        <div class="row">
-          <div class="main">{@render searchInfo(s)}</div>
-          <div class="acts">{@render searchActs(s, true)}</div>
+        <!-- (the queue's card: finished downloads look the same - 2026-10-29, the user: "update completed downloads") -->
+        <div class="row qrow">
+          <div class="main">{@render queueCard(s, true)}</div>
         </div>
       {/snippet}
     </Stack>
@@ -2387,46 +2320,6 @@
   }
   .stat.quiet {
     color: var(--overlay1);
-  }
-  /* The lead count's goal ("/50,000"), and a kind of post as an icon and its count. */
-  .stat .of {
-    color: var(--subtext);
-  }
-  /* (as chips - the user: new green, blacklisted orange, failed red, the rest plain) */
-  .stat.icon-stat {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 1px 9px 1px 7px;
-    border-radius: 999px;
-    background: var(--surface0);
-    line-height: 20px;
-  }
-  .stat.icon-stat :global(svg) {
-    color: var(--overlay1);
-  }
-  .stat.icon-stat.good {
-    background: color-mix(in srgb, var(--green) 14%, transparent);
-  }
-  .stat.icon-stat.good :global(svg) {
-    color: var(--green);
-  }
-  .stat.icon-stat.warn {
-    background: color-mix(in srgb, var(--peach) 16%, transparent);
-  }
-  .stat.icon-stat.warn b,
-  .stat.icon-stat.warn :global(svg) {
-    color: var(--peach);
-  }
-  .stat.icon-stat.bad {
-    background: color-mix(in srgb, var(--red) 14%, transparent);
-  }
-  .stat.icon-stat.bad :global(svg) {
-    color: var(--red);
-  }
-  /* (chips closer together than the line's other items: 6 px of its 14) */
-  .stat.icon-stat + .stat.icon-stat {
-    margin-left: -8px;
   }
   /* (only for screen readers: what a count is) */
   .vh {

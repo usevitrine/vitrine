@@ -1198,7 +1198,6 @@
     "offTitle": "Switched off in Settings > Sites: {what}",
     "noEstimate": "Downloading (no estimate)",
     "notStarted": "Not started",
-    "speedTitle": "Download speed",
     "stat": {
       "posts": {
         "one": "post",
@@ -1245,7 +1244,6 @@
         "other": "new pages"
       },
       "pageOf": "page {done} of {pages}",
-      "hadAll": "had it all",
       "postsOf": {
         "one": "{done} of {n} post",
         "other": "{done} of {n} posts"
@@ -1262,7 +1260,6 @@
       "one": "Stopped trying after {n} attempt - press Retry to try again",
       "other": "Stopped trying after {n} attempts - press Retry to try again"
     },
-    "moreForDownload": "More for the download {query}",
     "detailsForDownload": "Details for the download {query}",
     "timeLeft": "about {span} left",
     "favGone": "{n} no longer in your favorites",

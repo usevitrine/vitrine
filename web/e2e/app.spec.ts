@@ -1157,9 +1157,11 @@ test('subscriptions: subscribe, failed check, pause, interval, unsubscribe (offl
   await expect(sub.locator('.error')).toBeVisible();
   await dlTab(page, 'History');
   await expect(finished.locator('.stack .item', { hasText: 'sub_a' }).locator('.kind')).toHaveCount(0); // no "Check" chip
-  await page.getByRole('button', { name: 'More for the check of sub_a' }).click();
-  await expect(page.getByRole('menuitem', { name: /^Subscribe/ })).toHaveCount(0); // a check is a subscription already
-  await page.keyboard.press('Escape');
+  // (finished ones are cards like the queue's: opened, their actions are buttons)
+  const check = finished.locator('.stack .item', { hasText: 'sub_a' });
+  await page.getByRole('button', { name: 'Details for the check of sub_a', exact: true }).click();
+  await expect(check.locator('.qact').first()).toBeVisible();
+  await expect(check.getByRole('button', { name: /^Subscribe/ })).toHaveCount(0); // a check is a subscription already
   await dlTab(page, 'Subscriptions');
 
   // Check now retries it; pause; a weekly interval.
@@ -1189,9 +1191,12 @@ test('subscriptions: subscribe, failed check, pause, interval, unsubscribe (offl
   await rowMenu(page, 'the download sub_b', 'Subscribe');
   await expect(page.getByText(/Subscribed to "sub_b"/).first()).toBeVisible();
   await unfoldStacks(finished);
-  await page.getByRole('button', { name: 'More for the download sub_b' }).click();
-  await expect(page.getByRole('menuitem', { name: /^Subscribe/ })).toHaveCount(0);
-  await page.keyboard.press('Escape');
+  // (its card - opened, its actions are buttons: no Subscribe any more)
+  const b = finished.locator('.stack .item', { hasText: 'sub_b' });
+  const bHead = page.getByRole('button', { name: 'Details for the download sub_b', exact: true });
+  if ((await bHead.getAttribute('aria-expanded')) !== 'true') await bHead.click();
+  await expect(b.locator('.qact').first()).toBeVisible();
+  await expect(b.getByRole('button', { name: /^Subscribe/ })).toHaveCount(0);
   await dlTab(page, 'Subscriptions');
   await expect(subsCard.locator('li', { hasText: 'sub_b' })).toContainText('Every 12 hours');
 
@@ -2116,7 +2121,7 @@ test('downloads: a failed search says when it tries again by itself', async ({ p
   await dlTab(page, 'History');
   const row = page.locator('.stack .item', { hasText: 'retry_demo' });
   await expect(row.locator('.state')).toHaveText('Failed');
-  await expect(row.locator('.retry')).toHaveText(/Trying again in 1 min/);
+  await expect(row.locator('.qsum')).toHaveText(/Trying again in 1 min/); // (finished ones are cards like the queue's: its summary)
   // Finished has Retry failed: every failed download tries again at once.
   const finished = page.locator('section.card', { has: page.getByRole('heading', { name: 'Finished' }) });
   const tries = (await (await page.request.get('/api/downloads')).json()).searches.find((s: { id: number }) => s.id === d.id)?.attempts ?? 0;
@@ -2126,7 +2131,7 @@ test('downloads: a failed search says when it tries again by itself', async ({ p
     .poll(async () => (await (await page.request.get('/api/downloads')).json()).searches.find((s: { id: number }) => s.id === d.id)?.attempts ?? 0)
     .toBeGreaterThan(tries); // it ran again (the test site is down: failed again)
   await expect(row.locator('.state')).toHaveText('Failed');
-  await expect(row.locator('.retry')).toHaveText(/Trying again in/);
+  await expect(row.locator('.qsum')).toHaveText(/Trying again in/);
   await rowMenu(page, 'the download retry_demo', 'Remove');
   expect(d.id).toBeTruthy();
 });
@@ -2670,7 +2675,7 @@ test('downloads: how long a download has worked - on its opened card, counting o
   if (process.env.SHOTS) await page.locator('.item', { has: head }).screenshot({ path: process.env.SHOTS + '/runtime-' + test.info().project.name + '.png' });
   await page.getByRole('tab', { name: /History/ }).click();
   const done = page.locator('.item', { hasText: 'timed_done' });
-  await expect(done.locator('.stat.meta')).toHaveText(/1 h 2 min/);
+  await expect(done.locator('.qsum')).toHaveText(/1 h 2 min/); // (in its card's summary: how long it took)
   if (process.env.SHOTS) await done.screenshot({ path: process.env.SHOTS + '/runtime-done-' + test.info().project.name + '.png' });
 });
 
@@ -4893,10 +4898,14 @@ test('library: the downloads menu counts a gallery by its pages, not as one file
   await page.getByRole('button', { name: /^Downloads/ }).click();
   const menu = page.getByRole('dialog', { name: 'Downloads' });
   await menu.getByRole('button', { name: /^Show all 3/ }).click();
-  const meta = (name: string) => menu.locator('button.item', { hasText: name }).locator('.meta');
-  await expect(meta('Comic 1')).toHaveText('40 new pages · Paused'); // (was "1/1")
-  await expect(meta('Comic 2')).toHaveText('Waiting'); // (was "0/1 · Waiting")
-  await expect(meta('female:blue_sky')).toHaveText('2/5 · Waiting'); // many galleries: by gallery
+  // (each a small queue card: its state on the right, the count on the quiet line under the bar)
+  const item = (name: string) => menu.locator('button.item', { hasText: name });
+  await expect(item('Comic 1').locator('.count')).toHaveText('40 new pages'); // (was "1/1")
+  await expect(item('Comic 1').locator('.state')).toHaveText('Paused');
+  await expect(item('Comic 2').locator('.count')).toHaveCount(0); // (was "0/1")
+  await expect(item('Comic 2').locator('.state')).toHaveText('Waiting');
+  await expect(item('female:blue_sky').locator('.count')).toHaveText('2/5'); // many galleries: by gallery
+  await expect(item('female:blue_sky').locator('.state')).toHaveText('Waiting');
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 

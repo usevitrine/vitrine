@@ -9,6 +9,10 @@ shows this too (Settings > Updates).
 
 - **How long each download has been running**: on its card in the queue (counting on while it works, standing still while it's paused or waiting for any reason), and on finished downloads in History.
 
+### Improved
+
+- **Finished downloads and the downloads menu match the new download cards**: finished ones in History are cards like the queue's (tap one for its numbers and actions), and the top bar's menu shows each download's progress and speed the same way, more compactly.
+
 ### Fixed
 
 - **New downloads no longer show at the top of the library for a moment** in upload order: each file comes in already in its place by upload time.

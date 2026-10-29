@@ -4,15 +4,17 @@
   import { px, settle, sizeOf } from '../lib/motion';
   // The downloads in the top bar (the library): its counter says how many are running or waiting, and the arrow bobs
   // while one downloads. A press opens New download and the downloads going on now - running, then waiting, then
-  // paused - a site's together as a stack like the Downloads page's (the user); each says its search (scrolling
-  // sideways when it's long), "Sub" (a subscription's check) or "Initial" (a first download), the posts gone through
-  // out of its goal and its progress; one opens the Downloads page.
+  // paused - a site's together as a stack like the Downloads page's (the user); each is a small version of the page's
+  // queue card (2026-10-29, the user: the menu "kinda feels outdated now", "doesn't need to be as verbose"): its search
+  // (scrolling sideways when it's long) with how far and how fast - or its state - on the right, its bar, and a quiet
+  // line: "Sub" (a subscription's check) or "Initial" (a first download), its new files, the posts gone through out of
+  // its goal; one opens the Downloads page.
   import { cubicOut } from 'svelte/easing';
   import { flip } from 'svelte/animate';
   import { backClose } from '../lib/backClose';
   import { swallowPress, leaving } from '../lib/outside';
   import { activeDownloads as active } from '../lib/activeDownloads.svelte';
-  import { live } from '../lib/live.svelte';
+  import { live, bytes } from '../lib/live.svelte';
   import { measurable, progress, goalOf, galleryNow, oneGallery } from '../lib/downloadProgress';
   import { openNewDownload } from '../lib/newDownload.svelte';
   import { sites as siteInfo, siteLabel } from '../lib/sites.svelte';
@@ -76,6 +78,9 @@
     }
     return g ? `${posts} · ${t('downloads.stat.pageOf', { done: num(g.done), pages: num(g.pages) })}` : posts;
   }
+
+  /** How fast it downloads (the server's average over the last seconds). */
+  const speedOf = (s: DownloadSearch) => (live.speed[s.id] > 0 ? t('downloads.speed', { size: bytes(live.speed[s.id]) }) : '');
 
   // A site's downloads together (in the list's order: running, waiting, paused), the sites as they come first.
   const groups = $derived.by(() => {
@@ -207,14 +212,27 @@
     <span class="text">
       <span class="head">
         <span class="name" title={named(s)} {@attach marquee}><span>{named(s)}</span></span>
-        <span class="kind" class:sub={isSub(s)} title={isSub(s) ? t('dlMenu.subTitle') : t('dlMenu.initialTitle')}>{isSub(s) ? t('dlMenu.sub') : t('dlMenu.initial')}</span>
+        {#if st === 'running'}
+          {@const pct = measurable(s, live.files) ? Math.floor(progress(s, live.files, gallery(s)) * 100) : null}
+          {#if pct !== null || speedOf(s)}
+            <span class="now">{#if pct !== null}<b>{pct}%</b>{/if}{#if speedOf(s)}<span>{speedOf(s)}</span>{/if}</span>
+          {:else}
+            <span class="state running">{t('downloads.state.running')}</span>
+          {/if}
+        {:else}
+          <span class="state {st}">{t(`downloads.state.${st}`)}</span>
+        {/if}
       </span>
-      <span class="meta"><span class="count">{#if isSub(s) && s.downloaded && !gallery(s)}<b class="new">{t('dlMenu.newN', { n: num(s.downloaded) })}</b>{' · '}{/if}{count(s)}</span>{#if st !== 'running'}{(count(s) ? ' · ' : '') + t(`downloads.state.${st}`)}{/if}</span>
       {#if st === 'running' && !measurable(s, live.files)}
         <span class="bar striped" role="progressbar" aria-label={t('downloads.noEstimate')}></span>
       {:else}
         <span class="bar"><span class="fill {st}" style:width="{progress(s, live.files, gallery(s)) * 100}%"></span></span>
       {/if}
+      <span class="meta">
+        <span class="kind" class:sub={isSub(s)} title={isSub(s) ? t('dlMenu.subTitle') : t('dlMenu.initialTitle')}>{isSub(s) ? t('dlMenu.sub') : t('dlMenu.initial')}</span>
+        {#if isSub(s) && s.downloaded && !gallery(s)}<b class="new">{t('dlMenu.newN', { n: num(s.downloaded) })}</b>{/if}
+        {#if count(s)}<span class="count">{count(s)}</span>{/if}
+      </span>
     </span>
   </button>
 {/snippet}
@@ -397,25 +415,56 @@
       transform: translateX(var(--shift, 0));
     }
   }
-  .kind {
+  /* How far and how fast (as the page's cards: the percent in peach, the speed after a dot), or its state. */
+  .now {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .now b {
+    color: var(--peach);
+    font-weight: 700;
+  }
+  .now b + span::before {
+    content: '·';
+    margin-right: 6px;
+    color: var(--overlay0);
+  }
+  .state {
     flex: none;
     padding: 1px 8px;
     border-radius: 999px;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 17px;
+    background: var(--surface0);
+    color: var(--subtext);
+  }
+  .state.running {
     color: var(--peach);
-    background: color-mix(in srgb, var(--peach) 16%, transparent);
+    background: color-mix(in srgb, var(--peach) 14%, transparent);
+  }
+  .state.paused {
+    color: var(--yellow);
+    background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  }
+  /* The kind, first on the quiet line: a word in its color. */
+  .kind {
+    font-weight: 700;
+    color: var(--peach);
   }
   .kind.sub {
     color: var(--mauve);
-    background: color-mix(in srgb, var(--mauve) 16%, transparent);
   }
   .count {
     font-variant-numeric: tabular-nums;
     color: var(--subtext);
   }
-  .count .new {
+  .meta .new {
     color: var(--green);
     font-weight: 600;
   }
@@ -434,14 +483,27 @@
   li :global(.stack.many:not(.open)) {
     margin-bottom: 10px;
   }
+  /* (its items a dot apart) */
   .meta {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
     font-size: 11px;
     color: var(--overlay1);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .meta > * + *::before {
+    content: '·';
+    margin-right: 6px;
+    color: var(--overlay0);
+    font-weight: 400;
   }
   .bar {
     display: block;
     height: 4px;
-    margin-top: 2px;
+    margin: 3px 0 1px;
     border-radius: 2px;
     background: var(--surface0);
     overflow: hidden;
