@@ -6992,6 +6992,53 @@ test('downloads: a subscription to an OR search shows the group as one chip - "(
   for (const s of [bracket, tilde]) await page.evaluate((id) => fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), s.id);
 });
 
+// A group's cover never shows a file twice: subscriptions whose searches overlap often have the same newest file, and the
+// repeated one broke the page's list - the Subscriptions tab laggy, sites opening with nothing in them (2026-10-29).
+test('downloads: a group whose subscriptions share their newest file - its cover takes each file once, the page keeps working', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/');
+  const name = 'Mosaic ' + test.info().project.name;
+  const subs = await page.evaluate(async (name) => {
+    const out: { id: number }[] = [];
+    for (const q of ['mosaic_a', 'mosaic_b', 'mosaic_c'])
+      out.push(await (await fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: 'test-down', query: q + '_' + name.replace(/\W/g, ''), interval: 86400, initial_max: 0, group_name: name }) })).json());
+    return out;
+  }, name);
+  try {
+    const files = await page.evaluate(async () => {
+      const ids = (await (await fetch('/api/search?q=system:type%3Dimage&limit=3')).json()).ids as number[];
+      return (await (await fetch('/api/files?ids=' + ids.join(','))).json()).files as { id: number; thumb: string; width: number; height: number }[];
+    });
+    const pic = (i: number) => ({ id: files[i].id, thumb: files[i].thumb, w: files[i].width, h: files[i].height });
+    // the same newest file for all three; two also have another (whatever order the group lists them in)
+    await page.route('**/api/subscriptions/looks?*', (r) =>
+      r.fulfill({ json: { looks: { [subs[0].id]: { recent: [pic(0), pic(1)] }, [subs[1].id]: { recent: [pic(0), pic(2)] }, [subs[2].id]: { recent: [pic(0)] } } } }),
+    );
+    await page.goto('/downloads');
+    await page.getByRole('tab', { name: /Subscriptions/ }).click();
+    const group = page.getByRole('region', { name: 'Group ' + name, exact: true });
+    await expect(async () => {
+      // (its site opened - the helper waits for a loose subscription; these are in their group)
+      const unfold = page.getByRole('button', { name: 'Unfold test-down.invalid' });
+      if (await unfold.count()) await unfold.click({ timeout: 1000 });
+      await expect(group).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15000 });
+    const imgs = group.locator('.mosaic img');
+    await expect.poll(() => imgs.count()).toBeGreaterThanOrEqual(2); // the shared file once, then the others' next ones
+    const srcs = await imgs.evaluateAll((els) => els.map((e) => (e as HTMLImageElement).src));
+    expect(new Set(srcs).size).toBe(srcs.length); // never one twice
+    // still working: the group opens to its subscriptions
+    await group.getByRole('button', { name: new RegExp('^Unfold ' + name) }).click();
+    await expect(group.locator('li[data-sub]')).toHaveCount(3);
+    expect(errors.filter((e) => /each_key_duplicate/.test(e))).toEqual([]);
+  } finally {
+    await page.evaluate(async (ids) => {
+      for (const id of ids) await fetch('/api/subscriptions/' + id + '/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    }, subs.map((x) => x.id));
+  }
+});
+
 test('downloads: subscriptions as cards - health, the search as chips, the next check, the newest files, "+N" new opens them; phones swipe for actions', async ({ page }) => {
   await page.goto('/');
   const q = `cards_sky_${test.info().project.name} -cards_cloud`;

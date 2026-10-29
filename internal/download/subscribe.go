@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -740,7 +741,7 @@ func (d *Downloader) SubscriptionLooks(ctx context.Context, since int64) (map[in
 		}
 		for r.Next() {
 			var f uint32
-			if err := r.Scan(&f); err == nil {
+			if err := r.Scan(&f); err == nil && !slices.Contains(l.Recent, f) { // (once each: the page lists them by file)
 				l.Recent = append(l.Recent, f)
 			}
 		}

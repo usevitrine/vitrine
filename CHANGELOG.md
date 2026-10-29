@@ -15,6 +15,7 @@ shows this too (Settings > Updates).
 
 ### Fixed
 
+- **The Subscriptions tab could stop working** (laggy, sites opening with nothing in them) when two subscriptions in a group had the same newest file.
 - **New downloads no longer show at the top of the library for a moment** in upload order: each file comes in already in its place by upload time.
 
 ## 1.0.7 - 2026-10-29

@@ -979,11 +979,19 @@
     return out;
   }
   /** A group's mosaic: the newest file of up to four of its subscriptions (a gallery: its cover). */
+  // A group's cover: a picture from each of its first subscriptions with one - never the same file twice: two
+  // subscriptions whose searches overlap often have the same newest file, and a repeated one broke the page's list
+  // (2026-10-29, the user: the Subscriptions tab "laggy and buggy", sites opening with nothing in them). A member whose
+  // newest is in already gives its next.
   function groupPics(members: Subscription[]): SubPic[] {
-    return members
-      .map((m) => looks[m.id]?.cover ?? looks[m.id]?.recent?.[0])
-      .filter((p): p is SubPic => !!p)
-      .slice(0, 4);
+    const out: SubPic[] = [];
+    for (const m of members) {
+      const l = looks[m.id];
+      const pick = [l?.cover, ...(l?.recent ?? [])].find((p): p is SubPic => !!p && !out.some((o) => o.id === p.id));
+      if (pick) out.push(pick);
+      if (out.length === 4) break;
+    }
+    return out;
   }
   function openFresh(s: Subscription) {
     const l = looks[s.id];

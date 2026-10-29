@@ -216,7 +216,10 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   system:imported<Nh`; a gallery: its comic), its 4 newest posts in the library by upload time - also ones it found there already (2026-10-23: a subscription whose posts
   another download had got first showed none) (a gallery: its comic's cover, opening it), one
   line of facts ("Every day · 1,204 files · found 2 days ago"; zeros left out, "Not checked yet"). A group: a
-  mosaic of its subscriptions' newest finds. Site headings with the site's icon. Wide screens (≥1100 px): the page
+  mosaic of its subscriptions' newest finds (**never a file twice** - 2026-10-29: subscriptions with overlapping
+  searches often share their newest file, and the repeated one broke the page's list - Svelte's each_key_duplicate:
+  the Subscriptions tab lagged and sites opened with nothing in them; a member whose newest is in already gives its
+  next, `groupPics`; the server's newest-files list skips a repeat too). Site headings with the site's icon. Wide screens (≥1100 px): the page
   1200 px wide on this tab, the cards in columns (`auto-fill, minmax(360px, 1fr)`). Phones: a card swiped to the
   left shows Check now and Pause/Resume behind it (a press elsewhere closes it). The pictures come from
   `GET /api/subscriptions/looks?since=` (asked when the tab opens and when a subscription's file count changes).
