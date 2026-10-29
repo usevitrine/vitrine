@@ -51,6 +51,14 @@ export interface PluginInfo {
   installed: boolean; // a plugin with this ID is installed
   installed_version?: string;
   update: boolean; // the list has a newer version
+  changelog?: PluginChange[]; // what each version changed, newest first
+}
+
+/** What one version of a plugin changed (the plugin list's changelog). */
+export interface PluginChange {
+  version: string;
+  date?: string; // YYYY-MM-DD
+  changes: string[];
 }
 
 export interface Installed {

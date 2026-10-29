@@ -413,11 +413,33 @@
     }
   });
 
-  // ---- comics that arrive or change (downloads): taken in without moving what's on screen.
+  // ---- comics that arrive or change (downloads): taken in only when nothing can land on the wrong comic - at the
+  // top of the grid, nothing open or selected, the grid untouched for a second (as the library: 2026-10-28). Otherwise
+  // only the comics on the page update in place (pages and covers of one coming in) and new ones wait.
   let merging = false;
   let lastTake = 0;
+  let waiting = $state(false); // new comics waiting for a quiet moment
+  const quiet = () => openID === null && !heroing && details === null && cropping === null && !selection.active && !!grid?.quiet();
+  $effect(() => {
+    if (!waiting) return;
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible' && quiet()) takeChanges();
+    }, 400);
+    return () => clearInterval(t);
+  });
   async function takeChanges() {
     if (merging || document.visibilityState !== 'visible') return;
+    if (!quiet()) {
+      waiting = true;
+      merging = true;
+      try {
+        await results.reloadDetails(); // (in place: nothing moves)
+      } finally {
+        merging = false;
+      }
+      return;
+    }
+    waiting = false;
     merging = true;
     try {
       await results.merge(

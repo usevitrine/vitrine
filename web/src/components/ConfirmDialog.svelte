@@ -123,7 +123,7 @@
       </label>
     {/if}
     <div class="buttons">
-      <button class="quiet cancel" onclick={() => confirmer.answer(false)}>{t('common.cancel')}</button>
+      <button class="quiet cancel" onclick={() => confirmer.answer(false)}>{c.cancel ?? t('common.cancel')}</button>
       <button class="go" disabled={!ready} onclick={() => confirmer.answer(true)}>{c.action}</button>
     </div>
   </div>

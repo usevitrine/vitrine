@@ -818,6 +818,18 @@
     return !el || el.scrollTop < (rowH || 100) / 2;
   }
 
+  // The last press, release or pointer move on the grid (performance.now()): someone aiming at a tile.
+  let handledAt = -Infinity;
+  const QUIET = 1000;
+  /** Whether arriving files can go in now with nothing landing on the wrong tile (2026-10-28, the user: "clicking on a
+   *  thumbnail while files are being added results in the wrong file opening" -> only when it's safe): at the very
+   *  top, nothing pressed, no menu, hover card, scrub or fast scroller, and no scroll, press or pointer move on the
+   *  grid in the last second. Else they wait (the library and comics pages look again). */
+  export function quiet(): boolean {
+    const now = performance.now();
+    return atTop() && !press && !menu && !hover && !scrubbing && !fastDrag && !flinging && now - scrolledAt > QUIET && now - handledAt > QUIET;
+  }
+
   /** n files came in at the top of the list: they go in as whole rows (filling
    *  the first row's gaps first) and the view moves with them, so nothing on
    *  screen moves. */
@@ -1296,7 +1308,8 @@
   let dragBase: number[] = [];
   let dragTo = -1;
   let lastPoint = { x: 0, y: 0 };
-  let menu = $state<{ i: number; x: number; y: number } | null>(null);
+  // (fid: the file it was opened on - its place is looked up again when it's used, in case the list changed)
+  let menu = $state<{ i: number; fid?: number; x: number; y: number } | null>(null);
 
   function tileIndex(e: Event): number | null {
     const t = (e.target as HTMLElement).closest<HTMLElement>('[data-i]');
@@ -1304,6 +1317,7 @@
   }
 
   function down(e: PointerEvent) {
+    handledAt = performance.now();
     if (e.button !== 0) return; // right-click: the contextmenu handler
     const i = tileIndex(e);
     if (i === null) return;
@@ -1464,6 +1478,7 @@
   }
 
   async function up(e: PointerEvent) {
+    handledAt = performance.now();
     if (!press || e.pointerId !== press.id) return;
     clearTimeout(longTimer);
     const p = press;
@@ -1485,7 +1500,7 @@
       return;
     }
     if (p.long) {
-      if (!browsing) menu = { i: p.i, x: p.x, y: p.y };
+      if (!browsing) menu = { i: p.i, fid: p.fid, x: p.x, y: p.y };
       return;
     }
     if (e.type === 'pointercancel') return;
@@ -1516,11 +1531,12 @@
   }
 
   function contextmenu(e: MouseEvent) {
+    handledAt = performance.now();
     const i = tileIndex(e);
     if (i === null) return;
     e.preventDefault();
     if (press?.touch || browsing) return; // touch long-press opens the menu itself (Android also sends this)
-    menu = { i, x: e.clientX, y: e.clientY };
+    menu = { i, fid: results.idAt(i), x: e.clientX, y: e.clientY };
     leaveGrid();
   }
 
@@ -1657,6 +1673,7 @@
     down(e);
   }}
   onpointermove={(e) => {
+    handledAt = performance.now();
     hoverTile(e);
     move(e);
   }}
@@ -1833,21 +1850,23 @@
 
 {#if menu}
   {@const m = menu}
-  {@const id = results.idAt(m.i)}
+  <!-- (where its file is now; -1: gone - then its actions do nothing) -->
+  {@const mi = m.fid !== undefined && results.idAt(m.i) !== m.fid ? results.indexOf(m.fid) : m.i}
+  {@const id = mi >= 0 ? results.idAt(mi) : undefined}
   <FileMenu
     x={m.x}
     y={m.y}
     selected={selection.has(id)}
     favorite={!!results.file(id)?.favorite}
-    onselect={() => id !== undefined && selection.toggle(id, m.i)}
+    onselect={() => id !== undefined && selection.toggle(id, mi)}
     onfavorite={() => id !== undefined && setFavorite([id], !results.file(id)?.favorite, false, results)}
     viewLabel={results.file(id)?.comic?.stack ? t('fileMenu.open') : comics ? t('comics.read') : undefined}
     viewIcon={results.file(id)?.comic?.stack ? 'stack' : undefined}
     basic={!!results.file(id)?.comic?.stack}
-    extra={results.file(id)?.comic?.stack ? stackItems(id) : comicItems(m.i, id)}
-    onview={() => onopen(m.i)}
-    ondetails={() => onopen(m.i, true)}
-    ondelete={() => deleteOne(m.i)}
+    extra={results.file(id)?.comic?.stack ? stackItems(id) : comicItems(mi, id)}
+    onview={() => mi >= 0 && onopen(mi)}
+    ondetails={() => mi >= 0 && onopen(mi, true)}
+    ondelete={() => mi >= 0 && deleteOne(mi)}
     trashed={results.scope === 'trash'}
     onrestore={() => id !== undefined && restoreFiles(results, [id])}
     onclose={() => (menu = null)} />

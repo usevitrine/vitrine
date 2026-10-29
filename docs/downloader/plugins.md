@@ -51,6 +51,16 @@ Request URLs to sites with API keys carry the key - never log or print them unfi
   1.0.5 and older don't know the field, so a plugin needing it is published only after that version is out; `User-Agent: Vitrine/<version>
   (+https://github.com/usevitrine/vitrine; hello@vitrine.software)` (a site's admins can write to the project). Errors never contain request URLs (they carry the api_key): Go's
   `url.Error` is unwrapped to its cause.
+- **Plugin updates and changelogs (2026-10-28)**, the user: "there should be notifications for plugin updates and a
+  plugin changelog system". The index's entries carry `changelog`: `[{version, date, changes: [...]}]`, newest first
+  (`plugin.ChangelogEntry`; older Vitrines ignore the field), and every version bump in the plugins repo adds one
+  (its README says so). Settings > Sites: a plugin's update box lists what the versions newer than the installed
+  one changed (each under its version when there are several), and the site's ⋯ menu has **Version history** (the
+  whole changelog in the card, the installed version marked, closes with its × or the menu item). The server looks
+  at the index 5 minutes after the start, then daily (`RunPluginChecks`, under the same setting as Vitrine's own
+  update check, `updateCheck`) and gives the bell one notice per plugin and version (kind `plugin`: site = plugin ID,
+  query = version; "rule34.xxx: version 1.4.0 of its plugin is out", a tap leads to Settings > Sites; its kind in
+  Settings > Notifications: "A site's plugin has an update", the bell by default). Test: `TestPluginUpdateNotices`.
 - **Credentials**: `<data_dir>/secrets.toml` (owner-only, atomic writes), one table per site; set with `vitrine
   credentials <site>` (typed input hidden). Never in meta.db or logs.
 - **Tag namespaces (2026-10-14)**: plugins declare `tags: {types: tag_info, namespaces:

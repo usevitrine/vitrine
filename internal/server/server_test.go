@@ -1169,6 +1169,73 @@ func TestDownloadsActiveOnly(t *testing.T) {
 	}
 }
 
+// Plugin updates: an installed plugin the list has a newer version of gets one notice for the bell (not again on the
+// next check, cleared or not); the list's changelog reaches the page with the plugin.
+func TestPluginUpdateNotices(t *testing.T) {
+	e := newEnv(t)
+	e.loginAs("me", "correct horse")
+	ctx := context.Background()
+	dl, err := download.New(ctx, e.lib, e.db, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.h.SetDownloader(dl)
+	dl.PluginsDir = filepath.Join(t.TempDir(), "plugins")
+	if _, err := dl.InstallPlugin(ctx, []byte("id: blue\nversion: 1.0.0\nengine: gelbooru-v02\nbase: https://api.blue.test\npost_url: https://blue.test/post/{id}\n")); err != nil {
+		t.Fatal(err)
+	}
+	repo := t.TempDir()
+	index := func(version string) {
+		os.WriteFile(filepath.Join(repo, "index.json"), []byte(`{"plugins": [
+			{"id": "blue", "name": "Blue", "site": "blue.test", "version": "`+version+`", "file": "plugins/blue.yaml",
+			 "changelog": [{"version": "`+version+`", "date": "2026-10-28", "changes": ["Faster"]}, {"version": "1.0.0", "changes": ["First"]}]},
+			{"id": "green", "name": "Green", "site": "green.test", "version": "3.0.0", "file": "plugins/green.yaml"}]}`), 0o644)
+	}
+	index("1.0.0")
+	dl.PluginIndex = repo
+	count := func() (n int) {
+		for _, x := range e.h.notices.list {
+			if x.Kind == "plugin" {
+				n++
+			}
+		}
+		return n
+	}
+	e.h.checkPluginUpdates(ctx)
+	if n := count(); n != 0 { // (up to date; green isn't installed)
+		t.Fatalf("%d plugin notices without an update", n)
+	}
+	index("1.1.0")
+	e.h.checkPluginUpdates(ctx)
+	e.h.checkPluginUpdates(ctx)
+	if n := count(); n != 1 {
+		t.Fatalf("%d plugin notices, want 1", n)
+	}
+	last := e.h.notices.list[len(e.h.notices.list)-1]
+	if last.Site != "blue" || last.Query != "1.1.0" {
+		t.Fatalf("notice: %+v", last)
+	}
+	index("1.2.0") // a newer one again: its own notice
+	e.h.checkPluginUpdates(ctx)
+	if n := count(); n != 2 {
+		t.Fatalf("%d plugin notices after 1.2.0, want 2", n)
+	}
+	var res struct {
+		Plugins []struct {
+			ID        string
+			Update    bool
+			Changelog []struct {
+				Version string
+				Changes []string
+			}
+		}
+	}
+	if code := e.call("GET", "/api/plugins?refresh=1", nil, &res); code != 200 || len(res.Plugins) == 0 || res.Plugins[0].ID != "blue" ||
+		!res.Plugins[0].Update || len(res.Plugins[0].Changelog) != 2 || res.Plugins[0].Changelog[0].Changes[0] != "Faster" {
+		t.Fatalf("/api/plugins: %d %+v", code, res)
+	}
+}
+
 // Removing a site with wipe: its files go for good in the background, its traces endpoint finds nothing after, and a
 // notice that doesn't name it says so.
 func TestRemovePluginWipe(t *testing.T) {

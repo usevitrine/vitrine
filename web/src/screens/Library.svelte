@@ -177,11 +177,31 @@
   });
 
   // ---- Files that arrive (downloads): checked every 15 s while the app is on
-  // screen and soon after a download adds files, and taken into the list at
-  // once - without moving anything: the grid adds them as whole rows above
-  // what's on screen, the viewer stays on its file and a tap opens the file it
-  // was on.
+  // screen and soon after a download adds files, and taken into the list only
+  // when nothing can land on the wrong file (2026-10-28, the user chose it over
+  // taking them in at once: taps still opened the wrong file now and then) - at
+  // the top of the grid, the viewer closed, nothing selected, the grid untouched
+  // for a second (grid.quiet()). Otherwise they wait and go in once it is.
+  // (merge still keeps the viewer on its file and the grid's rows in place, for
+  // the moment between the check and the new list.)
   let merging = false;
+  let waiting = $state(false); // arrivals waiting for a quiet moment
+  const quiet = () => viewing === null && !heroing && !selection.active && !!grid?.quiet();
+  async function takeArrivalsWhenQuiet() {
+    if (!quiet()) {
+      waiting = true;
+      return;
+    }
+    waiting = false;
+    await takeArrivals();
+  }
+  $effect(() => {
+    if (!waiting) return;
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible' && quiet()) takeArrivalsWhenQuiet();
+    }, 400);
+    return () => clearInterval(t);
+  });
   async function takeArrivals() {
     if (merging) return;
     merging = true;
@@ -206,7 +226,7 @@
     const check = async () => {
       if (document.visibilityState !== 'visible') return;
       await results.checkNew();
-      if (results.arrived > 0) await takeArrivals();
+      if (results.arrived > 0) await takeArrivalsWhenQuiet();
       updateBadge();
       saved.refreshNews(); // the saved searches menu's NEW pills (and the star's dot)
     };

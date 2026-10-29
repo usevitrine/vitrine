@@ -208,6 +208,20 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   where the open file and the **first tile on screen** (`grid.firstOnScreen()`) are in the new list (`find=<ids>`,
   up to 8, answered as `found: {id: index}`): the viewer goes to its file's new index, and the grid adds as many rows
   above as the anchor moved (files arriving below the screen move nothing on it). Comics the same.
+- **Arrivals only at a quiet moment (2026-10-28)**, the user: "theres still some situations where clicking on a
+  thumbnail while files are being added results in the wrong file opening" -> asked for options, chose "take them in
+  only when nothing can go wrong" (over fixing each spot, or a "N new files" pill again). Arriving files go in only
+  when the grid is at the very top, the viewer is closed, nothing is selected, and the grid is `quiet()`: nothing
+  pressed, no file menu, hover card, scrub or fast scroller, and no scroll, press, release or pointer move on it in
+  the last second (a mouse moving there is aiming at a tile). Otherwise they wait (`waiting`), looked at every 0.4 s,
+  and go in once it's quiet - scrolled down nothing changes until you're back at the top; at the top they fade in as
+  before. A hover card holds them too (its file must not shift): they come once the mouse leaves. Comics the same (the
+  reader, the details or a crop open hold them; the comics on the page still update in place - pages and covers of
+  one coming in). The merge machinery below (rows added above, the viewer kept on its file) stays for the moment
+  between the check and the new list. Also: the file menu (long press / right-click) keeps the file it opened on and
+  looks its place up again when used (before, its place only: a list that changed meanwhile made View, Details,
+  Favorite or Delete act on another file). E2E: "arriving files wait while scrolled down ...", "taps the moment files
+  arrive always open the tile that was tapped", the viewer/details/hover-card ones.
 - **Arrivals without hiccups (2026-10-18)**: `results.merge(keep, onShift)` swaps in the new list, moves the viewer
   to its file and adds the grid's rows in one step (a search hook: `prepare` fetches the IDs around the open file's
   new position first, `commit` runs before anything renders), so the details panel never sees another file for a

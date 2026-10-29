@@ -20,7 +20,8 @@ import (
 // file or folder; each entry's file is relative to it.
 //
 //	{"plugins": [{"id": "safebooru", "name": "Safebooru", "site": "safebooru.org", "version": "1.2.0",
-//	              "file": "plugins/safebooru.yaml", "description": "...", "kind": "booru", "nsfw": true}]}
+//	              "file": "plugins/safebooru.yaml", "description": "...", "kind": "booru", "nsfw": true,
+//	              "changelog": [{"version": "1.2.0", "date": "2026-10-28", "changes": ["..."]}]}]}
 
 // IndexEntry is one plugin in the index.
 type IndexEntry struct {
@@ -35,6 +36,16 @@ type IndexEntry struct {
 	// MinVitrine: the oldest Vitrine that reads this version of the plugin (a manifest field older ones don't know
 	// is an error for them: manifests are read strictly). Older ones aren't offered it (Supported).
 	MinVitrine string `json:"min_vitrine,omitempty"`
+	// Changelog: what each version changed, newest first - shown before updating (the versions not installed yet) and
+	// in the site's Version history (2026-10-28, the user: "a plugin changelog system"). Older Vitrines ignore it.
+	Changelog []ChangelogEntry `json:"changelog,omitempty"`
+}
+
+// ChangelogEntry is what one version of a plugin changed.
+type ChangelogEntry struct {
+	Version string   `json:"version"`
+	Date    string   `json:"date,omitempty"` // YYYY-MM-DD
+	Changes []string `json:"changes"`        // each a line in plain words: what it does for the user
 }
 
 // AppVersion is the running Vitrine's version ("dev" or "test-..." for a build of the code: as new as any).

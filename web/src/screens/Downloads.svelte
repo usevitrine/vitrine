@@ -207,9 +207,13 @@
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
+    // (what's in it changing - the summary's counts coming and going - leaves its own size alone)
+    const mo = new MutationObserver(update);
+    mo.observe(el, { childList: true, subtree: true, characterData: true });
     el.addEventListener('scroll', update, { passive: true });
     return () => {
       ro.disconnect();
+      mo.disconnect();
       el.removeEventListener('scroll', update);
     };
   }
@@ -1696,7 +1700,7 @@
     {#if error}<p class="error small" transition:reveal>{error}</p>{/if}
 
     <!-- What's going on, at a glance: each count a link to where those are (zeros left out). -->
-    <div class="summary" role="status">
+    <div class="summary" role="status" {@attach edgeFades}>
       {#if runningCount}{@render sumItem(runningCount, t('downloads.sum.running'), () => goTo('queue'), 'running')}{/if}
       {#if waitingCount}{@render sumItem(waitingCount, t('downloads.sum.waiting'), () => goTo('queue'))}{/if}
       {#if failedFileCount}{@render sumItem(failedFileCount, t('downloads.sum.failed', { n: failedFileCount }), () => goTo('history', 'dl-failed'), 'bad')}{/if}
@@ -2984,6 +2988,26 @@
     align-items: center;
     gap: 6px;
     margin-top: -4px;
+  }
+  /* Phones: one row - too many for the width, it scrolls sideways (snapping to the pills, soft edges where more is out
+     of view) instead of wrapping onto a second line (the user, 2026-10-28). */
+  @media (max-width: 639px) {
+    .summary {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x proximity;
+      scrollbar-width: none;
+      touch-action: pan-x pan-y;
+    }
+    .summary::-webkit-scrollbar {
+      display: none;
+    }
+    .summary > * {
+      flex: none;
+      scroll-snap-align: start;
+      white-space: nowrap;
+    }
   }
   .sum-item {
     display: inline-flex;

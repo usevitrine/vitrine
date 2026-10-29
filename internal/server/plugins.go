@@ -8,7 +8,8 @@ import (
 )
 
 // Plugins (Settings > Sites):
-//   GET  /api/plugins[?refresh=1]  -> {plugins: [{id, name, site, version, description, nsfw, installed, installed_version, update}], error}
+//   GET  /api/plugins[?refresh=1]  -> {plugins: [{id, name, site, version, description, nsfw, installed, installed_version, update,
+//                                     changelog: [{version, date, changes}]}], error}
 //                                     (the plugin list; error says why it couldn't be read - not a failure)
 //   POST /api/plugins/install {id}   installs or updates one from the list -> {installed, sites}
 //   POST /api/plugins/upload {yaml}  installs or updates from a plugin file  -> {installed, sites}

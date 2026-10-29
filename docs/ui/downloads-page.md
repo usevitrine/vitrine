@@ -8,7 +8,10 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   Paused chip stays by its name in the lists.)
 - **Summary** under New download: pill links, zeros left out - "N running", "N waiting", "N failed files" (red),
   "N subscriptions to look at" (yellow), the next check, "N posts to refresh"; each opens its tab and scrolls there
-  ("to look at" also turns that filter on). Nothing at all: "Nothing going on".
+  ("to look at" also turns that filter on). Nothing at all: "Nothing going on". **Phones: one row** (2026-10-28, the
+  user: it "gets long and overflows on the next line at mobile widths. make it a carousal"): under 640 px the pills
+  don't wrap - the row scrolls sideways (snapping to the pills, no scrollbar) with soft edges where more is out of view
+  (`edgeFades`, which now also follows its contents changing - pills coming and going leave the row's own size alone).
 - **Tabs** Queue · Subscriptions · History (segmented, counts; the last one remembered: `vitrine.downloadsTab`). Queue =
   the queue stacks + the tag refresh; History = failed files + finished. "Found by > Open" switches to Subscriptions.
   Motion (user: "immediate, doesn't fit"): one pill glides to the lit tab (measured; 0.32 s, the standard ease), tabs

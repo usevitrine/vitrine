@@ -1703,6 +1703,9 @@
     "restored": "{site} is back to the built-in plugin",
     "removed": "Removed {site}",
     "wipeTitle": "Also erase every trace of {site}?",
+    "wipeKeep": "Keep them",
+    "wipeNext": "Erase everything…",
+    "wipeSureTitle": "Erase every trace of {site} for good?",
     "wipeFiles": {
       "one": "{n} file ({size}) only it gave is deleted for good.",
       "other": "{n} files ({size}) only it gave are deleted for good."
@@ -1759,6 +1762,10 @@
     "switchOff": "Switch off",
     "test": "Test connection",
     "updateTo": "Update to {version}",
+    "updateNotice": "{site}: version {version} of its plugin is out",
+    "whatsNew": "What's new",
+    "history": "Version history",
+    "historyInstalled": "Installed",
     "changeCreds": "Change login",
     "logIn": "Log in",
     "loginTitle": "Log in to {site}",
@@ -2413,7 +2420,8 @@
       "device": "This device: app installed, notifications off",
       "update": "A new version is ready",
       "errors": "Errors",
-      "release": "A new Vitrine release"
+      "release": "A new Vitrine release",
+      "plugin": "A site's plugin has an update"
     },
     "withUndo": "With Undo",
     "withReload": "With Reload"

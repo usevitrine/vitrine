@@ -63,10 +63,12 @@ Files, tags (one tag set, origins, namespaces), parents and siblings, delete/und
   `TestEmptyTrashSome`; e2e "trash: going there" checks every frame for a file not in the trash.
 - **Wiping a removed site (2026-10-26)** (the user: removing a site can "completely wipe their server of any hint that
   they ever had it enabled. That means deleting all files/metadata/deleted files history/any entry in every menu such
-  as the sites filter"): after Remove, when anything of it is left, a second dialog asks to erase every trace
-  (`GET /api/plugins/{id}/traces` counts it: `Library.SiteTraces`) - a list of what goes, the word "erase" to type, and
-  "Also delete older backups (they still contain it)", off by default (the user's choice). Cancel removes only the
-  site. `Library.WipeSite` (in the background, a notice that doesn't name it when done): its comics go for good; files
+  as the sites filter"): after Remove, when anything of it is left, a second dialog asks whether to erase every trace
+  (`GET /api/plugins/{id}/traces` counts it: `Library.SiteTraces`) - a list of what goes, **Keep them** or **Erase
+  everything…** (a plain question first since 2026-10-28, the user: the word to type came with no asking whether to
+  erase at all; the dialogs' other button can be named: `ConfirmOptions.cancel`); then the word "erase" to type and
+  "Also delete older backups (they still contain it)", off by default (the user's choice). Keep them, or Cancel at the
+  word, removes only the site. `Library.WipeSite` (in the background, a notice that doesn't name it when done): its comics go for good; files
   only it gave (links, tags or sources from no other site - the trash's too) are deleted, removed for good and their
   records go; files another site gave too **stay**, without its tags, links and sources (not an edit: modified
   stays - the user's choice "Keep, strip this site"); then its downloads, subscriptions, groups, history

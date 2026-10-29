@@ -29,7 +29,7 @@ export interface Notice {
 export interface ServerNotice {
   id: number;
   at: number;
-  kind: 'new' | 'failed' | 'done' | 'blacklisted' | 'paused' | 'back' | 'app' | 'release';
+  kind: 'new' | 'failed' | 'done' | 'blacklisted' | 'paused' | 'back' | 'app' | 'release' | 'plugin';
   site?: string;
   query?: string;
   subscription?: boolean;
@@ -51,6 +51,10 @@ for (const k of ['vitrine.notices', 'vitrine.noticesSynced', 'vitrine.noticesSee
     /* fine */
   }
 }
+
+/** A site's name for a notice (a plugin's update): lib/sites fills it in - imported from here, it made an import loop
+ *  (sites -> namespaces -> toast -> notices) that stopped the app from starting. */
+export const noticeSites = { label: (id: string) => id };
 
 /** A server event in words. */
 function word(n: ServerNotice): { text: string; kind: ToastKind } {
@@ -75,6 +79,8 @@ function word(n: ServerNotice): { text: string; kind: ToastKind } {
       return { text: `${t('push.blacklisted', { n: 1 })}: ${t('push.blacklistedBody', { tags: n.tag ?? '' })}`, kind: 'removed' };
     case 'release':
       return { text: t('updates.notice', { version: n.query ?? '' }), kind: 'info' };
+    case 'plugin': // (site: the plugin's ID, query: the new version)
+      return { text: t('sites.updateNotice', { site: noticeSites.label(n.site ?? ''), version: n.query ?? '' }), kind: 'info' };
   }
 }
 
@@ -98,10 +104,11 @@ class Notices {
 
   private make(e: ServerNotice): Notice {
     const w = word(e);
-    // Where a tap takes you: a release to Settings > Updates; library files that got a blacklisted tag to Tags > Rules,
-    // its Delete them button brought into view (the user); the rest to Downloads.
-    const to = e.kind === 'app' ? undefined : e.kind === 'release' ? 'settings' : e.kind === 'blacklisted' ? 'tags' : 'downloads';
-    const sub = e.kind === 'release' ? 'updates' : e.kind === 'blacklisted' ? 'rules' : undefined;
+    // Where a tap takes you: a release to Settings > Updates, a plugin's update to Settings > Sites (it shows what
+    // changed); library files that got a blacklisted tag to Tags > Rules, its Delete them button brought into view
+    // (the user); the rest to Downloads.
+    const to = e.kind === 'app' ? undefined : e.kind === 'release' || e.kind === 'plugin' ? 'settings' : e.kind === 'blacklisted' ? 'tags' : 'downloads';
+    const sub = e.kind === 'release' ? 'updates' : e.kind === 'plugin' ? 'sites' : e.kind === 'blacklisted' ? 'rules' : undefined;
     const focus = e.kind === 'blacklisted' ? 'blacklist-delete' : undefined;
     return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to, sub, focus };
   }

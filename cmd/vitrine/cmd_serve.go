@@ -109,6 +109,7 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	handler.SetUpdates(server.UpdateConfig{ReleasesURL: c.ReleasesURL, ChangelogURL: c.ChangelogURL, UserAgent: userAgent(), WatchtowerURL: c.WatchtowerURL, WatchtowerToken: c.WatchtowerToken,
 		SetupName: setupName, RunSetup: runSetup})
 	go handler.RunUpdateChecks(ctx)
+	go handler.RunPluginChecks(ctx)
 	go handler.RunRenditionsAhead(ctx)
 	pusher, err := push.Open(ctx, d, log)
 	if err != nil {

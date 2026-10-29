@@ -3,6 +3,7 @@
 import { api } from './api';
 import { splitTag } from './namespaces.svelte';
 import { t } from './i18n.svelte';
+import { noticeSites } from './notices.svelte';
 
 class Sites {
   names = $state<Record<string, string>>({});
@@ -51,6 +52,7 @@ export const sites = new Sites();
 
 /** A site's address for display ("safebooru" -> "safebooru.org"). */
 export const siteLabel = (id: string) => sites.names[id] ?? id;
+noticeSites.label = siteLabel; // (a plugin update's notice names its site)
 
 /** A library tag as a site's search for it (a tag's "New download"): each
  *  site says how in its plugin - e.g. a Mastodon server searches #tag, and

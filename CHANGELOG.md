@@ -5,8 +5,14 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### New
+
+- **Plugin updates in the bell, with what changed**: when a site's plugin has a new version, the bell says so (checked once a day, with the same setting as Vitrine's own update check). Settings > Sites shows what the new version changes before you update, and each site's ⋯ menu has its Version history.
+
 ### Improved
 
+- **Removing a site asks first whether to erase it**: after Remove, a plain question - Keep them or Erase everything… - comes before the word to type.
+- **The Downloads summary stays one row on phones**: when its counts don't fit, the row scrolls sideways instead of wrapping onto a second line.
 - **Faster downloads and less memory**: recording each downloaded post takes about half the database work, emptying the trash is many times faster on a big library (it no longer pauses downloads for long), and the server holds far less memory for thumbnails while downloading.
 - **A steadier download speed**: the speed shown is the last 10 seconds' average of every byte, so it no longer jumps between a big video's speed and a run of small files'.
 - **Faster downloads of files whose md5 the site lists wrongly** (common with rule34's older videos): the two small pieces that check such a file are asked for together, one wait instead of two.
@@ -16,6 +22,8 @@ shows this too (Settings > Updates).
 
 ### Fixed
 
+- **Tapping a thumbnail while downloads add files could open the wrong file**: new files now come into the library only at a quiet moment - at the top of the grid, with nothing open or selected and nothing touched for a second - so nothing ever moves under your finger. Scrolled down, they wait until you're back at the top.
+- A file's long-press menu could act on a different file if new files arrived while it was open.
 - An opened download on the Downloads page showed its speed twice, and its hover highlight touched the line below it.
 
 ## 1.0.6-hotfix - 2026-10-28

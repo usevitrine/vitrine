@@ -16,6 +16,8 @@
   import { settings } from '../lib/settings.svelte';
   import { depthChoice, depthLabel } from '../lib/depth';
   import { t } from '../lib/i18n.svelte';
+  import { isNewerVersion } from '../lib/changelog';
+  import { shortDate } from '../lib/when';
 
   // welcome: the first-start steps' version - the sites to add open from the start, no Cloudflare.
   let { welcome = false }: { welcome?: boolean } = $props();
@@ -34,6 +36,7 @@
   let adding = $state(untrack(() => welcome)); // the Add site panel is open (from the start in the welcome)
   let showAdult = $state(false); // adult sites in the list to add (hidden until asked for)
   let installing = $state<string | null>(null); // a plugin ID, or 'file'
+  let history = $state<Record<string, boolean>>({}); // sites whose Version history is open
   let find = $state(''); // Add site's search
   let kind = $state(''); // Add site's filter: a plugin kind, '' = all
   let showAll = $state(false); // past the first few sites
@@ -67,8 +70,10 @@
   }
 
   // Removing a site, then (when there's anything of it) whether to erase every trace of it: its files only it gave
-  // for good, its tags and links off the others, its history, records, notices, login and menus' entries - a word to
-  // type, older backups only when ticked (the user, 2026-10-26). Cancel there: only the site goes.
+  // for good, its tags and links off the others, its history, records, notices, login and menus' entries - asked as a
+  // plain question first (Keep them / Erase everything...: the user, 2026-10-28 - the word to type came straight after
+  // Remove, with no asking whether to erase at all), then a word to type, older backups only when ticked (the user,
+  // 2026-10-26). Keep them or Cancel there: only the site goes.
   async function removeSite(s: SiteInfo) {
     const waiting = usage(s);
     const traces = s.overrides ? null : api.siteTraces(s.id).catch(() => null); // (asked meanwhile)
@@ -94,16 +99,23 @@
         t('sites.wipeRest'),
         ...(tr.unknown ? [t('sites.wipeUnknown', { n: tr.unknown })] : []),
       ];
-      const asked = await confirmChecked({
+      const erase = await confirmAction({
         title: t('sites.wipeTitle', { site: s.site }),
         details,
-        body: t('sites.wipeUndo'),
-        action: t('sites.wipe'),
-        typed: t('sites.wipeWord'),
-        check: found.backups ? t('sites.wipeBackups') : '',
+        action: t('sites.wipeNext'),
+        cancel: t('sites.wipeKeep'),
       });
-      wipe = asked.ok;
-      backups = asked.checked;
+      if (erase) {
+        const asked = await confirmChecked({
+          title: t('sites.wipeSureTitle', { site: s.site }),
+          body: t('sites.wipeUndo'),
+          action: t('sites.wipe'),
+          typed: t('sites.wipeWord'),
+          check: found.backups ? t('sites.wipeBackups') : '',
+        });
+        wipe = asked.ok;
+        backups = asked.checked;
+      }
     }
     busy[s.id] = 'remove';
     try {
@@ -138,6 +150,11 @@
   const searching = $derived(searchable && !!find.trim());
   const shown = $derived(searching || showAll ? matches : matches.slice(0, FIRST));
   const updateFor = (id: string) => plugins.find((p) => p.id === id && p.update);
+  // A plugin's changelog (the plugin list's: what each version changed, newest first), and the part of it an update
+  // brings - the versions newer than the one installed (the user, 2026-10-28: "a plugin changelog system").
+  const changelogOf = (id: string) => plugins.find((p) => p.id === id)?.changelog ?? [];
+  const newIn = (u: PluginInfo, have: string) => (u.changelog ?? []).filter((c) => !have || isNewerVersion(c.version, have));
+  const day = (d?: string) => (d && /^d{4}-d{2}-d{2}$/.test(d) ? shortDate(new Date(d + 'T12:00:00').getTime()) : '');
 
   async function loadPlugins(refresh = false) {
     try {
@@ -279,6 +296,7 @@
     ];
     const u = updateFor(s.id);
     if (u) items.push({ label: t('sites.updateTo', { version: u.version ?? '' }), icon: 'download', disabled: installing !== null, run: () => install(u) });
+    if (changelogOf(s.id).length) items.push({ label: t('sites.history'), icon: 'clock', run: () => (history[s.id] = !history[s.id]) });
     if (s.fields.length) items.push(allSet(s) ? { label: t('sites.changeCreds'), icon: 'pencil', run: () => openLogin(s) } : { label: t('sites.logIn'), icon: 'user', run: () => openLogin(s) });
     if (anySet(s)) items.push({ label: t('sites.removeCreds'), icon: 'close', danger: true, disabled: !!busy[s.id], run: () => remove(s) });
     if (s.removable) {
@@ -415,7 +433,32 @@
             <button disabled={installing !== null} onclick={() => install(u)} aria-label={t('sites.updateSite', { site: s.site })}>
               {installing === u.id ? t('sites.updating') : t('saved.update')}
             </button>
+            {#if newIn(u, s.version ?? '').length}
+              {@const news = newIn(u, s.version ?? '')}
+              <div class="news" aria-label={t('sites.whatsNew')}>
+                {#each news as c (c.version)}
+                  {#if news.length > 1}<span class="news-ver">v{c.version}</span>{/if}
+                  <ul>{#each c.changes as line, k (k)}<li>{line}</li>{/each}</ul>
+                {/each}
+              </div>
+            {/if}
           </div>
+        {/if}
+        {#if history[s.id] && changelogOf(s.id).length}
+          <section class="history" aria-label={t('sites.history')} transition:appear>
+            <div class="history-head">
+              <h4>{t('sites.history')}</h4>
+              <button class="quiet icon" aria-label={t('sites.close')} title={t('sites.close')} onclick={() => (history[s.id] = false)}><Icon name="close" size={16} /></button>
+            </div>
+            {#each changelogOf(s.id) as c (c.version)}
+              <div class="ver">
+                <span class="v">v{c.version}</span>
+                {#if c.version === s.version}<span class="now">{t('sites.historyInstalled')}</span>{/if}
+                {#if day(c.date)}<span class="date">{day(c.date)}</span>{/if}
+              </div>
+              <ul>{#each c.changes as line, k (k)}<li>{line}</li>{/each}</ul>
+            {/each}
+          </section>
         {/if}
 
         {#if s.fields.length && allSet(s)}
@@ -955,6 +998,66 @@
     font-size: var(--font-small);
     color: var(--blue);
     background: color-mix(in srgb, var(--blue) 10%, transparent);
+  }
+  /* What an update brings: under its line, the whole width (each version's changes; with several, each under its
+     version). */
+  .news {
+    flex-basis: 100%;
+    display: grid;
+    gap: 4px;
+    color: var(--subtext);
+  }
+  .news-ver {
+    font-weight: 600;
+    color: var(--blue);
+  }
+  .news ul,
+  .history ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 2px;
+  }
+  .history {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px 12px;
+    border-radius: 10px;
+    background: var(--mantle);
+    font-size: var(--font-small);
+    color: var(--subtext);
+  }
+  .history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .history-head h4 {
+    margin: 0;
+    font-size: var(--font-small);
+    color: var(--text);
+  }
+  .history .ver {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .history .v {
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .history .now {
+    padding: 0 7px;
+    border-radius: 999px;
+    color: var(--green);
+    background: color-mix(in srgb, var(--green) 12%, transparent);
+  }
+  .history .date {
+    color: var(--overlay1);
   }
   .sites {
     display: grid;

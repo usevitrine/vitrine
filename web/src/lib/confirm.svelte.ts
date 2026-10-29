@@ -11,6 +11,7 @@ export interface ConfirmOptions {
   title: string; // a question: "Delete this file?"
   body?: string; // one short line
   action: string; // the button: "Delete"
+  cancel?: string; // the other button, when Cancel would say too little ("Keep them"); default Cancel
   icon?: IconName;
   thumbs?: string[]; // pictures of what goes (files)
   undoable?: boolean; // it can be undone: Enter confirms (else the focus starts on Cancel)

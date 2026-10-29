@@ -59,6 +59,15 @@ function versionOf(s: string): number[] | null {
   return m ? [Number(m[1]), Number(m[2]), Number(m[3]), m[4] ? 1 : 0] : null;
 }
 
+/** Whether version a ("1.4.0", "v1.4.0") is newer than b (a plugin's versions: the plugin list's changelog). */
+export function isNewerVersion(a: string, b: string): boolean {
+  const x = versionOf(a);
+  const y = versionOf(b);
+  if (!x || !y) return false;
+  for (let i = 0; i < 4; i++) if (x[i] !== y[i]) return x[i] > y[i];
+  return false;
+}
+
 /** The released versions in a changelog newer than the installed one (newest first, as written). */
 export function newerThan(versions: ChangelogVersion[], installed: string): ChangelogVersion[] {
   const now = versionOf(installed);

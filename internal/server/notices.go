@@ -81,6 +81,18 @@ func (n *notices) put(x library.Notice) {
 	}
 }
 
+// hasFor is has for one site: a plugin's update, once per plugin and version.
+func (n *notices) hasFor(kind, site, query string) bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	for _, x := range n.list {
+		if x.Kind == kind && x.Site == site && x.Query == query {
+			return true
+		}
+	}
+	return false
+}
+
 // has tells whether a notice of a kind about a query is kept already (cleared or not) - an update's, once per version.
 func (n *notices) has(kind, query string) bool {
 	n.mu.Lock()

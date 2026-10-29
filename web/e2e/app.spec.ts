@@ -1563,17 +1563,22 @@ async function arriveTwo(page: import('@playwright/test').Page, at = 0) {
     }
     await route.fulfill({ response: res, json: body });
   });
-  return async () => {
+  // wait: for the new list (taken in at once: the grid quiet); false - they wait for a quiet moment, nothing to wait for.
+  return async (wait = true) => {
     arrived = true;
     await page.route('**/api/new?*', (route) => route.fulfill({ json: { new: 2 } }));
-    const searched = page.waitForResponse((r) => r.url().includes('/api/search?'));
+    const searched = wait ? page.waitForResponse((r) => r.url().includes('/api/search?')) : null;
+    const asked = page.waitForResponse((r) => r.url().includes('/api/new?'));
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await asked;
     await searched;
     await page.unroute('**/api/new?*');
   };
 }
 
-test('arriving files are taken in without moving anything on screen (no button)', async ({ page }) => {
+// Arriving files go in only when nothing can land on the wrong file (the user, 2026-10-28: taps still opened the wrong
+// file now and then while downloads ran): at the top of the grid, nothing open or selected, the grid still for a second.
+test('arriving files wait while scrolled down - nothing on screen changes, a tap opens its file - and come in at the top', async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 700 }); // a long list: 3 columns, it scrolls
   const arrive = await arriveTwo(page);
   await page.goto('/');
@@ -1585,20 +1590,27 @@ test('arriving files are taken in without moving anything on screen (no button)'
   const tile = page.locator('.tile[data-i="9"]');
   const id = await tile.getAttribute('data-id');
   const before = (await tile.boundingBox())!;
-  await arrive();
+  const lastTwo = await page.evaluate(async () => (await (await fetch('/api/search?q=&limit=26')).json()).ids.slice(-2));
+  await arrive(false);
+  await page.waitForTimeout(1500); // (longer than the quiet second)
   const same = page.locator(`.tile[data-id="${id}"]`);
-  await expect(same).toHaveAttribute('data-i', '11'); // two places later in the list...
-  await expect.poll(async () => Math.round((await same.boundingBox())!.y)).toBe(Math.round(before.y)); // ...and not moved on screen
-  expect(Math.round((await same.boundingBox())!.x)).toBe(Math.round(before.x));
+  await expect(same).toHaveAttribute('data-i', '9'); // the list as it was...
+  expect(Math.round((await same.boundingBox())!.y)).toBe(Math.round(before.y)); // ...nothing moved
   await expect(page.locator('.new-pill')).toHaveCount(0);
   // Pressing it opens that file.
   await same.click();
-  await expect(page.getByText('12 / 26')).toBeVisible();
+  await expect(page.getByText('10 / 26')).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get('f')).toBe(id);
   await page.keyboard.press('Escape');
   await expect(page.locator('.viewer')).toHaveCount(0);
-  // Scrolled up to the new files: no empty cells - the top row's gap closes
-  // (one new file per row of 3 would otherwise leave a hole before it).
+  await page.waitForTimeout(1500);
+  await expect(same).toHaveAttribute('data-i', '9'); // (closed, but still scrolled down: they still wait)
+  // Back at the top: they come in, first - and no empty cells (the top row's gap closes). (The mouse off the grid: resting
+  // on a tile, its hover card opens - and arrivals wait for that too.)
+  await page.mouse.move(2, 2);
   await grid.evaluate((el) => (el.scrollTop = 0));
+  await expect(page.locator('.tile[data-i="0"]')).toHaveAttribute('data-id', String(lastTwo[0]), { timeout: 5000 });
+  await expect(same).toHaveAttribute('data-i', '11');
   const gridLeft = (await grid.boundingBox())!.x;
   await expect.poll(async () => Math.round((await page.locator('.tile[data-i="0"]').boundingBox())!.x - gridLeft)).toBeLessThan(14);
   // (one row: compared once the tiles have slid into place)
@@ -1621,16 +1633,21 @@ test('scrolled to the very top, arriving files come into view: it stays at the t
   await expect(page.locator('.tile[data-i="0"]')).toBeInViewport();
 });
 
-test('a file being viewed stays on screen when files arrive', async ({ page }) => {
+test('files arriving while a file is open wait until the viewer closes: it never changes file or place', async ({ page }) => {
   const arrive = await arriveTwo(page);
   await page.goto('/');
+  const id = await page.locator('.tile').nth(3).getAttribute('data-id');
   await page.locator('.tile').nth(3).click();
   await expect(page.getByText('4 / 26')).toBeVisible();
   const src = await page.locator('.viewer .slide[data-slot="1"] img:not(.under)').getAttribute('style');
-  await arrive();
-  await expect(page.getByText('6 / 26')).toBeVisible(); // the same file, now two places later
+  await arrive(false);
+  await page.waitForTimeout(1500);
+  await expect(page.getByText('4 / 26')).toBeVisible(); // the same file, the same place
   expect(await page.locator('.viewer .slide[data-slot="1"] img:not(.under)').getAttribute('style')).toBe(src);
-  await expect.poll(() => new URL(page.url()).searchParams.get('i')).toBe('5');
+  expect(new URL(page.url()).searchParams.get('f')).toBe(id);
+  // Closed: a second later they come in (at the top).
+  await page.keyboard.press('Escape');
+  await expect(page.locator(`.tile[data-id="${id}"]`)).toHaveAttribute('data-i', '5', { timeout: 5000 });
 });
 
 // Another order (oldest first, uploaded, size, random): new files land anywhere - the open file and what's on screen
@@ -1641,12 +1658,13 @@ test('in another order, files arriving ahead of the open one: the viewer stays o
   await page.locator('.tile').nth(5).click();
   await expect(page.getByText('6 / 26')).toBeVisible();
   const src = await page.locator('.viewer .slide[data-slot="1"] img:not(.under)').getAttribute('style');
-  await arrive();
-  await expect(page.getByText('8 / 26')).toBeVisible(); // the same file, two places later
+  await arrive(false);
+  await page.waitForTimeout(1500);
+  await expect(page.getByText('6 / 26')).toBeVisible(); // the same file, the same place (they wait)
   expect(await page.locator('.viewer .slide[data-slot="1"] img:not(.under)').getAttribute('style')).toBe(src);
 });
 
-test('in another order, files arriving above what\'s on screen: nothing on screen moves, a tap opens that file', async ({ page }) => {
+test('in another order, files arriving above what\'s on screen wait: nothing on screen moves, a tap opens that file', async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 700 }); // 3 columns, it scrolls
   const arrive = await arriveTwo(page, 2); // (above the tiles on screen, below the first file)
   await page.goto('/');
@@ -1658,13 +1676,36 @@ test('in another order, files arriving above what\'s on screen: nothing on scree
   await expect(tile).toBeInViewport();
   const id = await tile.getAttribute('data-id');
   const before = (await tile.boundingBox())!;
-  await arrive();
+  await arrive(false);
+  await page.waitForTimeout(1500);
   const same = page.locator(`.tile[data-id="${id}"]`);
-  await expect(same).toHaveAttribute('data-i', '11');
-  await expect.poll(async () => Math.round((await same.boundingBox())!.y)).toBe(Math.round(before.y));
+  await expect(same).toHaveAttribute('data-i', '9');
+  expect(Math.round((await same.boundingBox())!.y)).toBe(Math.round(before.y));
   expect(Math.round((await same.boundingBox())!.x)).toBe(Math.round(before.x));
   await same.click();
-  await expect(page.getByText('12 / 26')).toBeVisible();
+  await expect(page.getByText('10 / 26')).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get('f')).toBe(id);
+});
+
+test('taps the moment files arrive always open the tile that was tapped', async ({ page }) => {
+  await page.setViewportSize({ width: 400, height: 700 });
+  const arrive = await arriveTwo(page);
+  await page.goto('/');
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  for (const k of [4, 1, 7]) {
+    const tile = page.locator(`.tile[data-i="${k}"]`);
+    const id = await tile.getAttribute('data-id');
+    const b = (await tile.boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); // aiming...
+    await arrive(false); // ...files arrive...
+    await page.mouse.down(); // ...the tap
+    await page.mouse.up();
+    await expect(page.locator('.viewer')).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get('f')).toBe(id);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.viewer')).toHaveCount(0);
+    await page.waitForTimeout(1500); // (they come in now, the grid still)
+  }
 });
 
 test('the details stay open and where they were scrolled when files arrive', async ({ page }) => {
@@ -1684,9 +1725,9 @@ test('the details stay open and where they were scrolled when files arrive', asy
   page.on('request', (r) => {
     if (/\/api\/files\/\d+\/tags$/.test(new URL(r.url()).pathname)) reloads++;
   });
-  await arrive();
-  await expect(page.getByText('6 / 26')).toBeVisible();
-  await page.waitForTimeout(300);
+  await arrive(false);
+  await page.waitForTimeout(1500);
+  await expect(page.getByText('4 / 26')).toBeVisible(); // (they wait while it's open)
   expect(reloads).toBe(0); // the details never switched to another file for a moment
   expect(await panel.evaluate((el) => (el as any).__marker)).toBe('same'); // not closed and reopened
   expect(await body.evaluate((el) => el.scrollTop)).toBe(120);
@@ -2527,7 +2568,7 @@ test('settings: install a site from the plugin list, update one, install from a 
   await expect(card.getByRole('heading', { name: 'test-file.invalid' })).toHaveCount(0);
 });
 
-test('removing a site with files of it asks whether to erase every trace: the list, a word to type, older backups only when ticked', async ({ page }) => {
+test('removing a site with files of it asks whether to erase every trace - Keep them or Erase everything..., then a word to type, older backups only when ticked', async ({ page }) => {
   // (the traces and the removal answered here: the shared test library keeps its sites)
   let sent: Record<string, unknown> | null = null;
   await page.route('**/api/plugins/safebooru/traces', (r) =>
@@ -2539,30 +2580,96 @@ test('removing a site with files of it asks whether to erase every trace: the li
     await r.fulfill({ json: { removed: { id: 'safebooru', site: 'safebooru.org', restored: false }, sites, wiping: !!sent?.wipe } });
   });
   await page.goto('/settings/sites');
-  await rowMenu(page, 'safebooru.org', 'Remove site');
-  await page.getByRole('alertdialog', { name: 'Remove safebooru.org?' }).getByRole('button', { name: 'Remove', exact: true }).click();
-  const wipe = page.getByRole('alertdialog', { name: 'Also erase every trace of safebooru.org?' });
-  await expect(wipe).toBeVisible();
-  await expect(wipe).toContainText('3 files (3.0 MB) only it gave are deleted for good.');
-  await expect(wipe).toContainText('2 files another site gave too stay, without its tags and links.');
-  await expect(wipe).toContainText('4 older deletion records');
-  await expect(wipe).toContainText('Cancel removes only the site.');
-  const go = wipe.getByRole('button', { name: 'Erase everything' });
+  const remove = async () => {
+    await rowMenu(page, 'safebooru.org', 'Remove site');
+    await page.getByRole('alertdialog', { name: 'Remove safebooru.org?' }).getByRole('button', { name: 'Remove', exact: true }).click();
+  };
+  await remove();
+  // First the question (the user, 2026-10-28: the word to type came with no asking whether to erase at all).
+  const ask = page.getByRole('alertdialog', { name: 'Also erase every trace of safebooru.org?' });
+  await expect(ask).toBeVisible();
+  await expect(ask).toContainText('3 files (3.0 MB) only it gave are deleted for good.');
+  await expect(ask).toContainText('2 files another site gave too stay, without its tags and links.');
+  await expect(ask).toContainText('4 older deletion records');
+  await expect(ask.getByRole('textbox')).toHaveCount(0); // (nothing to type yet)
+  await ask.getByRole('button', { name: 'Erase everything…' }).click();
+  // Then the word to type.
+  const sure = page.getByRole('alertdialog', { name: 'Erase every trace of safebooru.org for good?' });
+  await expect(sure).toContainText('Cancel removes only the site.');
+  const go = sure.getByRole('button', { name: 'Erase everything', exact: true });
   await expect(go).toBeDisabled();
-  await wipe.getByLabel('Type "erase" to confirm').fill('erase');
-  await wipe.getByRole('checkbox', { name: /Also delete older backups/ }).check();
+  await sure.getByLabel('Type "erase" to confirm').fill('erase');
+  await sure.getByRole('checkbox', { name: /Also delete older backups/ }).check();
   await go.click();
-  await expect(wipe).toHaveCount(0);
+  await expect(sure).toHaveCount(0);
   await expect(page.getByText('Removed safebooru.org - erasing its traces')).toBeVisible();
   expect(sent).toEqual({ wipe: true, backups: true });
 
-  // Cancel there: only the site goes (and the box starts unticked again).
-  await rowMenu(page, 'safebooru.org', 'Remove site');
-  await page.getByRole('alertdialog', { name: 'Remove safebooru.org?' }).getByRole('button', { name: 'Remove', exact: true }).click();
-  await expect(wipe.getByRole('checkbox', { name: /Also delete older backups/ })).not.toBeChecked();
-  await wipe.getByRole('button', { name: 'Cancel' }).click();
+  // Keep them: only the site goes.
+  await remove();
+  await ask.getByRole('button', { name: 'Keep them' }).click();
   await expect(page.getByText('Removed safebooru.org', { exact: true })).toBeVisible();
   expect(sent).toEqual({ wipe: false, backups: false });
+
+  // Cancel at the word: only the site goes too (and the box starts unticked again).
+  sent = null;
+  await remove();
+  await ask.getByRole('button', { name: 'Erase everything…' }).click();
+  await expect(sure.getByRole('checkbox', { name: /Also delete older backups/ })).not.toBeChecked();
+  await sure.getByRole('button', { name: 'Cancel' }).click();
+  await expect.poll(() => sent).toEqual({ wipe: false, backups: false });
+});
+
+test('settings: a plugin update shows what the newer versions changed; Version history lists them all, the installed one marked', async ({ page }) => {
+  const changelog = [
+    { version: '1.2.0', date: '2026-10-28', changes: ['Downloads up to 6 files at once.'] },
+    { version: '1.1.0', date: '2026-10-20', changes: ['An optional account.', 'Pages read at one a second.'] },
+    { version: '1.0.0', changes: ['First version.'] },
+  ];
+  let have = '1.0.0';
+  await page.route('**/api/plugins*', async (r) => {
+    const u = new URL(r.request().url());
+    if (u.pathname !== '/api/plugins') return r.fallback();
+    const { sites } = await (await page.request.get('/api/sites')).json();
+    have = sites.find((x: { id: string }) => x.id === 'safebooru')?.version || '1.0.0';
+    await r.fulfill({ json: { plugins: [{ id: 'safebooru', name: 'Safebooru', site: 'safebooru.org', version: '1.2.0', installed: true, installed_version: have, update: true, kind: 'booru', changelog }] } });
+  });
+  await page.goto('/settings/sites');
+  const card = page.locator('article.site', { has: page.getByRole('heading', { name: 'safebooru.org' }) });
+  const news = card.getByLabel("What's new");
+  await expect(news).toContainText('Downloads up to 6 files at once.');
+  await expect(news).toContainText('An optional account.');
+  await expect(news).not.toContainText('First version.'); // (the installed one's: not new)
+  await rowMenu(page, 'safebooru.org', 'Version history');
+  const history = card.getByRole('region', { name: 'Version history' });
+  await expect(history).toContainText('First version.');
+  await expect(history.locator('.ver', { hasText: 'v' + have })).toContainText('Installed');
+  await history.getByRole('button', { name: 'Close' }).click();
+  await expect(history).toHaveCount(0);
+});
+
+test('downloads: on phones the summary is one row - too many for the width, it scrolls sideways with a soft edge', async ({ page }) => {
+  test.skip(test.info().project.name !== 'iphone', 'phones');
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.route('**/api/downloads', async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    body.refresh = [{ site: 'safebooru', posts: 120, due: 37, paused: false }];
+    const base = { site: 'safebooru', max_posts: 0, site_total: 900, handled: 40, downloaded: 30, already: 2, deleted: 0, skipped: 0, blacklisted: 8, failed: 0, position: 1, created_at: Date.now() };
+    body.searches = [{ ...base, id: 99001, query: 'sum_a', state: 'running' }, { ...base, id: 99002, query: 'sum_b', state: 'queued', handled: 0 }, { ...base, id: 99003, query: 'sum_c', state: 'queued', handled: 0 }];
+    await r.fulfill({ response: res, json: body });
+  });
+  await page.route('**/api/failed*', (r) => r.fulfill({ json: { posts: [{ site: 'safebooru', post: 1, query: 'sum_a', error: 'x', url: 'https://safebooru.org/1', at: Date.now() }] } }));
+  await page.goto('/downloads');
+  const sum = page.locator('.summary');
+  await expect(sum.locator('.sum-item')).toHaveCount(4);
+  const tops = await sum.locator('.sum-item').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1); // one row
+  expect(await sum.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true); // ...wider than the screen: it scrolls
+  await expect(sum).toHaveClass(/fade-r/);
+  await sum.evaluate((el) => (el.scrollLeft = el.scrollWidth));
+  await expect(sum).toHaveClass(/fade-l/);
+  await expect(sum).not.toHaveClass(/fade-r/);
 });
 
 test("what's new after an update: the new version's changes once per server, Don't show again, the switch in Settings > Updates; a sheet on phones", async ({ page }) => {
@@ -6590,7 +6697,7 @@ test('hover zoom: while the grid still scrolls (a wheel\'s glide) no card opens;
   expect(await page.evaluate(() => (window as any).seen)).toEqual({ zoomedWhileScrolling: false, shrank: false });
 });
 
-test('hover zoom: a list change elsewhere while a card is open leaves the card alone (it grew by card/tile more, then back)', async ({ page }) => {
+test('hover zoom: files arriving while a card is open leave the card alone - they wait (it grew by card/tile more, then back)', async ({ page }) => {
   test.skip(isPhone(page), 'mouse only');
   let changed = false;
   await page.route('**/api/search?*', async (route) => {
@@ -6617,13 +6724,18 @@ test('hover zoom: a list change elsewhere while a card is open leaves the card a
     };
     requestAnimationFrame(tick);
   });
-  // A refresh of the list (the files arriving check, say) - a change away from the card.
+  // Files arriving (the check) - a change away from the card: it waits while the card is open (2026-10-28).
   changed = true;
+  let searches = 0;
+  page.on('request', (r) => {
+    if (r.url().includes('/api/search?')) searches++;
+  });
   await page.route('**/api/new?*', (route) => route.fulfill({ json: { new: 2 } }));
-  const searched = page.waitForResponse((r) => r.url().includes('/api/search?'));
+  const asked = page.waitForResponse((r) => r.url().includes('/api/new?'));
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await searched;
-  await page.waitForTimeout(600);
+  await asked;
+  await page.waitForTimeout(1500);
+  expect(searches).toBe(0); // (not taken in under the card)
   await expect(card).toHaveCount(1); // (still open: its file didn't move)
   expect(await page.evaluate(() => (window as any).widest)).toBeLessThanOrEqual(open.width + 1);
 });
@@ -6703,7 +6815,7 @@ test('hover zoom: with "Play videos on hover" off the cards still open - a video
   }
 });
 
-test('hover zoom: a card waits while the tiles slide (the first row\'s gaps closing after a scroll to the top) - it never jumps to the side, then grows', async ({ page }, info) => {
+test('hover zoom: a card waits while the tiles slide (files coming in at the top once it\'s quiet) - it never jumps to the side, then grows', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop-chromium', 'mouse; slowed down through Chromium (CDP)');
   await page.setViewportSize({ width: 1000, height: 450 }); // (it scrolls)
   const arrive = await arriveTwo(page);
@@ -6712,7 +6824,7 @@ test('hover zoom: a card waits while the tiles slide (the first row\'s gaps clos
   const grid = page.locator('#grid-scroller');
   await grid.evaluate((el) => (el.scrollTop = 400));
   await page.waitForTimeout(300);
-  await arrive(); // (scrolled down: they wait behind gaps in the first row)
+  await arrive(false); // (scrolled down: they wait until the grid is back at the top and quiet)
   await page.mouse.move(400, 250);
   await page.evaluate(() => {
     const w = window as any;
@@ -6729,9 +6841,13 @@ test('hover zoom: a card waits while the tiles slide (the first row\'s gaps clos
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Animation.enable');
   await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.25 });
-  await page.mouse.wheel(0, -500); // (to the top: the gaps close, the tiles slide along)
-  await page.waitForTimeout(40);
-  await page.mouse.move(406, 250, { steps: 2 }); // a twitch mid-slide
+  await page.mouse.wheel(0, -500); // (to the top...)
+  await page.mouse.move(2, 2); // (...the mouse away: a second later the files come in, the tiles slide along)
+  await expect
+    .poll(() => page.evaluate(() => document.getAnimations().some((a) => a.playState === 'running' && a.id !== 'card' && !(a instanceof CSSTransition) && ((a.effect as KeyframeEffect)?.target as Element)?.classList.contains('tile'))), { timeout: 5000, intervals: [20] })
+    .toBe(true);
+  await page.mouse.move(400, 250);
+  await page.mouse.move(406, 250, { steps: 2 }); // onto a tile mid-slide
   const card = page.locator('.tile.zoomed');
   await expect(card).toHaveCount(1); // (once the tiles are in place)
   // Grown around the tile now under the mouse (where it's drawn), not elsewhere.
@@ -6740,6 +6856,9 @@ test('hover zoom: a card waits while the tiles slide (the first row\'s gaps clos
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => (window as any).zoomedWhileSliding)).toBe(false);
   expect(Math.abs(cb.x + cb.width / 2 - 406)).toBeLessThan(120);
+  // (back to full speed: the slowed clock also slows the frames' timestamps, which the card's shrink measures against
+  // the page's own clock - a shrink long after the slow-down began took seconds)
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
   await page.mouse.move(2, 2);
   await expect(card).toHaveCount(0);
   await expect(page.locator('.tile.shrinking')).toHaveCount(0);
@@ -6774,15 +6893,16 @@ test('hover zoom: files arriving under a resting mouse never set a hidden copy o
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
   await expect(page.locator('.tile.zoomed video')).toHaveCount(1);
   await page.waitForTimeout(600); // (playing, muted)
-  await arrive();
-  await page.waitForTimeout(1200);
+  await arrive(false); // (they wait while the card is open - and come in once the mouse has left and the grid is still)
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(2500);
   expect(await page.evaluate(() => (window as any).copyPlayed)).toBe(false);
   // (and nothing on the page plays with sound)
   expect(await page.evaluate(() => [...document.querySelectorAll('video')].some((v) => !v.paused && !v.muted))).toBe(false);
   await page.evaluate(() => localStorage.removeItem('vitrine.gridLayout'));
 });
 
-test('hover zoom: files arriving while a card is open close it - it never slides off with the tiles or shows another file', async ({ page }) => {
+test('hover zoom: files arriving while a card is open wait - it never slides off with the tiles or shows another file', async ({ page }) => {
   test.skip(isPhone(page), 'mouse only');
   const arrive = await arriveTwo(page);
   await page.goto('/');
@@ -6794,9 +6914,16 @@ test('hover zoom: files arriving while a card is open close it - it never slides
   const card = page.locator('.tile.zoomed');
   await expect(card).toHaveCount(1);
   expect(await card.getAttribute('data-id')).toBe(id);
-  await arrive(); // at the top: every tile moves two places along
-  await expect(page.locator('.tile[data-i="0"]')).not.toHaveAttribute('data-id', String(await page.locator('.tile[data-i="2"]').getAttribute('data-id')));
+  const first = await page.locator('.tile[data-i="0"]').getAttribute('data-id');
+  await arrive(false);
+  await page.waitForTimeout(1500);
+  await expect(card).toHaveCount(1); // still open, on its file...
+  expect(await card.getAttribute('data-id')).toBe(id);
+  await expect(page.locator('.tile[data-i="0"]')).toHaveAttribute('data-id', first!); // ...nothing moved
+  // The mouse gone (and the grid still a second): they come in.
+  await page.mouse.move(2, 2);
   await expect(card).toHaveCount(0);
+  await expect(page.locator(`.tile[data-id="${id}"]`)).toHaveAttribute('data-i', '5', { timeout: 5000 });
 });
 
 // Subscriptions on the test site: its section unfolded (sites start folded). With one site its header shows only
