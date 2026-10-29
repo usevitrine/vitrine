@@ -92,6 +92,15 @@ Files, tags (one tag set, origins, namespaces), parents and siblings, delete/und
 - Search: `sort:uploaded` (aliases `posted`, `upload`, `source_time`), `_asc` for oldest first; filter
   `system:uploaded<7d` / `>=2026-01-01`. Files with no upload time use their import time there, so every file
   still has a place in the order.
+- **A download goes in with its upload time (2026-10-29)**, the user: "new downloads are added to the top of the
+  media page even if they're not newest uploaded. They eventually move to the correct position". The file went into
+  the library (and the index) before the site's post was recorded in a second step, so for that moment it had no
+  upload time - the import time, the newest - and a look for new files then put it at the top of an upload-ordered
+  grid, where it stayed until the next arrivals. Now the downloader passes the post's time (refined by the file's
+  Last-Modified, as after) and ID into the import (`Library.ImportPosted`): the row and the index have them from the
+  start. Also: a day-only time's order within the day (its post ID, read from `seen_posts`) was lost when the site's
+  post was recorded before the downloader had written that row - `SitePost.PostID` fills it in (it showed at the
+  start of its day until a restart). Test: `TestImportPosted`.
 - Web client: a sort menu in the top bar (above the search bar) - Newest/Oldest imported, Newest/Oldest uploaded. The sort is kept
   apart from the search (2026-10-14): never a chip; in the URL as its own `?sort=` (only when it differs
   from the default); a `sort:` typed into the search moves into the menu. Default sort is a setting (Settings > Library; Newest uploaded unless picked - since 2026-10-23, the user; was Newest imported -

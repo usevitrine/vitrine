@@ -232,3 +232,52 @@ func BenchmarkSetSitePost(b *testing.B) {
 		}
 	}
 }
+
+// A download goes in with its upload time (and, for a day-only time, its post's order within the day): sorted by
+// upload time it's in its place at once - never, not for a moment, the newest by its import time - and the site's
+// post recorded after it keeps the place (its post ID too, before the downloader has recorded the post).
+func TestImportPosted(t *testing.T) {
+	l := newTest(t)
+	ctx := context.Background()
+	site, err := l.Site(ctx, "site")
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := int64(1_600_000_000_000) // (2020: long before the import)
+	f, err := l.ImportPosted(ctx, bytes.NewReader(fakePNG(1)), true, old, 0, nil)
+	if err != nil || !f.New {
+		t.Fatalf("import: %+v %v", f, err)
+	}
+	if got := l.ix.Times([]uint32{f.ID}, true)[0]; got != old {
+		t.Fatalf("upload time in the index right after the import: %d, want %d", got, old)
+	}
+	var posted int64
+	if err := l.db.R.QueryRow("SELECT posted_at FROM files WHERE id = ?", f.ID).Scan(&posted); err != nil || posted != old {
+		t.Fatalf("posted_at: %d %v", posted, err)
+	}
+	// A day only, ordered within the day by its post: kept when the site's post is recorded.
+	day := int64(1_600_041_600_000) // (midnight UTC)
+	g, err := l.ImportPosted(ctx, bytes.NewReader(fakePNG(2)), true, day, 4242, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := l.ix.Times([]uint32{g.ID}, true)[0]; got != day+4242 {
+		t.Fatalf("day-only upload time in the index: %d, want %d", got, day+4242)
+	}
+	if err := l.SetSitePost(ctx, g.ID, site, SitePost{Tags: []string{"blue_sky"}, PostedAt: day, PostID: 4242}); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.ix.Times([]uint32{g.ID}, true)[0]; got != day+4242 {
+		t.Fatalf("after the site's post: %d, want %d", got, day+4242)
+	}
+	// Unknown (0): as before - the import time until a time comes.
+	h, err := l.ImportPosted(ctx, bytes.NewReader(fakePNG(3)), true, 0, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var postedNull bool
+	l.db.R.QueryRow("SELECT posted_at IS NULL FROM files WHERE id = ?", h.ID).Scan(&postedNull)
+	if !postedNull {
+		t.Fatal("an unknown upload time was stored")
+	}
+}

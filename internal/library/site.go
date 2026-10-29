@@ -44,6 +44,9 @@ func (l *Library) FindMD5(ctx context.Context, md5 [16]byte) (MD5Match, error) {
 	return m, nil
 }
 
+// dayMS is a day in ms: an upload time that's a multiple of it is a day only (midnight UTC; index.postedKey).
+const dayMS = 24 * 60 * 60 * 1000
+
 // SitePost is what a site says about a file.
 type SitePost struct {
 	Tags []string // verbatim site tags
@@ -56,6 +59,9 @@ type SitePost struct {
 	Rating     media.Rating
 	// PostedAt is when the post went up on the site (Unix ms; 0 = unknown).
 	PostedAt int64
+	// PostID: its post on the site - a day-only PostedAt's order within that day until the downloader has recorded the
+	// post (read back here before that, it was 0: the file sat at the start of its day until a restart).
+	PostID int64
 }
 
 // SetSitePost records a site's post for a file: its tags (replacing that
@@ -130,6 +136,9 @@ func (l *Library) SetSitePost(ctx context.Context, file, site uint32, p SitePost
 		f, _, deleted, err := readFile(ctx, tx, file)
 		if err != nil {
 			return nil, err
+		}
+		if f.PostID == 0 && f.PostedAt != 0 && f.PostedAt%dayMS == 0 {
+			f.PostID = p.PostID
 		}
 		return func() error {
 			l.ix.AddFileSite(file, site)

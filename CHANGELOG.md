@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Updates).
 
+## Unreleased
+
+### Fixed
+
+- **New downloads no longer show at the top of the library for a moment** in upload order: each file comes in already in its place by upload time.
+
 ## 1.0.7 - 2026-10-29
 
 ### New

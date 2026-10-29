@@ -1127,6 +1127,7 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 		if !fp.Posted.IsZero() {
 			sp.PostedAt = fp.Posted.UnixMilli()
 		}
+		sp.PostID = fp.ID
 		return sp
 	}
 
@@ -1212,7 +1213,7 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 		if i == 0 {
 			md5 = fp.MD5 // (the site's md5 is the post's file's, not an alternative's)
 		}
-		f, modified, err = d.fetchFile(ctx, st, st.Client.Manifest().FileFetchURL(u, fp.ID), md5, limit, bulk) // (as the site links it: see FileQuery)
+		f, modified, err = d.fetchFile(ctx, st, st.Client.Manifest().FileFetchURL(u, fp.ID), md5, limit, bulk, fp.Posted, fp.ID) // (as the site links it: see FileQuery)
 		if err != nil && ctx.Err() != nil {
 			return Failed, 0, ctx.Err() // (stopped mid-file: fetched again on resume)
 		}
@@ -1254,7 +1255,9 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 // With the md5 the site gave for it (zero: none), the file is kept only if it matches: one that doesn't came out
 // wrong and is downloaded again. If the site then sends the very same file again, its md5 is just wrong for it (a
 // site that lists another version's md5): it's kept - an error would fail the post for good.
-func (d *Downloader) fetchFile(ctx context.Context, st *Site, u string, md5 [16]byte, maxBytes int64, bulk bool) (library.File, time.Time, error) {
+// posted, postID: the post's upload time (zero: unknown) and ID - the file goes into the library with them (refined by
+// its Last-Modified as handle does after), never sorted for a moment as the newest upload by its import time.
+func (d *Downloader) fetchFile(ctx context.Context, st *Site, u string, md5 [16]byte, maxBytes int64, bulk bool, posted time.Time, postID int64) (library.File, time.Time, error) {
 	var want [][16]byte // the md5s the file may have
 	if md5 != ([16]byte{}) {
 		want = [][16]byte{md5}
@@ -1279,7 +1282,11 @@ func (d *Downloader) fetchFile(ctx context.Context, st *Site, u string, md5 [16]
 			// copies; a site without Range requests) it's downloaded again, as before.
 			whole, _ := body.(interface{ InOnePiece() bool })
 			body = d.countBody(ctx, body, size)
-			f, err = d.lib.ImportVerified(ctx, body, bulk, func(got [16]byte, content io.ReaderAt, n int64) bool {
+			var at int64
+			if p := refinePosted(posted, modified); !p.IsZero() {
+				at = p.UnixMilli()
+			}
+			f, err = d.lib.ImportPosted(ctx, body, bulk, at, postID, func(got [16]byte, content io.ReaderAt, n int64) bool {
 				if len(want) == 0 || slices.Contains(want, got) {
 					return true
 				}

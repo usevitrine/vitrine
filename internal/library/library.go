@@ -128,6 +128,15 @@ func (l *Library) ImportChecked(ctx context.Context, r io.Reader, bulk bool, wan
 // once it's all read.
 // A refusal adds nothing and returns a *store.MD5MismatchError.
 func (l *Library) ImportVerified(ctx context.Context, r io.Reader, bulk bool, ok func(md5 [16]byte, content io.ReaderAt, size int64) bool) (File, error) {
+	return l.ImportPosted(ctx, r, bulk, 0, 0, ok)
+}
+
+// ImportPosted is ImportVerified for a download whose upload time is known (posted, Unix ms; 0 = unknown): a new file
+// goes in with it - and with its post (postID: a day-only time's order within that day) - so it's never sorted, not
+// for a moment, by its import time: until the site's post was recorded after it, a new download sat at the top of a
+// library in upload order, and stayed there in the grid's list until the next arrivals (2026-10-29, the user: "new
+// downloads are added to the top of the media page even if they're not newest uploaded").
+func (l *Library) ImportPosted(ctx context.Context, r io.Reader, bulk bool, posted, postID int64, ok func(md5 [16]byte, content io.ReaderAt, size int64) bool) (File, error) {
 	res, err := l.store.PutVerified(r, ok)
 	if err != nil {
 		return File{}, err
@@ -136,7 +145,7 @@ func (l *Library) ImportVerified(ctx context.Context, r io.Reader, bulk bool, ok
 
 	l.mu.Lock()
 	var now int64
-	f.ID, f.New, now, err = l.addRow(ctx, res, bulk)
+	f.ID, f.New, now, err = l.addRow(ctx, res, bulk, posted)
 	if errors.Is(err, ErrDeleted) && !res.Existed {
 		// Don't keep a copy of a deleted file we just wrote.
 		if rmErr := l.store.Remove(res.SHA256, res.Type); rmErr != nil {
@@ -144,7 +153,11 @@ func (l *Library) ImportVerified(ctx context.Context, r io.Reader, bulk bool, ok
 		}
 	}
 	if err == nil && f.New {
-		err = l.ix.AddFile(index.File{ID: f.ID, Size: f.Size, Type: f.Type, ImportedAt: now, ModifiedAt: now, Bulk: bulk}, nil)
+		in := index.File{ID: f.ID, Size: f.Size, Type: f.Type, ImportedAt: now, ModifiedAt: now, Bulk: bulk, PostedAt: posted}
+		if posted > 0 && posted%dayMS == 0 {
+			in.PostID = postID // (a day only: its post orders it within the day - as readFile does once the post is recorded)
+		}
+		err = l.ix.AddFile(in, nil)
 	}
 	l.mu.Unlock()
 	if err == nil && !f.New && l.isComicOnly(ctx, f.ID) {
@@ -165,7 +178,7 @@ func (l *Library) ImportFile(ctx context.Context, path string) (File, error) {
 
 // addRow records a stored file. The tombstone check runs inside the write
 // transaction, so it can't race a delete.
-func (l *Library) addRow(ctx context.Context, res store.Result, bulk bool) (id uint32, isNew bool, now int64, err error) {
+func (l *Library) addRow(ctx context.Context, res store.Result, bulk bool, posted int64) (id uint32, isNew bool, now int64, err error) {
 	tx, err := l.db.W.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, false, 0, fmt.Errorf("library: %w", err)
@@ -183,11 +196,11 @@ func (l *Library) addRow(ctx context.Context, res store.Result, bulk bool) (id u
 
 	now = l.now().UnixMilli()
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO files (sha256, md5, size, type, imported_at, modified_at, bulk)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO files (sha256, md5, size, type, imported_at, modified_at, bulk, posted_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, nullif(?, 0))
 		ON CONFLICT (sha256) DO NOTHING
 		RETURNING id`,
-		res.SHA256[:], res.MD5[:], res.Size, int(res.Type), now, now, bulk).Scan(&id)
+		res.SHA256[:], res.MD5[:], res.Size, int(res.Type), now, now, bulk, posted).Scan(&id)
 	switch {
 	case err == nil:
 		isNew = true
