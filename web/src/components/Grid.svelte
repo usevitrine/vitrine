@@ -706,9 +706,10 @@
   // A thumbnail comes in once it's decoded: faded in over a picture still decoding, it popped at the end of the fade
   // (WebKit: one in seven). The ones decoded in the same moment fade in together (one frame, one style pass); one seen
   // before shows at once (`now`: a tile made again on the way back up faded in from its preview a second time).
-  const fading = new Set<HTMLImageElement>();
+  const fading = new Set<Element>();
   let fadeFrame = 0;
-  function thumbIn(img: HTMLImageElement, u: string) {
+  function thumbIn(node: Element, u: string) {
+    const img = node as HTMLImageElement;
     if (seenThumbs.has(u)) {
       img.classList.add('in', 'now');
       return;
