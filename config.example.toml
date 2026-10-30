@@ -33,6 +33,13 @@
 # ffprobe = "/usr/bin/ffprobe"
 # vipsthumbnail = "/usr/bin/vipsthumbnail"
 
+# Graphics hardware for decoding videos (preview frames, video thumbnails): far less work for the processor. "auto"
+# (the default) uses the first that works - VA-API on Intel and AMD, CUDA on Nvidia, D3D11 on Windows, VideoToolbox
+# on a Mac - and the processor for anything it can't do. "off": the processor only. Or name one: "vaapi",
+# "vaapi:/dev/dri/renderD129" (a second GPU), "cuda", "d3d11va", "videotoolbox". In Docker the GPU must be passed in
+# (compose.example.yaml). Settings > Stats shows which one is in use.
+# hwaccel = "auto"
+
 # Phones view huge images as resized copies (a 100+ megapixel original can
 # crash Safari). They're cached in <data_dir>/renditions, regenerable; this
 # caps the cache, oldest first.

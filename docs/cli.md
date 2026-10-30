@@ -98,7 +98,19 @@ vitrine logs -f                     # keep printing new records (Ctrl+C stops)
 ```
 
 The server keeps its recent log across restarts (in the data folder). Unlike the problem report (Settings > Stats),
-site names aren't hidden here.
+site names aren't hidden here. While it's busy, a "load" line every 5 minutes says what the processor went on:
+Vitrine's own code, and ffmpeg / ffprobe / libvips by job (and how much of it the GPU did).
+
+### profile - what Vitrine's own code spends its time on
+
+```sh
+vitrine profile                          # 30 seconds of CPU profile into vitrine-cpu.pprof
+vitrine profile -seconds 60 -o /data/cpu.pprof
+vitrine profile -kind heap -o heap.pprof   # memory in use instead (or -kind goroutine)
+```
+
+Go's profiles, through the local socket only (never the network port). Read them on any computer with Go:
+`go tool pprof -top vitrine-cpu.pprof`. In Docker, write it under /data to copy it out.
 
 ### api - any API call
 

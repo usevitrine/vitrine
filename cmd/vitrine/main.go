@@ -47,6 +47,7 @@ With Vitrine running (they talk to it through its local socket, no login):
   failed       Posts whose file failed: list, retry, dismiss
   notices      The bell's notices: list, read, clear
   logs         Its recent log (-f follows, -level warn)
+  profile      Record what its own code spends processor time on (for go tool pprof)
   api          Call any API endpoint, e.g. vitrine api /api/stats
 
 The library (through the running Vitrine if there is one, else on its files):
@@ -105,6 +106,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return cmdNotices(ctx, args, stdout, stderr)
 	case "logs":
 		return cmdLogs(ctx, args, stdout, stderr)
+	case "profile":
+		return cmdProfile(ctx, args, stdout, stderr)
 	case "api":
 		return cmdAPI(ctx, args, stdout, stderr)
 	case "download":
@@ -181,6 +184,16 @@ func cmdConfig(args []string, stdout, stderr io.Writer) error {
 			t.path = "(not found)"
 		}
 		fmt.Fprintf(stdout, "%-13s = %q\n", t.name, t.path)
+	}
+	// (the GPU, tried here as the server would)
+	tools.UseHW(c.HWAccel)
+	name, tried := tools.HW.Detect(context.Background())
+	if name == "" {
+		name = "(none: the processor)"
+	}
+	fmt.Fprintf(stdout, "%-13s = %q\n", "hwaccel", name)
+	for _, t := range tried {
+		fmt.Fprintf(stdout, "                %s\n", t)
 	}
 	return nil
 }

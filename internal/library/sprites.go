@@ -67,28 +67,29 @@ func (l *Library) RequeueOldSprites(ctx context.Context) (int, error) {
 	return n, tx.Commit()
 }
 
-// MakeSprite makes a video's preview frames. A failure is remembered, so the
+// MakeSprite makes a video's preview frames; what it took comes back (for the log). A failure is remembered, so the
 // file isn't tried again on every pass.
-func (l *Library) MakeSprite(ctx context.Context, id uint32) error {
+func (l *Library) MakeSprite(ctx context.Context, id uint32) (media.Run, error) {
 	if l.thumbs == nil || l.tools.Check() != nil {
-		return ErrNoMediaTools
+		return media.Run{}, ErrNoMediaTools
 	}
 	var sha []byte
 	var typ uint8
 	var w, h int
 	var dur int64
-	err := l.db.R.QueryRowContext(ctx, "SELECT sha256, type, width, height, duration_ms FROM files WHERE id = ?", id).
-		Scan(&sha, &typ, &w, &h, &dur)
+	var codec string
+	err := l.db.R.QueryRowContext(ctx, "SELECT sha256, type, width, height, duration_ms, coalesce(codec, '') FROM files WHERE id = ?", id).
+		Scan(&sha, &typ, &w, &h, &dur, &codec)
 	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("library: file %d: %w", id, ErrNoFile)
+		return media.Run{}, fmt.Errorf("library: file %d: %w", id, ErrNoFile)
 	}
 	if err != nil {
-		return fmt.Errorf("library: %w", err)
+		return media.Run{}, fmt.Errorf("library: %w", err)
 	}
 	var hash store.Hash
 	copy(hash[:], sha)
 	path := l.store.Path(hash, media.Type(typ))
-	sp, err := l.tools.MakeSprite(ctx, path, media.Info{Width: w, Height: h, DurationMS: dur})
+	sp, err := l.tools.MakeSprite(ctx, path, media.Info{Width: w, Height: h, DurationMS: dur, Codec: codec})
 	flag := FlagSprite
 	if err == nil {
 		err = l.thumbs.PutSprite(ctx, id, thumbs.Sprite{Version: media.SpriteVersion, Frames: sp.Frames, Cols: sp.Cols,
@@ -96,7 +97,7 @@ func (l *Library) MakeSprite(ctx context.Context, id uint32) error {
 	}
 	if err != nil {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return sp.Took, ctx.Err()
 		}
 		flag = FlagSpriteErr
 	}
@@ -104,9 +105,9 @@ func (l *Library) MakeSprite(ctx context.Context, id uint32) error {
 	_, ferr := l.db.W.ExecContext(ctx, "UPDATE files SET flags = flags | ? WHERE id = ?", flag, id)
 	l.mu.Unlock()
 	if err != nil {
-		return fmt.Errorf("file %d (%s): preview frames: %w", id, path, err)
+		return sp.Took, fmt.Errorf("file %d (%s): preview frames: %w", id, path, err)
 	}
-	return ferr
+	return sp.Took, ferr
 }
 
 // Sprite returns a video's preview frames (withData = false: only the layout).

@@ -25,15 +25,22 @@ RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "-s -w -X main.ver
     -o /out/vitrine ./cmd/vitrine
 
 FROM debian:trixie-slim
+# The GPU drivers for decoding videos (media.HWAccel; used when a GPU is passed in - compose.example.yaml): AMD's
+# (mesa) everywhere, Intel's on x86 (iHD for 2014 and later, i965 before). Nvidia's comes from the host's driver
+# through the NVIDIA Container Toolkit (the NVIDIA_ variables say what to bring: video = its decoder).
+ARG TARGETARCH
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg libvips-tools ca-certificates tzdata \
+    && apt-get install -y --no-install-recommends ffmpeg libvips-tools ca-certificates tzdata mesa-va-drivers \
+    && if [ "$TARGETARCH" = "amd64" ]; then apt-get install -y --no-install-recommends intel-media-va-driver i965-va-driver; fi \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /out/vitrine /usr/local/bin/vitrine
 # Everything lives under /data (databases, thumbnails, secrets.toml, plugins/,
 # and the originals in /data/files unless VITRINE_FILES_DIR points elsewhere).
 ENV VITRINE_DATA_DIR=/data \
     VITRINE_LISTEN=:8080 \
-    HOME=/data
+    HOME=/data \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
 RUN mkdir /data && chown 1000:1000 /data
 USER 1000:1000
 VOLUME /data

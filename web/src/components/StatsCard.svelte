@@ -231,6 +231,7 @@
       <div><dt>{t('stats.system')}</dt><dd>{st.server.os}<small>&nbsp;· {t('stats.cpus', { n: st.server.cpus })}{st.server.in_docker ? ' · Docker' : ''}</small></dd></div>
       <div><dt>ffmpeg</dt><dd class:bad={!st.server.ffmpeg}>{st.server.ffmpeg || t('stats.notFound')}</dd></div>
       <div><dt>libvips</dt><dd>{st.server.vips || t('stats.notFound')}{#if !st.server.vips}<small>&nbsp;· {t('stats.imagesUseFfmpeg')}</small>{/if}</dd></div>
+      <div><dt>{t('stats.hwaccel')}</dt><dd>{st.server.hwaccel || t('stats.hwaccelNone')}{#if !st.server.hwaccel}<small>&nbsp;· {t('stats.hwaccelNoneHint')}</small>{/if}</dd></div>
       <div><dt>Go</dt><dd>{st.server.go.replace(/^go/, '')}</dd></div>
     </dl>
     <p class="hint">{t('stats.took', { ms: st.took_ms < 1 ? '<1' : num(Math.round(st.took_ms)) })}</p>

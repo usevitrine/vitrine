@@ -1670,6 +1670,9 @@
     },
     "notFound": "Not found",
     "imagesUseFfmpeg": "images use ffmpeg",
+    "hwaccel": "Video decoding",
+    "hwaccelNone": "The processor",
+    "hwaccelNoneHint": "no graphics hardware found (hwaccel in the config)",
     "took": "Counted in {ms} ms."
   },
   "depth": {

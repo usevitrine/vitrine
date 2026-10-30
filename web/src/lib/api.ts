@@ -677,6 +677,7 @@ export interface LibraryStats {
     heap: number;
     ffmpeg: string;
     vips: string;
+    hwaccel?: string; // the GPU that decodes videos ("" / none: the processor)
     in_docker: boolean;
   };
 }

@@ -43,10 +43,9 @@ func openApp(ctx context.Context, c config.Config) (*library.Library, *db.DB, fu
 		return nil, nil, nil, err
 	}
 	closeAll := func() { errors.Join(th.Close(), d.Close()) }
-	lib, err := library.Open(ctx, library.Deps{
-		DB: d, Store: s, Thumbs: th,
-		Tools: media.FindTools(c.FFmpeg, c.FFprobe, c.VipsThumbnail),
-	})
+	tools := media.FindTools(c.FFmpeg, c.FFprobe, c.VipsThumbnail)
+	tools.UseHW(c.HWAccel) // (the GPU is looked for when a video first needs it - serve: at start-up)
+	lib, err := library.Open(ctx, library.Deps{DB: d, Store: s, Thumbs: th, Tools: tools})
 	if err != nil {
 		closeAll()
 		return nil, nil, nil, err

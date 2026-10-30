@@ -8,6 +8,8 @@ shows this too (Settings > Updates).
 ### New
 
 - **A bell on tags your subscriptions follow**: in the details, the search bar, the suggestions and the tag list, a filled bell means a subscription is that tag, an outline that the tag is part of one (dimmed when paused). A tag's menu says it's subscribed and on which sites, with a button to open it, and offers **Subscribe…** for tags that aren't yet.
+- **Videos are decoded by your graphics card**: Intel and AMD (VA-API), Nvidia (CUDA), any card on Windows (Direct3D 11) and Macs (VideoToolbox). Vitrine finds it by itself; preview frames and video thumbnails then take a fraction of the processor time, so big imports weigh far less on the server. In Docker, pass the GPU in (see `compose.example.yaml`); Settings > Stats shows which one is used. `hwaccel = "off"` in the config turns it off.
+- **`vitrine profile`, and a "load" line in the log**: every few minutes while busy, the log says what the processor went on (Vitrine itself, and ffmpeg and libvips by job); `vitrine profile` records what Vitrine's own code spends its time on.
 
 ### Improved
 

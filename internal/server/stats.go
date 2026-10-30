@@ -60,6 +60,7 @@ type serverStat struct {
 	Heap     uint64 `json:"heap"`      // in use
 	FFmpeg   string `json:"ffmpeg"`    // version, "" = not found
 	Vips     string `json:"vips"`      // version, "" = not found (images use ffmpeg)
+	HWAccel  string `json:"hwaccel"`   // the GPU that decodes videos ("VA-API (/dev/dri/renderD128)"), "" = the processor
 	InDocker bool   `json:"in_docker"` // running in a container
 }
 
@@ -173,6 +174,7 @@ func (s *Server) serverInfo(ctx context.Context) serverStat {
 		Heap:     m.HeapAlloc,
 		FFmpeg:   ffmpeg,
 		Vips:     vips,
+		HWAccel:  t.HW.Name(),
 		InDocker: err == nil,
 	}
 }

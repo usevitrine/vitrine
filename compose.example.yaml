@@ -20,6 +20,15 @@ services:
     restart: unless-stopped
     # Optional: send downloads through a VPN container instead, e.g. gluetun:
     #   network_mode: "service:gluetun"   (and publish 8080 on the gluetun service)
+    # Optional, recommended: the GPU decodes videos (preview frames, video thumbnails) - far less work for the
+    # processor on a big library. Vitrine finds it by itself; Settings > Stats says which one it uses.
+    # Intel or AMD (VA-API): the render node, and the group that owns it on the host (getent group render):
+    #   devices:
+    #     - /dev/dri/renderD128:/dev/dri/renderD128
+    #   group_add:
+    #     - "992"
+    # Nvidia (needs the NVIDIA Container Toolkit on the host):
+    #   gpus: all
 
   # Optional: FlareSolverr, for sites that show Cloudflare's "Checking your browser" page. In Vitrine set
   # Settings > Sites > Cloudflare to http://flaresolverr:8191 (Test says whether it answers). It needs no port

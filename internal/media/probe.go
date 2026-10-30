@@ -1,7 +1,6 @@
 package media
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,8 +8,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-
-	"github.com/usevitrine/vitrine/internal/proc"
 )
 
 // Info is what probing a file finds out.
@@ -30,7 +27,8 @@ func (i Info) Animated() bool { return i.Frames > 1 || i.DurationMS > 0 }
 type Tools struct {
 	FFmpeg        string
 	FFprobe       string
-	VipsThumbnail string // optional: images fall back to ffmpeg
+	VipsThumbnail string   // optional: images fall back to ffmpeg
+	HW            *HWAccel // graphics hardware that decodes videos (DetectHW); nil: the processor
 }
 
 // FindTools looks up the programs on PATH, preferring configured paths.
@@ -96,12 +94,9 @@ func (t Tools) Probe(ctx context.Context, path string, typ Type) (Info, error) {
 		args = append(args, "-count_packets")
 	}
 	args = append(args, "--", path)
-	cmd := proc.Hide(exec.CommandContext(ctx, t.FFprobe, args...))
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
+	out, stderr, _, err := run(ctx, "probe", false, t.FFprobe, args...)
 	if err != nil {
-		return Info{}, fmt.Errorf("ffprobe: %w: %s", err, firstLine(stderr.String()))
+		return Info{}, fmt.Errorf("ffprobe: %w: %s", err, firstLine(stderr))
 	}
 	return parseProbe(out, typ)
 }

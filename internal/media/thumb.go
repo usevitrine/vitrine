@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"image"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 
-	"github.com/usevitrine/vitrine/internal/proc"
 	"golang.org/x/image/webp"
 )
 
@@ -49,9 +47,10 @@ func (t Tools) Thumbnail(ctx context.Context, path string, typ Type, info Info) 
 	if typ.IsVideo() && info.DurationMS > 0 {
 		seek = float64(info.DurationMS) / 1000 / 10
 	}
-	out, err := t.ffmpegThumb(ctx, path, seek, tw, th, ThumbQuality)
+	gpu := typ.IsVideo() && t.HW.use(info.Codec)
+	out, err := t.ffmpegThumb(ctx, path, seek, tw, th, ThumbQuality, gpu, info.Codec)
 	if (err != nil || len(out) == 0) && seek > 0 {
-		out, err = t.ffmpegThumb(ctx, path, 0, tw, th, ThumbQuality) // some files can't seek
+		out, err = t.ffmpegThumb(ctx, path, 0, tw, th, ThumbQuality, gpu, info.Codec) // some files can't seek
 	}
 	if err == nil && len(out) == 0 {
 		err = fmt.Errorf("ffmpeg made no thumbnail")
@@ -59,21 +58,30 @@ func (t Tools) Thumbnail(ctx context.Context, path string, typ Type, info Info) 
 	return out, err
 }
 
-func (t Tools) ffmpegThumb(ctx context.Context, path string, seek float64, tw, th, quality int) ([]byte, error) {
+// ffmpegThumb makes one frame's thumbnail; on the GPU when asked, and again on the processor if that fails.
+func (t Tools) ffmpegThumb(ctx context.Context, path string, seek float64, tw, th, quality int, gpu bool, codec string) ([]byte, error) {
 	args := []string{"-v", "error", "-hide_banner", "-nostdin"}
 	if seek > 0 {
 		args = append(args, "-ss", strconv.FormatFloat(seek, 'f', 3, 64))
 	}
-	args = append(args, "-i", path, "-frames:v", "1", "-an", "-sn",
-		"-vf", fmt.Sprintf("scale=%d:%d:flags=lanczos", tw, th),
-		"-c:v", "libwebp", "-quality", strconv.Itoa(quality),
-		"-f", "image2pipe", "pipe:1")
-	cmd := proc.Hide(exec.CommandContext(ctx, t.FFmpeg, args...))
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
+	vf := fmt.Sprintf("scale=%d:%d:flags=lanczos", tw, th)
+	if gpu {
+		args = append(args, t.HW.input()...)
+		vf = t.HW.scale(tw, th, "lanczos")
+	}
+	args = append(args, "-i", path, "-frames:v", "1", "-an", "-sn", "-vf", vf,
+		"-c:v", "libwebp", "-quality", strconv.Itoa(quality), "-f", "image2pipe", "pipe:1")
+	out, stderr, _, err := run(ctx, "thumbnail", gpu, t.FFmpeg, args...)
+	if gpu && ctx.Err() == nil {
+		if msg := t.HW.done(codec, err == nil && len(out) > 0); msg != "" {
+			hwLog(msg)
+		}
+		if err != nil || len(out) == 0 {
+			return t.ffmpegThumb(ctx, path, seek, tw, th, quality, false, codec)
+		}
+	}
 	if err != nil {
-		return nil, fmt.Errorf("ffmpeg: %w: %s", err, firstLine(stderr.String()))
+		return nil, fmt.Errorf("ffmpeg: %w: %s", err, firstLine(stderr))
 	}
 	return out, nil
 }
@@ -85,13 +93,11 @@ func (t Tools) vipsThumb(ctx context.Context, path string, tw, th, quality int) 
 	}
 	defer os.RemoveAll(dir)
 	out := filepath.Join(dir, "t.webp")
-	cmd := proc.Hide(exec.CommandContext(ctx, t.VipsThumbnail, path,
+	_, stderr, _, err := run(ctx, "image thumbnail", false, t.VipsThumbnail, path,
 		"--size", fmt.Sprintf("%dx%d", tw, th),
-		"-o", out+fmt.Sprintf("[Q=%d,strip]", quality)))
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("vipsthumbnail: %w: %s", err, firstLine(stderr.String()))
+		"-o", out+fmt.Sprintf("[Q=%d,strip]", quality))
+	if err != nil {
+		return nil, fmt.Errorf("vipsthumbnail: %w: %s", err, firstLine(stderr))
 	}
 	return os.ReadFile(out)
 }
@@ -138,5 +144,5 @@ func (t Tools) Rendition(ctx context.Context, path string, w, h, maxSide int) ([
 	if t.VipsThumbnail != "" {
 		return t.vipsThumb(ctx, path, tw, th, RenditionQuality)
 	}
-	return t.ffmpegThumb(ctx, path, 0, tw, th, RenditionQuality)
+	return t.ffmpegThumb(ctx, path, 0, tw, th, RenditionQuality, false, "")
 }

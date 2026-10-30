@@ -34,6 +34,11 @@ type Config struct {
 	FFmpeg        string `toml:"ffmpeg"`
 	FFprobe       string `toml:"ffprobe"`
 	VipsThumbnail string `toml:"vipsthumbnail"`
+	// HWAccel is the graphics hardware ffmpeg decodes videos with (preview frames, video thumbnails): "auto" (the
+	// default: the first that works - VA-API on Intel and AMD, CUDA on Nvidia, D3D11 on Windows, VideoToolbox on a
+	// Mac), "off" (the processor only), or one of them: "vaapi", "vaapi:/dev/dri/renderD129", "cuda", "d3d11va",
+	// "videotoolbox".
+	HWAccel string `toml:"hwaccel"`
 	// RenditionsMaxGB caps the cache of resized copies of huge images (in
 	// DataDir/renditions; regenerable).
 	RenditionsMaxGB float64 `toml:"renditions_max_gb"`
@@ -73,6 +78,7 @@ func (c *Config) envKeys() map[string]*string {
 		"VITRINE_FFMPEG":           &c.FFmpeg,
 		"VITRINE_FFPROBE":          &c.FFprobe,
 		"VITRINE_VIPSTHUMBNAIL":    &c.VipsThumbnail,
+		"VITRINE_HWACCEL":          &c.HWAccel,
 		"VITRINE_PLUGIN_INDEX":     &c.PluginIndex,
 		"VITRINE_BACKUP_DIR":       &c.BackupDir,
 		"VITRINE_LANGUAGE":         &c.Language,

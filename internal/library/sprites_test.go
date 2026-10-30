@@ -37,8 +37,8 @@ func TestSprites(t *testing.T) {
 	if p, _ := l.PendingSprites(ctx, 10); !slices.Equal(p, []uint32{f.ID}) {
 		t.Fatalf("pending: %v (images never have frames)", p)
 	}
-	if err := l.MakeSprite(ctx, f.ID); err != nil {
-		t.Fatal(err)
+	if took, err := l.MakeSprite(ctx, f.ID); err != nil || took.Wall <= 0 {
+		t.Fatal(took, err)
 	}
 	sp, err := l.Sprite(ctx, f.ID, true)
 	if err != nil || sp.Frames != 9 || sp.TileW != 320 || sp.TileH != 180 || sp.IntervalMS != 1000 || len(sp.Data) == 0 {
@@ -60,7 +60,7 @@ func TestSprites(t *testing.T) {
 	if p, _ := l.PendingSprites(ctx, 10); !slices.Equal(p, []uint32{f.ID}) {
 		t.Fatalf("pending after requeue: %v", p)
 	}
-	if err := l.MakeSprite(ctx, f.ID); err != nil {
+	if _, err := l.MakeSprite(ctx, f.ID); err != nil {
 		t.Fatal(err)
 	}
 	if n, _ := l.RequeueOldSprites(ctx); n != 0 {

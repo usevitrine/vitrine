@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -26,6 +27,7 @@ import (
 	"github.com/usevitrine/vitrine/internal/i18n"
 	"github.com/usevitrine/vitrine/internal/library"
 	"github.com/usevitrine/vitrine/internal/logring"
+	"github.com/usevitrine/vitrine/internal/media"
 	"github.com/usevitrine/vitrine/internal/push"
 	"github.com/usevitrine/vitrine/internal/renditions"
 	"github.com/usevitrine/vitrine/internal/server"
@@ -82,6 +84,16 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	defer closeLib()
 	st := lib.Index().Stats()
 	log.Info("library loaded", "files", st.Files, "tags", st.Tags, "took", time.Since(start).Round(time.Millisecond))
+
+	// The GPU that decodes videos (media.HWAccel): looked for now, so the log says which one.
+	media.HWLog = func(msg string) { log.Warn(msg) }
+	if name, tried := lib.Tools().HW.Detect(ctx); name != "" {
+		log.Info("videos decoded by the graphics hardware", "with", name)
+		log.Debug("graphics hardware tried", "found", strings.Join(tried, "; "))
+	} else if c.HWAccel != "off" {
+		log.Info("videos decoded by the processor (no graphics hardware found - hwaccel in the config)", "tried", strings.Join(tried, "; "))
+	}
+	go logLoad(ctx, log)
 
 	a := auth.New(d)
 	ln, err := net.Listen("tcp", c.Listen)
@@ -298,7 +310,7 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 				log.Error("preview frames", "err", err)
 			}
 			for _, id := range ids {
-				err := lib.MakeSprite(ctx, id)
+				took, err := lib.MakeSprite(ctx, id)
 				switch {
 				case errors.Is(err, library.ErrNoMediaTools) || ctx.Err() != nil:
 					return
@@ -307,6 +319,8 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 					log.Warn("preview frames failed", "err", err)
 				default:
 					made++
+					log.Debug("preview frames made", "file", id, "took", took.Wall.Round(time.Millisecond),
+						"cpu", took.CPU.Round(time.Millisecond), "gpu", took.GPU)
 				}
 				if (made+failed)%200 == 0 {
 					log.Info("making preview frames", "made", made, "failed", failed)
@@ -332,7 +346,13 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	if lln, err := listenLocal(c.Socket); err != nil {
 		log.Warn("local socket off (the vitrine command can't reach this server)", "socket", c.Socket, "err", err)
 	} else if lln != nil {
-		localSrv = &http.Server{Handler: handler.Local(), ReadHeaderTimeout: 10 * time.Second, BaseContext: srv.BaseContext,
+		// Go's profiles (vitrine profile) on the local socket only - never on the network port.
+		local := http.NewServeMux()
+		local.Handle("/", handler.Local())
+		local.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		local.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+		local.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+		localSrv = &http.Server{Handler: local, ReadHeaderTimeout: 10 * time.Second, BaseContext: srv.BaseContext,
 			ErrorLog: srv.ErrorLog, IdleTimeout: 2 * time.Minute}
 		go localSrv.Serve(lln)
 		log.Info("local socket", "path", c.Socket)
