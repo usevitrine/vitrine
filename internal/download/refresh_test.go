@@ -97,6 +97,35 @@ func TestTagRefresh(t *testing.T) {
 	}
 }
 
+// The counts are worked out at most every statusEvery (the Downloads page asks on every change), but "Refresh now"
+// shows at once, and so does a site's pause.
+func TestRefreshStatusShared(t *testing.T) {
+	e := newEnv(t, 5)
+	ctx := context.Background()
+	e.clock()
+	e.dl.Add(ctx, "fake", "common", 0)
+	e.dl.RunQueue(ctx, "fake")
+	st, _ := e.dl.RefreshStatus(ctx)
+	if len(st) != 1 || st[0].Posts != 5 || st[0].Due != 0 {
+		t.Fatalf("status: %+v", st)
+	}
+	// Counted again only after statusEvery: a post due meanwhile shows then.
+	if _, err := e.db.W.Exec("UPDATE seen_posts SET seen_at = 0 WHERE post_id = (SELECT min(post_id) FROM seen_posts)"); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ = e.dl.RefreshStatus(ctx); st[0].Due != 0 {
+		t.Fatalf("counted again at once: %+v", st)
+	}
+	// Refresh now: at once.
+	all := e.lib.Index().Search(mustParse(t, "common"), e.dl.now()).IDs
+	if _, err := e.dl.ScheduleRefresh(ctx, all); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ = e.dl.RefreshStatus(ctx); st[0].Due != 5 {
+		t.Fatalf("after Refresh now: %+v", st)
+	}
+}
+
 // A paused site (it kept failing to answer): refreshes still queue up - a selection's, and one file's "Refresh tags"
 // (queued, not asked) - but nothing is asked of the site until it answers again; then the queue is worked through.
 func TestTagRefreshWaitsForAPausedSite(t *testing.T) {

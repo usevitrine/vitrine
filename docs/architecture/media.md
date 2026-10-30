@@ -57,6 +57,13 @@ Probing, thumbnails, previews and scrub frames (ffmpeg, libvips): how files are 
   (`files_pending_media`, `_phash`, `_sprite`); the queries repeat the indexes' conditions word for word with the
   flags written in (a parameter can't match a partial index). Made-up 600k-file library, a few waiting: 64 ms and
   47 ms -> under 1 ms. `TestPendingUsesIndexes` checks the query plans.
+- **The Downloads page's slow numbers, shared (2026-10-30, the second profile, with 1.0.10)**: with the queues fixed,
+  66% of Vitrine's own time was `GET /api/downloads` -> `RefreshStatus` (each site's tag refresh counts: every post
+  the site has joined to its file - 342k for one site) and 8% `lastFound` (each subscription's newest find, a group
+  over file_sources): the open page asks again on every change, up to twice a second while downloading (and the tags'
+  bells ask for the subscriptions a second after each). Now worked out at most every 30 s (`statusEvery`) and shared
+  by every request; "Refresh now" (`ScheduleRefresh`) counts again at once, a site's pause is always current, and a
+  subscription's new file (`foundChanged`) reads the dates again at once. `TestRefreshStatusShared`.
 - CLI: `vitrine import` makes thumbnails right after importing (`-no-thumbs` to skip); `vitrine process` catches
   up; `vitrine search` and `vitrine tag` exist for trying the library before the web client.
 - A user-typed `ns:tag` only uses a namespace that already exists (plugins declare them); otherwise the whole text is

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -72,9 +73,36 @@ type RefreshStatus struct {
 	Paused bool `json:"paused,omitempty"`
 }
 
-// RefreshStatus counts due posts per site.
+// statusEvery is how often the Downloads page's slow numbers are worked out again (2026-10-30: a CPU profile of a
+// 583k-file library while downloading - the page asks for them on every change, up to twice a second, and counting
+// a site's due posts reads all of them: two thirds of Vitrine's own processor time).
+const statusEvery = 30 * time.Second
+
+// RefreshStatus counts due posts per site: worked out at most every statusEvery (Refresh now - ScheduleRefresh -
+// starts again); a site's pause is always current.
 func (d *Downloader) RefreshStatus(ctx context.Context) ([]RefreshStatus, error) {
-	var out []RefreshStatus
+	d.statusMu.Lock()
+	defer d.statusMu.Unlock() // (one at a time: requests at once share the answer)
+	now := d.now()
+	if d.refreshOut == nil || now.Sub(d.refreshAt) >= statusEvery || now.Before(d.refreshAt) {
+		out, err := d.refreshStatus(ctx)
+		if err != nil {
+			return nil, err
+		}
+		d.refreshOut, d.refreshAt = out, now
+	}
+	out := slices.Clone(d.refreshOut)
+	all := d.all()
+	for i := range out {
+		if st := all[out[i].Site]; st != nil {
+			out[i].Paused = !st.Client.Paused().Until.IsZero()
+		}
+	}
+	return out, nil
+}
+
+func (d *Downloader) refreshStatus(ctx context.Context) ([]RefreshStatus, error) {
+	out := []RefreshStatus{}
 	for _, site := range d.Sites() {
 		st := d.all()[site]
 		s := RefreshStatus{Site: site}
@@ -111,6 +139,9 @@ func (d *Downloader) ScheduleRefresh(ctx context.Context, files []uint32) (int, 
 		k, _ := res.RowsAffected()
 		n += int(k)
 	}
+	d.statusMu.Lock()
+	d.refreshOut = nil // (counted again: these are due now)
+	d.statusMu.Unlock()
 	for site := range d.all() {
 		d.wake(site)
 	}

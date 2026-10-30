@@ -212,6 +212,7 @@ func (d *Downloader) retryPost(ctx context.Context, site string, post int64) (re
 	}
 	if foundBy != 0 {
 		d.lib.Index().AddFoundBy(fileID, uint32(foundBy))
+		d.foundChanged()
 	}
 	d.Changed()
 	name := outcomeNames[outcome]

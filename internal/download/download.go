@@ -101,6 +101,13 @@ type Downloader struct {
 	// aside: running searches a reorder put a waiting search ahead of - they step aside at their next post. Under mu.
 	aside     map[int64]bool
 	md5Warned sync.Map // sites whose md5s were found wrong for a file (warned once)
+	// The Downloads page's slow numbers (tag refresh counts, when each subscription last found something), worked out
+	// at most every statusEvery and shared (refresh.go, subscribe.go): the page asks again on every change.
+	statusMu   sync.Mutex
+	refreshAt  time.Time
+	refreshOut []RefreshStatus
+	foundAt    time.Time
+	foundOut   map[int64]int64
 
 	runCtx  context.Context               // Run's context (sites installed later start their worker in it)
 	cancels map[string]context.CancelFunc // stops a site's worker
@@ -1123,9 +1130,17 @@ func (d *Downloader) record(s Search, siteID uint32, postID int64, fileID uint32
 	}
 	if fileID != 0 && outcome == Downloaded && s.SubscriptionID != 0 {
 		d.lib.Index().AddFoundBy(fileID, uint32(s.SubscriptionID)) // (system:found_by= finds it)
+		d.foundChanged()
 	}
 	d.Changed()
 	return before >= 0, nil
+}
+
+// foundChanged: a subscription found a new file - when each last found one is read again (lastFound).
+func (d *Downloader) foundChanged() {
+	d.statusMu.Lock()
+	d.foundOut = nil
+	d.statusMu.Unlock()
 }
 
 // handle brings one post into the library.

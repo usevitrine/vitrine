@@ -677,8 +677,24 @@ func (d *Downloader) schedule(ctx context.Context) {
 	}
 }
 
-// lastFound is when each subscription last brought in a new file (Unix ms).
+// lastFound is when each subscription last brought in a new file (Unix ms): read again when one did (foundChanged),
+// else at most every statusEvery (a group over every file a subscription found - asked for on every change of the
+// Downloads page and the tags' bells). The map is shared: read only.
 func (d *Downloader) lastFound(ctx context.Context) (map[int64]int64, error) {
+	d.statusMu.Lock()
+	defer d.statusMu.Unlock()
+	now := d.now()
+	if d.foundOut == nil || now.Sub(d.foundAt) >= statusEvery || now.Before(d.foundAt) {
+		out, err := d.readLastFound(ctx)
+		if err != nil {
+			return nil, err
+		}
+		d.foundOut, d.foundAt = out, now
+	}
+	return d.foundOut, nil
+}
+
+func (d *Downloader) readLastFound(ctx context.Context) (map[int64]int64, error) {
 	rows, err := d.db.R.QueryContext(ctx, `SELECT subscription_id, max(first_at) FROM file_sources
 		WHERE subscription_id IS NOT NULL AND downloaded = 1 GROUP BY subscription_id`)
 	if err != nil {

@@ -5,6 +5,10 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### Improved
+
+- **Even less processor load while downloading into a big library**: with the Downloads page open, its tag refresh counts and each subscription's "last found" were worked out again on every change (up to twice a second); now at most every 30 seconds, and at once when you press Refresh now or a subscription finds something. On a 580,000-file library that was two thirds of what Vitrine itself used.
+
 ### Fixed
 
 - **The subscription bell in search chips sat low and off-center**: it's now level with the tag's name, and the bell is centered in its circle.
