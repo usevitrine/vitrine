@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Updates).
 
+## Unreleased
+
+### Fixed
+
+- **The subscription bell in search chips sat low and off-center**: it's now level with the tag's name, and the bell is centered in its circle.
+
 ## 1.0.10 - 2026-10-30
 
 ### Improved
