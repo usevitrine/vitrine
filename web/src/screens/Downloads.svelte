@@ -1748,7 +1748,8 @@
           {/each}
         </section>
 
-        <!-- The tag refresh: a line per site (posts read again now and then: sites keep editing tags). -->
+        <!-- The tag refresh: a line per site (posts read again now and then: sites keep editing tags). What's due is in
+             the pill, so a line never wraps on a phone (2026-10-30, the user: picked prototype A of four). -->
         {#if refreshStatus.length}
           <section class="card slim" id="dl-refresh" transition:reveal>
             <div class="card-head">
@@ -1759,15 +1760,14 @@
               {#each refreshStatus as r (r.site)}
                 <li class="refresh-line" animate:moved transition:reveal>
                   <span class="refresh-site">{siteLabel(r.site)}</span>
-                  <span class="refresh-nums">
-                    {#if r.due}{@render stat(r.due, t('downloads.stat.toRefresh'), 'lead')}{/if}
-                    {@render stat(r.posts, t('downloads.stat.posts', { n: r.posts }))}
-                  </span>
+                  <span class="refresh-nums">{@render stat(r.posts, t('downloads.stat.posts', { n: r.posts }))}</span>
                   {#if r.paused}
                     <!-- (its site isn't answering: what's due waits, more can still be queued) -->
-                    <span class="state paused" title={t('downloads.pausedTitle')}>{t('downloads.paused')}</span>
+                    <span class="state paused" title={t('downloads.pausedTitle')}>{r.due ? t('downloads.refresh.pausedDue', { n: short(r.due) }) : t('downloads.paused')}</span>
+                  {:else if r.due}
+                    <span class="state running" title={t('downloads.refresh.due', { n: num(r.due) })}>{t('downloads.refresh.due', { n: short(r.due) })}</span>
                   {:else}
-                    <span class="state {r.due ? 'running' : 'done'}">{r.due ? t('downloads.refresh.refreshing') : t('downloads.refresh.upToDate')}</span>
+                    <span class="state done">{t('downloads.refresh.upToDate')}</span>
                   {/if}
                 </li>
               {/each}

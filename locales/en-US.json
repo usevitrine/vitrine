@@ -1218,7 +1218,6 @@
         "other": "files"
       },
       "newLastChecks": "new last checks",
-      "toRefresh": "to refresh",
       "ofPages": {
         "one": "of {n} page",
         "other": "of {n} pages"
@@ -1328,7 +1327,8 @@
     "refresh": {
       "title": "Tag refresh",
       "hint": "Sites keep editing tags: posts you have are read again now and then.",
-      "refreshing": "Refreshing",
+      "due": "{n} to refresh",
+      "pausedDue": "Paused · {n}",
       "upToDate": "Up to date"
     },
     "finished": "Finished",

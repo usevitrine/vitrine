@@ -33,7 +33,9 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
 - **Finished**: "Today" by site, then "Earlier" folded (remembered: `vitrine.finishedEarlier`); Retry failed / Clear
   finished are small buttons.
 - **Empty parts** are a quiet line (no dashed box); the Tag refresh part is left out until something came from a site,
-  and is one line per site (site, to refresh, posts, state).
+  and is one line per site (site, posts, state). What's due is in the state pill - "12 to refresh" (short: "155K"; the
+  full count when pointed at), "Paused · 12", else "Up to date" - so a line never wraps on a phone (2026-10-30, the
+  user: the due count on a line of its own pushed the posts onto a second line - picked prototype A of four).
 - The stacks stay as below (queue per site, finished per site, failed per reason).
 
 ## Downloads stacks and the bell (2026-10-21)

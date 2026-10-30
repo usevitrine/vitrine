@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Updates).
 
+## Unreleased
+
+### Improved
+
+- **Tag refresh fits on one line per site on phones**: how many posts are waiting to be refreshed is now in the site's status ("12 to refresh", "Paused · 12") instead of next to the post count.
+
 ## 1.0.8 - 2026-10-29
 
 ### New
