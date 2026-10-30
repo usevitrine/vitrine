@@ -12,6 +12,31 @@ import (
 
 // Subscriptions are listed with the downloads (GET /api/downloads).
 
+// subscriptionTags lists every subscription's site and search, and whether it's paused, without the rest: the app
+// marks the tags they follow wherever tags show (asked again on every "downloads" event, so kept small).
+func (s *Server) subscriptionTags(w http.ResponseWriter, r *http.Request) {
+	if s.dl == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"subscriptions": []any{}})
+		return
+	}
+	subs, err := s.dl.Subscriptions(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	type sub struct {
+		ID     int64  `json:"id"`
+		Site   string `json:"site"`
+		Query  string `json:"query"`
+		Paused bool   `json:"paused,omitempty"`
+	}
+	out := make([]sub, 0, len(subs))
+	for _, x := range subs {
+		out = append(out, sub{x.ID, x.Site, x.Query, x.Paused})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"subscriptions": out})
+}
+
 // addSubscription subscribes to a search: {site, query, interval,
 // initial_max}, or {search_id, interval} to turn a search into a
 // subscription. interval is in seconds. Optional group: group_id, or

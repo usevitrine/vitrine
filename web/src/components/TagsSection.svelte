@@ -21,6 +21,7 @@
   import Icon from './Icon.svelte';
   import { moveToNamespace, nsColor, nsLabel, nsRank, splitTag } from '../lib/namespaces.svelte';
   import { newDownload } from '../lib/newDownload.svelte';
+  import SubMark from './SubMark.svelte';
   import { itemName, t } from '../lib/i18n.svelte';
 
   let {
@@ -340,7 +341,7 @@
               }}
               >{#if blacklisted(tg.tag)}<span class="blocked-mark" aria-hidden="true" transition:nudge
                   ><Icon name="eyeoff" size={13} /></span
-                >{/if}{#each splitTag(tg.tag).name.split('_') as part, k}{#if k}_<wbr />{/if}{part}{/each}</button
+                >{/if}{#each splitTag(tg.tag).name.split('_') as part, k}{#if k}_<wbr />{/if}{part}{/each}<SubMark tag={tg.tag} size={15} /></button
             >
             {#if editing}
               {#if toRemove.includes(tg.tag)}
@@ -378,6 +379,7 @@
     inSearch={inSearch(p.tag)}
     onsearch={(how) => searchWith(p.tag, how)}
     ondownload={() => newDownload([p.tag], { fallback: siteOf(p.tag) })}
+    onsubscribe={() => newDownload([p.tag], { fallback: siteOf(p.tag), subscribe: true })}
     onnamespace={save
       ? async (ns) => {
           if (await moveToNamespace(p.tag, ns)) reload();
@@ -604,6 +606,11 @@
   }
   .tags li.blocked {
     opacity: 0.8;
+  }
+  /* A subscription follows it: the bell after the name (lib/subTags). */
+  .name :global(.sub-mark) {
+    margin-left: 5px;
+    vertical-align: -3px;
   }
   .tags li.picked {
     outline: 2px solid var(--c);

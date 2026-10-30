@@ -10,6 +10,7 @@
   import Dropdown from './Dropdown.svelte';
   import TagInput from './TagInput.svelte';
   import Icon from './Icon.svelte';
+  import SubMark from './SubMark.svelte';
   import ActionMenu from './ActionMenu.svelte';
   import Rich from './Rich.svelte';
   import { t, num } from '../lib/i18n.svelte';
@@ -158,6 +159,7 @@
                 {#if bt.namespace}<span class="ns">{bt.namespace}:</span>{/if}{st.name}
                 {#if bt.ideal}<span class="ideal" transition:nudge>→ {bt.ideal}</span>{/if}
               </span>
+              <SubMark tag={bt.ideal ?? bt.tag} size={15} />
               <span class="count">{num(bt.count)}</span>
             </button>
             <ActionMenu
@@ -328,8 +330,13 @@
     }
   }
   .name {
+    flex: 1;
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+  /* (a subscription follows it: the bell before the count - lib/subTags) */
+  .row :global(.sub-mark) {
+    align-self: center;
   }
   .ns {
     opacity: 0.7;

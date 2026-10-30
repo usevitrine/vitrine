@@ -8,6 +8,7 @@
   import { pop, moved, nudge, reduced } from '../lib/motion';
   import { cubicOut } from 'svelte/easing';
   import { splitTag, tagColor, nsLabel } from '../lib/namespaces.svelte';
+  import SubMark from './SubMark.svelte';
   import { t, num } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
@@ -432,6 +433,7 @@
               >{#if p.ns}<span class="ns">{nsLabel(p.ns)}</span>{/if}{m[0]}{#if m[1]}<mark>{m[1]}</mark>{/if}{m[2]}</span>
             {#if s.ideal}<span class="ideal">→ {s.ideal}</span>{/if}
           </span>
+          <SubMark tag={s.ideal ?? s.tag} size={15} />
           {#if s.count}<span class="count">{num(s.count)}</span>{/if}
           {#if canMark}
             <!-- (marked: it goes in with the others marked - the bar below) -->

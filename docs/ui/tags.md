@@ -10,6 +10,20 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   from one; `router.downloadDraft`). Copy: the full tag, and for namespaced tags "Copy without namespace" (the text
   shown on each item; clipboard API, execCommand fallback; a toast). Remove from this file (red). Escape / tap
   outside closes only the menu; arrow keys move through it. Ctrl/Cmd-click (add) and Alt-click (exclude) stay.
+- **Tags a subscription follows (2026-10-30, the user: "wherever a tag is displayed, i want an indicator that a tag is
+  present in a subscription")**: a small mauve bell after the tag (`SubMark.svelte`) - filled when a subscription's
+  search is the tag alone (excluded tags beside it allowed), an outline when it's one of several, dimmed when every
+  one is paused. A subscription on the bare name counts for the namespaced tag (`some_artist` -> `creator:some_artist`);
+  a site's own marks are taken off (`#tag`, `@name`); excluded tags, wildcards and links don't count
+  (`lib/subTags.svelte.ts`, `searchTags`). Shown in the details panel's tags, the search bar's chips (not on an
+  excluded one), the suggestions, and the tag browser (Tags > All tags). Not on grid tiles. The list comes from
+  `GET /api/subscriptions/tags` (id, site, search, paused - nothing else), asked for once a tag needs it and again a
+  second after a live "downloads" event; the Downloads page hands over its own list. **The tag menu** (picked after
+  three mockups, the user: just "subscribed and the sites", an open icon instead of the word): under the header a
+  mauve-tinted box - the bell, "Subscribed" / "In a subscription", the sites under it - and an external-link icon
+  that opens it on the Downloads page (one: scrolled to and flashed, `router.focus = 'sub:<id>'`; several: the
+  Subscriptions tab filtered to the tag, `'subs:<name>'`). A tag that isn't its own subscription gets **Subscribe…**
+  after New download: the New download dialog with Subscribe picked (`subscribe`).
 - **Tag actions in the details panel**: tapping a tag opens a row under its group: **Add**
   (to the current search), **Exclude** (adds `-tag`), **Only this** (searches just the tag). If the search already has
   the tag, Add becomes **Remove** (from the search); if it already excludes it, Exclude becomes **Include**. The tag's

@@ -9,6 +9,7 @@
   import { api, type DownloadSearch, type RefreshStatus, type Subscription, type SubGroup, type FailedPost, type RetryJob, type SubLook, type SubPic } from '../lib/api';
   import SiteIcon from '../components/SiteIcon.svelte';
   import { subNames } from '../lib/subNames.svelte';
+  import { subTags } from '../lib/subTags.svelte';
   import { tagColor, splitTag } from '../lib/namespaces.svelte';
   import { toasts } from '../lib/toast.svelte';
   import { settings } from '../lib/settings.svelte';
@@ -367,6 +368,7 @@
       searches = res.searches; // each site's queue in order
       subs = res.subscriptions;
       subNames.set(subs); // (a "found by" chip's words in the library)
+      subTags.set(subs); // (the bells on tags)
       groups = res.groups ?? [];
       refreshStatus = res.refresh;
       failedPosts = (await api.failedPosts()).posts;
@@ -846,6 +848,15 @@
     if (router.focus !== 'new-download' || !queryInput) return;
     router.focus = null;
     queryInput.focus();
+  });
+  // From a tag's menu, a tag several subscriptions follow: the Subscriptions tab, filtered to it.
+  $effect(() => {
+    const f = router.focus;
+    if (!f?.startsWith('subs:')) return;
+    router.focus = null;
+    attentionOnly = false;
+    setTab('subs');
+    subFilter = f.slice(5);
   });
   $effect(() => {
     const f = router.focus;

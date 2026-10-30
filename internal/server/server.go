@@ -182,6 +182,7 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.handle("POST /api/subscriptions/{id}/{action}", s.signal(s.subscriptionAction))
 	s.handle("GET /api/subscriptions/{id}/fav-gone", s.favGone)
 	s.handle("GET /api/subscriptions/looks", s.subscriptionLooks)
+	s.handle("GET /api/subscriptions/tags", s.subscriptionTags)
 	s.handle("POST /api/sub-groups", s.signal(s.addGroup))
 	s.handle("POST /api/sub-groups/{id}", s.signal(s.updateGroup))
 	s.handle("POST /api/sub-groups/{id}/{action}", s.signal(s.groupAction))

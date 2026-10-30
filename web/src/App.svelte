@@ -397,6 +397,7 @@
       presetSite={d.site}
       presetText={d.text}
       label={d.label}
+      subscribe={d.subscribe}
       ondone={d.ondone}
       onclose={() => (newDownloadDialog.current = null)} />
   {/key}

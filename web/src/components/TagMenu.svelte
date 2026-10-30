@@ -12,6 +12,9 @@
   import { sheetIn, sheetOut, shade } from '../lib/sheet';
   import { nsChoices, nsColor, nsLabel, splitTag } from '../lib/namespaces.svelte';
   import { t } from '../lib/i18n.svelte';
+  import SubMark from './SubMark.svelte';
+  import { subTags } from '../lib/subTags.svelte';
+  import { siteLabel } from '../lib/sites.svelte';
 
   let {
     tag,
@@ -19,6 +22,7 @@
     inSearch,
     onsearch,
     ondownload,
+    onsubscribe,
     onnamespace,
     oncopy,
     blacklistEntry,
@@ -32,6 +36,7 @@
     inSearch: 'in' | 'out' | null; // whether the current search has it, excludes it, or neither
     onsearch: (how: 'add' | 'exclude' | 'drop' | 'only') => void;
     ondownload: () => void; // a new download for the tag
+    onsubscribe?: () => void; // ... with Subscribe picked (none: not offered)
     onnamespace?: (ns: string) => void; // into another namespace ("" = general), on every file (none: not offered)
     oncopy: (text: string) => void;
     /** The blacklist entry it's on ("" none; undefined: not known yet - Add is offered). Its own entry can be taken
@@ -45,6 +50,9 @@
   } = $props();
 
   const parts = $derived(splitTag(tag));
+  // The subscriptions that follow it (the bell): their sites, and a way to them.
+  const subs = $derived(subTags.of(tag));
+  const subSites = $derived(subs ? [...new Set(subs.subs.map((s) => siteLabel(s.site)))].join(', ') : '');
   let menu = $state<HTMLDivElement>();
   let nsPage = $state(false); // the Namespace page is on show
   // Pages move like every menu's (lib/pages).
@@ -143,9 +151,24 @@
       </div>
     {:else}
     <div class="head">
-      <span class="name">{#each parts.name.split('_') as part, k}{#if k}_<wbr />{/if}{part}{/each}</span>
+      <span class="name">{#each parts.name.split('_') as part, k}{#if k}_<wbr />{/if}{part}{/each} <SubMark {tag} /></span>
       {#if parts.ns}<span class="ns">{nsLabel(parts.ns)}</span>{/if}
     </div>
+    {#if subs}
+      <!-- (2026-10-30, the user: just "subscribed and the sites", an open icon instead of the word) -->
+      <div class="subbed" class:paused={subs.paused}>
+        <span class="subbed-text">
+          <span class="subbed-what"><SubMark {tag} /> {t(subs.own ? 'subMark.own' : 'subMark.part')}</span>
+          <span class="subbed-sites">{subSites}</span>
+        </span>
+        <button
+          role="menuitem"
+          class="subbed-open"
+          aria-label={t(subs.subs.length > 1 ? 'subMark.openMany' : 'subMark.open')}
+          title={t(subs.subs.length > 1 ? 'subMark.openMany' : 'subMark.open')}
+          onclick={() => pick(() => subTags.open(tag, subs.subs))}><Icon name="external" size={18} /></button>
+      </div>
+    {/if}
 
     <div class="group" role="group" aria-label={t('tagMenu.search')}>
       {#if inSearch === 'in'}
@@ -160,6 +183,9 @@
       {/if}
       <button role="menuitem" onclick={() => pick(() => onsearch('only'))}><Icon name="search" size={18} /> {t('tagMenu.newSearch')}</button>
       <button role="menuitem" onclick={() => pick(ondownload)}><Icon name="download" size={18} /> {t('tagMenu.newDownload')}</button>
+      {#if onsubscribe && !subs?.own}
+        <button role="menuitem" onclick={() => pick(onsubscribe)}><Icon name="bell" size={18} /> {t('tagMenu.subscribe')}</button>
+      {/if}
       {#if onblacklist}
         {#if blacklistEntry && blacklistEntry !== tag.toLowerCase() && blacklistEntry !== parts.name.toLowerCase()}
           <button role="menuitem" disabled
@@ -296,6 +322,45 @@
   .head .ns {
     font-size: 12px;
     color: var(--subtext);
+  }
+  .subbed {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 4px 4px;
+    padding: 6px 4px 6px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--mauve) 8%, transparent);
+  }
+  .subbed-text {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+  .subbed-what {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+  .subbed-sites {
+    padding-left: 22px;
+    font-size: 12px;
+    color: var(--subtext);
+    overflow-wrap: anywhere;
+  }
+  .subbed.paused .subbed-text {
+    color: var(--subtext);
+  }
+  button.subbed-open {
+    flex: none;
+    width: var(--control-h);
+    padding: 0;
+    justify-content: center;
+  }
+  button.subbed-open > :global(svg) {
+    color: var(--mauve);
   }
   .group {
     display: grid;

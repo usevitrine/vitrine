@@ -33,6 +33,7 @@
     presetSite = '',
     presetText = '',
     label = '',
+    subscribe = false,
     ondone,
     onclose,
   }: {
@@ -42,6 +43,7 @@
     presetSite?: string; // a search on a site already (a Browse gallery's link): straight to "once or subscribe"
     presetText?: string;
     label?: string; // shown for it instead of the search (the gallery's title)
+    subscribe?: boolean; // Subscribe picked to start with (a tag's menu: "Subscribe…")
     ondone?: (subscribed: boolean) => void;
     onclose: () => void;
   } = $props();
@@ -152,7 +154,8 @@
     if (ready) go('how');
   }
 
-  let repeat = $state('0'); // seconds between checks; '0' = download once
+  // svelte-ignore state_referenced_locally
+  let repeat = $state(subscribe ? String(DEFAULT_INTERVAL) : '0'); // seconds between checks; '0' = download once
   let maxPosts = $state<number | undefined>(undefined);
   let formGroup = $state(''); // a group's ID, 'new' or '' (none)
   let newGroupName = $state('');

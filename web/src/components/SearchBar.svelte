@@ -17,6 +17,7 @@
   import { on } from 'svelte/events';
   import { cubicOut } from 'svelte/easing';
   import { newDownload } from '../lib/newDownload.svelte';
+  import SubMark from './SubMark.svelte';
   import { t } from '../lib/i18n.svelte';
 
   let {
@@ -345,7 +346,7 @@
   {#each c.atoms as a, j}
     {#if j > 0}<span class="or">{t('searchBar.or')}</span>{/if}
     <span class="atom {kindOf(a.text)}" class:neg={a.neg} style:--c={tagColor(a.text)}
-      >{#if a.neg && !(a.text === 'system:has_audio' || isFavorite(a.text))}<span class="minus">−</span>{/if}{label(a, comics)}</span
+      >{#if a.neg && !(a.text === 'system:has_audio' || isFavorite(a.text))}<span class="minus">−</span>{/if}{label(a, comics)}{#if !a.neg && kindOf(a.text) === 'tag'}<SubMark tag={a.text} size={14} />{/if}</span
     >
   {/each}
 {/snippet}
@@ -737,6 +738,11 @@
   .atom {
     white-space: nowrap;
     text-align: left;
+  }
+  /* A subscription follows the tag: its bell after the name (lib/subTags). */
+  .atom :global(.sub-mark) {
+    margin-left: 4px;
+    vertical-align: -2px;
   }
   .atom.tag,
   .atom.wildcard {

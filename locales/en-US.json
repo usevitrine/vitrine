@@ -875,7 +875,15 @@
     "removeFromComic": "Remove from this comic",
     "blacklist": "Add to blacklist",
     "unblacklist": "Remove from blacklist",
-    "onBlacklist": "On the blacklist by"
+    "onBlacklist": "On the blacklist by",
+    "subscribe": "Subscribe…"
+  },
+  "subMark": {
+    "own": "Subscribed",
+    "part": "In a subscription",
+    "paused": "paused",
+    "open": "Open the subscription",
+    "openMany": "Open the subscriptions"
   },
   "tagBrowser": {
     "all": "All",

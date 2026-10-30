@@ -1265,6 +1265,65 @@ test('tag namespaces: details grouped by namespace, each with its own color', as
   await expect(page.locator('.chip .atom').first()).toHaveCSS('color', 'rgb(243, 139, 168)');
 });
 
+test('tags a subscription follows: a bell in the details, the search bar and the suggestions; the menu says where and opens it', async ({ page }) => {
+  // Two subscriptions: one is the tag alone (a filled bell), one has the other tag among more (an outline).
+  await page.goto('/');
+  const subs: number[] = await page.evaluate(() =>
+    Promise.all(
+      ['bellmark_own', 'bellmark_part other_word'].map((q) =>
+        fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: 'test-down', query: q, interval: 604800, initial_max: 0 }) })
+          .then((r) => r.json())
+          .then((s) => s.id),
+      ),
+    ),
+  );
+  try {
+    await page.locator('.tile').nth(14).click();
+    await page.getByRole('button', { name: 'Details' }).click();
+    await page.getByRole('button', { name: 'Edit tags' }).click();
+    const add = page.getByRole('combobox', { name: 'Add tags' });
+    await add.click();
+    await add.pressSequentially('creator:bellmark_own bellmark_part bellmark_none');
+    await add.press('Enter');
+    await page.getByRole('button', { name: 'Save tags' }).click();
+    const panel = page.locator('.viewer aside.panel');
+    const tag = (name: string) => panel.getByRole('button', { name, exact: true });
+    await expect(tag('bellmark_own').locator('.sub-mark.own')).toBeVisible(); // (a subscription on the bare name counts for creator:)
+    await expect(tag('bellmark_part').locator('.sub-mark:not(.own)')).toBeVisible();
+    await expect(tag('bellmark_none').locator('.sub-mark')).toHaveCount(0);
+    // The menu: Subscribed, the site; no Subscribe… (it is one already).
+    await tag('bellmark_own').click();
+    const menu = page.getByRole('menu', { name: /^bellmark_own/ });
+    await expect(menu.locator('.subbed')).toContainText('Subscribed');
+    await expect(menu.locator('.subbed')).toContainText('test-down.invalid');
+    await expect(menu.getByRole('menuitem', { name: 'Subscribe…' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    // Part of one: "In a subscription", and Subscribe… starts a new one with Subscribe picked.
+    await tag('bellmark_part').click();
+    const partMenu = page.getByRole('menu', { name: /^bellmark_part/ });
+    await expect(partMenu.locator('.subbed')).toContainText('In a subscription');
+    await partMenu.getByRole('menuitem', { name: 'Subscribe…' }).click();
+    await expect(newDl(page)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(newDl(page)).toHaveCount(0);
+    if (!(await panel.isVisible())) await page.getByRole('button', { name: 'Details', exact: true }).click();
+    // Open: the subscription on the Downloads page.
+    await tag('bellmark_own').click();
+    await menu.getByRole('menuitem', { name: 'Open the subscription' }).click();
+    await expect(page).toHaveURL(/downloads/);
+    await expect(page.locator(`li[data-sub="${subs[0]}"]`)).toBeVisible();
+    // The search bar's chip and the suggestions.
+    await page.goto('/?q=creator%3Abellmark_own');
+    await expect(page.locator('.chip .atom .sub-mark.own')).toBeVisible();
+    const box = page.getByRole('combobox', { name: 'Search' }).first();
+    await box.click();
+    await box.pressSequentially('bellmark_p');
+    await expect(page.getByRole('option', { name: /^bellmark_part/ }).locator('.sub-mark:not(.own)')).toBeVisible();
+  } finally {
+    await page.evaluate((ids) => Promise.all(ids.map((id) => fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }))), subs);
+  }
+});
+
 test('tag refresh: selection action and the Downloads card (files from disk: nothing to refresh)', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText(/^26 files/)).toBeVisible();

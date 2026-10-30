@@ -5,6 +5,10 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### New
+
+- **A bell on tags your subscriptions follow**: in the details, the search bar, the suggestions and the tag list, a filled bell means a subscription is that tag, an outline that the tag is part of one (dimmed when paused). A tag's menu says it's subscribed and on which sites, with a button to open it, and offers **Subscribe…** for tags that aren't yet.
+
 ### Improved
 
 - **Tag refresh fits on one line per site on phones**: how many posts are waiting to be refreshed is now in the site's status ("12 to refresh", "Paused · 12") instead of next to the post count.

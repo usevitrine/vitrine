@@ -621,6 +621,8 @@ export const api = {
   addGroup: (site: string, name: string) => post<SubGroup>('/api/sub-groups', { site, name }),
   updateGroup: (id: number, change: { name?: string; interval?: number; check_depth?: number }) => post<SubGroup>(`/api/sub-groups/${id}`, change),
   groupAction: (id: number, action: 'check' | 'pause' | 'resume' | 'remove') => post<{ ok: boolean }>(`/api/sub-groups/${id}/${action}`, {}),
+  /** Every subscription's site and search, nothing else (the bells on tags: lib/subTags). */
+  subscriptionTags: () => get<{ subscriptions: { id: number; site: string; query: string; paused?: boolean }[] }>('/api/subscriptions/tags'),
   subscriptionLooks: (since: number) => get<{ looks: Record<string, SubLook> }>(`/api/subscriptions/looks?since=${since}`),
   subscribeSearch: (search_id: number, interval: number) => post<Subscription>('/api/subscriptions', { search_id, interval }),
   updateSubscription: (id: number, change: { interval?: number; paused?: boolean; group_id?: number; check_depth?: number }) =>

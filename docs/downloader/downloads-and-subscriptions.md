@@ -237,7 +237,8 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   stay. A post retagged on the site to match an old subscription isn't found (it's below `high_id`) - tag refresh
   is a separate feature. API: `POST /api/subscriptions {site, query, interval, initial_max}` or `{search_id,
   interval}`, `POST /api/subscriptions/{id} {interval?, paused?}`, `POST /api/subscriptions/{id}/check|remove`;
-  listed in `GET /api/downloads` (`subscriptions`, each with its `check`). Web: a "Repeat" dropdown in the New
+  listed in `GET /api/downloads` (`subscriptions`, each with its `check`), and only their id, site, search and
+  paused in `GET /api/subscriptions/tags` (2026-10-30: the bells on tags - `docs/ui/tags.md`). Web: a "Repeat" dropdown in the New
   download form (Once / every hour ... every week; max posts = the first check's limit), a Subscriptions card (state,
   interval, last/next check, files, Check now, interval menu, pause, unsubscribe), a "Check" badge on check rows, a
   bell on searches. Default interval from the bell: 12 hours. Not yet: subscription groups, per-subscription
