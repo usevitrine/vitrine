@@ -703,6 +703,29 @@
   let lastScroll = { top: 0, t: 0 };
   let flingTimer = 0;
   const seenThumbs = new Set<string>(); // thumbnails shown (or decoded ahead): they show at once, flinging or not
+  // A thumbnail comes in once it's decoded: faded in over a picture still decoding, it popped at the end of the fade
+  // (WebKit: one in seven). The ones decoded in the same moment fade in together (one frame, one style pass); one seen
+  // before shows at once (`now`: a tile made again on the way back up faded in from its preview a second time).
+  const fading = new Set<HTMLImageElement>();
+  let fadeFrame = 0;
+  function thumbIn(img: HTMLImageElement, u: string) {
+    if (seenThumbs.has(u)) {
+      img.classList.add('in', 'now');
+      return;
+    }
+    seenThumbs.add(u);
+    img.decode().then(
+      () => {
+        fading.add(img);
+        fadeFrame ||= requestAnimationFrame(() => {
+          fadeFrame = 0;
+          for (const i of fading) i.classList.add('in');
+          fading.clear();
+        });
+      },
+      () => img.classList.add('in'), // (can't be decoded ahead - e.g. let go of: shown as before)
+    );
+  }
   function trackSpeed() {
     if (!el) return;
     const now = performance.now();
@@ -1731,7 +1754,7 @@
               {@const shape = cover.w && cover.h ? (cover.w * (cover.crop?.[2] ?? 1)) / (cover.h * (cover.crop?.[3] ?? 1)) : 0}
               <span class="cell"
                 ><span class="frame" style:--shape={shape || undefined}
-                  ><img src={cover.thumb} alt="" style={shape ? cropStyle(cover.crop) : undefined} decoding="async" draggable="false" onload={(e) => e.currentTarget.classList.add('in')} onerror={retryThumb} /></span
+                  ><img src={cover.thumb} alt="" style={shape ? cropStyle(cover.crop) : undefined} decoding="async" draggable="false" onload={(e) => thumbIn(e.currentTarget, cover.thumb)} onerror={retryThumb} /></span
                 ></span>
             {/each}
           </span>
@@ -1748,10 +1771,7 @@
               style={cropStyle(tile.f.comic?.crop)}
               decoding="async"
               draggable="false"
-              onload={(e) => {
-                e.currentTarget.classList.add('in');
-                seenThumbs.add(u);
-              }}
+              onload={(e) => thumbIn(e.currentTarget, u)}
               onerror={retryThumb} />
             <!-- Still on its way after a moment (e.g. after a long jump): a small spinner over the preview. -->
             <span class="waiting" aria-hidden="true"></span>
@@ -1961,11 +1981,15 @@
     display: block;
     opacity: 0;
     transition:
-      opacity 0.18s,
+      opacity 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
       transform 0.15s;
   }
   img:global(.in) {
     opacity: 1;
+  }
+  /* (seen before: there at once - see thumbIn) */
+  img:global(.now) {
+    transition: transform 0.15s;
   }
   /* Waiting for the thumbnail: a spinner shows only after half a second (a
      normal load never flashes it) and goes once the picture is in. */
@@ -2040,6 +2064,10 @@
   }
   .tile:has(.fit > :global(img.in)) :is(.comic-foot, .comic-status, .comic-progress) {
     animation: overlay-in 0.3s ease-out both;
+  }
+  /* (a cover seen before is there at once: so are its overlays) */
+  .tile:has(.fit > :global(img.now)) :is(.comic-foot, .comic-status, .comic-progress) {
+    animation: none;
   }
   /* (landed, after the rule above and as weighty: it lost to it - a comic's overlays came at once. overlay-in stays
      in the list, done: when landed goes, an animation list without it started it again - the overlays blinked out

@@ -8,6 +8,7 @@ shows this too (Settings > Updates).
 ### Improved
 
 - **Tag refresh fits on one line per site on phones**: how many posts are waiting to be refreshed is now in the site's status ("12 to refresh", "Paused · 12") instead of next to the post count.
+- **Thumbnails come into view more smoothly**: each one fades in once it's ready to show (some used to pop in at the end of their fade instead), and ones you've already seen are there at once when you scroll back.
 
 ## 1.0.8 - 2026-10-29
 

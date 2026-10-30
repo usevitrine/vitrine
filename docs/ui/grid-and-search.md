@@ -369,6 +369,15 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   elements in all: no measurable cost per frame. Under removed tiles fading out (z-index -2); none while another
   page's list is held back (`clearedView`); the last band ends with the list (a whole band past it made the page
   scroll further than its end - caught by the e2e tests).
+- **Thumbnails come in decoded (2026-10-30, the user: thumbnails coming into view "sometimes kinda laggy")**: measured
+  on the website's demo library (phone size, thumbnails 20-250 ms away; WebKit, and Chromium at 4x slower CPU): the
+  fade started on load, before the picture was decoded (`decoding="async"`) - in WebKit about one in seven popped in at
+  the end of its fade instead (18 per scroll); and a tile made again for a thumbnail already seen (scrolling back up)
+  faded in from its preview a second time (25 on the way back). Now (`thumbIn`): a new thumbnail fades in (0.24 s, the
+  standard ease) once `decode()` is done, those decoded in the same moment together in one frame; one seen before
+  (or decoded ahead) is there at once (`.now`: no fade, and a comic's overlays with it). Measured after: 0 popping on
+  an easy scroll, 4 fades on the way back; 60 fps unchanged. A tile on screen still waits for its thumbnail when the
+  network is slower than the scroll.
 - **No sound from the move animation's copies (2026-10-21, user: audio started on the grid as downloads came in)**:
   the list changing animates by copies of the tiles on screen (`cloneNode`); a copy of the open hover card kept its
   video's address and autoplay but not its muting (a property), and the copies of tiles that stay are never put on the
