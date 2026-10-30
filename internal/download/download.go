@@ -62,6 +62,10 @@ type Site struct {
 	// error, e.g. "too many requests"). Used by the site's worker only.
 	backgroundAfter time.Time
 	postedFixed     int // upload times given their moment by FixPosted (for its log line)
+	// LearnTypes' next tags to look up (tags.id, found a batch at a time), and when to look for more after it found
+	// none. Used by the site's worker only.
+	typeTags      []int64
+	typesIdleTill time.Time
 }
 
 // Downloader runs the queues.

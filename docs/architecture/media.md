@@ -64,6 +64,15 @@ Probing, thumbnails, previews and scrub frames (ffmpeg, libvips): how files are 
   bells ask for the subscriptions a second after each). Now worked out at most every 30 s (`statusEvery`) and shared
   by every request; "Refresh now" (`ScheduleRefresh`) counts again at once, a site's pause is always current, and a
   subscription's new file (`foundChanged`) reads the dates again at once. `TestRefreshStatusShared`.
+- **Tag types looked up without walking the library (2026-10-30, the third profile, with 1.0.11: the user "Yes, fix
+  it")**: Vitrine's own time was down to ~0.43 cores, 57% of it `LearnTypes` picking the next post whose tags have no
+  known type - every post of the site joined with every tag of its file and grouped, on each idle moment of a site's
+  queue, also with nothing left to learn. Now (`docs/downloader/engines.md` has the type lookups): a batch of up to
+  200 such tags found tag by tag through indexes (`untypedTags`), kept in hand, one at a time; for a tag, its first 30
+  posts and the one with the most unknown tags; a tag no live post has counts as looked up (else every batch would
+  find it again); none left: no looking for 30 minutes (new tags come with their types). Made-up library of 150k
+  posts x 20 tags: 4.0 s per pick (also with nothing left) -> 47 ms a batch, ~1 ms a post, 53 ms to find there's
+  none. `TestLearnTypesForOlderFiles` (still one lookup per file), `TestLearnTypesNoPost`.
 - CLI: `vitrine import` makes thumbnails right after importing (`-no-thumbs` to skip); `vitrine process` catches
   up; `vitrine search` and `vitrine tag` exist for trying the library before the web client.
 - A user-typed `ns:tag` only uses a namespace that already exists (plugins declare them); otherwise the whole text is

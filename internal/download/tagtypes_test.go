@@ -97,3 +97,35 @@ func TestLearnTypesForOlderFiles(t *testing.T) {
 		t.Errorf("tag_5 (post gone) should stay: %d", n)
 	}
 }
+
+// A tag no live post has (its post's record gone): counted as looked up, never picked again - and with nothing left,
+// no looking for a while (the search for tags is skipped, not run on every idle moment).
+func TestLearnTypesNoPost(t *testing.T) {
+	e := newEnvWith(t, 3, typesManifest)
+	ctx := context.Background()
+	e.clock()
+	e.dl.Add(ctx, "fake", "common", 0)
+	e.dl.RunQueue(ctx, "fake")
+	e.fb.types = true
+	if _, err := e.db.W.Exec(`DELETE FROM seen_posts WHERE file_id = (SELECT ft.file_id FROM file_tags ft
+		JOIN tags t ON t.id = ft.tag_id WHERE t.name = 'tag_2')`); err != nil {
+		t.Fatal(err)
+	}
+	steps := 0
+	for more := true; more; steps++ {
+		var err error
+		if more, err = e.dl.LearnTypes(ctx, "fake"); err != nil {
+			t.Fatal(err)
+		}
+		if steps > 10 {
+			t.Fatal("loops")
+		}
+	}
+	if steps != 2+1 { // (the two posts left, then none)
+		t.Errorf("%d calls, want 3", steps)
+	}
+	st := e.dl.Site("fake")
+	if st.typesIdleTill.IsZero() || len(st.typeTags) != 0 {
+		t.Fatalf("idle till %v, %d tags in hand", st.typesIdleTill, len(st.typeTags))
+	}
+}

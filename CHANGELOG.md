@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Updates).
 
+## Unreleased
+
+### Improved
+
+- **Less processor load between downloads on big libraries**: while a site's queue is idle, Vitrine looks up the types of tags it doesn't know yet (artist, character…); choosing which post to look up went through every post and tag each time, even with nothing left to learn - now it takes a few milliseconds, and nothing at all once every type is known.
+
 ## 1.0.11 - 2026-10-30
 
 ### Improved

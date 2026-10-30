@@ -61,10 +61,19 @@ func (d *Downloader) recordTypes(ctx context.Context, siteID uint32, types map[s
 // learnsTypes reports whether a site's plugin can tell tag types.
 func (st *Site) learnsTypes() bool { return st.Client.Manifest().Tags.Types != "" }
 
-// LearnTypes looks up one post whose file has site tags with no known type
-// (the post with the most of them, so few lookups cover the library) and
-// writes the post again with namespaces. It reports whether there was such a
-// post. A post the site no longer has marks its tags as looked up (”).
+// LearnTypes' batches and back-off (2026-10-30, a CPU profile of a 589k-file library: picking the post - every post
+// of the site joined with every tag of its file, then grouped - was half of Vitrine's own processor time, again on
+// each idle moment, also with nothing left to learn).
+const (
+	typeTagsBatch = 200              // tags with no known type, found at once
+	typePostPick  = 30               // posts with the tag looked at for the one with the most unknown tags
+	typesIdle     = 30 * time.Minute // none found: the next look (new tags come with their types)
+)
+
+// LearnTypes looks up one post whose file has site tags with no known type and writes the post again with
+// namespaces. It reports whether there was such a post. A post the site no longer has marks its tags as looked up
+// (”). The post: one of a tag with no known type (tags found a batch at a time, by index), the one of its first
+// few with the most unknown tags - so few lookups cover the library.
 func (d *Downloader) LearnTypes(ctx context.Context, site string) (bool, error) {
 	st, ok := d.all()[site]
 	if !ok {
@@ -73,23 +82,10 @@ func (d *Downloader) LearnTypes(ctx context.Context, site string) (bool, error) 
 	if !st.learnsTypes() {
 		return false, nil
 	}
-	var postID int64
-	var fileID uint32
-	err := d.db.R.QueryRowContext(ctx, `
-		SELECT sp.post_id, sp.file_id FROM seen_posts sp
-		JOIN files f ON f.id = sp.file_id AND f.deleted_at IS NULL
-		JOIN file_tags ft ON ft.file_id = sp.file_id AND ft.origin = sp.site_id
-		JOIN tags t ON t.id = ft.tag_id
-		WHERE sp.site_id = ?1
-			AND NOT EXISTS (SELECT 1 FROM tag_types tt WHERE tt.site_id = ?1 AND tt.name = t.name)
-		GROUP BY sp.post_id ORDER BY count(*) DESC, sp.post_id DESC LIMIT 1`, st.ID).Scan(&postID, &fileID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+	postID, fileID, found, err := d.nextTypePost(ctx, st)
+	if err != nil || !found {
+		return false, err
 	}
-	if err != nil {
-		return false, fmt.Errorf("download: %w", err)
-	}
-
 	if _, err := d.refreshPost(ctx, st, postID, fileID); err != nil {
 		return true, err
 	}
@@ -104,6 +100,77 @@ func (d *Downloader) LearnTypes(ctx context.Context, site string) (bool, error) 
 		return true, fmt.Errorf("download: %w", err)
 	}
 	return true, nil
+}
+
+// nextTypePost picks the post LearnTypes looks up next: from the site's tags with no known type (the batch in hand,
+// else a new one - none: nothing until typesIdle has passed), the first still unknown that a live post has.
+func (d *Downloader) nextTypePost(ctx context.Context, st *Site) (postID int64, fileID uint32, found bool, err error) {
+	for ctx.Err() == nil {
+		if len(st.typeTags) == 0 {
+			if d.now().Before(st.typesIdleTill) {
+				return 0, 0, false, nil
+			}
+			if st.typeTags, err = d.untypedTags(ctx, st); err != nil {
+				return 0, 0, false, err
+			}
+			if len(st.typeTags) == 0 {
+				st.typesIdleTill = d.now().Add(typesIdle)
+				return 0, 0, false, nil
+			}
+		}
+		tag := st.typeTags[0]
+		err = d.db.R.QueryRowContext(ctx, `
+			SELECT c.post_id, c.file_id FROM (
+				SELECT sp.post_id, sp.file_id FROM file_tags ft
+				JOIN seen_posts sp ON sp.file_id = ft.file_id AND sp.site_id = ?1
+				JOIN files f ON f.id = ft.file_id AND f.deleted_at IS NULL
+				WHERE ft.tag_id = ?2 AND ft.origin = ?1
+					AND NOT EXISTS (SELECT 1 FROM tags t JOIN tag_types tt ON tt.site_id = ?1 AND tt.name = t.name WHERE t.id = ?2)
+				LIMIT ?3) c
+			ORDER BY (SELECT count(*) FROM file_tags ft2 JOIN tags t2 ON t2.id = ft2.tag_id
+				WHERE ft2.file_id = c.file_id AND ft2.origin = ?1
+					AND NOT EXISTS (SELECT 1 FROM tag_types tt2 WHERE tt2.site_id = ?1 AND tt2.name = t2.name)) DESC,
+				c.post_id DESC
+			LIMIT 1`, st.ID, tag, typePostPick).Scan(&postID, &fileID)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Known by now, or on no live post: the next. (On none, it counts as looked up - else every new batch
+			// would find it again.)
+			st.typeTags = st.typeTags[1:]
+			if _, err := d.db.W.ExecContext(ctx, `INSERT INTO tag_types (site_id, name, type, checked_at)
+				SELECT ?1, name, '', ?2 FROM tags WHERE id = ?3 ON CONFLICT (site_id, name) DO NOTHING`,
+				st.ID, d.now().UnixMilli(), tag); err != nil {
+				return 0, 0, false, fmt.Errorf("download: %w", err)
+			}
+			continue
+		}
+		if err != nil {
+			return 0, 0, false, fmt.Errorf("download: %w", err)
+		}
+		return postID, fileID, true, nil // (the tag stays first until a lookup gives it a type)
+	}
+	return 0, 0, false, ctx.Err()
+}
+
+// untypedTags finds a batch of the site's tags with no known type that a file has from the site: tag by tag, each
+// two index lookups - never every post with every tag.
+func (d *Downloader) untypedTags(ctx context.Context, st *Site) ([]int64, error) {
+	rows, err := d.db.R.QueryContext(ctx, `SELECT t.id FROM tags t
+		WHERE NOT EXISTS (SELECT 1 FROM tag_types tt WHERE tt.site_id = ?1 AND tt.name = t.name)
+			AND EXISTS (SELECT 1 FROM file_tags ft WHERE ft.tag_id = t.id AND ft.origin = ?1)
+		LIMIT ?2`, st.ID, typeTagsBatch)
+	if err != nil {
+		return nil, fmt.Errorf("download: %w", err)
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("download: %w", err)
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }
 
 // refreshPost reads a post from the site again and writes what it says now
