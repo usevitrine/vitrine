@@ -23,7 +23,11 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   mauve-tinted box - the bell, "Subscribed" / "In a subscription", the sites under it - and an external-link icon
   that opens it on the Downloads page (one: scrolled to and flashed, `router.focus = 'sub:<id>'`; several: the
   Subscriptions tab filtered to the tag, `'subs:<name>'`). A tag that isn't its own subscription gets **Subscribe…**
-  after New download: the New download dialog with Subscribe picked (`subscribe`).
+  after New download: the New download dialog with Subscribe picked (`subscribe`). **Centered (2026-10-30, the user:
+  the chip's bell "look[s] terrible" - low, its icon off-center)**: in a chip the tag's text and bell are a flex row
+  (`align-items: center`, no nudge); elsewhere `vertical-align: middle`; the bell is the disc's size minus 4 px (same
+  odd/even, so it lands on whole pixels - a 9 px bell in a 14 px disc was half a pixel off), `display: block`. The e2e
+  test measures it: the disc's middle on the chip's / row's (1 px), the bell's on the disc's (0.5 px).
 - **Tag actions in the details panel**: tapping a tag opens a row under its group: **Add**
   (to the current search), **Exclude** (adds `-tag`), **Only this** (searches just the tag). If the search already has
   the tag, Add becomes **Remove** (from the search); if it already excludes it, Exclude becomes **Include**. The tag's

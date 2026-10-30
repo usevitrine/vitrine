@@ -15,16 +15,17 @@
 </script>
 
 {#if s}
+  <!-- (the bell 4 px smaller than the disc: the same odd/even size, so it sits exactly in the middle - a 9 px bell in
+       a 14 px disc was half a pixel off, the user: "make sure ... the icon inside is centered") -->
   <span class="sub-mark" class:own={s.own} class:paused={s.paused} style:--s="{size}px" role="img" aria-label={title} {title}
-    ><Icon name="bell" size={Math.round(size * 0.66)} /></span>
+    ><Icon name="bell" size={size - 4} /></span>
 {/if}
 
 <style>
   .sub-mark {
     flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: inline-grid;
+    place-items: center;
     width: var(--s);
     height: var(--s);
     border-radius: 50%;
@@ -41,6 +42,7 @@
     opacity: 0.45;
   }
   .sub-mark :global(svg) {
+    display: block; /* (no baseline gap under it) */
     stroke-width: 2.4;
   }
 </style>

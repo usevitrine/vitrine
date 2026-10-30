@@ -1291,6 +1291,17 @@ test('tags a subscription follows: a bell in the details, the search bar and the
     await expect(tag('bellmark_own').locator('.sub-mark.own')).toBeVisible(); // (a subscription on the bare name counts for creator:)
     await expect(tag('bellmark_part').locator('.sub-mark:not(.own)')).toBeVisible();
     await expect(tag('bellmark_none').locator('.sub-mark')).toHaveCount(0);
+    // (the bell in the middle of its disc, and the disc on the tag's line - measured once the panel's motion is over)
+    await expect
+      .poll(() =>
+        tag('bellmark_own').evaluate((b) => {
+          const r = b.getBoundingClientRect(), m = b.querySelector('.sub-mark')!.getBoundingClientRect(), i = b.querySelector('.sub-mark svg')!.getBoundingClientRect();
+          const mid = (x: DOMRect) => [x.x + x.width / 2, x.y + x.height / 2];
+          const [mx, my] = mid(m), [ix, iy] = mid(i), [, ry] = mid(r);
+          return Math.abs(my - ry) <= 1.5 && Math.abs(ix - mx) <= 0.5 && Math.abs(iy - my) <= 0.5 && Math.abs(m.width - m.height) < 0.5;
+        }),
+      )
+      .toBe(true);
     // The menu: Subscribed, the site; no Subscribe… (it is one already).
     await tag('bellmark_own').click();
     const menu = page.getByRole('menu', { name: /^bellmark_own/ });
@@ -1304,8 +1315,11 @@ test('tags a subscription follows: a bell in the details, the search bar and the
     await expect(partMenu.locator('.subbed')).toContainText('In a subscription');
     await partMenu.getByRole('menuitem', { name: 'Subscribe…' }).click();
     await expect(newDl(page)).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(newDl(page)).toHaveCount(0);
+    // (Escape again if it came while the dialog was still opening - WebKit)
+    await expect(async () => {
+      await page.keyboard.press('Escape');
+      await expect(newDl(page)).toHaveCount(0, { timeout: 1000 });
+    }).toPass();
     if (!(await panel.isVisible())) await page.getByRole('button', { name: 'Details', exact: true }).click();
     // Open: the subscription on the Downloads page.
     await tag('bellmark_own').click();
@@ -1315,10 +1329,27 @@ test('tags a subscription follows: a bell in the details, the search bar and the
     // The search bar's chip and the suggestions.
     await page.goto('/?q=creator%3Abellmark_own');
     await expect(page.locator('.chip .atom .sub-mark.own')).toBeVisible();
-    const box = page.getByRole('combobox', { name: 'Search' }).first();
+    // Centered (2026-10-30, the user: the chip's bell sat low, its icon off-center): the disc's middle on the chip's,
+    // the bell in the middle of the disc.
+    // (measured once the chip's motion is over)
+    const centered = (mark: import('@playwright/test').Locator, row: import('@playwright/test').Locator) =>
+      expect
+        .poll(async () => {
+          const [m, r, i] = [await mark.boundingBox(), await row.boundingBox(), await mark.locator('svg').boundingBox()];
+          return (
+            Math.abs(m!.y + m!.height / 2 - (r!.y + r!.height / 2)) <= 1 &&
+            Math.abs(i!.x + i!.width / 2 - (m!.x + m!.width / 2)) <= 0.5 &&
+            Math.abs(i!.y + i!.height / 2 - (m!.y + m!.height / 2)) <= 0.5 &&
+            Math.abs(m!.width - m!.height) < 0.5
+          );
+        })
+        .toBe(true);
+    await centered(page.locator('.chip .sub-mark'), page.locator('.chip', { has: page.locator('.sub-mark') }));    const box = page.getByRole('combobox', { name: 'Search' }).first();
     await box.click();
     await box.pressSequentially('bellmark_p');
-    await expect(page.getByRole('option', { name: /^bellmark_part/ }).locator('.sub-mark:not(.own)')).toBeVisible();
+    const option = page.getByRole('option', { name: /^bellmark_part/ });
+    await expect(option.locator('.sub-mark:not(.own)')).toBeVisible();
+    await centered(option.locator('.sub-mark'), option);
   } finally {
     await page.evaluate((ids) => Promise.all(ids.map((id) => fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }))), subs);
   }

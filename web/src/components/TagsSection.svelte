@@ -610,7 +610,7 @@
   /* A subscription follows it: the bell after the name (lib/subTags). */
   .name :global(.sub-mark) {
     margin-left: 5px;
-    vertical-align: -3px;
+    vertical-align: middle; /* (the line's middle, not a nudge: a wrapped name keeps it on its last line) */
   }
   .tags li.picked {
     outline: 2px solid var(--c);

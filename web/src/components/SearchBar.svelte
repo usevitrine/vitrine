@@ -739,10 +739,12 @@
     white-space: nowrap;
     text-align: left;
   }
-  /* A subscription follows the tag: its bell after the name (lib/subTags). */
-  .atom :global(.sub-mark) {
-    margin-left: 4px;
-    vertical-align: -2px;
+  /* A subscription follows the tag: its bell after the name (lib/subTags), centered on the text by flexbox (nudged
+     down 2 px it sat low - the user: "make sure they're vertically centered"). */
+  .atom:has(:global(.sub-mark)) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
   .atom.tag,
   .atom.wildcard {
