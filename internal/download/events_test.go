@@ -47,6 +47,16 @@ func TestEvents(t *testing.T) {
 	}
 	e.dl.Unsubscribe(ctx, id)
 
+	// A new subscription whose first check finds nothing new (all already in the library): nothing.
+	setDown(false)
+	id, _ = e.dl.Subscribe(ctx, "fake", "common", time.Hour, 0)
+	e.runDue(t)
+	if ev := take(); len(ev) != 0 {
+		t.Fatalf("a first check without new files: %+v", ev)
+	}
+	e.dl.Unsubscribe(ctx, id)
+	setDown(true)
+
 	// A search that fails: told only when it stops trying by itself.
 	sid, _ := e.dl.Add(ctx, "fake", "common", 0)
 	e.dl.RunQueue(ctx, "fake")

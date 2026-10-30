@@ -571,10 +571,12 @@ func (d *Downloader) finishCheck(s Search, state, msg string) {
 	if err != nil {
 		return
 	}
+	// A check that found nothing new is never told, the first one (the initial download) neither.
+	found := downloaded > 0 || pages > 0
 	switch {
-	case state == StateDone && s.FirstCheck: // the first check: its initial download finished (regular checks may have run beside it)
+	case state == StateDone && s.FirstCheck && found: // the first check: its initial download finished (regular checks may have run beside it)
 		d.emit(s, Event{Kind: EventDone, New: downloaded, First: true, Pages: pages})
-	case state == StateDone && (downloaded > 0 || pages > 0):
+	case state == StateDone && !s.FirstCheck && found:
 		d.emit(s, Event{Kind: EventNewFiles, New: downloaded, Pages: pages})
 	case state == StateFailed && !failedBefore: // not again every hour while it keeps failing
 		d.emit(s, Event{Kind: EventFailed, Error: msg})

@@ -31,6 +31,10 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
   seconds when they finish ("Subscription ready" / "Download finished", with how many new files; several at once:
   "3 subscriptions ready"). Failures and blacklisted tags as before. Stopping Vitrine sends what's waiting
   (`Notifier.Flush`). The downloader marks a first check's event `done` with `First`.
+- **A subscription check that found nothing is never told (2026-10-30, the user: "make sure subs that find 0 files
+  dont notify the user")**: regular checks with no new files never were; now a first check that found no new files
+  (all already in the library, or nothing matched) isn't either - no push, no bell notice (`finishCheck`, `TestEvents`).
+  One-off downloads still say when they finish, 0 new files included.
 
 ## Notices kept over restarts (2026-10-21)
 - The bell's notices (the downloader's events) are kept in meta.db (`notices`, migration 0032; the last 100,
