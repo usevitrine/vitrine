@@ -47,8 +47,16 @@ Probing, thumbnails, previews and scrub frames (ffmpeg, libvips): how files are 
   GC's share), the tools' cores and per job "thumbnail: 120 in 45s cpu (60 on the GPU)". Each preview frame sheet:
   a debug line with its time, processor time and GPU or not. `vitrine profile` records Go's CPU (or heap, goroutine)
   profile through the local socket only (`/debug/pprof/...`, never the network port) for `go tool pprof`. Seen first
-  on a 571k-file library while importing ~2 files a second: Vitrine's own code 1-2.3 cores (to be profiled), ffmpeg
-  bursts of up to 3.3 cores.
+  on a 571k-file library while importing ~2 files a second: Vitrine's own code 1-2.3 cores, ffmpeg bursts of up to
+  3.3 cores (with 1.0.9's GPU decoding: ffmpeg mostly 10-20% of a core).
+- **The work still waiting, found through indexes (2026-10-30, the first `vitrine profile` of that library)**: 54% of
+  Vitrine's own processor time was `pendingMedia` (files without a thumbnail), and more went to the near-duplicate
+  and preview-frame queues: each walked the whole files table from the newest file down (`ORDER BY id DESC LIMIT n`
+  with a flags condition no index had - and the flags passed as parameters), reading every page when only a few files
+  wait - once for each new file. Migration 0046: partial indexes on (id) holding only the waiting files
+  (`files_pending_media`, `_phash`, `_sprite`); the queries repeat the indexes' conditions word for word with the
+  flags written in (a parameter can't match a partial index). Made-up 600k-file library, a few waiting: 64 ms and
+  47 ms -> under 1 ms. `TestPendingUsesIndexes` checks the query plans.
 - CLI: `vitrine import` makes thumbnails right after importing (`-no-thumbs` to skip); `vitrine process` catches
   up; `vitrine search` and `vitrine tag` exist for trying the library before the web client.
 - A user-typed `ns:tag` only uses a namespace that already exists (plugins declare them); otherwise the whole text is

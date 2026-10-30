@@ -112,8 +112,11 @@ func (l *Library) PendingMedia(ctx context.Context, retryFailed bool) ([]uint32,
 	return l.pendingMedia(ctx, retryFailed, 0)
 }
 
+// (the condition word for word as in the files_pending_media index - migration 0046 - so only waiting files are read)
+const pendingMediaSQL = "SELECT id FROM files WHERE deleted_at IS NULL AND flags & 3 != 3"
+
 func (l *Library) pendingMedia(ctx context.Context, retryFailed bool, limit int) ([]uint32, error) {
-	q := "SELECT id FROM files WHERE deleted_at IS NULL AND flags & ? != ?"
+	q := pendingMediaSQL
 	if !retryFailed {
 		q += fmt.Sprintf(" AND flags & %d = 0", FlagMediaError)
 	}
@@ -121,7 +124,7 @@ func (l *Library) pendingMedia(ctx context.Context, retryFailed bool, limit int)
 	if limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", limit)
 	}
-	rows, err := l.db.R.QueryContext(ctx, q, FlagProbed|FlagThumbnail, FlagProbed|FlagThumbnail)
+	rows, err := l.db.R.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}

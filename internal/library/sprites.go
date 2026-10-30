@@ -14,13 +14,16 @@ import (
 // Preview frames for the video player's scrub bar (media.Sprite), made in
 // the background for every video: new downloads and the existing library.
 
+// (a probed video without preview frames: as in the files_pending_sprite index, migration 0046 - only waiting files
+// read; types 6-9 are media.MP4 to media.Matroska)
+const pendingSpritesSQL = `SELECT id FROM files
+	WHERE deleted_at IS NULL AND type BETWEEN 6 AND 9 AND flags & 25 = 1 AND duration_ms > 0
+	ORDER BY id DESC LIMIT ?`
+
 // PendingSprites lists live, probed videos without preview frames yet,
 // newest first (at most limit).
 func (l *Library) PendingSprites(ctx context.Context, limit int) ([]uint32, error) {
-	rows, err := l.db.R.QueryContext(ctx, `SELECT id FROM files
-		WHERE deleted_at IS NULL AND type BETWEEN ? AND ? AND duration_ms > 0 AND flags & ? = ? AND flags & ? = 0
-		ORDER BY id DESC LIMIT ?`,
-		int(media.MP4), int(media.Matroska), FlagProbed, FlagProbed, FlagSprite|FlagSpriteErr, limit)
+	rows, err := l.db.R.QueryContext(ctx, pendingSpritesSQL, limit)
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
 	}

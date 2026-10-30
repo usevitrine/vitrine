@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Updates).
 
+## Unreleased
+
+### Improved
+
+- **Much less processor load on big libraries while downloading**: finding the files still waiting for a thumbnail, a duplicate check or preview frames read through the whole library each time a file came in; now it reads only the waiting ones. On a 580,000-file library that was about half of what Vitrine itself used.
+
 ## 1.0.9 - 2026-10-30
 
 ### New

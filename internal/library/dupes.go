@@ -22,9 +22,11 @@ import (
 // PendingPHash lists live files with a thumbnail but no hash attempt yet,
 // newest first (at most limit).
 func (l *Library) PendingPHash(ctx context.Context, limit int) ([]uint32, error) {
-	return l.ids(ctx, `SELECT id FROM files WHERE deleted_at IS NULL AND flags & 64 = 0 AND flags & ? = ? AND flags & ? = 0
-		ORDER BY id DESC LIMIT ?`, FlagThumbnail, FlagThumbnail, FlagPHash, limit)
+	return l.ids(ctx, pendingPHashSQL, limit)
 }
+
+// (a thumbnail, no hash, not comic-only: as in the files_pending_phash index, migration 0046 - only waiting files read)
+const pendingPHashSQL = `SELECT id FROM files WHERE deleted_at IS NULL AND flags & 98 = 2 ORDER BY id DESC LIMIT ?`
 
 func (l *Library) ids(ctx context.Context, query string, args ...any) ([]uint32, error) {
 	rows, err := l.db.R.QueryContext(ctx, query, args...)
