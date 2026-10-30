@@ -6,7 +6,7 @@
   import { backClose } from '../lib/backClose';
   import { sheetIn, sheetOut, shade } from '../lib/sheet';
   import { sheetDrag } from '../lib/sheetDrag';
-  import { px, settle, sizeOf } from '../lib/motion';
+  import { px, settle, sizeOf, onPixels } from '../lib/motion';
   import { cubicOut } from 'svelte/easing';
   import { whatsNew } from '../lib/whatsNew.svelte';
   import ChangelogCard from './ChangelogCard.svelte';
@@ -27,6 +27,7 @@
   function pop(node: Element, { out = false } = {}) {
     if (sheet) return out ? sheetOut(node) : sheetIn(node);
     if (reduced()) return { duration: 0 };
+    if (!out) onPixels(node);
     return {
       duration: out ? 200 : 220,
       easing: cubicOut,

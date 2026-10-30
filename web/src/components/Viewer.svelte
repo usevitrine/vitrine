@@ -1,7 +1,7 @@
 <script lang="ts">
   import { backClose } from '../lib/backClose';
   import { away } from '../lib/sheet';
-  import { pop, px, nudge } from '../lib/motion';
+  import { pop, px, nudge, onPixels } from '../lib/motion';
   import { dragDown } from '../lib/sheetDrag';
   import { Glide, clampZoom as clampFit, zoomAround, pinchScale } from '../lib/zoom';
   import { reducedMotion } from '../lib/hero';
@@ -958,6 +958,7 @@
   // leave - from where the sheet rests, so a dragged one jumped up first).
   function sheet(node: Element, { out = false } = {}) {
     if (reducedMotion()) return { duration: 0 };
+    if (!out) onPixels(node);
     if (out && isSheet() && sheetGone > 0) {
       const from = sheetGone;
       sheetGone = 0;

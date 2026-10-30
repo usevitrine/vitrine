@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { px, settle, sizeOf } from '../lib/motion';
+  import { px, settle, sizeOf, onPixels } from '../lib/motion';
   // A small dialog over everything (Rename, Crop the cover): a dimmed backdrop, a card in the middle that pops in,
   // a heading with a close button; Escape, Back and a press outside close it. Its content brings its own buttons
   // (a ".foot" row is styled here: buttons on the right, a ".spacer" pushing some to the left).
@@ -25,6 +25,7 @@
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   function pop(node: Element, { out = false } = {}) {
     if (reduced()) return { duration: 0 };
+    if (!out) onPixels(node);
     // (going: as plain as coming - it shrinks and sinks a little as it fades, not just a blink)
     return {
       duration: out ? 200 : 220,

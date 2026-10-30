@@ -1,7 +1,7 @@
 <script lang="ts">
   import { overlayScroll } from '../lib/overlayScroll';
   import { untrack } from 'svelte';
-  import { px, settle, sizeOf } from '../lib/motion';
+  import { px, settle, sizeOf, onPixels } from '../lib/motion';
   // The downloads in the top bar (the library): its counter says how many are running or waiting, and the arrow bobs
   // while one downloads. A press opens New download and the downloads going on now - running, then waiting, then
   // paused - a site's together as a stack like the Downloads page's (the user); each is a small version of the page's
@@ -138,6 +138,7 @@
   // The panel grows out of the button (like the bell's); the downloads slide in one after another.
   function grow(node: Element, { out = false } = {}) {
     if (reduced()) return { duration: 0 };
+    if (!out) onPixels(node);
     return {
       duration: out ? 200 : 240,
       easing: cubicOut,

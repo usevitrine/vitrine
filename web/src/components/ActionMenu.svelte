@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import { settle, sizeOf } from '../lib/motion';
+  import { settle, sizeOf, onPixels } from '../lib/motion';
   import type { ComponentProps } from 'svelte';
   import { place } from '../lib/place';
   import type IconType from './Icon.svelte';
@@ -103,6 +103,7 @@
     el.style.transition = '';
     if (reduced()) return { duration: 0 };
     if (sheet) return sheetIn(node);
+    onPixels(node);
     return { duration: 180, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * -8}px) scale(${settle(0.98 + 0.02 * t, sizeOf(node))})` };
   }
   function menuOut(node: Element) {

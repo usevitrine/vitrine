@@ -8,6 +8,7 @@ shows this too (Settings > Updates).
 ### Fixed
 
 - **No notification for a subscription that found nothing**: a new subscription whose first check brought no new files (everything already in the library) no longer says it's ready with 0 new files.
+- **Nothing shifts as it finishes opening**: menus, panels, dialogs, sections and notices no longer jump by a pixel the moment their opening animation ends (seen on Windows) - they now come in on whole pixels.
 
 ## 1.0.12 - 2026-10-30
 

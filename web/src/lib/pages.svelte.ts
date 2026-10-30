@@ -1,4 +1,4 @@
-import { px } from './motion';
+import { px, onPixels } from './motion';
 // Menus with pages (a page of choices, Sort by, a tag's Namespace): moving
 // between pages looks the same in every one. A deeper page slides in from the
 // right and the old one out to the left (going back, the other way round),
@@ -65,6 +65,7 @@ export class Pages {
     node.removeAttribute('inert');
     node.removeAttribute('aria-hidden');
     if (reduced()) return { duration: 0 };
+    onPixels(node);
     const w = this.way;
     return { delay: 60, duration: 220, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateX(${px((1 - t) * 32 * w)})` };
   };

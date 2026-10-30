@@ -1,6 +1,6 @@
 <script lang="ts">
   import { overlayScroll } from '../lib/overlayScroll';
-  import { px, settle, sizeOf } from '../lib/motion';
+  import { px, settle, sizeOf, onPixels } from '../lib/motion';
   // The confirmation before a destructive action (lib/confirm): what goes (a
   // red badge, or the files' pictures), a question, one line, Cancel and the
   // action. A card in the middle on wider screens, a sheet on phones. Escape or
@@ -59,6 +59,7 @@
   function pop(node: Element, { out = false } = {}) {
     if (sheet) return out ? sheetOut(node) : sheetIn(node);
     if (reduced()) return { duration: 0 };
+    if (!out) onPixels(node);
     return {
       duration: out ? 200 : 220,
       easing: cubicOut,

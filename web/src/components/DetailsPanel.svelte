@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { px } from '../lib/motion';
+  import { px, onPixels } from '../lib/motion';
   import { away } from '../lib/sheet';
   // The details panel's frame outside the viewer (the Comics page): the same
   // as the viewer's - a column on the right on wide screens (below the top
@@ -45,6 +45,7 @@
   function slide(node: Element, { out = false } = {}) {
     if (out) closing = true; // (closed from outside)
     if (reduced()) return { duration: 0 };
+    if (!out) onPixels(node);
     if (isSheet()) {
       if (out && gone > 0) {
         const from = gone;

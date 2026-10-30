@@ -1,7 +1,7 @@
 <script lang="ts">
   import { overlayScroll } from '../lib/overlayScroll';
   import { untrack } from 'svelte';
-  import { px, settle, sizeOf } from '../lib/motion';
+  import { px, settle, sizeOf, onPixels } from '../lib/motion';
   // The bell in the top bar: it rings when a notification comes, its counter says how many are unread (red with
   // an error among them). A press opens them - the newest first, the unread lit - with Clear; opening reads them.
   import { cubicOut } from 'svelte/easing';
@@ -98,6 +98,7 @@
   // The panel grows out of the bell; its notifications slide in one after another.
   function grow(node: Element, { out = false } = {}) {
     if (reduced()) return { duration: 0 };
+    if (!out) onPixels(node);
     return {
       duration: out ? 200 : 240,
       easing: cubicOut,

@@ -5,7 +5,7 @@
   // suggestions can be marked - from several words typed one after another - and go in together: all of them, or
   // any of them (an OR group).
   import { api, type Suggestion } from '../lib/api';
-  import { pop, moved, nudge, reduced } from '../lib/motion';
+  import { pop, moved, nudge, reduced, onPixels } from '../lib/motion';
   import { cubicOut } from 'svelte/easing';
   import { splitTag, tagColor, nsLabel } from '../lib/namespaces.svelte';
   import SubMark from './SubMark.svelte';
@@ -83,6 +83,7 @@
       el.style.pointerEvents = '';
     }
     if (reduced()) return { duration: 0 };
+    if (!out) onPixels(node);
     const from = place?.bottom !== undefined ? 6 : -6;
     return { duration: out ? 120 : 160, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * from}px)` };
   }

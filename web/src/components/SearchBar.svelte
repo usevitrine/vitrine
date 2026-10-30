@@ -2,7 +2,7 @@
   // The search: typed booru-style text turns into chips; every chip can be
   // edited in place. Each change runs the search straight away.
   import { parse, format, chipText, atomText, label, kindOf, balanced, isTitleText, titleTerm, type Chip } from '../lib/query';
-  import { pop as grow, moved, settle, sizeOf, nudge } from '../lib/motion';
+  import { pop as grow, moved, settle, sizeOf, nudge, onPixels } from '../lib/motion';
   import type { Suggestion } from '../lib/api';
   import TagInput from './TagInput.svelte';
   import { tagColor } from '../lib/namespaces.svelte';
@@ -128,6 +128,7 @@
     if (out) node.setAttribute('aria-hidden', 'true');
     else node.removeAttribute('aria-hidden');
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return { duration: 0 };
+    if (!out) onPixels(node);
     return {
       duration: 180,
       easing: cubicOut,

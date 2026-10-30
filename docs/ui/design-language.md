@@ -75,6 +75,23 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   (Downloads, the bell, ⋯ menus, search suggestions) moves continuously again - in whole pixels its last pixel came
   late and on its own, a drop just as it had settled (measured in Chrome's screencast: a last step of 0.85 px after
   steps of 0.2-0.4; continuous, the steps shrink to 0.05 px, and nothing moves at rest).
+- **Everything that comes in lands on whole pixels (2026-10-30, the user, a recording of the Downloads menu opening in
+  Brave on Windows: "pixel shift in the elements. this happens all over the site")**: (3) while a transform animates,
+  the layer is placed on whole screen pixels; at rest it's drawn where layout put it - and much of the app sits between
+  pixels (the Downloads and bell panels 43.5 px down, under the top bar; dialogs centered in an odd height; Settings
+  and Tags sections, the Downloads tabs' panels, menus, toasts: a line height of 1.4 makes fractions everywhere). The
+  whole panel moved by that fraction (~1 px) the moment its opening ended. Now every intro (`motion.ts` glide, pop;
+  `sheet.ts` sheets and desk menus; pages; Sections; and each component's own: Downloads menu, bell, ⋯ menus, Modal,
+  ConfirmDialog, What's new, search suggestions, TagInput, toasts, details panels) calls `onPixels(node)` first: it
+  moves the element onto whole device pixels by its margins - by layout, not a translate (a translate of the fraction
+  drew the text between pixels at rest: blurred, unlike the moving picture). The margin is worked out from where a
+  margin of 0 puts it, so an auto-centered dialog works too; the far side's margin when the near one doesn't move it
+  (a panel placed from the right). When the window resizes or the element changes size (a dialog whose content
+  came: with its margin set it grew downwards, under the keyboard), it's placed again from its own margins - once
+  it's done moving (only animations still running count: a finished one held at its end is still listed, and waiting
+  for it looped for ever). Something inside a parent that moves (not one only fading) is left to its parent. Not reproducible in headless Chromium (it keeps the fraction in the layer -
+  measured: 0-6 pixels change as the panel settles, before and after); in the e2e flow every panel, dialog, menu
+  and section ends on whole pixels (before: 43.5, 358.6, 106.8...).
 - **Type (2026-10-24, the user's pick of Geist / Inter / Plus Jakarta Sans / Manrope)**: Plus Jakarta Sans, the
   variable font bundled with the app (`@fontsource-variable/plus-jakarta-sans`, imported in main.ts: woff2 files split
   by script, only the ones a page's text needs are fetched; no outside font service - self-hosted, offline, private),

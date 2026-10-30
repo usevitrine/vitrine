@@ -6,7 +6,7 @@
   // it (measured), not by the page's flow - one going leaves its place at once and the others glide down while it
   // fades where it was (in a column they waited for it, and new ones came in high up - the user).
   import { cubicOut } from 'svelte/easing';
-  import { px, settle, sizeOf, reduced } from '../lib/motion';
+  import { px, settle, sizeOf, reduced, onPixels } from '../lib/motion';
   import { toasts, type Toast, type ToastKind } from '../lib/toast.svelte';
   import Icon from './Icon.svelte';
   import Stack from './Stack.svelte';
@@ -33,6 +33,7 @@
 
   function rise(node: Element) {
     if (reduced()) return { duration: 0 };
+    onPixels(node);
     return { duration: 300, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateY(${px((1 - k) * 16)}) scale(${settle(0.96 + 0.04 * k, sizeOf(node))})` };
   }
   function fadeOut(node: Element) {

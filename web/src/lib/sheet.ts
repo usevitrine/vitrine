@@ -1,4 +1,4 @@
-import { px, settle, sizeOf } from './motion';
+import { px, settle, sizeOf, onPixels } from './motion';
 // Phone sheets (menus along the bottom): how they come and go, the same for
 // every one. They slide up from the bottom and back down - from where a drag
 // left them (sheetDrag sets data-dragged) - while the page behind dims and
@@ -19,6 +19,7 @@ type Desk = 'pop' | 'drop' | '';
 /** A window or menu on a wide screen, coming (t 0 -> 1) or going. */
 function desk(node: Element, kind: Desk, out: boolean) {
   if (!kind || reduced()) return { duration: 0 };
+  if (!out) onPixels(node);
   const size = sizeOf(node);
   if (kind === 'pop')
     return { duration: out ? 200 : 220, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${px(out ? (1 - t) * 8 : 0)}) scale(${settle(0.94 + 0.06 * t, size)})` };
@@ -36,6 +37,7 @@ export function sheetIn(node: Element, { on = true, desk: kind = '' as Desk } = 
   el.style.transition = '';
   if (!on) return desk(node, kind, false);
   if (reduced()) return { duration: 0 };
+  onPixels(node);
   return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${px((1 - t) * away(node))})` };
 }
 

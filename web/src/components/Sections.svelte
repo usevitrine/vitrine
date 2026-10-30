@@ -19,6 +19,7 @@
   import { overlayScroll } from '../lib/overlayScroll';
   import { onMount, type Snippet } from 'svelte';
   import { cubicOut } from 'svelte/easing';
+  import { onPixels } from '../lib/motion';
   import Icon from './Icon.svelte';
   import { router, type Screen } from '../lib/router.svelte';
   import { t } from '../lib/i18n.svelte';
@@ -56,6 +57,7 @@
   // section vanished at once - most of the change in one frame, seen in a motion recording.)
   function enter(node: Element, { x = 0, y = 0 } = {}) {
     if (reduced()) return { duration: 0 };
+    onPixels(node);
     return { delay: 90, duration: 220, easing: cubicOut, css: (t: number, u: number) => `opacity: ${t}; transform: translate(${u * x}px, ${u * y}px)` };
   }
   function leave(node: Element) {

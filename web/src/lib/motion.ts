@@ -26,12 +26,94 @@ export const sizeOf = (node: Element) => {
 /** A scale that is 1 once the difference is under half a pixel on an element that big. */
 export const settle = (s: number, size: number) => (Math.abs(1 - s) * size < 0.5 ? 1 : s);
 
+// While something animates, the browser draws it as a picture of its own, placed on whole screen pixels; once the
+// animation ends it's drawn in the page again, where it is - between two pixels if its place isn't a whole number
+// (a popover 43.5 px from the top: the menu bar's height). It jumped by that fraction the moment it settled (2026-10-30,
+// the user, a recording of the Downloads menu opening: "pixel shift in the elements. this happens all over the site").
+// So what comes in is moved onto whole pixels before it animates, for good, by its margins - by layout: a translate
+// of the fraction drew its text between pixels at rest (blurred, and still not like the picture). A margin that
+// doesn't move it (one side of something placed from the other) is undone and the other side's tried. Something
+// inside a thing that's animating is left alone (where it lands depends on its parent, put right itself).
+// The window resized, or it changed size itself (a dialog whose content came, centered by auto margins): placed again
+// from its own margins - once it's done moving (its place is measured; mid-animation that's the moving picture's).
+const nudged = new Map<HTMLElement, [string, string, string, string]>(); // its own margins before
+const unnudge = (el: HTMLElement) => {
+  const was = nudged.get(el);
+  if (was) [el.style.marginTop, el.style.marginRight, el.style.marginBottom, el.style.marginLeft] = was;
+  nudged.delete(el);
+};
+const moves = (a: Animation) =>
+  a.effect instanceof KeyframeEffect && a.effect.getKeyframes().some((k) => Object.keys(k).some((p) => !['offset', 'easing', 'composite', 'computedOffset', 'opacity'].includes(p)));
+const again = (el: HTMLElement) => {
+  if (!el.isConnected) {
+    unnudge(el);
+    sized?.unobserve(el);
+    return;
+  }
+  // (only ones still going: a finished one held at its end is still listed, and waiting for it looped at once, for ever)
+  const own = el.getAnimations().filter((a) => a.playState !== 'finished' && moves(a));
+  if (own.length) Promise.all(own.map((a) => a.finished)).then(() => again(el), () => {});
+  else place(el);
+};
+// (its size when placed, taken then: the observer's first report can come after it has grown already)
+const sizes = new WeakMap<Element, string>();
+const sizeNow = (el: HTMLElement) => `${el.offsetWidth}x${el.offsetHeight}`;
+const sized =
+  typeof ResizeObserver === 'undefined'
+    ? undefined
+    : new ResizeObserver((es) => {
+        for (const e of es) if (sizes.get(e.target) !== sizeNow(e.target as HTMLElement)) again(e.target as HTMLElement);
+      });
+if (typeof window !== 'undefined') addEventListener('resize', () => [...nudged.keys()].forEach(again));
+/** Puts an element coming in onto whole screen pixels (call it from an intro, before its first frame). */
+export function onPixels(node: Element) {
+  const el = node as HTMLElement;
+  if (!el.style || typeof el.getAnimations !== 'function') return;
+  // (a parent only fading doesn't move it)
+  for (let p = el.parentElement; p; p = p.parentElement) if (p.getAnimations().some(moves)) return;
+  place(el);
+}
+function place(el: HTMLElement) {
+  const s = el.style;
+  unnudge(el);
+  for (const e of nudged.keys()) if (!e.isConnected) nudged.delete(e);
+  nudged.set(el, [s.marginTop, s.marginRight, s.marginBottom, s.marginLeft]);
+  const d = devicePixelRatio || 1;
+  // (layout places things in 64ths of a pixel: closer than one of those is whole)
+  const off = (v: number) => {
+    const by = (Math.round(v * d) - v * d) / d;
+    return Math.abs(by) < 1 / 64 ? 0 : by;
+  };
+  const at = () => el.getBoundingClientRect();
+  // The margin that puts it there: measured from where a margin of 0 puts it - a margin set as auto (a dialog centered
+  // by them) reads as a number that isn't it. The far side's margin moves it the other way.
+  const fix = (pos: () => number, a: 'marginTop' | 'marginLeft', b: 'marginBottom' | 'marginRight') => {
+    const p = pos();
+    const by = off(p);
+    if (!by) return;
+    for (const [side, sign] of [[a, 1], [b, -1]] as const) {
+      const before = s[side];
+      s[side] = '0px';
+      s[side] = `${sign * (p + by - pos())}px`;
+      if (!off(pos()) && Math.abs(pos() - p - by) < 0.1) return;
+      s[side] = before;
+    }
+  };
+  fix(() => at().top, 'marginTop', 'marginBottom');
+  fix(() => at().left, 'marginLeft', 'marginRight');
+  if (sized) {
+    sizes.set(el, sizeNow(el));
+    sized.observe(el);
+  }
+}
+
 /** Like Svelte's fly: from x / y away (and opacity), to where it is. */
 export function glide(
   node: Element,
   { x = 0, y = 0, duration = 200, delay = 0, easing = cubicOut, opacity = 0 }: { x?: number; y?: number; duration?: number; delay?: number; easing?: (t: number) => number; opacity?: number } = {},
 ) {
   if (reduced()) return { duration: 0 };
+  onPixels(node);
   return { duration, delay, easing, css: (t: number, u: number) => `opacity: ${1 - (1 - opacity) * u}; transform: translate(${px(u * x)}, ${px(u * y)})` };
 }
 
@@ -97,6 +179,7 @@ function gapAway(node: Element, axis: 'x' | 'y', ms: number): (t: number) => str
 
 export function pop(node: Element, { duration = 200, delay = 0 } = {}) {
   if (reduced()) return { duration: 0 };
+  onPixels(node);
   return { duration, delay, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: scale(${0.6 + 0.4 * t})` };
 }
 
