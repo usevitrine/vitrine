@@ -284,7 +284,8 @@ async function updateBadge() {
 // and a window is opened only when none has appeared after a while. (Until 2026-10-31 a window was opened at once:
 // the app started twice side by side, the second seconds later; the user: "It felt a bit slower than usual".)
 const OPEN_NEXT = '/open-next';
-const SAFARI = /Safari/.test(self.navigator.userAgent) && !/Chrome|Chromium|CriOS|FxiOS|Android/.test(self.navigator.userAgent);
+// (Apple's WebKit: an iPhone's service worker says "AppleWebKit/605.1.15 (KHTML, like Gecko)" and no more - no "Safari")
+const SAFARI = /AppleWebKit/.test(self.navigator.userAgent) && !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|Android/.test(self.navigator.userAgent);
 
 async function openWin(path) {
   const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
