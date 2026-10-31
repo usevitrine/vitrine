@@ -3151,21 +3151,42 @@ test('new files: first in the grid with NEW marks, whatever the order; the top b
     return { seenAt: cut, newest: ids.slice(0, times.filter((x: number) => x > cut).length), before: set.seenAt };
   });
   await setSettings(page, { seenAt });
+  // Seen in the viewer: answered here, so the shared test library keeps its new files for the other tests (the
+  // server's side: TestSearch in internal/server).
+  const seenSent: number[] = [];
+  await page.route('**/api/files/seen', (r) => {
+    seenSent.push(...r.request().postDataJSON().ids);
+    return r.fulfill({ json: { seen: 1 } });
+  });
   await page.goto('/?sort=imported_asc'); // oldest first - the new ones still come first
-  const pill = page.getByRole('button', { name: `Mark the ${newest.length} new files as seen` });
+  const pill = page.getByRole('button', { name: /^Mark the \d+ new files? as seen$/ });
+  await expect(pill).toHaveAccessibleName(`Mark the ${newest.length} new files as seen`);
   await expect(pill).toHaveText(''); // (just the broom; how many in its label)
   await expect(page.locator('.tile .new-badge')).toHaveCount(newest.length);
   for (let i = 0; i < newest.length; i++) await expect(page.locator(`.tile[data-i="${i}"] .new-badge`)).toBeVisible(); // first, in the main grid
   expect(Number(await page.locator('.tile[data-i="0"]').getAttribute('data-id'))).toBe(newest[0]); // newest first
   await expect(page.getByRole('region', { name: 'New files' })).toHaveCount(0); // no section of their own
-  // Open: the viewer marks it NEW too; past the new ones, no mark.
+  // Open: the viewer marks it NEW too - while it's in view; seen now (the user: "viewing an image marked as new should
+  // remove the new status"), so back on it later, no mark; past the new ones, none either.
   await page.locator('.tile[data-i="0"]').click();
   await expect(page.locator('.viewer .top .chip.new')).toHaveText('NEW');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('.viewer .top .chip.new')).toHaveText('NEW');
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('.viewer .top .chip.new')).toHaveCount(0);
   for (let i = 0; i < newest.length; i++) await page.keyboard.press('ArrowRight');
   await expect(page.locator('.viewer .top .chip.new')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(page.locator('.viewer')).toHaveCount(0);
-  // The pill: no pill, no marks; the setting moved on.
+  // Every new file it showed: told to the server once each; their tiles lose the mark, the pill counts the rest.
+  expect(seenSent).toEqual(newest);
+  await expect(page.locator('.tile .new-badge')).toHaveCount(0);
+  await expect(pill).toHaveCount(0);
+  await page.unroute('**/api/files/seen');
+  // The pill (a search again: the server, not having been told, has them new still): no pill, no marks; the setting
+  // moved on.
+  await page.reload();
+  await expect(pill).toHaveAccessibleName(`Mark the ${newest.length} new files as seen`);
   await pill.click();
   await expect(pill).toHaveCount(0);
   await expect(page.locator('.tile .new-badge')).toHaveCount(0);

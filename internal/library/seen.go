@@ -52,6 +52,29 @@ func (l *Library) SeenMarks(ctx context.Context, keys []string) (map[string]int6
 	return out, err
 }
 
+// SeeFiles marks files as seen (opened in the viewer): never new again, whenever they came (the index's isNew). It
+// returns how many weren't seen before (missing files are skipped).
+func (l *Library) SeeFiles(ctx context.Context, ids []uint32) (int, error) {
+	var done []uint32
+	err := l.write(ctx, func(tx *sql.Tx) (func() error, error) {
+		done = done[:0]
+		for _, id := range ids {
+			res, err := tx.ExecContext(ctx, "UPDATE files SET seen = 1 WHERE id = ? AND seen = 0", id)
+			if err != nil {
+				return nil, fmt.Errorf("library: %w", err)
+			}
+			if n, _ := res.RowsAffected(); n > 0 {
+				done = append(done, id)
+			}
+		}
+		return func() error {
+			l.ix.SetSeen(done)
+			return nil
+		}, nil
+	})
+	return len(done), err
+}
+
 // MarkSeen notes that key was opened at (Unix ms; 0 = now) and returns when it
 // was last opened before (0 = never).
 func (l *Library) MarkSeen(ctx context.Context, key string, at int64) (int64, error) {

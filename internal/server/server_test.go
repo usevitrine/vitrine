@@ -303,6 +303,35 @@ func TestSearchFilesTags(t *testing.T) {
 	if fresh.New != 0 {
 		t.Fatalf("new matching another search: %+v", fresh)
 	}
+	// Opened in the viewer: not new any more - not counted, not pinned first, not system:new - and only once.
+	var pinned struct {
+		Pinned int `json:"pinned"`
+	}
+	var sysNew struct {
+		Total int `json:"total"`
+	}
+	since := strconv.FormatInt(snap.Now, 10)
+	look := func() {
+		pinned.Pinned, sysNew.Total = -1, -1
+		e.call("GET", "/api/new?q=&since="+since, nil, &fresh)
+		e.call("GET", "/api/search?q=&limit=10&pin=1&new_since="+since, nil, &pinned)
+		e.call("GET", "/api/search?limit=10&q=system:new&new_since="+since, nil, &sysNew)
+	}
+	if look(); fresh.New != 1 || pinned.Pinned != 1 || sysNew.Total != 1 {
+		t.Fatalf("new before it was seen: %+v %+v %+v", fresh, pinned, sysNew)
+	}
+	var seen struct {
+		Seen int `json:"seen"`
+	}
+	if code := e.call("POST", "/api/files/seen", map[string]any{"ids": []uint32{extra.ID, 999999}}, &seen); code != 200 || seen.Seen != 1 {
+		t.Fatalf("seen: %d %+v", code, seen)
+	}
+	if e.call("POST", "/api/files/seen", map[string]any{"ids": []uint32{extra.ID}}, &seen); seen.Seen != 0 {
+		t.Fatalf("seen again: %+v", seen)
+	}
+	if look(); fresh.New != 0 || pinned.Pinned != 0 || sysNew.Total != 0 {
+		t.Fatalf("new after it was seen: %+v %+v %+v", fresh, pinned, sysNew)
+	}
 	e.call("POST", "/api/delete", map[string]any{"ids": []uint32{extra.ID}}, nil)
 
 	// Saved searches.

@@ -124,6 +124,7 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.handle("POST /api/tags/namespace", s.setTagNamespace)
 	s.handle("POST /api/delete", s.deleteFiles)
 	s.handle("POST /api/favorite", s.favorite)
+	s.handle("POST /api/files/seen", s.seenFiles)
 	s.handle("POST /api/climax", s.climax)
 	s.handle("POST /api/climax/undo", s.undoClimax)
 	s.handle("POST /api/climax/remove", s.removeClimaxes)

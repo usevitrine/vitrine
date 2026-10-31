@@ -431,14 +431,16 @@ func GlobMatch(pattern, s string) bool {
 }
 
 // NewOpts says which files are new: imported after Since, and - with SkipBulk -
-// not ones that came in bulk (one-off downloads, first checks, imports).
+// not ones that came in bulk (one-off downloads, first checks, imports). A file
+// opened in the viewer is never new (2026-10-31, the user: "viewing an image
+// marked as new should remove the new status").
 type NewOpts struct {
 	Since    int64
 	SkipBulk bool
 }
 
 func (ix *Index) isNew(id uint32, o NewOpts) bool {
-	return int(id) < len(ix.imported) && ix.imported[id] > o.Since && !(o.SkipBulk && ix.bulk.Contains(id))
+	return int(id) < len(ix.imported) && ix.imported[id] > o.Since && !(o.SkipBulk && ix.bulk.Contains(id)) && !ix.seen.Contains(id)
 }
 
 // PinNew moves the new files to the front of ids (a result in sort order),

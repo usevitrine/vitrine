@@ -42,6 +42,7 @@ type File struct {
 	PostID     int64 // its post on the site (only for a day-only PostedAt: the order within that day)
 	Rating     media.Rating
 	Bulk       bool // came in bulk (a one-off download, a first check, an import)
+	Seen       bool // opened in the viewer: never new again (see isNew)
 }
 
 // Tag is a tag as stored in the database.
@@ -67,6 +68,7 @@ type Index struct {
 	alive    *roaring.Bitmap
 	hasAudio *roaring.Bitmap
 	bulk     *roaring.Bitmap // files that came in bulk (File.Bulk)
+	seen     *roaring.Bitmap // files opened in the viewer (File.Seen): not new, whenever they came
 	favorite *roaring.Bitmap // favorites (deleted ones too: they're favorites again on undo)
 	favAt    []int64         // when each became a favorite (Unix ms; 0 = not one)
 	climaxes []uint16        // times counted with the "I came" button
@@ -113,6 +115,7 @@ func New() *Index {
 		alive:     roaring.New(),
 		hasAudio:  roaring.New(),
 		bulk:      roaring.New(),
+		seen:      roaring.New(),
 		favorite:  roaring.New(),
 		nsNames:   []string{""},
 		nsByName:  map[string]uint32{},
@@ -323,6 +326,9 @@ func (ix *Index) addFile(f File, tags []uint32) error {
 	if f.Bulk {
 		ix.bulk.Add(f.ID)
 	}
+	if f.Seen {
+		ix.seen.Add(f.ID)
+	}
 	ix.alive.Add(f.ID)
 	ix.tagCount[f.ID] = uint16(min(len(tags), 65535))
 	for _, t := range tags {
@@ -373,6 +379,13 @@ func (ix *Index) SetFavorite(id uint32, at int64) {
 		ix.favorite.Remove(id)
 	}
 	ix.invalidateSort(search.FieldFavorite)
+}
+
+// SetSeen marks files as seen (opened in the viewer): they're not new any more.
+func (ix *Index) SetSeen(ids []uint32) {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	ix.seen.AddMany(ids)
 }
 
 // SetClimaxes sets how many times a file was counted with the "I came" button.

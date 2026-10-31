@@ -135,7 +135,7 @@ func (ix *Index) loadFiles(ctx context.Context, tx *sql.Tx) error {
 	}
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, size, type, coalesce(width, 0), coalesce(height, 0), coalesce(duration_ms, 0),
-		       coalesce(has_audio, 0), imported_at, `+modified+`, coalesce(site_rating, 0), coalesce(posted_at, 0), bulk
+		       coalesce(has_audio, 0), imported_at, `+modified+`, coalesce(site_rating, 0), coalesce(posted_at, 0), bulk, seen
 		FROM files WHERE `+which+` AND flags & 64 = 0`+order)
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func (ix *Index) loadFiles(ctx context.Context, tx *sql.Tx) error {
 		var f File
 		var typ, rating uint8
 		if err := rows.Scan(&f.ID, &f.Size, &typ, &f.Width, &f.Height, &f.DurationMS,
-			&f.HasAudio, &f.ImportedAt, &f.ModifiedAt, &rating, &f.PostedAt, &f.Bulk); err != nil {
+			&f.HasAudio, &f.ImportedAt, &f.ModifiedAt, &rating, &f.PostedAt, &f.Bulk, &f.Seen); err != nil {
 			return err
 		}
 		f.Type, f.Rating = media.Type(typ), media.Rating(rating)
@@ -161,6 +161,9 @@ func (ix *Index) loadFiles(ctx context.Context, tx *sql.Tx) error {
 		ix.setColumns(f)
 		if f.Bulk {
 			ix.bulk.Add(f.ID)
+		}
+		if f.Seen {
+			ix.seen.Add(f.ID)
 		}
 		ids = append(ids, f.ID)
 	}

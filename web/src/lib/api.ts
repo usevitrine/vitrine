@@ -483,6 +483,8 @@ export const api = {
       `/api/results/${result}?offset=${offset}&limit=${limit}`,
       signal,
     ),
+  /** Files opened in the viewer: never new again. */
+  seeFiles: (ids: number[]) => post<{ seen: number }>('/api/files/seen', { ids }),
   files: (ids: number[], signal?: AbortSignal) => get<{ files: FileInfo[] }>(`/api/files?ids=${ids.join(',')}`, signal),
   fileTags: (id: number) => get<{ tags: FileTag[]; urls: FileLink[]; sources: FileSource[] }>(`/api/files/${id}/tags`),
   tagsOf: (ids: number[]) => post<{ files: number; tags: { tag: string; count: number }[] }>('/api/tags/of', { ids }),

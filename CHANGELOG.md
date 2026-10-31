@@ -7,6 +7,8 @@ shows this too (Settings > Updates).
 
 ### Improved
 
+- **Opening a NEW file marks it as seen**: a file marked NEW stops being new once you've opened it in the viewer - its mark goes, the "N new" count and the app icon's count drop, on every device. It keeps its NEW label while you're looking at it.
+
 - **The Downloads page opens fast with many subscriptions**: each subscription's pictures and "new since you looked" no longer go through every file it ever found (several seconds with a few hundred subscriptions on a big library), and the page's other numbers aren't worked out again for every new file while subscriptions download.
 - **A new download from a tag opens its "Which site?" page fast**: it no longer waits for the whole Downloads page's numbers (1-3 seconds on a big library), and the sites a tag came from are counted in a moment instead of going through every file with it.
 - **The first open after an update starts once**: Vitrine used to start the version saved on your device, notice the new one and start all over again - several seconds now and then. It now opens the new version straight away (the saved copy is still there when the server can't be reached).

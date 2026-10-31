@@ -167,6 +167,13 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
 - **New files without a section (2026-10-15, replaced the New bar/rows/fold)**: new files are simply first in the main
   grid (same rows as the rest) with their NEW mark; a mauve **"5 new ×"** pill beside the file count in the top bar
   marks them all as seen (seenAt = the result's time).
+- **A file opened in the viewer is seen (2026-10-31, the user: "viewing an image marked as new should remove the new
+  status")**: `files.seen` (migration 0048; the index's `seen` bitmap, loaded with the files) - such a file is never
+  new, whenever it came (`Index.isNew`: the pinned files, the counts, `system:new`, saved searches' NEW pills, the app
+  icon). The viewer, showing a NEW file, sends `POST /api/files/seen {ids}` (-> how many weren't seen before) and the
+  list drops it from its new ones at once (`Results.see`, `seen`: the tile's mark and the "N new" pill; it keeps its
+  place until the next search) - the viewer's own NEW chip stays while that file is in view. Nothing undoes it; "Mark
+  all as seen" is unchanged.
 - **"Bulk downloads count as new" (2026-10-16)**: files remember whether they came in bulk (`files.bulk`, migration
   0014; set on import: one-off downloads, a subscription's first check and `vitrine import` are bulk, a subscription's
   regular check - one that stops at the last check's newest post - is not). Setting `newFromBulk` (default **off** since 2026-10-28, Settings

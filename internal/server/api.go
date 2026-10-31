@@ -500,6 +500,28 @@ func (s *Server) favorite(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int{"changed": n})
 }
 
+// seenFiles: POST /api/files/seen {ids} -> {seen}: files opened in the viewer are never new again (seen: how many
+// weren't seen before).
+func (s *Server) seenFiles(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IDs []uint32 `json:"ids"`
+	}
+	if err := readJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if len(req.IDs) > 1000 {
+		writeError(w, http.StatusBadRequest, errors.New("at most 1000 files at a time"))
+		return
+	}
+	n, err := s.lib.SeeFiles(r.Context(), req.IDs)
+	if err != nil {
+		libError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"seen": n})
+}
+
 func (s *Server) undeleteFiles(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDs []uint32 `json:"ids"`

@@ -143,10 +143,10 @@ func readFile(ctx context.Context, tx *sql.Tx, id uint32) (f index.File, sha []b
 	err = tx.QueryRowContext(ctx, `
 		SELECT id, sha256, size, type, coalesce(width, 0), coalesce(height, 0), coalesce(duration_ms, 0),
 		       coalesce(has_audio, 0), imported_at, modified_at, coalesce(site_rating, 0), deleted_at,
-		       coalesce(posted_at, 0), bulk
+		       coalesce(posted_at, 0), bulk, seen
 		FROM files WHERE id = ?`, id).
 		Scan(&f.ID, &sha, &f.Size, &typ, &f.Width, &f.Height, &f.DurationMS, &f.HasAudio,
-			&f.ImportedAt, &f.ModifiedAt, &rating, &deletedAt, &f.PostedAt, &f.Bulk)
+			&f.ImportedAt, &f.ModifiedAt, &rating, &deletedAt, &f.PostedAt, &f.Bulk, &f.Seen)
 	f.Type, f.Rating = media.Type(typ), media.Rating(rating)
 	if err == nil && f.PostedAt != 0 && f.PostedAt%(24*60*60*1000) == 0 {
 		// (a day only: its post ID orders it within that day - index.postedKey)

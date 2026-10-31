@@ -7,6 +7,7 @@ import { api, ApiError, type Comic, type FileInfo, type Scope } from './api';
 import { settings } from './settings.svelte';
 import { decodeShapes } from './masonry';
 import { t, i18n } from './i18n.svelte';
+import { updateBadge } from './badge';
 
 const SLICE = 500; // IDs per slice request
 const FIRST = 500; // IDs sent with the search itself
@@ -64,6 +65,9 @@ export class Results {
    *  them are first (the New section; 0 when it's folded). */
   fresh = $state(0);
   pinned = $state(0);
+  /** Files of the list opened in the viewer since it came: not new any more (the server knows - the next list leaves
+   *  them out of the new ones), they keep their place but lose their NEW mark (see isNew, see). */
+  seen = $state(new Set<number>());
   /** The masonry grid's shapes (every file's width/height x 1024, in result order), when it is on. */
   shapes = $state.raw<Uint16Array | null>(null);
   /** Bumped by every finished search (a new list, even with the same length). */
@@ -116,6 +120,7 @@ export class Results {
       this.arrived = 0;
       this.fresh = res.new ?? 0;
       this.pinned = res.pinned ?? 0;
+      this.seen = new Set();
       this.shapes = res.shapes !== undefined ? decodeShapes(res.shapes) : null;
       hook?.commit?.(); // in the same step as the new list: nothing renders in between
       this.version++;
@@ -126,6 +131,24 @@ export class Results {
     } finally {
       if (gen === this.gen) this.busy = false;
     }
+  }
+
+  /** Whether the file at position i is marked NEW: one of the new files in front, not opened in the viewer since. */
+  isNew(i: number, id: number | undefined) {
+    return i < this.pinned && id !== undefined && !this.seen.has(id);
+  }
+
+  /** The file at position i was opened in the viewer (2026-10-31, the user: "viewing an image marked as new should
+   *  remove the new status"): a new one isn't any more - here at once (its mark, the "N new" count), on the server
+   *  for good (every device, the app icon's count). */
+  see(i: number, id: number) {
+    if (!this.isNew(i, id)) return;
+    this.seen = new Set(this.seen).add(id);
+    this.fresh = Math.max(0, this.fresh - 1);
+    api
+      .seeFiles([id])
+      .then(() => updateBadge())
+      .catch(() => {});
   }
 
   /** The fast scroller's date labels: by upload or import time, following the order. */

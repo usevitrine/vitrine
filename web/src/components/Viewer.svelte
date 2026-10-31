@@ -185,6 +185,19 @@
     return results.fileAt(i);
   };
   let cur = $derived(at(index));
+  // A NEW file opened here is seen (not new any more: results.see); its NEW chip stays while it's in view - it was new
+  // when it came - and its tile has lost the mark when the viewer closes.
+  let newHere = $state<number | null>(null);
+  $effect(() => {
+    const f = cur;
+    const i = index;
+    untrack(() => {
+      if (f && results.isNew(i, f.id)) {
+        newHere = f.id;
+        results.see(i, f.id);
+      } else if (f?.id !== newHere) newHere = null;
+    });
+  });
   /** The heart: the file in view becomes a favorite or stops being one (no notice: the heart shows it).
    *  On the Favorites page it leaves the list, like a deleted file: the next one shows (none left: closed). */
   /** The "I came" button (Settings > Viewing): counted, with Undo for a mis-tap. */
@@ -1104,7 +1117,7 @@
 {/snippet}
 {#snippet where()}
   <span class="count chip">{num(index + 1)} / {num(results.total)}</span>
-  {#if index < results.pinned}<span class="chip new" title={t('viewer.newTitle')} transition:nudge>{t('grid.new')}</span>{/if}
+  {#if cur && (results.isNew(index, cur.id) || newHere === cur.id)}<span class="chip new" title={t('viewer.newTitle')} transition:nudge>{t('grid.new')}</span>{/if}
   {#if percent && (!split || pctShown)}<span class="chip pct" title={t('viewer.percentTitle', { n: percent })} transition:nudge>{t('viewer.percent', { n: percent })}</span>{/if}
 {/snippet}
 {#snippet spinner()}

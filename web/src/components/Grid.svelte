@@ -1881,7 +1881,7 @@
         {#if tile.f?.favorite}
           <span class="fav-badge" class:on-comic={!!tile.f.comic} role="img" aria-label={t('filter.favorite.label')} transition:pop><Icon name="heart" size={tile.f.comic ? 15 : 12} filled /></span>
         {/if}
-        {#if tile.f && tile.i < results.pinned}
+        {#if tile.f && results.isNew(tile.i, tile.f.id)}
           <span class="new-badge" transition:pop>{t('grid.new')}</span>
         {/if}
         {#if selection.active && !unpickable(tile.f)}
