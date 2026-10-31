@@ -33,8 +33,35 @@ function device(): string {
   return `${kind}${app}${sw}, ${innerWidth}x${innerHeight}`;
 }
 
+// How this start came about, when it's one of the unusual ones (2026-10-31, the user: "every now and again it takes
+// several seconds ... whether it's when I open via a notification idk"): a reload into a new version (main.ts notes
+// when; "on return" when the app came back on screen after a while and found one), or a notification that opened the
+// app (the service worker notes it in its own storage, public/sw.js).
+async function how(): Promise<string[]> {
+  const out: string[] = [];
+  try {
+    const after = Number(sessionStorage.getItem('vitrine.reloadAfter') ?? NaN);
+    sessionStorage.removeItem('vitrine.reloadAfter');
+    if (Number.isFinite(after)) out.push(after > 60_000 ? 'reloaded into a new version on return' : `reloaded into a new version ${after} ms into the start before`);
+  } catch {
+    /* no storage */
+  }
+  try {
+    const cache = await caches.open('vitrine-shell-v2');
+    const note = await cache.match('/opened-by-notification');
+    if (note) {
+      await cache.delete('/opened-by-notification');
+      const age = Date.now() - Number(await note.text());
+      if (age < 60_000) out.push(`opened from a notification ${Math.round(age / 1000)} s ago`);
+    }
+  } catch {
+    /* no caches */
+  }
+  return out;
+}
+
 /** Sends the start's times (once). */
-export function reportStart() {
+export async function reportStart() {
   if (sent) return;
   sent = true;
   try {
@@ -42,7 +69,7 @@ export function reportStart() {
     const res = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
     const path = (r: PerformanceResourceTiming) => new URL(r.name, location.href).pathname;
     const first = (p: string) => res.find((r) => path(r) === p);
-    const parts: string[] = [device()];
+    const parts: string[] = [device(), ...(await how())];
     if (nav) parts.push(`${nav.type}, page ${one(nav as unknown as PerformanceResourceTiming)}, parsed ${ms(nav.domInteractive)}`);
     const assets = res.filter((r) => path(r).startsWith('/assets/'));
     if (assets.length) parts.push(`assets ${assets.length} by ${ms(Math.max(...assets.map((r) => r.responseEnd)))}${assets.some((r) => r.workerStart > 0) ? ' (sw)' : ''}`);

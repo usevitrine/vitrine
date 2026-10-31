@@ -17,6 +17,7 @@ const THUMBS = 'vitrine-thumbs-v1';
 const API = 'vitrine-api-v1';
 const SHELL = 'vitrine-shell-v2'; // (v2: the new icons - icons are kept for good, so a new name)
 const MAX_SHELL = 80;
+const OPENED_BY = '/opened-by-notification'; // (a note in SHELL: when a notification last opened the app)
 // The app's own files outside /assets/ (icons, the web app manifest).
 const SHELL_FILES = /^\/(icon[^/]*\.(png|svg)|manifest\.webmanifest)$/;
 const MAX_THUMBS = 15000;
@@ -268,6 +269,12 @@ self.addEventListener('notificationclick', (e) => {
         await win.focus();
         win.postMessage({ type: 'open', path: url.pathname + url.search });
         return;
+      }
+      // (the app's start report says it was opened from a notification: lib/startTiming.ts)
+      try {
+        await (await caches.open(SHELL)).put(OPENED_BY, new Response(String(Date.now())));
+      } catch {
+        /* not noted */
       }
       await self.clients.openWindow(url.href);
     })(),

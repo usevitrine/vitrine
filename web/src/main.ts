@@ -82,6 +82,7 @@ function reloadOnce() {
     const last = Number(sessionStorage.getItem('vitrine.versionReload') ?? 0);
     if (Date.now() - last < 30_000) return;
     sessionStorage.setItem('vitrine.versionReload', String(Date.now()));
+    sessionStorage.setItem('vitrine.reloadAfter', String(Math.round(performance.now()))); // (the start report says so)
   } catch {
     return; // (no storage: no automatic reload either)
   }
