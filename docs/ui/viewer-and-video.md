@@ -185,6 +185,10 @@ lays them out at the original size.
 - **Open/close never held up (2026-10-19)**: the zoom between grid and viewer waits at most 80 ms for its picture
   to decode (a busy server or a thumbnail not in memory made opening and closing hang); the thumbnail under a
   video is trimmed by 1 px (`clip-path: inset(1px)`), so a bright one never peeks out around a dark first frame.
+  **2026-10-31** (the user, with a screen recording: "The thumbnail appears around the edge of the video for a split
+  second on open"): the trim wasn't enough - the thumbnail was fitted by its own rounded shape, a few pixels taller or
+  wider than the video's picture, and showed around it while the video faded in. Now it's laid in the video's own
+  box (from the file's width and height, like the scrub frame) and stretched to it.
 - **Site icons on link rows (2026-10-19)**: the details' "Where it's from" rows show each site's favicon
   (`SiteIcon.svelte`, from `GET /api/favicon?host=`) - the link icon until it loads, or when the site has none
   (remembered while the app runs). A dark icon on a see-through background (e.g. a black logo) gets a light

@@ -1191,7 +1191,13 @@
               <!-- Like hydrus-web: the video gets the thumbnail as its poster (so it never
                    shows a blank frame) and is created when a move towards it starts. The
                    thumbnail also stays underneath, the same element that slid in. -->
-              {#if f.thumb}<img class="under" src={f.thumb} alt="" draggable="false" style:visibility={thumbGone[f.id] ? 'hidden' : undefined} />{/if}
+              {#if f.thumb && f.width && f.height}
+                <!-- (in the video's own box, stretched to it: fitted by its own rounded shape it came out a few
+                     pixels taller or wider and showed around the video while that faded in) -->
+                <div class="scrub-wrap" style:visibility={thumbGone[f.id] ? 'hidden' : undefined}>
+                  <img class="under boxed" src={f.thumb} alt="" draggable="false" style:--ar={f.width / f.height} />
+                </div>
+              {:else if f.thumb}<img class="under" src={f.thumb} alt="" draggable="false" style:visibility={thumbGone[f.id] ? 'hidden' : undefined} />{/if}
               {#if s.slot === 1 || f.id === incomingId}
                 <!-- svelte-ignore a11y_media_has_caption (downloaded media has no caption tracks) -->
                 <video bind:this={videoEls[f.id]} {@attach releaseOnRemove} {@attach trackShown(f.id)} {@attach resumeFrom(f.id)} class:shown={videoShown[f.id]} src={f.url} poster={f.thumb} playsinline preload="auto"></video>
@@ -1445,6 +1451,14 @@
      pixel bigger than the video's - trimmed, so it never peeks out around it. */
   .slide img.under {
     clip-path: inset(1px);
+  }
+  /* (a video's: exactly the video's contained box, like .scrub-frame) */
+  .slide img.under.boxed {
+    position: static;
+    width: min(100cqw, calc(100cqh * var(--ar)));
+    height: auto;
+    aspect-ratio: var(--ar);
+    object-fit: fill;
   }
   /* A still's picture fades in over its thumbnail once decoded (one decoded already shows at once). */
   .slide img:not(.under) {

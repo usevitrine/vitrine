@@ -265,7 +265,17 @@ test('videos play inline, with their sound (unless Start videos muted is on), wi
   await expect(page.getByRole('slider', { name: 'Position' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mute', exact: true })).toBeVisible();
   // Once the video shows a frame, its thumbnail underneath is hidden (no edge peeking out).
-  await expect(page.locator('.viewer .slide[data-slot="1"] > img')).toBeHidden();
+  const under = page.locator('.viewer .slide[data-slot="1"] img.under');
+  await expect(under).toBeHidden();
+  // ...and it lay exactly in the video's picture, not a few pixels bigger (it showed around it while that faded in).
+  const fit = await page.locator('.viewer .slide[data-slot="1"]').evaluate((s) => {
+    const v = s.querySelector('video')!;
+    const r = v.getBoundingClientRect();
+    const k = Math.min(r.width / v.videoWidth, r.height / v.videoHeight);
+    const u = s.querySelector('img.under')!.getBoundingClientRect();
+    return [u.width - v.videoWidth * k, u.height - v.videoHeight * k, u.left + u.width / 2 - (r.left + r.width / 2), u.top + u.height / 2 - (r.top + r.height / 2)];
+  });
+  for (const d of fit) expect(Math.abs(d)).toBeLessThan(1);
 });
 
 test('tall and wide images fit the viewer', async ({ page }) => {
