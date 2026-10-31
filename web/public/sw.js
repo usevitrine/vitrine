@@ -118,15 +118,34 @@ async function keepPage(resp, gotSaved) {
   }
 }
 
+// cacheFirst: the saved copy - unless the saved copies' store doesn't answer within a moment, then the server's (the
+// built files never change under their name, so either will do). (2026-10-31: on an iPhone a worker that had just
+// started took 1.4 s to open its store, and the app's scripts waited for it - every start from a notification.)
+const SAVED_WAIT = 250;
+
 async function cacheFirst(req, e, name, max) {
-  const cache = await caches.open(name);
-  const hit = await cache.match(req);
-  if (hit) return hit;
-  const resp = await fetch(req);
+  const lookup = caches
+    .open(name)
+    .then(async (cache) => [cache, await cache.match(req)])
+    .catch(() => [null, undefined]);
+  const quick = await Promise.race([lookup, new Promise((r) => setTimeout(() => r(null), SAVED_WAIT))]);
+  if (quick?.[1]) return quick[1];
+  let resp;
+  try {
+    resp = await fetch(req);
+  } catch (err) {
+    const [, hit] = await lookup; // (no connection: the saved copy whenever the store answers)
+    if (hit) return hit;
+    throw err;
+  }
   if (resp.ok && resp.status === 200) {
+    const copy = resp.clone();
     e.waitUntil(
-      cache.put(req, resp.clone()).then(() => {
-        if (++puts % 200 === 0) return trim(name, max);
+      lookup.then(([cache, hit]) => {
+        if (!cache || hit) return;
+        return cache.put(req, copy).then(() => {
+          if (++puts % 200 === 0) return trim(name, max);
+        });
       }),
     );
   }
@@ -200,20 +219,23 @@ function apiKey(req) {
 }
 
 async function networkFirst(req, e) {
-  const cache = await caches.open(API);
   const key = apiKey(req);
   try {
-    const resp = await fetch(req);
+    const resp = await fetch(req); // (the store isn't waited for first: see cacheFirst)
     if (resp.ok) {
+      const copy = resp.clone();
       e.waitUntil(
-        cache.put(key, resp.clone()).then(() => {
-          if (++puts % 50 === 0) return trim(API, MAX_API);
-        }),
+        caches
+          .open(API)
+          .then((cache) => cache.put(key, copy))
+          .then(() => {
+            if (++puts % 50 === 0) return trim(API, MAX_API);
+          }),
       );
     }
     return resp;
   } catch (err) {
-    const hit = await cache.match(key);
+    const hit = await (await caches.open(API)).match(key);
     if (!hit) throw err;
     const headers = new Headers(hit.headers);
     headers.set('X-Vitrine-Offline', '1');
