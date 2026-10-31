@@ -1,17 +1,14 @@
 <script lang="ts">
-  import { overlayScroll } from '../lib/overlayScroll';
   // Settings > Stats: the library, downloads, storage and the server at a
   // glance - read when the section opens and again every half minute while
-  // it's on screen.
+  // it's on screen. (The problem report: ReportCard, in Help & about.)
   import { onMount } from 'svelte';
   import { reveal, moved } from '../lib/motion';
   import { api, type LibraryStats } from '../lib/api';
   import { formatSize } from '../lib/results.svelte';
   import { siteLabel } from '../lib/sites.svelte';
   import { toasts } from '../lib/toast.svelte';
-  import { copyText } from '../lib/clipboard';
   import SiteIcon from './SiteIcon.svelte';
-  import Icon from './Icon.svelte';
   import Rich from './Rich.svelte';
   import { t, num, date } from '../lib/i18n.svelte';
 
@@ -52,42 +49,6 @@
     d.setDate(d.getDate() - offset);
     return date(d, { day: 'numeric', month: 'short' });
   };
-
-  // ---- The problem report: made on the server, private values replaced.
-  let report = $state('');
-  let showReport = $state(false);
-  let making = $state(false);
-  async function getReport(): Promise<string> {
-    making = true;
-    try {
-      report = await api.report();
-      return report;
-    } finally {
-      making = false;
-    }
-  }
-  async function reportAction(what: 'show' | 'copy' | 'download') {
-    if (what === 'show' && showReport) {
-      showReport = false;
-      return;
-    }
-    let text: string;
-    try {
-      text = await getReport();
-    } catch (e) {
-      toasts.error((e as Error).message);
-      return;
-    }
-    if (what === 'show') showReport = true;
-    else if (what === 'copy') copyText(text, t('stats.report.what'));
-    else {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-      a.download = `vitrine-report-${new Date().toISOString().slice(0, 10)}.txt`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-    }
-  }
 
   // The imports chart: the day under the pointer is read out above it.
   let pick = $state<number | null>(null);
@@ -235,21 +196,6 @@
       <div><dt>Go</dt><dd>{st.server.go.replace(/^go/, '')}</dd></div>
     </dl>
     <p class="hint">{t('stats.took', { ms: st.took_ms < 1 ? '<1' : num(Math.round(st.took_ms)) })}</p>
-  </section>
-
-  <section class="card">
-    <div class="card-head">
-      <h2>{t('stats.report.title')}</h2>
-      <p class="hint">{t('stats.report.hint')}</p>
-    </div>
-    <div class="actions">
-      <button onclick={() => reportAction('download')} disabled={making}><Icon name="download" size={16} /> {t('backups.download')}</button>
-      <button class="quiet" onclick={() => reportAction('copy')} disabled={making}><Icon name="copy" size={16} /> {t('tagMenu.copy')}</button>
-      <button class="quiet" onclick={() => reportAction('show')} disabled={making} aria-expanded={showReport}><Icon name={showReport ? 'eyeoff' : 'eye'} size={16} /> {showReport ? t('stats.report.hide') : t('stats.report.show')}</button>
-    </div>
-    {#if showReport}
-      <pre class="report" {@attach overlayScroll} aria-label={t('stats.report.label')} transition:reveal>{report}</pre>
-    {/if}
   </section>
 {/if}
 
@@ -417,25 +363,6 @@
     color: var(--overlay1);
     font-size: var(--font-small);
     margin-top: -6px;
-  }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .report {
-    margin: 0;
-    max-height: min(60vh, 520px);
-    overflow: auto;
-    padding: 12px;
-    border-radius: 10px;
-    background: var(--crust);
-    border: 1px solid var(--surface0);
-    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    color: var(--subtext);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    tab-size: 2;
   }
   .disk {
     display: grid;

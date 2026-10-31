@@ -20,7 +20,11 @@ const paths: Record<Screen, string> = {
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const own = (path: string) => (base && path.startsWith(base) ? path.slice(base.length) || '/' : path);
 
-/** A screen's sub-page: the path after the screen's own ("/tags/rules" -> "rules"; "" = its first page). */
+/** Settings sections renamed (2026-10-31, lib/settingsSections): their old addresses open the new ones. */
+const settingsRenamed: Record<string, string> = { rules: 'downloads', viewing: 'appearance', updates: 'about' };
+
+/** A screen's sub-page: the path after the screen's own ("/tags/rules" -> "rules"; "" = its first page); a renamed
+ *  Settings section's old name gives the new one. */
 function subOf(path: string): string {
   path = own(path);
   const s = screenOf(path);
@@ -28,7 +32,8 @@ function subOf(path: string): string {
     const p = path.replace(/^\/+|\/+$/g, '');
     return p === 'favorites' || p === 'trash' ? p : '';
   }
-  return path.slice(paths[s].length).replace(/^\/+|\/+$/g, '');
+  const sub = path.slice(paths[s].length).replace(/^\/+|\/+$/g, '');
+  return (s === 'settings' && settingsRenamed[sub]) || sub;
 }
 
 /** A screen's path (the library's Favorites and Trash pages: /favorites, /trash). */
@@ -58,6 +63,10 @@ class Router {
       this.focus = f;
       start.searchParams.delete('focus');
       history.replaceState(history.state, '', start.pathname + start.search + start.hash);
+    }
+    // (a renamed Settings section's old address: the new one in its place)
+    if (this.screen === 'settings' && settingsRenamed[own(location.pathname).replace(/^\/settings\/?|\/+$/g, '')]) {
+      history.replaceState(history.state, '', pathOf('settings', this.sub) + location.search + location.hash);
     }
     // A tapped notification while the app is open (see public/sw.js).
     navigator.serviceWorker?.addEventListener('message', (e) => {

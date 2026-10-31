@@ -593,28 +593,7 @@
       <p class="hint small" transition:appear>{t('sites.flare.notSet')}</p>
     {/if}
   </form>
-  <!-- A site that keeps failing to answer: its downloads pause by themselves until it does. -->
-  <div class="flare">
-    <h3>{t('sites.pause.title')}</h3>
-    <p class="hint">{t('sites.pause.hint')}</p>
-    <div class="pause-row">
-      <ActionMenu
-        label={t('sites.pause.title')}
-        current={settings.pauseAfter > 0 ? t('sites.pause.after', { n: settings.pauseAfter }) : t('sites.pause.never')}
-        items={[3, 5, 10, 20, 0].map((n) => ({ label: n > 0 ? t('sites.pause.after', { n }) : t('sites.pause.never'), on: settings.pauseAfter === n, run: () => (settings.pauseAfter = n) }))} />
-    </div>
-  </div>
-  <!-- A subscription check waiting while a big download runs: it goes first (the download carries on after). -->
-  <div class="flare">
-    <h3>{t('sites.order.title')}</h3>
-    <label class="check">
-      <input type="checkbox" bind:checked={settings.checksFirst} />
-      <span class="field">
-        <span class="field-label">{t('sites.order.checksFirst')}</span>
-        <span class="hint">{t('sites.order.checksFirstHint')}</span>
-      </span>
-    </label>
-  </div>
+  <!-- (pausing a failing site and checks first: Settings > Downloads) -->
   {/if}
 </section>
 
@@ -678,15 +657,6 @@
 {/if}
 
 <style>
-  .check {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    cursor: pointer;
-  }
-  .check input {
-    margin-top: 2px;
-  }
   .add {
     width: 100%;
     border-style: dashed;
@@ -701,9 +671,6 @@
     margin-top: 6px;
     padding-top: 16px;
     border-top: 1px solid var(--surface0);
-  }
-  .pause-row {
-    max-width: 320px;
   }
   .flare h3 {
     margin: 0;

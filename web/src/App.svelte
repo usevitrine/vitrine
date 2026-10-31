@@ -279,6 +279,7 @@
 {:else if !session.logged_in}
   <Login
     setup={session.setup_needed}
+    passkeyOnly={!!session.passkey_only}
     onDone={(s) => {
       if (session?.setup_needed) freshSetup = true; // the first account: the first steps follow
       session = s;
@@ -374,7 +375,7 @@
       {#if onPage('rankings') && !settings.sfwMode && lazy.rankings}{@const Rankings = lazy.rankings}<div class="screen" class:entering={!!leaving && router.screen === 'rankings'} class:leaving={leaving === 'rankings'} inert={leaving === 'rankings' || undefined} aria-hidden={leaving === 'rankings' || undefined}><Rankings /></div>{/if}
       {#if onPage('settings') && lazy.settings}
         {@const Settings = lazy.settings}
-        <div class="screen" class:entering={!!leaving && router.screen === 'settings'} class:leaving={leaving === 'settings'} inert={leaving === 'settings' || undefined} aria-hidden={leaving === 'settings' || undefined}><Settings user={session.user ?? ''} onLoggedOut={() => (session = { ...session!, logged_in: false })} /></div>
+        <div class="screen" class:entering={!!leaving && router.screen === 'settings'} class:leaving={leaving === 'settings'} inert={leaving === 'settings' || undefined} aria-hidden={leaving === 'settings' || undefined}><Settings user={session.user ?? ''} onLoggedOut={() => (session = { ...session!, logged_in: false })} onRenamed={(user: string) => (session = { ...session!, user })} /></div>
       {/if}
     </main>
   </div>

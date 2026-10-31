@@ -41,7 +41,13 @@ func (s *Server) session(w http.ResponseWriter, r *http.Request) {
 	}
 	// language: the server's default (VITRINE_LANGUAGE), for browsers whose own languages have no file.
 	// anonymous: signed out, the app sends the visitor to the plain sign-in page (/signin) instead of its own.
-	out := map[string]any{"setup_needed": need, "logged_in": false, "language": i18n.Default(), "anonymous": s.anonymous.Load()}
+	// passkey_only: the sign-in screen offers the passkey alone.
+	only, err := s.auth.PasskeyOnly(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	out := map[string]any{"setup_needed": need, "logged_in": false, "language": i18n.Default(), "anonymous": s.anonymous.Load(), "passkey_only": only}
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		if u, err := s.auth.Session(r.Context(), c.Value); err == nil {
 			out["logged_in"], out["user"] = true, u.Name
@@ -83,22 +89,31 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) startSession(w http.ResponseWriter, r *http.Request, c credentials) {
 	token, err := s.auth.Login(r.Context(), c.Name, c.Password, r.UserAgent())
+	// (every sign-in in the log, as it went: someone guessing shows - 2026-10-31; never the password, the name only as
+	// typed, cut short)
+	name := c.Name
+	if len(name) > 60 {
+		name = name[:60] + "…"
+	}
 	switch {
 	case errors.Is(err, auth.ErrBadLogin):
+		s.log.Warn("sign-in failed: wrong name or password", "name", name, "from", clientOf(r))
 		writeError(w, http.StatusUnauthorized, err)
 		return
 	case errors.Is(err, auth.ErrTooMany):
+		s.log.Warn("sign-in refused: too many failed tries", "from", clientOf(r))
 		writeError(w, http.StatusTooManyRequests, err)
+		return
+	case errors.Is(err, auth.ErrPasskeyOnly):
+		s.log.Warn("sign-in refused: passkey only", "name", name, "from", clientOf(r))
+		writeError(w, http.StatusForbidden, err)
 		return
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: token, Path: "/",
-		MaxAge:   int(auth.SessionIdle / time.Second),
-		HttpOnly: true, Secure: isHTTPS(r), SameSite: http.SameSiteLaxMode,
-	})
+	s.log.Info("signed in", "user", c.Name, "with", "a password", "from", clientOf(r))
+	setSessionCookie(w, r, token)
 	writeJSON(w, http.StatusOK, map[string]any{"logged_in": true, "user": c.Name})
 }
 

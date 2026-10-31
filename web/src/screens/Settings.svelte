@@ -26,14 +26,14 @@
   import { settingsSections } from '../lib/settingsSections';
   import Sections from '../components/Sections.svelte';
   import SearchBar from '../components/SearchBar.svelte';
-  import Rich from '../components/Rich.svelte';
   import UpdatesPage from '../components/UpdatesPage.svelte';
+  import ReportCard from '../components/ReportCard.svelte';
+  import AccountCard from '../components/AccountCard.svelte';
   import BrowseSettings from '../components/BrowseSettings.svelte';
   import ComicsSearchSetting from '../components/ComicsSearchSetting.svelte';
-  import { router } from '../lib/router.svelte';
   import { t, num, i18n, languages } from '../lib/i18n.svelte';
 
-  let { user, onLoggedOut }: { user: string; onLoggedOut: () => void } = $props();
+  let { user, onLoggedOut, onRenamed }: { user: string; onLoggedOut: () => void; onRenamed?: (name: string) => void } = $props();
   let stats = $state<{ files: number; tags: number; server?: { version: string } } | null>(null);
   // Shown to diagnose layout problems on phones (e.g. iOS home-screen app gaps).
   let display = $state(displayInfo());
@@ -112,6 +112,40 @@
   {/snippet}
   {#snippet children(current: string)}
           {#if current === 'library'}
+          <section class="card">
+            <div class="card-head"><h2>{t('settings.sfw.title')}</h2></div>
+            <!-- The sections: switching one off asks first (and whether to delete all of it); one stays on. -->
+            {#each [{ id: 'media' as const, off: settings.mediaOff, label: t('menu.library'), hint: t('appSections.mediaHint') }, { id: 'comics' as const, off: settings.comicsOff, label: t('comics.title'), hint: t('appSections.comicsHint') }] as sec (sec.id)}
+              {@const last = !sec.off && (sec.id === 'media' ? settings.comicsOff : settings.mediaOff)}
+              <label class="check">
+                <input
+                  type="checkbox"
+                  checked={!sec.off}
+                  disabled={last}
+                  onclick={(e) => {
+                    if (sec.off) {
+                      // (on again: no question)
+                      if (sec.id === 'media') settings.mediaOff = false;
+                      else settings.comicsOff = false;
+                    } else {
+                      e.preventDefault(); // (off once confirmed)
+                      switchOff(sec.id);
+                    }
+                  }} />
+                <span class="field">
+                  <span class="field-label">{sec.label}</span>
+                  <span class="hint">{last ? t('appSections.lastOn') : sec.hint}</span>
+                </span>
+              </label>
+            {/each}
+            <label class="check">
+              <input type="checkbox" bind:checked={settings.sfwMode} />
+              <span class="field">
+                <span class="field-label">{t('settings.sfw.label')}</span>
+                <span class="hint">{t('settings.sfw.hint')}</span>
+              </span>
+            </label>
+          </section>
           <!-- The library's pages: Media, Comics (while it's on), and the trash both share. -->
           <section class="card">
             <div class="card-head"><h2>{t('menu.library')}</h2></div>
@@ -139,22 +173,6 @@
                 current={sortLabel(settings.favoritesSort)}
                 items={sortItems(settings.favoritesSort, (v) => (settings.favoritesSort = v))} />
             </div>
-            <div class="field">
-              <span class="field-label">{t('settings.newOrder.label')}</span>
-              <span class="hint">{t('settings.newOrder.hint')}</span>
-              <ActionMenu
-                label={t('settings.newOrder.label')}
-                title={t('settings.newOrder.label')}
-                current={newOrders.find((o) => o.value === settings.newOrder)?.label ?? settings.newOrder}
-                items={newOrders.map((o) => ({ label: o.label, on: o.value === settings.newOrder, run: () => (settings.newOrder = o.value) }))} />
-            </div>
-            <label class="check">
-              <input type="checkbox" bind:checked={settings.newFromBulk} />
-              <span class="field">
-                <span class="field-label">{t('settings.bulkNew')}</span>
-                <span class="hint">{t('settings.bulkNewHint')}</span>
-              </span>
-            </label>
             {#if stats}
               <p class="hint" transition:reveal>{t('common.files', { n: stats.files })} · {t('settings.tagsInUse', { n: stats.tags })}</p>
             {/if}
@@ -192,11 +210,34 @@
                 items={[0, 7, 30, 90, 365].map((n) => ({ label: n ? t('settings.trashDays.after', { n }) : t('settings.trashDays.never'), on: n === settings.trashDays, run: () => (settings.trashDays = n) }))} />
             </div>
           </section>
+          {:else if current === 'new'}
+          <section class="card">
+            <div class="card-head">
+              <h2>{t('settings.section.new.label')}</h2>
+              <p class="hint">{t('settings.newFiles')}</p>
+            </div>
+            <div class="field">
+              <span class="field-label">{t('settings.newOrder.label')}</span>
+              <span class="hint">{t('settings.newOrder.hint')}</span>
+              <ActionMenu
+                label={t('settings.newOrder.label')}
+                title={t('settings.newOrder.label')}
+                current={newOrders.find((o) => o.value === settings.newOrder)?.label ?? settings.newOrder}
+                items={newOrders.map((o) => ({ label: o.label, on: o.value === settings.newOrder, run: () => (settings.newOrder = o.value) }))} />
+            </div>
+            <label class="check">
+              <input type="checkbox" bind:checked={settings.newFromBulk} />
+              <span class="field">
+                <span class="field-label">{t('settings.bulkNew')}</span>
+                <span class="hint">{t('settings.bulkNewHint')}</span>
+              </span>
+            </label>
+          </section>
           {:else if current === 'sites'}
             <SitesCard />
-          {:else if current === 'rules'}
+          {:else if current === 'downloads'}
           <section class="card">
-            <div class="card-head"><h2>{t('settings.section.rules.label')}</h2></div>
+            <div class="card-head"><h2>{t('settings.rules.title')}</h2></div>
             <div class="rules">
               <DownloadRules />
               <label class="rule">
@@ -217,44 +258,34 @@
               </label>
             </div>
           </section>
-          {:else if current === 'notifications'}
-            <NotificationsCard />
-            <NoticeKindsCard />
-          {:else if current === 'viewing'}
+          <!-- A site that keeps failing to answer: its downloads pause by themselves until it does. (In Sites until 2026-10-31.) -->
           <section class="card">
-            <div class="card-head"><h2>{t('settings.sfw.title')}</h2></div>
-            <!-- The sections: switching one off asks first (and whether to delete all of it); one stays on. -->
-            {#each [{ id: 'media' as const, off: settings.mediaOff, label: t('menu.library'), hint: t('appSections.mediaHint') }, { id: 'comics' as const, off: settings.comicsOff, label: t('comics.title'), hint: t('appSections.comicsHint') }] as sec (sec.id)}
-              {@const last = !sec.off && (sec.id === 'media' ? settings.comicsOff : settings.mediaOff)}
-              <label class="check">
-                <input
-                  type="checkbox"
-                  checked={!sec.off}
-                  disabled={last}
-                  onclick={(e) => {
-                    if (sec.off) {
-                      // (on again: no question)
-                      if (sec.id === 'media') settings.mediaOff = false;
-                      else settings.comicsOff = false;
-                    } else {
-                      e.preventDefault(); // (off once confirmed)
-                      switchOff(sec.id);
-                    }
-                  }} />
-                <span class="field">
-                  <span class="field-label">{sec.label}</span>
-                  <span class="hint">{last ? t('appSections.lastOn') : sec.hint}</span>
-                </span>
-              </label>
-            {/each}
+            <div class="card-head">
+              <h2>{t('sites.pause.title')}</h2>
+              <p class="hint">{t('sites.pause.hint')}</p>
+            </div>
+            <div class="field narrow">
+              <ActionMenu
+                label={t('sites.pause.title')}
+                current={settings.pauseAfter > 0 ? t('sites.pause.after', { n: settings.pauseAfter }) : t('sites.pause.never')}
+                items={[3, 5, 10, 20, 0].map((n) => ({ label: n > 0 ? t('sites.pause.after', { n }) : t('sites.pause.never'), on: settings.pauseAfter === n, run: () => (settings.pauseAfter = n) }))} />
+            </div>
+          </section>
+          <!-- A subscription check waiting while a big download runs: it goes first (the download carries on after). -->
+          <section class="card">
+            <div class="card-head"><h2>{t('sites.order.title')}</h2></div>
             <label class="check">
-              <input type="checkbox" bind:checked={settings.sfwMode} />
+              <input type="checkbox" bind:checked={settings.checksFirst} />
               <span class="field">
-                <span class="field-label">{t('settings.sfw.label')}</span>
-                <span class="hint">{t('settings.sfw.hint')}</span>
+                <span class="field-label">{t('sites.order.checksFirst')}</span>
+                <span class="hint">{t('sites.order.checksFirstHint')}</span>
               </span>
             </label>
           </section>
+          {:else if current === 'notifications'}
+            <NotificationsCard />
+            <NoticeKindsCard />
+          {:else if current === 'appearance'}
           <section class="card">
             <div class="card-head"><h2>{t('settings.language.title')}</h2></div>
             <div class="field">
@@ -360,23 +391,22 @@
             <BackupsCard />
           {:else if current === 'stats'}
             <StatsCard />
-          {:else if current === 'updates'}
-            <UpdatesPage />
           {:else if current === 'account'}
-            <section class="card">
-              <div class="card-head"><h2>{t('settings.section.account.label')}</h2></div>
-              <div class="account">
-                <p><Rich text={t('settings.loggedInAsBold', { user })} /></p>
-                <button class="quiet" onclick={logout}>{t('settings.section.account.hint')}</button>
+            <AccountCard {user} onlogout={logout} onrenamed={(name) => onRenamed?.(name)} />
+          {:else if current === 'about'}
+            <!-- About: the version, the license, the source (the AGPL), the third-party notices; then its updates and
+                 changes (UpdatesPage), the first steps, the problem report. (Updates had a section of its own, About and
+                 First steps were under Account, the report under Stats, until 2026-10-31.) -->
+            <section class="card about">
+              <div class="card-head"><h2>{t('settings.about.title')}</h2></div>
+              <p class="about-line"><strong>Vitrine</strong>{#if stats?.server?.version}&nbsp;<span class="about-ver">{stats.server.version}</span>{/if}</p>
+              <p class="hint">{t('settings.about.license')}</p>
+              <div class="about-links">
+                <a href="https://github.com/usevitrine/vitrine" target="_blank" rel="noopener noreferrer">{t('settings.about.source')} <Icon name="external" size={14} /></a>
+                <a href="/licenses" target="_blank" rel="noopener">{t('settings.about.thirdParty')} <Icon name="external" size={14} /></a>
               </div>
-              <label class="check">
-                <input type="checkbox" bind:checked={settings.anonymousLogin} />
-                <span class="field">
-                  <span class="field-label">{t('settings.anonymous.label')}</span>
-                  <span class="hint">{t('settings.anonymous.hint')}</span>
-                </span>
-              </label>
             </section>
+            <UpdatesPage />
             <section class="card">
               <div class="card-head"><h2>{t('settings.firstSteps.title')}</h2></div>
               <div class="account">
@@ -384,18 +414,7 @@
                 <button class="quiet" onclick={() => (settings.welcome = 'sections')}>{t('settings.firstSteps.again')}</button>
               </div>
             </section>
-            <!-- About: the version (its updates and changes: Settings > Updates), the license, the source (the AGPL), the
-                 third-party notices. -->
-            <section class="card about">
-              <div class="card-head"><h2>{t('settings.about.title')}</h2></div>
-              <p class="about-line"><strong>Vitrine</strong>{#if stats?.server?.version}&nbsp;<span class="about-ver">{stats.server.version}</span>{/if}</p>
-              <p class="hint">{t('settings.about.license')}</p>
-              <div class="about-links">
-                <button class="link" onclick={() => router.go('settings', 'updates')}>{t('settings.about.whatsNew')}</button>
-                <a href="https://github.com/usevitrine/vitrine" target="_blank" rel="noopener noreferrer">{t('settings.about.source')} <Icon name="external" size={14} /></a>
-                <a href="/licenses" target="_blank" rel="noopener">{t('settings.about.thirdParty')} <Icon name="external" size={14} /></a>
-              </div>
-            </section>
+            <ReportCard />
           {/if}
   {/snippet}
 </Sections>
@@ -490,8 +509,7 @@
     flex-wrap: wrap;
     gap: 6px 18px;
   }
-  .about-links a,
-  .about-links .link {
+  .about-links a {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -499,15 +517,8 @@
     font-weight: 600;
     text-decoration: none;
   }
-  /* What's new: a link's look (it opens a dialog, not a page). */
-  .about-links .link {
-    min-height: 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
+  .narrow {
+    max-width: 320px;
   }
   .rules {
     display: grid;

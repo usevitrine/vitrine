@@ -15,7 +15,7 @@
 
 <div class="updates">
   <section class="card">
-    <div class="card-head"><h2>{info ? t('updates.installed', { version: info.current }) : t('settings.section.updates.label')}</h2></div>
+    <div class="card-head"><h2>{info ? t('updates.installed', { version: info.current }) : t('settings.updatesTitle')}</h2></div>
     <UpdateStatus bind:info />
   </section>
   {#if upcoming.length}

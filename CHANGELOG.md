@@ -5,8 +5,16 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### New
+
+- **Passkeys**: log in with your face, fingerprint or device PIN. Add passkeys in Settings > Account, then use "Log in with a passkey" on the login screen (the plain sign-in page too). Turn on "Log in with a passkey only" and passwords are refused altogether; `vitrine passwd` on the server turns it off again if you lose your passkeys.
+- **Change your name and password in Settings > Account** (the current password first). A new password logs your other devices out, and "Log out other devices" does it on request.
+
 ### Improved
 
+- **A safer login**: the server checks at most two passwords at a time (many tries at once could use up its memory), limits failed tries to 60 an hour as well as 10 a minute, and writes every login, failed or not, to the log.
+
+- **Settings, reorganized**: everything is where you'd look for it. New files has a section of its own; Downloads (was Download rules) also holds what happens when a site stops answering and the queue order; Appearance (was Viewing) is about how things look; Media and Comics on or off and Safe for work moved to Library; Help & about (was Updates) has the version, the changelog, first steps and the problem report. Old links to Settings pages still work.
 - **Opening a NEW file marks it as seen**: a file marked NEW stops being new once you've opened it in the viewer - its mark goes, the "N new" count and the app icon's count drop, on every device. It keeps its NEW label while you're looking at it.
 
 - **The Downloads page opens fast with many subscriptions**: each subscription's pictures and "new since you looked" no longer go through every file it ever found (several seconds with a few hundred subscriptions on a big library), and the page's other numbers aren't worked out again for every new file while subscriptions download.

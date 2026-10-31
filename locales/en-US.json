@@ -473,7 +473,12 @@
     "hidePassword": "Hide the password",
     "create": "Create account",
     "logIn": "Log in",
-    "forgot": "Forgot it? Run {command} on the server."
+    "forgot": "Forgot it? Run {command} on the server.",
+    "passkey": "Log in with a passkey",
+    "or": "or",
+    "passkeyOnly": "This account logs in with a passkey.",
+    "lostPasskeys": "Lost your passkeys? Run {command} on the server to log in with a password again.",
+    "passkeyFailed": "That passkey didn't work: {error}"
   },
   "install": {
     "open": {
@@ -533,23 +538,27 @@
     "section": {
       "library": {
         "label": "Library",
-        "hint": "Default searches and orders, new files, the trash"
+        "hint": "Media and Comics, default searches and orders, the trash"
+      },
+      "new": {
+        "label": "New files",
+        "hint": "Which files count as new, their order"
       },
       "sites": {
         "label": "Sites",
         "hint": "Where downloads come from, logins, plugins"
       },
-      "rules": {
-        "label": "Download rules",
-        "hint": "Size limits, check depth"
+      "downloads": {
+        "label": "Downloads",
+        "hint": "Size limits, check depth, sites that keep failing"
       },
       "notifications": {
         "label": "Notifications",
         "hint": "New files, finished and failed downloads"
       },
-      "viewing": {
-        "label": "Viewing",
-        "hint": "Videos, hover previews, grid tiles, language"
+      "appearance": {
+        "label": "Appearance",
+        "hint": "Language, grid tiles, videos"
       },
       "device": {
         "label": "This device",
@@ -567,9 +576,9 @@
         "label": "Account",
         "hint": "Log out"
       },
-      "updates": {
-        "label": "Updates",
-        "hint": "New versions and what changed"
+      "about": {
+        "label": "Help & about",
+        "hint": "Updates, first steps, problem report"
       }
     },
     "title": "Settings",
@@ -599,6 +608,8 @@
     "browseSearch": "Browse default search",
     "browseSort": "Browse default sort",
     "browseSearchPlaceholder": "Tags: the newest galleries if none",
+    "newFiles": "Files that arrived since you last marked them all as seen come first, marked NEW. Opening one in the viewer marks it as seen.",
+    "updatesTitle": "Updates",
     "bulkNew": "Bulk downloads count as new",
     "bulkNewHint": "One-off downloads, first checks and imports. Off: only regular checks.",
     "tagsInUse": {
@@ -606,6 +617,7 @@
       "other": "{n} tags in use"
     },
     "rules": {
+      "title": "Download rules",
       "video": "Skip videos larger than",
       "videoLabel": "Skip videos larger than (MB)",
       "noLimit": "No limit",
@@ -675,6 +687,41 @@
       "label": "Anonymous sign-in page",
       "hint": "Signed out, a plain page with no name, logo or icon - nothing to look up."
     },
+    "account": {
+      "logOutOthers": "Log out other devices",
+      "loggedOutOthers": {
+        "one": "{n} other device logged out",
+        "other": "{n} other devices logged out"
+      },
+      "noOthers": "No other device was logged in",
+      "changeName": "Change name",
+      "newName": "New name",
+      "nameChanged": "Name changed",
+      "changePassword": "Change password",
+      "current": "Current password",
+      "newPassword": "New password",
+      "repeat": "New password again",
+      "mismatch": "The new passwords don't match",
+      "passwordChanged": "Password changed - your other devices were logged out",
+      "save": "Save",
+      "passkeys": "Passkeys",
+      "passkeysHint": "Log in with your face, fingerprint or device PIN instead of a password. A passkey works on the address it was added on.",
+      "add": "Add a passkey",
+      "added": "Passkey added",
+      "none": "No passkeys yet.",
+      "made": "Added {date}",
+      "used": "last used {date}",
+      "elsewhere": "for {host}",
+      "rename": "Rename",
+      "remove": "Remove",
+      "removeTitle": "Remove the passkey \"{name}\"?",
+      "removeBody": "It can't log in here any more. It stays on the device - remove it there too.",
+      "removeLast": "It's your last passkey: logging in with a password comes back.",
+      "only": "Log in with a passkey only",
+      "onlyHint": "Passwords are refused, even the right one. Lost all your passkeys? Running vitrine passwd on the server turns this off.",
+      "onlyNeeds": "Add a passkey first.",
+      "unsupported": "This browser can't add passkeys here - they need a secure (HTTPS) address."
+    },
     "firstSteps": {
       "title": "First steps",
       "hint": "What you'll use, storage, sites, how it looks, the app, notifications, what never to download, a first download - and a short tour.",
@@ -684,8 +731,7 @@
       "title": "About",
       "license": "Free software under the GNU Affero General Public License v3 or later.",
       "source": "Source code",
-      "thirdParty": "Third-party licenses",
-      "whatsNew": "Updates"
+      "thirdParty": "Third-party licenses"
     }
   },
   "tags": {

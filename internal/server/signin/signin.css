@@ -10,4 +10,7 @@ input { font: inherit; color: var(--fg); background: var(--field); border: 1px s
 input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 button { font: inherit; font-weight: 600; min-height: 44px; border: 0; border-radius: 8px; background: var(--accent); color: var(--bg); cursor: pointer; }
 button:disabled { opacity: 0.6; }
+#pw { display: grid; gap: 14px; }
+[hidden] { display: none !important; }
+button.alt { background: transparent; color: var(--fg); border: 1px solid var(--line); }
 #e { margin: 0; min-height: 1.4em; font-size: 14px; color: #dc2626; }

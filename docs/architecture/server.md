@@ -49,6 +49,33 @@ Made while building items 1-3 of step 1 (repo skeleton, file store, metadata DB)
   Sessions: random 32-byte token in an HttpOnly, SameSite=Lax cookie (Secure when the request came over HTTPS,
   directly or per `X-Forwarded-Proto`); only its SHA-256 is stored; expires after 180 days unused. Failed logins are
   rate-limited globally (10 per minute) - no trust in proxy headers needed with one account.
+- **Login hardened, passkeys, the account in Settings (2026-10-31, the user: "really make sure the login screen is
+  rock solid when it comes to security. And add passkey support with a passkey only login option" + "the option to
+  change his username and password in settings")**. Review of what was there: sound (above), with these changes:
+  (1) **at most two password checks at once** (`auth.hashing`): each takes 64 MiB, and many tries at once - all before
+  any counted as failed - could take the server's memory; a try that can't get its turn within 5 s answers 429.
+  (2) **60 failed logins an hour** besides 10 a minute (at most 1,440 guesses a day, not 14,400). (3) Passwords at most
+  1,024 bytes (each try hashed them all), names 100 characters. (4) **Every sign-in in the log**: "signed in" (info:
+  name, password or passkey, from where - `X-Forwarded-For` shown, never trusted), "sign-in failed" / "refused" (warn:
+  the name as typed, never the password), passkey and account changes. (5) A new password ends the other sessions
+  (not the one making the change). Still as decided: a global limit (a stranger failing 10 a minute keeps the owner's
+  password out meanwhile - a passkey isn't held up), 180-day sessions, the open `/api/setup` until the account exists.
+  **Passkeys** (`internal/auth/passkeys.go`, go-webauthn v0.18, migration `0049_passkeys`): discoverable credentials
+  with user verification required (the device's own lock: the passkey alone is enough), a random 64-byte user handle
+  per account (`users.webauthn_id`, never the name or ID), stored as the library's whole record (JSON) with the
+  address it was made on (`passkeys.origin`). A ceremony's challenge stays in memory (5 min, used once, at most 1,000)
+  under a random ID in an HttpOnly SameSite=Strict cookie (`vitrine_passkey`). The RP ID is the page's host (no IP
+  addresses: passkeys need a name); **a sign-in counts only from the address the passkey was made on** - checked
+  against the stored origin, never the request's Host (a page on another host sharing the passkey's domain could pass
+  its own address off); a counter going back (a copied authenticator) is refused. API: `POST
+  /api/passkeys/login/begin|finish` (open), `GET /api/passkeys`, `POST /api/passkeys/begin|finish|only`,
+  `/api/passkeys/{id}/remove|rename`. **Passkey only** (`users.passkey_only`, on only with a passkey): every password
+  login is refused before it is checked (403 - the same for a right and a wrong one, nothing to learn); the last
+  passkey removed turns it off; `vitrine passwd` (the way back in with every passkey lost) turns it off.
+  `/api/session` says `passkey_only` (the login screens offer the passkey alone). **The account**: `POST
+  /api/account/name|password {current, ...}` (the current password first, rate-limited like a login),
+  `/api/account/logout-others`. `TestAccountChanges`, `TestLoginsAtOnce`; e2e: passkeys with Chromium's virtual
+  authenticator (on `localhost`), the account forms.
 - **Cross-site protection**: changing requests must send JSON (plain forms can't, cross-site) and, if the browser sends
   an `Origin`, it must match the host. Plus `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, and a
   strict CSP on the web page (no inline scripts or styles; since 2026-10-23 also `object-src 'none'` and

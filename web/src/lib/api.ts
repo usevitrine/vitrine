@@ -27,7 +27,7 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
   if (method === 'GET') connection.offline = resp.headers.get('X-Vitrine-Offline') === '1'; // the service worker's saved copy
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) {
-    if (resp.status === 401 && !path.startsWith('/api/login') && !path.startsWith('/api/setup')) {
+    if (resp.status === 401 && !path.startsWith('/api/login') && !path.startsWith('/api/setup') && !path.startsWith('/api/passkeys/login/')) {
       onLoggedOut();
     }
     throw new ApiError(data.error ?? resp.statusText, resp.status);
@@ -82,7 +82,24 @@ export interface Session {
   user?: string;
   language?: string; // the server's default language (VITRINE_LANGUAGE)
   anonymous?: boolean; // signed out: the plain sign-in page (/signin), not the app's own
+  passkey_only?: boolean; // signing in: a passkey only (no password)
 }
+
+/** A passkey of the account (Settings > Account). */
+export interface PasskeyInfo {
+  id: number;
+  name: string;
+  created_at: number;
+  last_used?: number;
+  origin: string; // the address it signs in on
+}
+export interface PasskeyList {
+  passkeys: PasskeyInfo[];
+  passkey_only: boolean;
+  here: string; // this page's address (a passkey made elsewhere doesn't sign in here)
+}
+// (the server's WebAuthn options: binary values in base64url - lib/passkeys turns them into bytes)
+type PublicKeyJSON = Record<string, unknown> & { challenge: string };
 
 /** Anonymous sign-in (the setting anonymousLogin): signed out, off to the server's plain sign-in page - the app's own
  *  login screen (its name and logo) never shows. /signin is past the service worker (it never keeps that page). */
@@ -463,6 +480,21 @@ export const api = {
   comicsRedownload: (ids: number[]) => post<{ queued: number }>('/api/comics/do/redownload', { ids }),
   setup: (name: string, password: string) => post<Session>('/api/setup', { name, password }),
   login: (name: string, password: string) => post<Session>('/api/login', { name, password }),
+  passkeyLoginBegin: () =>
+    post<{ publicKey: PublicKeyJSON & { allowCredentials?: { id: string; type: string; transports?: string[] }[] } }>('/api/passkeys/login/begin', {}),
+  passkeyLoginFinish: (answer: unknown) => post<Session>('/api/passkeys/login/finish', answer),
+  passkeys: () => get<PasskeyList>('/api/passkeys'),
+  passkeyBegin: () =>
+    post<{
+      publicKey: PublicKeyJSON & { user: { id: string; name: string; displayName: string }; excludeCredentials?: { id: string; type: string; transports?: string[] }[] };
+    }>('/api/passkeys/begin', {}),
+  passkeyFinish: (name: string, credential: unknown) => post<PasskeyInfo>('/api/passkeys/finish', { name, credential }),
+  passkeyRemove: (id: number) => post<PasskeyList>(`/api/passkeys/${id}/remove`, {}),
+  passkeyRename: (id: number, name: string) => post<PasskeyList>(`/api/passkeys/${id}/rename`, { name }),
+  passkeyOnly: (on: boolean) => post<PasskeyList>('/api/passkeys/only', { on }),
+  changePassword: (current: string, password: string) => post<{ user: string }>('/api/account/password', { current, password }),
+  changeName: (current: string, name: string) => post<{ user: string }>('/api/account/name', { current, name }),
+  logoutOthers: () => post<{ ended: number }>('/api/account/logout-others', {}),
   logout: () => post<Session>('/api/logout', {}),
 
   siteCounts: (q: string, scope: Scope = '') =>

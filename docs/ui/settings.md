@@ -1,6 +1,6 @@
 # Settings
 
-Settings sections and cards: Sites, Library, Download rules, Backups, Stats and the problem report, settings shared through the server.
+Settings sections and cards: Library, New files, Sites, Downloads, Notifications, Appearance, This device, Backups, Stats, Account, Help & about (the problem report), settings shared through the server.
 
 ## As built (web client, from 2026-10-14 on)
 - **Settings > Sites (built 2026-10-15)** (`SitesCard.svelte`): each site plugin with its host, version, built in /
@@ -29,6 +29,18 @@ Settings sections and cards: Sites, Library, Download rules, Backups, Stats and 
   lists them under Settings). Phones: `/settings` is the list; a section opens on its own with a "‹ Settings" back
   link (slides in). Wide (>= 900 px): the list stays on the left (sticky, the current one highlighted) and the
   section shows beside it (`/settings` = Library). The welcome screen's "Open Sites" goes to `/settings/sites`.
+- **Settings reorganized (2026-10-31, the user: "the settings page is badly organised. Certain parts should be in
+  their own section" - the proposal below, picked as it was)**: each thing where you'd look for it, 11 sections:
+  **Library** (What you'll use - Media/Comics on or off, Safe for work - then the default searches and orders,
+  Comics, Browse, Trash), **New files** (`/settings/new`, its own now: what NEW means, New files order, Bulk downloads
+  count as new), **Sites** (the sites, logins, Add site, Cloudflare), **Downloads** (`/settings/downloads`, was
+  Download rules: the size rules and check depth, plus When a site stops answering and Queue order - both moved out
+  of Sites), **Notifications**, **Appearance** (`/settings/appearance`, was Viewing - without the Media/Comics card:
+  language, videos, grid, top spacing), **This device**, **Backups**, **Stats** (without the problem report),
+  **Account** (logging out, anonymous sign-in), **Help & about** (`/settings/about`, was Updates: About - version,
+  license, source - then the changelog and updates (`UpdatesPage`), First steps, the problem report
+  (`ReportCard.svelte`, out of `StatsCard`)). The old addresses `/settings/rules`, `/viewing`, `/updates` open the
+  new sections (`settingsRenamed` in lib/router, the address replaced).
 - **Settings > Sites redesigned (2026-10-16, user: buttons placed badly on phones)**: each site card = name + details,
   status chip (Testing… while testing) and a ⋯ menu (Test connection, Update to x, Change / Remove credentials, Remove
   site / Use the built-in version). Credentials: the form only while needed (Save full width on phones); once saved a

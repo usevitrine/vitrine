@@ -1,6 +1,6 @@
 import { type Page, devices } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { expect, test, login, USER, PASSWORD } from './fixtures';
+import { expect, test, login, USER, PASSWORD, PORT0 } from './fixtures';
 
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 0) < 900;
 
@@ -3204,7 +3204,7 @@ test('new files: the notification link shows the whole library', async ({ page }
 
 test('settings: new files order is saved', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough: shared settings');
-  await page.goto('/settings/library');
+  await page.goto('/settings/new');
   await page.getByRole('button', { name: 'New files order' }).click();
   await page.getByRole('menuitemradio', { name: /^Oldest first/ }).click();
   await expect.poll(async () => (await page.evaluate(async () => (await fetch('/api/settings')).json())).newOrder).toBe('imported_asc');
@@ -3466,7 +3466,7 @@ test('new files: "Bulk downloads count as new" off leaves bulk files (imports, o
   await expect(page.getByRole('button', { name: 'Mark the 26 new files as seen' })).toBeVisible();
   await expect(page.locator('.tile .new-badge').first()).toBeVisible();
   // ...but the test library was imported (bulk): with the setting off, nothing is.
-  await page.goto('/settings/library');
+  await page.goto('/settings/new');
   await page.getByText('Bulk downloads count as new').click();
   await expect.poll(async () => (await page.evaluate(async () => (await fetch('/api/settings')).json())).newFromBulk).toBe(false);
   await page.goto('/');
@@ -3727,7 +3727,7 @@ test('sort menu: more orders - file size both ways, number of tags, random (the 
 test('settings: sections - a list on phones (each opens with a back link), side by side on wide screens; listed in the menu', async ({ page }) => {
   await page.goto('/settings');
   const nav = page.getByRole('navigation', { name: 'Settings sections' });
-  await expect(nav.getByRole('button')).toHaveCount(10);
+  await expect(nav.getByRole('button')).toHaveCount(11);
   const wide = (page.viewportSize()?.width ?? 0) >= 900;
   if (wide) {
     // The first section shows beside the list.
@@ -3738,8 +3738,8 @@ test('settings: sections - a list on phones (each opens with a back link), side 
     await expect(page.getByRole('heading', { name: 'Backups' })).toBeVisible();
   } else {
     await expect(page.getByRole('heading', { name: 'Media', exact: true })).toHaveCount(0); // just the list
-    await nav.getByRole('button', { name: /^Download rules/ }).click();
-    await expect(page).toHaveURL(/\/settings\/rules$/);
+    await nav.getByRole('button', { name: /^Downloads/ }).click();
+    await expect(page).toHaveURL(/\/settings\/downloads$/);
     await expect(nav).toHaveCount(0);
     await expect(page.getByLabel('Skip videos larger than (MB)')).toBeVisible();
     await page.getByRole('button', { name: 'Settings', exact: true }).click(); // the back link
@@ -5788,7 +5788,7 @@ test('Settings > Stats: the library, imports, downloads, storage and the server 
 
 test('problem report: errors in the app reach the server log; the report shows, copies and downloads it, without private values', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop-chromium', 'one run is enough: the report is made on the server');
-  await page.goto('/settings/stats');
+  await page.goto('/settings/about');
   await expect(page.getByRole('heading', { name: 'Problem report' })).toBeVisible();
   // An error in the app (as a bug would throw), and a private search in the address.
   await page.evaluate(() => setTimeout(() => { throw new Error('boom from the test'); }));
@@ -5799,7 +5799,7 @@ test('problem report: errors in the app reach the server log; the report shows, 
   await expect(pre).toContainText('Vitrine problem report');
   await expect(pre).toContainText('web app error');
   await expect(pre).toContainText('boom from the test');
-  await expect(pre).toContainText('where=/settings/stats');
+  await expect(pre).toContainText('where=/settings/about');
   await expect(pre).not.toContainText('test-down'); // a site's name
   await card.getByRole('button', { name: 'Hide' }).click();
   await expect(pre).toHaveCount(0);
@@ -6453,6 +6453,90 @@ test('masonry grid: justified rows - tiles in their files\' shapes, the order re
   await expect(page.getByText(`${Number(id) + 1} / 26`)).toBeVisible();
 });
 
+test('passkeys: added in Settings > Account, then logging in with one; passkey only hides the password and the server refuses it; the last one removed brings the password back', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', "Chromium's virtual authenticator");
+  // (passkeys need a host name: the test server as localhost - its own cookies, so logged in there first)
+  const origin = `http://localhost:${PORT0 + test.info().parallelIndex}`;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  });
+  await page.addInitScript(() => localStorage.setItem('vitrine.whatsNew', 'false'));
+  await page.goto(origin + '/api/health');
+  expect(await page.evaluate(async ([name, password]) => (await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) })).status, [USER, PASSWORD])).toBe(200);
+  const cleanUp = () =>
+    page.evaluate(async () => {
+      const post = (p: string) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const { passkeys } = await (await fetch('/api/passkeys')).json();
+      for (const k of passkeys) await post(`/api/passkeys/${k.id}/remove`);
+    });
+  try {
+    await page.goto(origin + '/settings/account');
+    const card = page.locator('[data-card="passkeys"]');
+    await expect(card).toContainText('No passkeys yet.');
+    await expect(card.getByRole('checkbox', { name: /passkey only/ })).toBeDisabled(); // (none to log in with)
+    await card.getByRole('button', { name: 'Add a passkey' }).click();
+    await expect(card.locator('.keys li')).toHaveCount(1);
+    await card.getByRole('checkbox', { name: /passkey only/ }).check();
+    await expect.poll(async () => (await page.evaluate(() => fetch('/api/session').then((r) => r.json()))).passkey_only).toBe(true);
+    // The server: every password refused now.
+    expect(await page.evaluate(async ([name, password]) => (await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) })).status, [USER, PASSWORD])).toBe(403);
+    // Logged out: the passkey alone.
+    await page.getByRole('button', { name: 'Log out', exact: true }).click();
+    await expect(page.getByText('This account logs in with a passkey.')).toBeVisible();
+    await expect(page.getByLabel('Password')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Log in with a passkey' }).click();
+    await expect(page.getByText('This account logs in with a passkey.')).toHaveCount(0);
+    await expect.poll(async () => (await page.evaluate(() => fetch('/api/session').then((r) => r.json()))).logged_in).toBe(true);
+    // The last passkey removed (asked first): the password again.
+    await page.goto(origin + '/settings/account');
+    await card.getByRole('button', { name: /^Remove: / }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click();
+    await expect(card).toContainText('No passkeys yet.');
+    await expect(card.getByRole('checkbox', { name: /passkey only/ })).not.toBeChecked();
+    expect(await page.evaluate(async ([name, password]) => (await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password }) })).status, [USER, PASSWORD])).toBe(200);
+  } finally {
+    await cleanUp(); // (the test server is shared: never left passkey-only)
+  }
+});
+
+test('account: the name and the password change in Settings > Account (the current password first; a wrong one says so)', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough: the account is shared');
+  await page.goto('/settings/account');
+  const changes: { path: string; body: Record<string, string> }[] = [];
+  // (answered here: the shared test account keeps its name and password)
+  await page.route('**/api/account/*', (r) => {
+    const body = r.request().postDataJSON();
+    changes.push({ path: new URL(r.request().url()).pathname, body });
+    if (body.current !== PASSWORD) return r.fulfill({ status: 403, json: { error: 'the current password is wrong' } });
+    return r.fulfill({ json: { user: body.name ?? USER } });
+  });
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await page.getByLabel('New password', { exact: true }).fill('a new password');
+  await page.getByLabel('New password again').fill('a different one');
+  const save = page.getByRole('button', { name: 'Save', exact: true });
+  await page.getByLabel('Current password').fill(PASSWORD);
+  await save.click();
+  await expect(page.getByText("The new passwords don't match")).toBeVisible();
+  expect(changes).toHaveLength(0);
+  await page.getByLabel('New password again').fill('a new password');
+  await page.getByLabel('Current password').fill('not it');
+  await save.click();
+  await expect(page.getByText('the current password is wrong')).toBeVisible();
+  await page.getByLabel('Current password').fill(PASSWORD);
+  await save.click();
+  await expect(page.getByText('Password changed')).toBeVisible();
+  expect(changes.at(-1)).toEqual({ path: '/api/account/password', body: { current: PASSWORD, password: 'a new password' } });
+  // The name: the new one shows at once.
+  await page.getByRole('button', { name: 'Change name' }).click();
+  await page.getByLabel('New name').fill('someone_else');
+  await page.getByLabel('Current password').fill(PASSWORD);
+  await save.click();
+  await expect(page.getByText('Name changed')).toBeVisible();
+  await expect(page.getByRole('paragraph').filter({ hasText: /Logged in as\s*someone_else/ })).toBeVisible(); // (the section list says it too)
+});
+
 test('a new download from a tag: the sites it came from first (most files first), then the others', async ({ page }) => {
   // blue_sky came from two sites (test-slow more often); red from one.
   await page.route('**/api/tags/sites?*', (route) => {
@@ -6488,7 +6572,7 @@ test('first steps: what you\'ll use (and safe for work), storage, sites (adult o
     if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/fs-${info.project.name}-${name}.png` });
   };
   try {
-    await page.goto('/settings/account');
+    await page.goto('/settings/about');
     await page.getByRole('button', { name: 'Show them again' }).click();
     const next = page.getByRole('button', { name: 'Continue' });
     // What you'll use: Media and Comics, both on to start with.
@@ -6600,7 +6684,7 @@ test('the tour after the first steps: hints on the library, one at a time, the t
 
 test('phones: Back closes what is open on top (the menu, a chip, the details) and stays on the page; closed by a tap, Back leaves as usual', async ({ page }) => {
   test.skip(!isPhone(page), 'touch screens (Android back button / gesture)');
-  await page.goto('/settings/viewing');
+  await page.goto('/settings/appearance');
   await page.goto('/?q=blue_sky');
   await expect(page.getByText(/^4 files/)).toBeVisible();
   // The menu.
@@ -6634,7 +6718,7 @@ test('phones: Back closes what is open on top (the menu, a chip, the details) an
   await expect(drawer).toHaveCount(0);
   await page.waitForTimeout(100);
   await page.goBack();
-  await expect(page).toHaveURL(/\/settings\/viewing/);
+  await expect(page).toHaveURL(/\/settings\/appearance/);
 });
 
 test('menu: items with sub-pages fold (folded to begin with); the arrow unfolds them, and it is remembered', async ({ page }) => {
@@ -8580,9 +8664,11 @@ test('SFW mode: the "I came" button, its Rankings, sort and setting go, and adul
   // Its page's address: Media instead.
   await page.goto('/rankings');
   await expect(page).toHaveURL(/\/$/);
-  // Settings > Viewing: SFW on; the "I came" setting not there.
-  await page.goto('/settings/viewing');
+  // Settings > Library: SFW on; Appearance: the "I came" setting not there.
+  await page.goto('/settings/library');
   await expect(page.getByRole('checkbox', { name: /Safe for work/ })).toBeChecked();
+  await page.goto('/settings/appearance');
+  await expect(page.getByRole('heading', { name: 'Videos' })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /I came/ })).toHaveCount(0);
   // Adding a site: no adult ones, no switch to show them.
   await page.goto('/settings/sites');
@@ -8764,7 +8850,7 @@ test('sections: switching Media off asks first, then whether to delete it all (a
     calls.push({ path: 'media/off', body: r.request().postDataJSON() });
     await r.fulfill({ json: { subscriptions: 3, downloads: 1, deleting: false } });
   });
-  await page.goto('/settings/viewing');
+  await page.goto('/settings/library');
   const media = page.getByRole('checkbox', { name: /^Media/ });
   await expect(media).toBeChecked();
   await media.click();
@@ -8790,7 +8876,7 @@ test('sections: switching Media off asks first, then whether to delete it all (a
   await page.goto('/');
   await expect(page).toHaveURL(/\/comics$/);
   // On again: no question.
-  await page.goto('/settings/viewing');
+  await page.goto('/settings/library');
   await page.getByRole('checkbox', { name: /^Media/ }).click();
   await expect(page.getByRole('checkbox', { name: /^Media/ })).toBeChecked();
   await expect.poll(() => calls.filter((c) => c.path === 'settings').some((c) => (c.body as Record<string, unknown>).mediaOff === false)).toBe(true);
@@ -8800,10 +8886,11 @@ test('sections: switching Media off asks first, then whether to delete it all (a
   await page.evaluate(() => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaOff: false, comicsOff: false }) }));
 });
 
-test('settings: Updates is a page of its own with the changelog, newest first (built into the app)', async ({ page }) => {
-  await page.goto('/settings/account');
-  await page.locator('.about-links').getByRole('button', { name: 'Updates' }).click(); // (also in the section list)
-  await expect(page).toHaveURL(/\/settings\/updates$/);
+test('settings: Help & about has the version, the changelog (newest first, built into the app), first steps and the problem report; the old addresses lead there', async ({ page }) => {
+  await page.goto('/settings/updates'); // (its old address: Updates had a section of its own)
+  await expect(page).toHaveURL(/\/settings\/about$/);
+  if (!isPhone(page)) await expect(page.getByRole('button', { name: /^Help & about/ })).toHaveAttribute('aria-current', 'page'); // (phones: the section alone)
+  for (const h of ['About', 'First steps', 'Problem report']) await expect(page.getByRole('heading', { name: h, exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: /^1\.0\.0/ })).toBeVisible();
   await expect(page.getByText('The first public release.')).toBeVisible();
   const heads = await page.locator('.log h2').allTextContents();
@@ -8948,7 +9035,7 @@ test('first steps: Check for updates on the step line (Up to date when none); a 
     return r.fulfill({ response: res, json: j });
   });
   try {
-    await page.goto('/settings/account');
+    await page.goto('/settings/about');
     await page.getByRole('button', { name: 'Show them again' }).click();
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByRole('heading', { name: 'Storage', level: 1 })).toBeVisible();

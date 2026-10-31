@@ -43,8 +43,8 @@ async function overflow(page: Page): Promise<string[]> {
 }
 
 const screens = ['/', '/favorites', '/comics', '/comics/favorites', '/downloads', '/tags', '/tags/all', '/duplicates',
-  '/settings/library', '/settings/sites', '/settings/rules', '/settings/notifications', '/settings/viewing', '/settings/device',
-  '/settings/backups', '/settings/stats', '/settings/account'];
+  '/settings/library', '/settings/new', '/settings/sites', '/settings/downloads', '/settings/notifications', '/settings/appearance',
+  '/settings/device', '/settings/backups', '/settings/stats', '/settings/account', '/settings/about'];
 
 test('menus fit: nothing sticks out of a menu or off the window', async ({ page }) => {
   test.setTimeout(480_000); // (every menu on every screen: a few minutes on a phone)

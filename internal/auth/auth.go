@@ -30,14 +30,22 @@ var (
 	ErrNoSession = errors.New("not logged in")
 	// ErrSetupDone means an account already exists.
 	ErrSetupDone = errors.New("an account already exists")
+	// ErrPasskeyOnly means the account signs in with a passkey only (the password is refused).
+	ErrPasskeyOnly = errors.New("this account signs in with a passkey only")
+	// ErrBadPassword means the current password given to change the account was wrong.
+	ErrBadPassword = errors.New("the current password is wrong")
 )
 
 // SessionIdle is how long a session lasts without use. Long, because the
 // phone's home-screen app should stay logged in.
 const SessionIdle = 180 * 24 * time.Hour
 
-// MinPassword is the shortest accepted password.
-const MinPassword = 8
+// MinPassword is the shortest accepted password, MaxPassword the longest (in bytes: a megabyte-long one was hashed on
+// every try - work for nothing).
+const (
+	MinPassword = 8
+	MaxPassword = 1024
+)
 
 // User is a logged-in account.
 type User struct {
@@ -84,6 +92,12 @@ func checkNew(name, password string) error {
 	if utf8.RuneCountInString(password) < MinPassword {
 		return fmt.Errorf("the password needs at least %d characters", MinPassword)
 	}
+	if len(password) > MaxPassword {
+		return fmt.Errorf("the password can't be longer than %d characters", MaxPassword)
+	}
+	if utf8.RuneCountInString(name) > 100 {
+		return fmt.Errorf("the name can't be longer than 100 characters")
+	}
 	return nil
 }
 
@@ -117,7 +131,8 @@ func (a *Auth) Setup(ctx context.Context, name, password string) error {
 }
 
 // SetPassword sets a user's password, creating the user if needed, and ends
-// their sessions. It is for the command line (password reset).
+// their sessions. It is for the command line (password reset) - the way back in
+// with every passkey lost, so it turns passkey-only sign-in off too.
 func (a *Auth) SetPassword(ctx context.Context, name, password string) error {
 	if err := checkNew(name, password); err != nil {
 		return err
@@ -133,7 +148,7 @@ func (a *Auth) SetPassword(ctx context.Context, name, password string) error {
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO users (name, password_hash, created_at) VALUES (?, ?, ?)
-		ON CONFLICT (name) DO UPDATE SET password_hash = excluded.password_hash`,
+		ON CONFLICT (name) DO UPDATE SET password_hash = excluded.password_hash, passkey_only = 0`,
 		name, hash, a.now().UnixMilli()); err != nil {
 		return err
 	}
@@ -144,11 +159,102 @@ func (a *Auth) SetPassword(ctx context.Context, name, password string) error {
 	return tx.Commit()
 }
 
+// confirm checks the current password of a signed-in user (to change the account): rate-limited like a login.
+func (a *Auth) confirm(ctx context.Context, userID int64, password string) error {
+	var name string
+	if err := a.db.R.QueryRowContext(ctx, "SELECT name FROM users WHERE id = ?", userID).Scan(&name); err != nil {
+		return err
+	}
+	if _, err := a.checkLogin(ctx, name, password); errors.Is(err, ErrBadLogin) {
+		return ErrBadPassword
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+// ChangePassword sets a signed-in user's password (the current one first) and ends their other sessions (keep: the
+// token of the one making the change).
+func (a *Auth) ChangePassword(ctx context.Context, userID int64, current, password, keep string) error {
+	if err := a.confirm(ctx, userID, current); err != nil {
+		return err
+	}
+	if err := checkNew("x", password); err != nil {
+		return err
+	}
+	hash, err := hashPassword(password)
+	if err != nil {
+		return err
+	}
+	keepHash := sha256.Sum256([]byte(keep))
+	tx, err := a.db.W.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, "UPDATE users SET password_hash = ? WHERE id = ?", hash, userID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", userID, keepHash[:]); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// Rename changes a signed-in user's name (the current password first).
+func (a *Auth) Rename(ctx context.Context, userID int64, current, name string) error {
+	if err := a.confirm(ctx, userID, current); err != nil {
+		return err
+	}
+	if err := checkNew(name, strings.Repeat("x", MinPassword)); err != nil {
+		return err
+	}
+	res, err := a.db.W.ExecContext(ctx, "UPDATE users SET name = ? WHERE id = ? AND NOT EXISTS (SELECT 1 FROM users WHERE name = ? AND id != ?)",
+		name, userID, name, userID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return errors.New("that name is taken")
+	}
+	return nil
+}
+
+// EndOtherSessions logs out every other device of a user (keep: this one's token).
+func (a *Auth) EndOtherSessions(ctx context.Context, userID int64, keep string) (int, error) {
+	keepHash := sha256.Sum256([]byte(keep))
+	res, err := a.db.W.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ? AND token_hash != ?", userID, keepHash[:])
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
 // Login checks a name and password and starts a session. The returned token
 // goes into the session cookie.
 func (a *Auth) Login(ctx context.Context, name, password, userAgent string) (string, error) {
+	// Passkey only: no password is even checked (a different answer for a right one would tell a guesser it was).
+	if only, err := a.PasskeyOnly(ctx); err != nil {
+		return "", err
+	} else if only {
+		return "", ErrPasskeyOnly
+	}
+	id, err := a.checkLogin(ctx, name, password)
+	if err != nil {
+		return "", err
+	}
+	return a.startSession(ctx, id, userAgent)
+}
+
+// checkLogin checks a name and password (rate-limited, one at a time); it returns the user's ID.
+func (a *Auth) checkLogin(ctx context.Context, name, password string) (int64, error) {
 	if !a.allowAttempt() {
-		return "", ErrTooMany
+		return 0, ErrTooMany
+	}
+	if len(password) > MaxPassword {
+		a.recordFailure()
+		return 0, ErrBadLogin
 	}
 	var id int64
 	var hash string
@@ -156,14 +262,38 @@ func (a *Auth) Login(ctx context.Context, name, password, userAgent string) (str
 	if errors.Is(err, sql.ErrNoRows) {
 		hash = dummyHash() // same work as a real check, so timing doesn't reveal names
 	} else if err != nil {
-		return "", err
+		return 0, err
 	}
-	ok := checkPassword(hash, password)
+	ok, err := a.checkPassword(ctx, hash, password)
+	if err != nil {
+		return 0, err
+	}
 	if !ok || id == 0 {
 		a.recordFailure()
-		return "", ErrBadLogin
+		return 0, ErrBadLogin
 	}
+	return id, nil
+}
 
+// checkPassword checks a password against its hash, at most two at a time: each check takes 64 MiB, and many tries
+// at once (before any counted as failed) could take all the server's memory. A try that can't get its turn within a
+// few seconds counts as too many.
+func (a *Auth) checkPassword(ctx context.Context, phc, password string) (bool, error) {
+	select {
+	case hashing <- struct{}{}:
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case <-time.After(5 * time.Second):
+		return false, ErrTooMany
+	}
+	defer func() { <-hashing }()
+	return checkPassword(phc, password), nil
+}
+
+var hashing = make(chan struct{}, 2)
+
+// startSession makes a session for a user; its token goes into the session cookie.
+func (a *Auth) startSession(ctx context.Context, id int64, userAgent string) (string, error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
 		return "", err
@@ -218,24 +348,35 @@ func (a *Auth) Logout(ctx context.Context, token string) error {
 	return err
 }
 
-// The rate limit: at most 10 failed logins per minute, from anywhere. With a
-// single account a global limit is simple and needs no trust in proxy
-// headers.
+// The rate limit: at most 10 failed logins a minute and 60 an hour, from anywhere (guessing a password: at most 1,440
+// tries a day, not 14,400 - 2026-10-31). With a single account a global limit is simple and needs no trust in proxy
+// headers; a passkey isn't held up by it (nothing to guess).
 const (
-	maxFailures   = 10
-	failureWindow = time.Minute
+	maxFailures     = 10
+	failureWindow   = time.Minute
+	maxFailuresHour = 60
 )
 
 func (a *Auth) allowAttempt() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	cutoff := a.now().Add(-failureWindow)
+	now := a.now()
+	cutoff := now.Add(-time.Hour)
 	i := 0
 	for i < len(a.failures) && a.failures[i].Before(cutoff) {
 		i++
 	}
 	a.failures = a.failures[i:]
-	return len(a.failures) < maxFailures
+	if len(a.failures) >= maxFailuresHour {
+		return false
+	}
+	recent := 0
+	for _, t := range a.failures {
+		if !t.Before(now.Add(-failureWindow)) {
+			recent++
+		}
+	}
+	return recent < maxFailures
 }
 
 func (a *Auth) recordFailure() {

@@ -124,7 +124,7 @@
     tour.start(); // (a few hints on the library, once - on this device)
     if (to === 'downloads') router.go('downloads');
     else if (to === 'blacklist') router.go('tags', 'rules');
-    else if (to === 'rules') router.go('settings', 'rules');
+    else if (to === 'rules') router.go('settings', 'downloads');
     else if (to === 'comics') router.go('comics');
     else router.go('library');
   }
@@ -279,7 +279,7 @@
       <p class="lead">{t('setup.rules.lead')}</p>
       <BlacklistPanel suggest={commonBlacklist} />
       <section class="card limits">
-        <div class="card-head"><h2>{t('settings.section.rules.label')}</h2><p class="hint">{t('setup.rules.limits')}</p></div>
+        <div class="card-head"><h2>{t('settings.rules.title')}</h2><p class="hint">{t('setup.rules.limits')}</p></div>
         <div class="limit-fields"><DownloadRules /></div>
       </section>
     {:else if step === 'app'}

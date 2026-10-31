@@ -145,7 +145,7 @@ For these, flags come first (a search's `-cloud` is a search word): `vitrine sea
 | Command | What it does |
 |---|---|
 | `vitrine serve` | Run the web server (the web app, its API and the local socket); `-listen` sets the address |
-| `vitrine passwd <name>` | Set the password (creating the account if needed); ends every session |
+| `vitrine passwd <name>` | Set the password (creating the account if needed); ends every session and turns "Log in with a passkey only" off (the way back in with every passkey lost) |
 | `vitrine import <file or folder>...` | Copy images and videos into the library (originals stay where they are) |
 | `vitrine import-comic <folder or zip>` | Add a comic to the Comics page |
 | `vitrine download -max 20 <site> <search>` | Download a search without the server (Ctrl+C and run again to carry on) |
