@@ -88,6 +88,14 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   within 700 ms (`PAGE_WAIT`; 10-50 ms at home), the saved one only when it doesn't (offline, the server away); the
   "updated" message goes only to a page that got the saved copy. Coming back to the app after >= 1 minute with a new
   version out still reloads it (unchanged). Test: "after an update the app starts once".
+- **The server's page without waiting for the saved one (2026-10-31, the user: an open at 14:18 "took several
+  seconds")**: Traefik's access log (every request, with its connection) showed every request answered in ~1 ms but,
+  since the change above, every iPhone start reading its page 0.8-1.3 s after asking (0.0-0.4 s before): the worker
+  handed the server's page over only after comparing it with the saved one and saving it, and the iPhone's cache store
+  took longer than the 700 ms wait - so the saved copy came every time, after the full wait. Now the server's page is
+  asked for first (not after opening the store) and given to the page as soon as it arrives; comparing and saving
+  follow (`keepPage`). Separate and not explained by the server's logs: every few hours a start asks for the page
+  twice, seconds apart, on a new connection (2-8 s; before and after 1.0.13) - the phone, not the server.
 - **Batch of fixes (2026-10-18, user list)**: the viewer's image has a transparent pixel as its src while the
   picture decodes (no broken-image border/box); the header's "N new" chip has a broom (clears, doesn't delete); top
   spacing is only offered on touch screens; New download has a Manage sites button (to Settings > Sites); the menu's

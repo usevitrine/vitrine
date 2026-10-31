@@ -10,6 +10,10 @@ shows this too (Settings > Help & about).
 - **The Downloads page opens at once on big libraries**: it no longer waits several seconds every half minute while the tag refresh numbers are counted again (they're counted in the background now, the last ones shown meanwhile). Opened again, it shows what it showed last while the latest comes, and it says "Loading…" instead of "No subscriptions yet" until the first answer arrives.
 - **Settings > Stats, redesigned**: every number in a tile with a few words under it, two to a row on a phone and more on a computer, so nothing is cut off or runs off the card any more. The health check shows its state as a badge, the images / GIFs / videos counts line up under their bar, and long versions (ffmpeg, video decoding) have rows of their own.
 
+### Fixed
+
+- **The app opens faster again on iPhone**: since 1.0.13 every start waited most of a second before showing anything (the page from the server was held back until a copy had been saved on the device). It's shown the moment it arrives now.
+
 ## 1.0.13 - 2026-10-31
 
 ### New

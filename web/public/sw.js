@@ -60,30 +60,43 @@ let puts = 0;
 // has only just started). (Until 2026-10-31 the saved page always came first: the first start after an update ran
 // the old version, found the new one and started again - two starts, the second fetching the new scripts; the user:
 // "every now and again it takes several seconds". The server's page takes some 10-50 ms at home.)
+// The server's page goes to the page the moment it arrives; comparing it with the saved one and saving it come after.
+// (Until 2026-10-31 the page waited for those too, and on an iPhone the saved pages' store took longer than the wait:
+// every start waited the full 700 ms and then got the saved copy anyway - measured from the proxy's log, the page read
+// 0.8-1.3 s after its request instead of 0.0-0.4 s.)
 const PAGE_WAIT = 700;
 async function page(req, e) {
+  const net = fetch(req); // (asked first: the saved pages' store isn't waited for)
+  const saved = caches
+    .open(SHELL)
+    .then((c) => c.match('/'))
+    .catch(() => undefined);
+  let decide;
+  const gotSaved = new Promise((r) => (decide = r)); // (whether the page got the saved copy)
+  e.waitUntil(net.then((resp) => keepPage(resp.clone(), gotSaved), () => {}));
+  const quick = await Promise.race([net.then((r) => (r.ok ? r : null), () => null), new Promise((r) => setTimeout(() => r(null), PAGE_WAIT))]);
+  if (quick) {
+    decide(false);
+    return quick;
+  }
+  const hit = await saved;
+  decide(!!hit);
+  return hit ?? net; // (nothing saved: the server's answer whenever it comes, or its error)
+}
+
+// keepPage saves the server's page as the app and, when the page got the saved copy and this one differs (a new
+// version), tells the open app.
+async function keepPage(resp, gotSaved) {
+  // (a page the server says not to keep - the plain sign-in page, signed out - isn't saved as the app)
+  if (!resp.ok || resp.status !== 200 || (resp.headers.get('Cache-Control') ?? '').includes('no-store')) return;
+  const text = await resp.clone().text();
   const cache = await caches.open(SHELL);
-  const hit = await cache.match('/');
-  let served = null; // the answer the page got
-  const fresh = fetch(req).then(async (resp) => {
-    // (a page the server says not to keep - the plain sign-in page, signed out - isn't saved as the app)
-    if (resp.ok && resp.status === 200 && !(resp.headers.get('Cache-Control') ?? '').includes('no-store')) {
-      const text = await resp.clone().text();
-      const old = hit ? await hit.clone().text() : null;
-      await cache.put('/', resp.clone());
-      // (told only when the page got the saved copy: one that got this one is the new version already)
-      if (served === hit && old !== null && old !== text) {
-        for (const c of await self.clients.matchAll({ type: 'window' })) c.postMessage({ type: 'updated' });
-      }
-    }
-    return resp;
-  });
-  if (!hit) return (served = await fresh);
-  const quick = await Promise.race([fresh.then((r) => (r.ok ? r : null), () => null), new Promise((r) => setTimeout(() => r(null), PAGE_WAIT))]);
-  if (quick) return (served = quick);
-  served = hit;
-  e.waitUntil(fresh.catch(() => {}));
-  return hit;
+  const old = await cache.match('/').then((r) => (r ? r.text() : null));
+  await cache.put('/', resp);
+  // (told only when the page got the saved copy: one that got this one is the new version already)
+  if ((await gotSaved) && old !== null && old !== text) {
+    for (const c of await self.clients.matchAll({ type: 'window' })) c.postMessage({ type: 'updated' });
+  }
 }
 
 async function cacheFirst(req, e, name, max) {
