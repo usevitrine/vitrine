@@ -1018,6 +1018,7 @@ test('viewer: swiping to a video is clean (poster, created as the move starts, t
 
 test('downloads: pause, resume, reorder, remove, retry (offline test sites)', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough: the server-side queue is shared');
+  test.setTimeout(90_000); // (~45 s alone - the slow test site's downloads take their time)
   await page.goto('/downloads');
   const add = (site: string, query: string) =>
     page.evaluate(
@@ -2860,6 +2861,30 @@ test("what's new after an update: the new version's changes once per server, Don
   } finally {
     await set({ whatsNew: false }); // (whatever happened: no window over the next tests on this server)
   }
+});
+
+test('after an update the app starts once, on the new version: the server\'s page comes first when it answers at once (the saved one only without it)', async ({ page, context }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', 'service workers are tested in Chromium');
+  await context.addInitScript(() => localStorage.setItem('vitrine.sw', 'on'));
+  await page.goto('/');
+  await page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, { timeout: 15000 });
+  const own = await page.evaluate(() => document.querySelector('script[type="module"][src]')!.getAttribute('src'));
+  // The device keeps an older version's page (its script gone from the server now).
+  await page.evaluate(async () => {
+    const cache = await caches.open('vitrine-shell-v2');
+    const text = await (await cache.match('/'))!.text();
+    await cache.put('/', new Response(text.replace(/\/assets\/index-[^"]+\.js/, '/assets/index-older.js'), { headers: { 'Content-Type': 'text/html' } }));
+  });
+  let loads = 0;
+  page.on('load', () => loads++);
+  await page.reload();
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  expect(await page.evaluate(() => document.querySelector('script[type="module"][src]')!.getAttribute('src'))).toBe(own);
+  await page.waitForTimeout(4500); // (an "updated" reload would come within 4 s of the start)
+  expect(loads).toBe(1);
+  await page.evaluate(async () => {
+    for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+  });
 });
 
 test('offline: the app, the last results and their thumbnails stay on the device', async ({ page, context }) => {

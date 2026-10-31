@@ -82,6 +82,12 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   the service worker) left the old saved page in place. main.ts's `checkVersion()` now runs at every start and on
   coming back after >= 1 minute: fetch `/` (no-store), always store it as the saved page, reload if its script
   differs. Verified with two real builds (A open, server swapped to B, Ctrl+R -> B, again -> B).
+- **One start after an update (2026-10-31, the user: "every now and again it takes several seconds")**: the saved
+  page first meant the first start after every update ran the old version, found the new one and started again (two
+  starts, the second fetching the new scripts). The service worker now gives the page the server's copy when it comes
+  within 700 ms (`PAGE_WAIT`; 10-50 ms at home), the saved one only when it doesn't (offline, the server away); the
+  "updated" message goes only to a page that got the saved copy. Coming back to the app after >= 1 minute with a new
+  version out still reloads it (unchanged). Test: "after an update the app starts once".
 - **Batch of fixes (2026-10-18, user list)**: the viewer's image has a transparent pixel as its src while the
   picture decodes (no broken-image border/box); the header's "N new" chip has a broom (clears, doesn't delete); top
   spacing is only offered on touch screens; New download has a Manage sites button (to Settings > Sites); the menu's

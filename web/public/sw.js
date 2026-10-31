@@ -55,29 +55,35 @@ self.addEventListener('fetch', (e) => {
 
 let puts = 0;
 
-// page: the saved page at once (every path of the app is the same page), and
-// the server's copy fetched meanwhile for next time; when it is a newer
-// version, the open app is told (it reloads if it has only just started).
+// page: the server's page when it comes within a moment (every path of the app is the same page), else the saved
+// one - and the server's kept for next time; when that is a newer version, the open app is told (it reloads if it
+// has only just started). (Until 2026-10-31 the saved page always came first: the first start after an update ran
+// the old version, found the new one and started again - two starts, the second fetching the new scripts; the user:
+// "every now and again it takes several seconds". The server's page takes some 10-50 ms at home.)
+const PAGE_WAIT = 700;
 async function page(req, e) {
   const cache = await caches.open(SHELL);
   const hit = await cache.match('/');
+  let served = null; // the answer the page got
   const fresh = fetch(req).then(async (resp) => {
     // (a page the server says not to keep - the plain sign-in page, signed out - isn't saved as the app)
     if (resp.ok && resp.status === 200 && !(resp.headers.get('Cache-Control') ?? '').includes('no-store')) {
       const text = await resp.clone().text();
       const old = hit ? await hit.clone().text() : null;
       await cache.put('/', resp.clone());
-      if (old !== null && old !== text) {
+      // (told only when the page got the saved copy: one that got this one is the new version already)
+      if (served === hit && old !== null && old !== text) {
         for (const c of await self.clients.matchAll({ type: 'window' })) c.postMessage({ type: 'updated' });
       }
     }
     return resp;
   });
-  if (hit) {
-    e.waitUntil(fresh.catch(() => {}));
-    return hit;
-  }
-  return fresh;
+  if (!hit) return (served = await fresh);
+  const quick = await Promise.race([fresh.then((r) => (r.ok ? r : null), () => null), new Promise((r) => setTimeout(() => r(null), PAGE_WAIT))]);
+  if (quick) return (served = quick);
+  served = hit;
+  e.waitUntil(fresh.catch(() => {}));
+  return hit;
 }
 
 async function cacheFirst(req, e, name, max) {
