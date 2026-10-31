@@ -123,7 +123,10 @@ Settings sections and cards: Library, New files, Sites, Downloads, Notifications
   "every now and again it takes several seconds") - a reload into a new version (`vitrine.reloadAfter` in
   sessionStorage; "on return" when coming back on screen found one) or opened from a notification (the service
   worker's note `/opened-by-notification` in its shell cache). Paths only, never a search. Read with
-  `vitrine logs` (or the report).
+  `vitrine logs` (or the report). Also (2026-10-31, an open at 14:18 took 6 s with the page asked for twice): the
+  start's clock time (UTC, to line up with the proxy's log), when the service worker started for the page, the
+  worker's own side (its start, the page's request, the server's answer, the saved copy, which one the page got and
+  when - message `start-timing`) and a "resumed ... after N s away" line when the app comes back after a minute or more.
 - **Safe for work (2026-10-23)** (the user, picked from the options: hide the "I came" button, hide adult site plugins,
   neutral words everywhere - not a filter on the files themselves): Settings > Viewing > Content > "Safe for work"
   (shared setting `sfwMode`, off by default). On: `settings.came` is false whatever `cameButton` says - no "I came"

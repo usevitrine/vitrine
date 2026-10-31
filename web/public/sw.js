@@ -66,22 +66,40 @@ let puts = 0;
 // every start waited the full 700 ms and then got the saved copy anyway - measured from the proxy's log, the page read
 // 0.8-1.3 s after its request instead of 0.0-0.4 s.)
 const PAGE_WAIT = 700;
+
+// When this worker started and what it did with the last page request (ms since the epoch; a failed fetch negative) -
+// the app's start report asks for it (lib/startTiming.ts).
+const swStarted = Date.now();
+let pageTiming = null;
+
 async function page(req, e) {
+  const timing = (pageTiming = { event: Date.now(), net: 0, saved: 0, served: '', servedAt: 0 });
   const net = fetch(req); // (asked first: the saved pages' store isn't waited for)
+  net.then(
+    () => (timing.net = Date.now()),
+    () => (timing.net = -Date.now()),
+  );
   const saved = caches
     .open(SHELL)
     .then((c) => c.match('/'))
     .catch(() => undefined);
+  saved.then(() => (timing.saved = Date.now()));
   let decide;
   const gotSaved = new Promise((r) => (decide = r)); // (whether the page got the saved copy)
   e.waitUntil(net.then((resp) => keepPage(resp.clone(), gotSaved), () => {}));
   const quick = await Promise.race([net.then((r) => (r.ok ? r : null), () => null), new Promise((r) => setTimeout(() => r(null), PAGE_WAIT))]);
+  const gave = (how) => {
+    timing.served = how;
+    timing.servedAt = Date.now();
+  };
   if (quick) {
     decide(false);
+    gave('server');
     return quick;
   }
   const hit = await saved;
   decide(!!hit);
+  gave(hit ? 'saved' : 'server late');
   return hit ?? net; // (nothing saved: the server's answer whenever it comes, or its error)
 }
 
@@ -218,6 +236,8 @@ self.addEventListener('message', (e) => {
     e.waitUntil(Promise.all([caches.delete(THUMBS), caches.delete(API), caches.delete(SHELL)]));
   } else if (d.type === 'clear-thumbs') {
     e.waitUntil(caches.delete(THUMBS));
+  } else if (d.type === 'start-timing' && e.source) {
+    e.source.postMessage({ type: 'start-timing', swStarted, page: pageTiming });
   }
 });
 

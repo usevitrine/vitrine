@@ -13,7 +13,7 @@ import { refreshShell } from './lib/appShell';
 import { ownTouches } from './lib/ownTouches';
 import { DEMO } from './lib/demo';
 import { startDemo } from './demo/backend'; // (left out of the app's build: DEMO is false there)
-import { startMark, reportStart } from './lib/startTiming';
+import { startMark, reportStart, reportResume } from './lib/startTiming';
 
 startMark('script');
 logErrors();
@@ -118,5 +118,8 @@ if (!DEMO) {
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') hiddenAt = Date.now();
-  else if (hiddenAt && Date.now() - hiddenAt >= 60_000) checkVersion();
+  else if (hiddenAt && Date.now() - hiddenAt >= 60_000) {
+    if (!DEMO) reportResume(Date.now() - hiddenAt);
+    checkVersion();
+  }
 });

@@ -60,6 +60,33 @@ async function how(): Promise<string[]> {
   return out;
 }
 
+// The service worker's side of this start (2026-10-31, an open at 14:18 took 6 s: the page asked for twice, seconds
+// apart, each answered in ~1 ms): when it started and what it did with the page's request - asked the server, the
+// answer in, the saved copy found, which one the page got and when (ms from the page's start; negative = before it).
+function workerSide(): Promise<string> {
+  const sw = navigator.serviceWorker;
+  if (!sw?.controller) return Promise.resolve('');
+  return new Promise((done) => {
+    const rel = (t: number) => (t ? `${ms(Math.abs(t) - performance.timeOrigin)}${t < 0 ? ' failed' : ''}` : '-');
+    const on = (e: MessageEvent) => {
+      if (e.data?.type !== 'start-timing') return;
+      clearTimeout(timer);
+      sw.removeEventListener('message', on);
+      const p = e.data.page;
+      const page = p ? `, page asked ${rel(p.event)}, server ${rel(p.net)}, saved ${rel(p.saved)}, gave ${p.served || 'nothing yet'} ${rel(p.servedAt)}` : ', no page request';
+      done(`sw started ${rel(e.data.swStarted)}${page}`);
+    };
+    const timer = setTimeout(() => {
+      sw.removeEventListener('message', on);
+      done('sw: no answer in 2 s');
+    }, 2000);
+    sw.addEventListener('message', on);
+    sw.controller!.postMessage({ type: 'start-timing' });
+  });
+}
+
+const clock = (t: number) => new Date(t).toISOString().slice(11, 23); // (UTC, like the proxy's log)
+
 /** Sends the start's times (once). */
 export async function reportStart() {
   if (sent) return;
@@ -69,8 +96,10 @@ export async function reportStart() {
     const res = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
     const path = (r: PerformanceResourceTiming) => new URL(r.name, location.href).pathname;
     const first = (p: string) => res.find((r) => path(r) === p);
-    const parts: string[] = [device(), ...(await how())];
-    if (nav) parts.push(`${nav.type}, page ${one(nav as unknown as PerformanceResourceTiming)}, parsed ${ms(nav.domInteractive)}`);
+    const parts: string[] = [`started ${clock(performance.timeOrigin)}`, device(), ...(await how())];
+    if (nav) parts.push(`${nav.type}, worker ${ms(nav.workerStart)}, page ${one(nav as unknown as PerformanceResourceTiming)}, parsed ${ms(nav.domInteractive)}`);
+    const sw = await workerSide();
+    if (sw) parts.push(sw);
     const assets = res.filter((r) => path(r).startsWith('/assets/'));
     if (assets.length) parts.push(`assets ${assets.length} by ${ms(Math.max(...assets.map((r) => r.responseEnd)))}${assets.some((r) => r.workerStart > 0) ? ' (sw)' : ''}`);
     for (const k of ['script', 'drawn']) if (marks[k] !== undefined) parts.push(`${k} ${marks[k]}`);
@@ -91,6 +120,20 @@ export async function reportStart() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ kind: 'start', message: parts.join(' | '), where: location.pathname }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    /* no report this time */
+  }
+}
+
+/** The app came back on screen after a while (the home-screen app usually resumes rather than starting again). */
+export function reportResume(hiddenMs: number) {
+  try {
+    fetch('/api/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'start', message: `resumed ${clock(Date.now())} after ${Math.round(hiddenMs / 1000)} s away, ${device()}`, where: location.pathname }),
       keepalive: true,
     }).catch(() => {});
   } catch {
