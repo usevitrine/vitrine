@@ -301,7 +301,9 @@ Palette: https://catppuccin.com/palette
   selection bar, the tag picker's actions, the Downloads lines and menu, the grid's strips: `--edge-l`/`--edge-r`,
   `--fl`/`--fr` or `fade-l`/`fade-r`, set from the scroll position); anything new that scrolls or slides by itself
   follows it. A fade comes and goes smoothly (its opacity eased, never a hard switch: "The gradient doesn't appear
-  smoothly").
+  smoothly"), and on a line that slides by itself it's fully gone before the line comes to rest at that side and
+  only comes in once the line has moved more than the fade's width ("The gradient slightly covers the beginning and
+  end of the line again"); the line's end position is exact (its own width against its box's, not a fixed number).
 - **Text that slides by itself (rule, 2026-10-31)** (the user: "make sure all carousels scroll slowly from left to
   right, then faster from right to left so the user can quickly read from the beginning again"): a line too long for
   its place (e.g. a long name kept on one line) rests at its start, moves forward slowly at an even reading speed,
