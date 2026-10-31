@@ -1,6 +1,6 @@
 <script lang="ts">
   import { overlayScroll } from '../lib/overlayScroll';
-  import { reveal, moved, nudge, pop, glide } from '../lib/motion';
+  import { reveal, moved, nudge, pop, glide, reduced } from '../lib/motion';
   // Saved searches: save the current search (and its order), run one with a tap; changed after running one, update
   // it in one tap (or save it as a new one); Edit renames or deletes them. Each is a tile with its first files; press
   // and hold one (a mouse: click and hold) to move it. A second tab has the group (parent) tags, as tiles too, in an
@@ -131,14 +131,20 @@
     }
   }
 
+  // A tap runs it: the menu goes first and the search runs once a sheet is out of sight - run together, the library
+  // laying out its new results took the phone while the sheet slid down, and it went in jerks (the user, on an
+  // iPhone: "the sheet doesn't close cleanly it's very abrupt and glitchy").
+  function closeThen(go: () => void) {
+    onclose(false);
+    if (sheet && !reduced()) setTimeout(go, 240);
+    else go();
+  }
   function run(s: SavedSearch) {
     saved.lastRun = s.id;
-    onrun(s.query, s.sort || defaultSort, 'saved:' + s.id);
-    onclose(false);
+    closeThen(() => onrun(s.query, s.sort || defaultSort, 'saved:' + s.id));
   }
   function runGroup(tag: string) {
-    onrun(tag, defaultSort, 'tag:' + tag);
-    onclose(false);
+    closeThen(() => onrun(tag, defaultSort, 'tag:' + tag));
   }
 
   async function rename(s: SavedSearch, value: string) {
@@ -640,22 +646,33 @@
     -webkit-touch-callout: none;
     touch-action: manipulation;
   }
-  .dragging .tile {
-    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
   .tile.active {
     border-color: color-mix(in srgb, var(--mauve) 60%, transparent);
   }
-  /* Picked up: above the others, a little bigger and tilted, following the finger. */
-  .tile.lifted {
+  /* Picked up: above the others, a little bigger and tilted - the whole tile, its border too (the user: on the
+     pictures alone "the border around it isn't rotated with the card") - following the finger at once (its translate
+     has no transition; the tilt and size ease in). */
+  .tile {
+    transition:
+      rotate 0.15s cubic-bezier(0.2, 0.8, 0.2, 1),
+      scale 0.15s cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 0.15s;
+  }
+  .dragging .tile {
+    transition:
+      transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+      rotate 0.15s cubic-bezier(0.2, 0.8, 0.2, 1),
+      scale 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .tiles .tile.lifted {
     z-index: 3;
-    transition: none !important;
+    rotate: -1.5deg;
+    scale: 1.04;
+    transition:
+      rotate 0.15s cubic-bezier(0.2, 0.8, 0.2, 1),
+      scale 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
     border-color: var(--mauve);
     box-shadow: 0 18px 36px rgb(0 0 0 / 0.55);
-  }
-  .tile.lifted > :global(*) {
-    transform: scale(1.04) rotate(-1.5deg);
-    transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .run {
     display: grid;
@@ -805,8 +822,9 @@
     font-size: var(--font);
   }
   @media (prefers-reduced-motion: reduce) {
+    .tile,
     .dragging .tile,
-    .tile.lifted > :global(*) {
+    .tiles .tile.lifted {
       transition: none;
     }
   }

@@ -1691,6 +1691,36 @@ test('saved searches: tiles - a long name stays on one line and slides, its firs
   await expect(page).toHaveURL(/\/tags/);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
+test('saved searches: a tap closes the menu smoothly first (a sheet slides away), then runs; a lifted tile tilts as a whole, its border too', async ({ page }) => {
+  await page.route('**/api/saved*', (r) =>
+    r.request().method() === 'GET'
+      ? r.fulfill({ json: { saved: [{ id: 902, name: 'Short one', query: 'blue_sky', sort: '', count: 4 }, { id: 903, name: 'Other one', query: 'red', sort: '', count: 5 }] } })
+      : r.continue(),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Saved searches/ }).click();
+  const panel = page.getByRole('dialog', { name: 'Saved searches' });
+  await panel.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  // Lifted: the tile itself turns (not only what's in it).
+  const tile = panel.locator('li', { hasText: 'Short one' });
+  const b = (await tile.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + 30);
+  await page.mouse.down();
+  await expect(tile).toHaveClass(/lifted/);
+  await expect.poll(() => tile.evaluate((el) => getComputedStyle(el).rotate)).toBe('-1.5deg');
+  await page.mouse.up();
+  await expect(tile).not.toHaveClass(/lifted/);
+  // A tap: the menu goes (still there, moving away) before the search runs.
+  await panel.getByRole('button', { name: /^Short one/ }).click();
+  const going = await page.evaluate(() => {
+    const el = document.querySelector('[role="dialog"][aria-label="Saved searches"]');
+    return { there: !!el, moving: !!el && el.getAnimations().length > 0, url: location.search };
+  });
+  expect(going.there && going.moving).toBe(true);
+  await expect(panel).toHaveCount(0);
+  await expect(page).toHaveURL(/blue_sky/);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
 test('fast scroller: drag the handle to jump, with a date bubble; a press beside the handle is not the scroller\'s', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 430 }); // a short window: 26 files fill several screens
   await page.goto('/');
