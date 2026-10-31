@@ -300,7 +300,13 @@ Palette: https://catppuccin.com/palette
   characters (or chips, or buttons) are never faded. Already so for every faded row (the search bar's chips, the
   selection bar, the tag picker's actions, the Downloads lines and menu, the grid's strips: `--edge-l`/`--edge-r`,
   `--fl`/`--fr` or `fade-l`/`fade-r`, set from the scroll position); anything new that scrolls or slides by itself
-  follows it.
+  follows it. A fade comes and goes smoothly (its opacity eased, never a hard switch: "The gradient doesn't appear
+  smoothly").
+- **Text that slides by itself (rule, 2026-10-31)** (the user: "make sure all carousels scroll slowly from left to
+  right, then faster from right to left so the user can quickly read from the beginning again"): a line too long for
+  its place (e.g. a long name kept on one line) rests at its start, moves forward slowly at an even reading speed,
+  rests at its end, then comes back quickly (eased, a fraction of the time) and rests at its start again. Still
+  with reduced motion (its start shown, the end faded). Its soft edges follow the rule above.
 - **Hover changes are instant everywhere (2026-10-19)**: no element fades its background on hover (the shared
   button and icon-link styles, chips, chart columns): moving between two neighbors, one fading out while the
   other faded in looked like a flicker. A test checks every clickable element on each screen for a background
