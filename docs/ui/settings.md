@@ -113,20 +113,7 @@ Settings sections and cards: Library, New files, Sites, Downloads, Notifications
   and long key-like strings. A request's path stays readable (hashes and site IDs inside it are hidden); versions
   and listen addresses are kept. Errors in the web app (uncaught errors, failed promises; `lib/errorlog.ts`, ten
   per page load, each once, the page's path without its search) are sent to `POST /api/log` and logged as
-  "web app error" (20 a minute at most), so the report has them too. How long the app took to open (2026-10-31, the
-  user: opening is "noticeably slower" on iOS than on desktop - measured on the device itself): once per start, when
-  the splash goes (or after 15 s), `lib/startTiming.ts` sends `{kind: "start"}` to the same endpoint, logged as info
-  "web app start": the device (iPhone/desktop, home-screen app, service worker on), the page, the built files, the
-  app's marks (its script running, first screen drawn, splash gone), the first answer of each start-up call (from-to
-  ms, waiting for the server, size, "sw" when the service worker answered) and the thumbnails (how many, first and
-  last in, typical time each, how many through the service worker); and how it came about when unusual (the user:
-  "every now and again it takes several seconds") - a reload into a new version (`vitrine.reloadAfter` in
-  sessionStorage; "on return" when coming back on screen found one) or opened from a notification (the service
-  worker's note `/opened-by-notification` in its shell cache). Paths only, never a search. Read with
-  `vitrine logs` (or the report). Also (2026-10-31, an open at 14:18 took 6 s with the page asked for twice): the
-  start's clock time (UTC, to line up with the proxy's log), when the service worker started for the page, the
-  worker's own side (its start, the page's request, the server's answer, the saved copy, which one the page got and
-  when - message `start-timing`) and a "resumed ... after N s away" line when the app comes back after a minute or more.
+  "web app error" (20 a minute at most), so the report has them too.
 - **Safe for work (2026-10-23)** (the user, picked from the options: hide the "I came" button, hide adult site plugins,
   neutral words everywhere - not a filter on the files themselves): Settings > Viewing > Content > "Safe for work"
   (shared setting `sfwMode`, off by default). On: `settings.came` is false whatever `cameButton` says - no "I came"

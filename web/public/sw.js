@@ -17,7 +17,6 @@ const THUMBS = 'vitrine-thumbs-v1';
 const API = 'vitrine-api-v1';
 const SHELL = 'vitrine-shell-v2'; // (v2: the new icons - icons are kept for good, so a new name)
 const MAX_SHELL = 80;
-const OPENED_BY = '/opened-by-notification'; // (a note in SHELL: when a notification last opened the app)
 // The app's own files outside /assets/ (icons, the web app manifest).
 const SHELL_FILES = /^\/(icon[^/]*\.(png|svg)|manifest\.webmanifest)$/;
 const MAX_THUMBS = 15000;
@@ -67,39 +66,22 @@ let puts = 0;
 // 0.8-1.3 s after its request instead of 0.0-0.4 s.)
 const PAGE_WAIT = 700;
 
-// When this worker started and what it did with the last page request (ms since the epoch; a failed fetch negative) -
-// the app's start report asks for it (lib/startTiming.ts).
-const swStarted = Date.now();
-let pageTiming = null;
-
 async function page(req, e) {
-  const timing = (pageTiming = { event: Date.now(), net: 0, saved: 0, served: '', servedAt: 0 });
   const net = fetch(req); // (asked first: the saved pages' store isn't waited for)
-  net.then(
-    () => (timing.net = Date.now()),
-    () => (timing.net = -Date.now()),
-  );
   const saved = caches
     .open(SHELL)
     .then((c) => c.match('/'))
     .catch(() => undefined);
-  saved.then(() => (timing.saved = Date.now()));
   let decide;
   const gotSaved = new Promise((r) => (decide = r)); // (whether the page got the saved copy)
   e.waitUntil(net.then((resp) => keepPage(resp.clone(), gotSaved), () => {}));
   const quick = await Promise.race([net.then((r) => (r.ok ? r : null), () => null), new Promise((r) => setTimeout(() => r(null), PAGE_WAIT))]);
-  const gave = (how) => {
-    timing.served = how;
-    timing.servedAt = Date.now();
-  };
   if (quick) {
     decide(false);
-    gave('server');
     return quick;
   }
   const hit = await saved;
   decide(!!hit);
-  gave(hit ? 'saved' : 'server late');
   return hit ?? net; // (nothing saved: the server's answer whenever it comes, or its error)
 }
 
@@ -258,8 +240,6 @@ self.addEventListener('message', (e) => {
     e.waitUntil(Promise.all([caches.delete(THUMBS), caches.delete(API), caches.delete(SHELL)]));
   } else if (d.type === 'clear-thumbs') {
     e.waitUntil(caches.delete(THUMBS));
-  } else if (d.type === 'start-timing' && e.source) {
-    e.source.postMessage({ type: 'start-timing', swStarted, page: pageTiming });
   }
 });
 
@@ -330,8 +310,6 @@ self.addEventListener('notificationclick', (e) => {
     (async () => {
       if (await openWin(path)) return;
       const shell = await caches.open(SHELL).catch(() => null);
-      // (the app's start report says it was opened from a notification: lib/startTiming.ts)
-      await shell?.put(OPENED_BY, new Response(String(Date.now()))).catch(() => {});
       if (SAFARI && shell) {
         await shell.put(OPEN_NEXT, new Response(JSON.stringify({ path, at: Date.now() }))).catch(() => {});
         for (let i = 0; i < 40; i++) {

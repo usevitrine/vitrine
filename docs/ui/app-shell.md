@@ -96,8 +96,8 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   asked for first (not after opening the store) and given to the page as soon as it arrives; comparing and saving
   follow (`keepPage`). Separate and not explained by the server's logs: every few hours a start asks for the page
   twice, seconds apart, on a new connection (2-8 s; before and after 1.0.13) - the phone, not the server.
-- **The built files without waiting for a slow store (2026-10-31)**: the start report (Settings, "web app start") of
-  a start from a notification: the worker had only just started and its cache store took 1.4 s to answer, so the
+- **The built files without waiting for a slow store (2026-10-31)**: a timing report of a start from a
+  notification (a temporary diagnostic, removed again): the worker had only just started and its cache store took 1.4 s to answer, so the
   app's scripts (cache first) ran 1.4 s in instead of ~0.1 s. Now a built file comes from the server when the store
   hasn't answered within 250 ms (saved for next time if it wasn't there), and the API reads ask the server before
   opening their store (only needed offline).

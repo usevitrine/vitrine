@@ -392,11 +392,9 @@ var clientErrors struct {
 	n      int
 }
 
-// clientLog: POST /api/log {message, stack, where} - an error in the app; {kind: "start", message, where}: how long
-// the app took to open (lib/startTiming.ts), logged as info.
+// clientLog: POST /api/log {message, stack, where}.
 func (s *Server) clientLog(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Kind    string `json:"kind"`
 		Message string `json:"message"`
 		Stack   string `json:"stack"`
 		Where   string `json:"where"`
@@ -419,11 +417,7 @@ func (s *Server) clientLog(w http.ResponseWriter, r *http.Request) {
 			}
 			return s
 		}
-		if req.Kind == "start" {
-			s.log.Info("web app start", "timing", cut(req.Message, 1500), "where", cut(req.Where, 100))
-		} else {
-			s.log.Warn("web app error", "message", cut(req.Message, 500), "where", cut(req.Where, 100), "stack", cut(req.Stack, 1500))
-		}
+		s.log.Warn("web app error", "message", cut(req.Message, 500), "where", cut(req.Where, 100), "stack", cut(req.Stack, 1500))
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
