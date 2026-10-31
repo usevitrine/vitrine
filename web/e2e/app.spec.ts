@@ -8840,7 +8840,7 @@ test('updates: a newer release in Settings > Updates with the changes in it, Upd
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
-test("library: pressing on the hover card's video and moving sideways scrubs it - the moment under the pointer - and it plays on from there when let go (no viewer)", async ({ page }) => {
+test("library: pressing on the hover card's video and moving sideways scrubs it - on from where it was, the card's width the whole video - and it plays on from there when let go (no viewer)", async ({ page }) => {
   test.skip(isPhone(page), 'mouse only');
   await page.goto('/');
   const tile = page.locator('.tile[aria-label$="1280×720"]').first(); // the landscape video
@@ -8853,21 +8853,32 @@ test("library: pressing on the hover card's video and moving sideways scrubs it 
   const duration = await video.evaluate((v: HTMLVideoElement) => v.duration);
   const cb = (await card.boundingBox())!;
   const y = cb.y + cb.height / 2;
-  await page.mouse.move(cb.x + cb.width / 2, y);
+  const at = () => video.evaluate((v: HTMLVideoElement) => v.currentTime);
+  // Halfway in, pressed three quarters along: moved a quarter of the card left, a quarter of the video back - from
+  // where it was, not the moment under the pointer (the user); paused while held.
+  await video.evaluate((v: HTMLVideoElement) => (v.currentTime = v.duration / 2));
+  await page.mouse.move(cb.x + cb.width * 0.75, y);
   await page.mouse.down();
-  // A quarter of the way along: a quarter of the way in, paused while held.
-  await page.mouse.move(cb.x + cb.width * 0.25, y, { steps: 6 });
-  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(duration * 0.25, 0);
+  await page.mouse.move(cb.x + cb.width * 0.5, y, { steps: 6 });
+  await expect.poll(at).toBeCloseTo(duration * 0.25, 0);
   expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
   await expect(page.locator('.grid-scroller.scrubbing')).toHaveCount(1);
+  // Pushed past the start (off the card), it moves on from the start at once on the way back.
+  await page.mouse.move(cb.x - cb.width * 0.25, y, { steps: 6 });
+  await expect.poll(at).toBeLessThan(0.3);
+  await page.mouse.move(cb.x, y, { steps: 4 });
+  await expect.poll(at).toBeCloseTo(duration * 0.25, 0);
   // Off the card (and over other tiles): still scrubbing it, the card stays.
-  await page.mouse.move(cb.x + cb.width * 0.75, y + cb.height, { steps: 6 });
-  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeCloseTo(duration * 0.75, 0);
+  await page.mouse.move(cb.x + cb.width * 0.5, y + cb.height, { steps: 6 });
+  await expect.poll(at).toBeCloseTo(duration * 0.75, 0);
   await expect(card).toHaveCount(1);
-  // Back on the card, let go: playing on from there, no viewer, nothing selected. (Let go off the card, the card goes
+  // Back on the card, let go: playing on from there, no viewer, nothing selected; the line along the foot stays at
+  // the hand's place (the video's time updates while it seeks don't pull it back). (Let go off the card, the card goes
   // with the mouse, as it always does.)
-  await page.mouse.move(cb.x + cb.width * 0.75, y, { steps: 3 });
+  await page.mouse.move(cb.x + cb.width * 0.5, y, { steps: 3 });
   await page.mouse.up();
+  const line = Number(await card.locator('.preview-line').evaluate((e) => getComputedStyle(e).getPropertyValue('--p')));
+  expect(line).toBeCloseTo(0.75, 1);
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused)).toBe(true);
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(duration * 0.6); // (the last seek landing)
   await expect(page.locator('.viewer')).toHaveCount(0);

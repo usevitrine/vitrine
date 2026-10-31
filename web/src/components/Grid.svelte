@@ -461,6 +461,7 @@
     hover = null;
     hoverReady = false;
     hoverProgress = 0;
+    held = null;
   }
 
   function leaveGrid() {
@@ -1325,7 +1326,8 @@
     touch: boolean;
     long: boolean; // held still long enough (touch)
     dragging: boolean;
-    scrub?: { video: HTMLVideoElement; resume: boolean }; // scrubbing the hover card's video (see scrubTo)
+    // scrubbing the hover card's video (see scrubTo): from where it was (at) when the pointer was at x
+    scrub?: { video: HTMLVideoElement; resume: boolean; at: number; x: number; f: number };
   };
   let press: Press | null = null;
   let longTimer: number | undefined;
@@ -1410,7 +1412,8 @@
     const video = !press.touch && hover?.i === press.i ? cardVideo() : null;
     if (video && !press.dragging) {
       if (Math.abs(e.clientX - press.x) > 4 && video.duration > 0) {
-        press.scrub = { video, resume: !video.paused };
+        const at = held ?? video.currentTime / video.duration;
+        press.scrub = { video, resume: !video.paused, at, x: press.x, f: at };
         seekPending = null;
         video.addEventListener('seeked', scrubSeeked);
         video.pause();
@@ -1444,20 +1447,31 @@
     autoScroll();
   }
 
-  // ---- Scrubbing the hover card's video (2026-10-28, the user): press on it and move sideways - the moment under the
-  // pointer, the card's left edge the start and its right edge the end (the line along its foot shows where); let go
-  // and it plays on from there. A click that doesn't move still opens the viewer; the card stays while scrubbing,
-  // wherever the pointer goes.
+  // ---- Scrubbing the hover card's video (2026-10-28, the user): press on it and move sideways - the card's width is
+  // the whole video (the line along its foot shows where); let go and it plays on from there. It moves on from where
+  // the video was, by how far the pointer goes (2026-10-31, the user: "it should start from its current position in
+  // the video, not where my mouse is"); pushed past an end, it moves back from that end at once. A click that doesn't
+  // move still opens the viewer; the card stays while scrubbing, wherever the pointer goes.
+  // The line shows where the hand is, not where the video's seeks have got to: their time updates, lagging behind,
+  // pulled it back and forth while scrubbing fast (the user), and after letting go the exact place is held until the
+  // video is there (held).
   /** The hover card's video, once it has a frame. */
   const cardVideo = () => el?.querySelector<HTMLVideoElement>('.tile.zoomed video.zoom-media') ?? null;
   let seekPending: number | null = null;
+  let held: number | null = null; // let go: the place shown until the video gets there
   function scrubTo(clientX: number) {
     const s = press?.scrub;
     if (!s) return;
     const card = s.video.closest<HTMLElement>('.tile');
     if (!card) return;
     const r = card.getBoundingClientRect();
-    const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    let f = s.at + (clientX - s.x) / r.width;
+    if (f < 0 || f > 1) {
+      f = Math.min(1, Math.max(0, f));
+      s.at = f;
+      s.x = clientX;
+    }
+    s.f = f;
     hoverProgress = f;
     // One seek at a time, only the latest place kept (a seek on top of another queues up and lags behind the hand):
     // the scrub's own 'seeked' listener takes the next (scrubSeeked).
@@ -1511,10 +1525,25 @@
       // (let go: it plays on from there if it was playing - and the viewer doesn't open; the card held a frame longer:
       // WebKit sends the grid a leave as it lets the pointer go, which closed the card and opened it again from the start)
       requestAnimationFrame(() => (scrubbing = false));
-      p.scrub.video.removeEventListener('seeked', scrubSeeked);
-      if (seekPending !== null) seekVideo(p.scrub.video, seekPending); // (the last place, if a seek was still on)
+      const v = p.scrub.video;
+      v.removeEventListener('seeked', scrubSeeked);
       seekPending = null;
-      if (p.scrub.resume) p.scrub.video.play().catch(() => {});
+      // The exact place (a quick seek lands on the nearest keyframe - before or after the hand), held on the line until
+      // the video is there: a seek still on its way finishing first doesn't count (the video is seeking again then).
+      const f = p.scrub.f;
+      held = f;
+      const landed = () => {
+        if (v.seeking) return;
+        v.removeEventListener('seeked', landed);
+        if (held === f) held = null;
+      };
+      v.addEventListener('seeked', landed);
+      setTimeout(() => {
+        v.removeEventListener('seeked', landed);
+        if (held === f) held = null;
+      }, 1500); // (never stuck)
+      v.currentTime = f * v.duration;
+      if (p.scrub.resume) v.play().catch(() => {});
       return;
     }
     if (p.dragging) {
@@ -1802,6 +1831,7 @@
               preload="auto"
               onplaying={() => (hoverReady = true)}
               ontimeupdate={(e) => {
+                if (press?.scrub || held !== null) return; // (the hand's place, not the seeks')
                 const v = e.currentTarget;
                 hoverProgress = v.duration ? v.currentTime / v.duration : 0;
               }}></video>

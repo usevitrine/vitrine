@@ -75,7 +75,15 @@ lays them out at the original size.
   queued up behind the decoder. Now the bar, time and preview follow the finger at once; with preview frames the
   video doesn't seek until release (one exact seek); without them it uses `fastSeek` (keyframes) one seek at a time,
   only the latest position kept. Playback pauses while scrubbing and resumes after. Also fixed: the controls' setup
-  effect tracked `scrubbing`, so every scrub start/end restarted (and re-muted) the video.
+  effect tracked `scrubbing`, so every scrub start/end restarted (and re-muted) the video. Let go, the bar, time and
+  preview stay at the place until the exact seek has landed - a `seeked` with the video still seeking is a quick seek
+  that was still on its way, not that one (2026-10-31, the user: scrubbing back fast "jumps forward, then back"; it
+  ended the preview and set the time to where the lagging seek had got to).
+- **Scrubbing a hover card's video (2026-10-28; changed 2026-10-31)**: pressed and moved sideways, the card's width
+  is the whole video, moved on from where it was (the user: "it should start from its current position in the video,
+  not where my mouse is"); pushed past an end, it moves back from that end at once. The line along the card's foot
+  follows the hand, not the video's time updates while it seeks (they lagged and pulled it back - the user); let go,
+  an exact seek (a quick one lands on a keyframe) and the line holds the place until it lands (`Grid.svelte`, `held`).
 - **Scrub bar drawn with transforms (2026-10-15)**: the
   position is a 0..1 `--p` on the rail, set straight from the pointer handler (same frame) as well as from Svelte;
   the played bar is `scaleX(var(--p))` and the knob rides a full-width lane `translateX(calc(var(--p) * 100%))`, both

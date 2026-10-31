@@ -14,6 +14,8 @@ shows this too (Settings > Updates).
 
 - **No notification for a subscription that found nothing**: a new subscription whose first check brought no new files (everything already in the library) no longer says it's ready with 0 new files.
 - **Nothing shifts as it finishes opening**: menus, panels, dialogs, sections and notices no longer jump by a pixel the moment their opening animation ends (seen on Windows) - they now come in on whole pixels.
+- **Scrubbing fast no longer jumps back**: in the viewer, letting go after scrubbing fast no longer showed an earlier (or later) moment for a split second before the right one; on a library card, the line along its foot no longer jumps back and forth while you scrub, and letting go lands exactly where you stopped.
+- **Scrubbing a library card starts from where the video is**: pressing on a playing card and moving sideways moves on from its current moment (the card's width is the whole video) instead of jumping to the spot under the pointer.
 - **A moved download stays where you put it**: on the Downloads page, a download moved in its queue (or one removed) no longer went back to where it was for a moment, then jumped again - seen while downloads ran.
 - **"Which site?" comes in smoothly**: when its list of sites arrives, the dialog grows to fit and the list fades in, instead of the dialog jumping to its new size and place and "Loading…" closing after the list had come.
 

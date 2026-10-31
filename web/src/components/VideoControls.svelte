@@ -36,7 +36,7 @@
       paused = v.paused;
       muted = v.muted;
       level = v.volume;
-      if (!scrubbing) time = v.currentTime;
+      if (!scrubbing && !finishing) time = v.currentTime; // (let go: the place stays until the exact jump lands)
       duration = Number.isFinite(v.duration) ? v.duration : 0;
       buffered = v.buffered.length ? v.buffered.end(v.buffered.length - 1) : 0;
     };
@@ -135,6 +135,7 @@
   let seeking = $state(false); // a jump of the video is on its way (it may show black until it lands)
   let pending: number | null = null;
   let finishing = $state(false); // released: the exact seek is on its way
+  let finishes = 0;
 
   function startScrub(e: PointerEvent) {
     scrubbing = true;
@@ -191,15 +192,27 @@
     trackRect = null;
     pending = null;
     finishing = true;
-    video.addEventListener(
-      'seeked',
-      () => {
-        finishing = false;
-      },
-      { once: true },
-    );
-    setTimeout(() => (finishing = false), 1500); // never stuck showing the preview
-    video.currentTime = time; // the exact spot
+    // Landed: only the exact jump counts - a quick one still on its way when let go could finish first (the video is
+    // seeking again then), and the picture and the bar jumped to where it had got to - behind the hand scrubbing fast,
+    // so back, then forward again (the user: scrubbing back fast "jumps forward, then back").
+    const v = video;
+    const mine = ++finishes; // (a later scrub's own landing isn't this one's to end)
+    const landed = () => {
+      if (v.seeking) return;
+      v.removeEventListener('seeked', landed);
+      done();
+    };
+    const done = () => {
+      if (!finishing || mine !== finishes || scrubbing) return;
+      finishing = false;
+      time = v.currentTime;
+    };
+    v.addEventListener('seeked', landed);
+    setTimeout(() => {
+      v.removeEventListener('seeked', landed);
+      done();
+    }, 1500); // never stuck showing the preview
+    v.currentTime = time; // the exact spot
     if (resume) video.play().catch(() => {});
   }
 
