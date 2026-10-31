@@ -672,6 +672,9 @@ export const api = {
     post<{ deleted: number; ids: number[] }>('/api/blacklist/delete', { tags }),
 };
 
+/** The Downloads page's answer (GET /api/downloads). */
+export type DownloadsAnswer = Awaited<ReturnType<typeof api.downloads>>;
+
 /** Settings > Stats: the library, downloads, storage and the server at a glance. */
 export interface LibraryStats {
   files: number;

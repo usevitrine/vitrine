@@ -86,6 +86,16 @@ Probing, thumbnails, previews and scrub frames (ffmpeg, libvips): how files are 
   seen in goroutine snapshots): now a new file sets its subscription's date in the kept map (`foundChanged(sub, at)`),
   and the read itself is one step into the index per subscription. `TestSubscriptionLooks` (order, the trigger, the
   plans), `TestSubscriptionLastFound`.
+- **No request waits for those numbers (2026-10-31, 1.0.13 on a 680k-file library - the user: the Downloads page
+  "still takes a long time to load")**: the tag refresh counts took 4.7 s, and the first request after each 30 s
+  waited for them (every other answer 60-85 ms). Now, once there, an answer is given at once - the older numbers while
+  the next are worked out in the background (one at a time, `refreshBusy` / `foundBusy`; Refresh now - `refreshGen` -
+  still waits, and a count from before it isn't kept; a find set meanwhile is newer than a background read). Both are
+  worked out when the downloader starts, so the first visit after a start doesn't wait either; each has its own lock
+  (one slow count held the other up). The page itself (`Downloads.svelte`): the last answer this session shows at once
+  when it opens again, "Loading…" instead of "Nothing waiting" / "No subscriptions yet" until the first one comes, and
+  the failed files asked for together with the rest (they waited for it). `TestRefreshStatusShared`, e2e "downloads
+  page: while its answer is slow".
 - CLI: `vitrine import` makes thumbnails right after importing (`-no-thumbs` to skip); `vitrine process` catches
   up; `vitrine search` and `vitrine tag` exist for trying the library before the web client.
 - A user-typed `ns:tag` only uses a namespace that already exists (plugins declare them); otherwise the whole text is

@@ -1,7 +1,13 @@
 # Changelog
 
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
-shows this too (Settings > Updates).
+shows this too (Settings > Help & about).
+
+## Unreleased
+
+### Improved
+
+- **The Downloads page opens at once on big libraries**: it no longer waits several seconds every half minute while the tag refresh numbers are counted again (they're counted in the background now, the last ones shown meanwhile). Opened again, it shows what it showed last while the latest comes, and it says "Loading…" instead of "No subscriptions yet" until the first answer arrives.
 
 ## 1.0.13 - 2026-10-31
 

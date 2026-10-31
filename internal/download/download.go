@@ -106,12 +106,19 @@ type Downloader struct {
 	aside     map[int64]bool
 	md5Warned sync.Map // sites whose md5s were found wrong for a file (warned once)
 	// The Downloads page's slow numbers (tag refresh counts, when each subscription last found something), worked out
-	// at most every statusEvery and shared (refresh.go, subscribe.go): the page asks again on every change.
-	statusMu   sync.Mutex
-	refreshAt  time.Time
-	refreshOut []RefreshStatus
-	foundAt    time.Time
-	foundOut   map[int64]int64
+	// at most every statusEvery and shared (refresh.go, subscribe.go): the page asks again on every change. Once there,
+	// an answer is given at once - an older one while the next is worked out in the background (busy) - so no request
+	// waits for the count (2026-10-31, the user: the Downloads page still "takes a long time to load" - 4.7 s every
+	// half minute on a 680k-file library). gen: bumped by Refresh now (a background count from before it isn't kept).
+	statusMu    sync.Mutex
+	refreshAt   time.Time
+	refreshOut  []RefreshStatus
+	refreshBusy bool
+	refreshGen  int
+	foundMu     sync.Mutex
+	foundAt     time.Time
+	foundOut    map[int64]int64
+	foundBusy   bool
 
 	runCtx  context.Context               // Run's context (sites installed later start their worker in it)
 	cancels map[string]context.CancelFunc // stops a site's worker
@@ -395,6 +402,13 @@ func (d *Downloader) Run(ctx context.Context) {
 	go func() {
 		defer d.workers.Done()
 		d.schedule(ctx)
+	}()
+	// The Downloads page's slow numbers, worked out now: the first visit after a start doesn't wait for them either.
+	d.workers.Add(1)
+	go func() {
+		defer d.workers.Done()
+		d.RefreshStatus(ctx)
+		d.lastFound(ctx)
 	}()
 	for id := range d.all() {
 		d.startWorker(ctx, id)
@@ -1144,8 +1158,8 @@ func (d *Downloader) record(s Search, siteID uint32, postID int64, fileID uint32
 // foundChanged: a subscription found a new file at (Unix ms) - set in lastFound's map (a copy: readers share the old
 // one), not read again.
 func (d *Downloader) foundChanged(sub, at int64) {
-	d.statusMu.Lock()
-	defer d.statusMu.Unlock()
+	d.foundMu.Lock()
+	defer d.foundMu.Unlock()
 	if d.foundOut == nil || d.foundOut[sub] >= at {
 		return
 	}

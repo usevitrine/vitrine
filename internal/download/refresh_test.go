@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,7 +37,7 @@ func TestTagRefresh(t *testing.T) {
 		t.Fatal("due too early")
 	}
 	advance(40 * 24 * time.Hour) // a quarter of its age by then (~370 days)
-	st, _ = e.dl.RefreshStatus(ctx)
+	st = settledStatus(t, e)
 	if st[0].Due != 24 {
 		t.Fatalf("status when due: %+v", st)
 	}
@@ -97,12 +98,39 @@ func TestTagRefresh(t *testing.T) {
 	}
 }
 
+// settledStatus: the refresh counts once the one asked for now (in the background, past statusEvery) is done.
+func settledStatus(t *testing.T, e *env) []RefreshStatus {
+	t.Helper()
+	ctx := context.Background()
+	e.dl.RefreshStatus(ctx)
+	waitIdle(t, &e.dl.statusMu, &e.dl.refreshBusy)
+	st, err := e.dl.RefreshStatus(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
+}
+
+// waitIdle waits until a background count (busy, under mu) is done.
+func waitIdle(t *testing.T, mu *sync.Mutex, busy *bool) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		mu.Lock()
+		b := *busy
+		mu.Unlock()
+		if !b {
+			return
+		}
+	}
+	t.Fatal("the background count never finished")
+}
+
 // The counts are worked out at most every statusEvery (the Downloads page asks on every change), but "Refresh now"
 // shows at once, and so does a site's pause.
 func TestRefreshStatusShared(t *testing.T) {
 	e := newEnv(t, 5)
 	ctx := context.Background()
-	e.clock()
+	advance := e.clock()
 	e.dl.Add(ctx, "fake", "common", 0)
 	e.dl.RunQueue(ctx, "fake")
 	st, _ := e.dl.RefreshStatus(ctx)
@@ -115,6 +143,19 @@ func TestRefreshStatusShared(t *testing.T) {
 	}
 	if st, _ = e.dl.RefreshStatus(ctx); st[0].Due != 0 {
 		t.Fatalf("counted again at once: %+v", st)
+	}
+	// After statusEvery: the old count at once (nobody waits for counting), the new one worked out meanwhile.
+	advance(statusEvery)
+	if st, _ = e.dl.RefreshStatus(ctx); st[0].Due != 0 {
+		t.Fatalf("waited for the count: %+v", st)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for st[0].Due != 1 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+		st, _ = e.dl.RefreshStatus(ctx)
+	}
+	if st[0].Due != 1 {
+		t.Fatalf("counted again in the background: %+v", st)
 	}
 	// Refresh now: at once.
 	all := e.lib.Index().Search(mustParse(t, "common"), e.dl.now()).IDs

@@ -78,18 +78,33 @@ type RefreshStatus struct {
 // a site's due posts reads all of them: two thirds of Vitrine's own processor time).
 const statusEvery = 30 * time.Second
 
-// RefreshStatus counts due posts per site: worked out at most every statusEvery (Refresh now - ScheduleRefresh -
-// starts again); a site's pause is always current.
+// RefreshStatus counts due posts per site: worked out at most every statusEvery, an older count given meanwhile while
+// the next is worked out in the background (only the very first - and the one right after Refresh now, ScheduleRefresh
+// - is waited for); a site's pause is always current.
 func (d *Downloader) RefreshStatus(ctx context.Context) ([]RefreshStatus, error) {
 	d.statusMu.Lock()
-	defer d.statusMu.Unlock() // (one at a time: requests at once share the answer)
+	defer d.statusMu.Unlock()
 	now := d.now()
-	if d.refreshOut == nil || now.Sub(d.refreshAt) >= statusEvery || now.Before(d.refreshAt) {
-		out, err := d.refreshStatus(ctx)
+	if d.refreshOut == nil {
+		out, err := d.refreshStatus(ctx) // (one at a time: requests at once share the answer)
 		if err != nil {
 			return nil, err
 		}
 		d.refreshOut, d.refreshAt = out, now
+	} else if (now.Sub(d.refreshAt) >= statusEvery || now.Before(d.refreshAt)) && !d.refreshBusy {
+		d.refreshBusy = true
+		gen := d.refreshGen
+		go func() {
+			bg, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			out, err := d.refreshStatus(bg)
+			d.statusMu.Lock()
+			defer d.statusMu.Unlock()
+			d.refreshBusy = false
+			if err == nil && gen == d.refreshGen {
+				d.refreshOut, d.refreshAt = out, d.now()
+			}
+		}()
 	}
 	out := slices.Clone(d.refreshOut)
 	all := d.all()
@@ -140,7 +155,8 @@ func (d *Downloader) ScheduleRefresh(ctx context.Context, files []uint32) (int, 
 		n += int(k)
 	}
 	d.statusMu.Lock()
-	d.refreshOut = nil // (counted again: these are due now)
+	d.refreshOut = nil // (counted again: these are due now - and a count from before, in the background, isn't kept)
+	d.refreshGen++
 	d.statusMu.Unlock()
 	for site := range d.all() {
 		d.wake(site)

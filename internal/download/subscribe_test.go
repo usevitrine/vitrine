@@ -604,7 +604,10 @@ func TestSubscriptionLastFound(t *testing.T) {
 	// subscriptions downloaded made the Downloads page slow - the user).
 	advance(2 * time.Hour)
 	found()
+	waitIdle(t, &e.dl.foundMu, &e.dl.foundBusy) // (past statusEvery: read again in the background)
+	e.dl.foundMu.Lock()
 	readAt := e.dl.foundAt
+	e.dl.foundMu.Unlock()
 	advance(time.Second)
 	e.fb.upload(2)
 	e.runDue(t)

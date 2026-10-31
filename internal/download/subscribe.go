@@ -685,15 +685,35 @@ func (d *Downloader) schedule(ctx context.Context) {
 // a new file threw the map away, so while subscriptions downloaded, each request read it again: a group over every
 // file a subscription found, ~1.2 s on 260 subscriptions and ~600k files.)
 func (d *Downloader) lastFound(ctx context.Context) (map[int64]int64, error) {
-	d.statusMu.Lock()
-	defer d.statusMu.Unlock()
+	d.foundMu.Lock()
+	defer d.foundMu.Unlock()
 	now := d.now()
-	if d.foundOut == nil || now.Sub(d.foundAt) >= statusEvery || now.Before(d.foundAt) {
+	if d.foundOut == nil {
 		out, err := d.readLastFound(ctx)
 		if err != nil {
 			return nil, err
 		}
 		d.foundOut, d.foundAt = out, now
+	} else if (now.Sub(d.foundAt) >= statusEvery || now.Before(d.foundAt)) && !d.foundBusy {
+		// (read again in the background, the kept map given meanwhile - see Downloader.statusMu)
+		d.foundBusy = true
+		go func() {
+			bg, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			out, err := d.readLastFound(bg)
+			d.foundMu.Lock()
+			defer d.foundMu.Unlock()
+			d.foundBusy = false
+			if err != nil {
+				return
+			}
+			for k, v := range d.foundOut { // (a find set meanwhile - foundChanged - is newer than this read)
+				if v > out[k] {
+					out[k] = v
+				}
+			}
+			d.foundOut, d.foundAt = out, d.now()
+		}()
 	}
 	return d.foundOut, nil
 }

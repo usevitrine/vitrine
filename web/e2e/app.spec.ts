@@ -6537,6 +6537,33 @@ test('account: the name and the password change in Settings > Account (the curre
   await expect(page.getByRole('paragraph').filter({ hasText: /Logged in as\s*someone_else/ })).toBeVisible(); // (the section list says it too)
 });
 
+test('downloads page: while its answer is slow it says Loading (never "nothing" first); opened again, the last answer shows at once while the next comes', async ({ page }) => {
+  // (the user: "sometimes for several seconds it shows that I have no queue or subs until they load in")
+  let slow = 1500;
+  let answers = 0;
+  await page.route('**/api/downloads', async (r) => {
+    if (r.request().method() !== 'GET' || new URL(r.request().url()).search) return r.continue();
+    const res = await r.fetch();
+    await new Promise((done) => setTimeout(done, slow));
+    answers++;
+    await r.fulfill({ response: res });
+  });
+  await page.goto('/downloads');
+  await expect(page.getByText('Loading…').first()).toBeVisible();
+  await expect(page.getByText('No subscriptions yet')).toHaveCount(0);
+  await expect(page.getByText(/Nothing (is )?waiting/)).toHaveCount(0);
+  await expect.poll(() => answers, { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect(page.getByText('Loading…')).toHaveCount(0);
+  // Away and back (in the app): the last answer at once, though the next takes long.
+  slow = 8000;
+  await page.getByRole('button', { name: 'Media' }).click();
+  await expect(page).not.toHaveURL(/downloads/);
+  await page.goBack();
+  await expect(page).toHaveURL(/downloads/);
+  await expect(page.getByText('Loading…')).toHaveCount(0, { timeout: 1000 });
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('a new download from a tag: the sites it came from first (most files first), then the others', async ({ page }) => {
   // blue_sky came from two sites (test-slow more often); red from one.
   await page.route('**/api/tags/sites?*', (route) => {

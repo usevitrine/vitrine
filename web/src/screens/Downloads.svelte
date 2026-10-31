@@ -1,3 +1,10 @@
+<script lang="ts" module>
+  import type { DownloadsAnswer, FailedPost as Failed } from '../lib/api';
+  // The page's last answer this session: shown at once when the page opens again while the next comes (2026-10-31,
+  // the user: "sometimes for several seconds it shows that I have no queue or subs until they load in").
+  let kept: { res: DownloadsAnswer; failed: Failed[] } | null = null;
+</script>
+
 <script lang="ts">
   import { overlayScroll } from '../lib/overlayScroll';
   import { onMount, tick, untrack } from 'svelte';
@@ -365,27 +372,38 @@
   /** A change made on the page (the server has it, or will have it before the next refresh is asked for). */
   const changed = () => changes++;
 
+  // Until the first answer of the session: "Loading…", never "Nothing waiting" or "No subscriptions" (they aren't
+  // known yet).
+  let loaded = $state(kept !== null);
+
+  function show(res: DownloadsAnswer, failed: FailedPost[]) {
+    sites = res.sites;
+    sitesOff = res.sites_off ?? [];
+    sitesPaused = res.sites_paused ?? {};
+    if (site && !sites.includes(site)) site = ''; // switched off meanwhile
+    if (!site && sites.length) site = sites.includes(lastSite()) ? lastSite() : sites[0];
+    searches = res.searches; // each site's queue in order
+    subs = res.subscriptions;
+    groups = res.groups ?? [];
+    refreshStatus = res.refresh;
+    failedPosts = failed;
+    retries = res.retries ?? [];
+  }
+
   async function refresh() {
     if (drag) return; // don't move rows under the finger
     const n = ++asked;
     const at = changes;
     try {
-      const res = await api.downloads();
+      // (both at once: the failed files were asked for only after the rest came)
+      const [res, failed] = await Promise.all([api.downloads(), api.failedPosts()]);
       if (n < shown || at !== changes) return;
       shown = n;
-      sites = res.sites;
-      sitesOff = res.sites_off ?? [];
-      sitesPaused = res.sites_paused ?? {};
-      if (site && !sites.includes(site)) site = ''; // switched off meanwhile
-      if (!site && sites.length) site = sites.includes(lastSite()) ? lastSite() : sites[0];
-      searches = res.searches; // each site's queue in order
-      subs = res.subscriptions;
+      show(res, failed.posts);
+      kept = { res, failed: failed.posts };
+      loaded = true;
       subNames.set(subs); // (a "found by" chip's words in the library)
       subTags.set(subs); // (the bells on tags)
-      groups = res.groups ?? [];
-      refreshStatus = res.refresh;
-      failedPosts = (await api.failedPosts()).posts;
-      retries = res.retries ?? [];
       announce();
       now = lastRefresh = Date.now();
       error = '';
@@ -578,6 +596,8 @@
   let retryingKeys = $derived(new Set(retries.filter((r) => !r.finished).map(postKey)));
   const mine = new Set<string>(); // started from this page: its result gets a notice
   const announced = new Set<string>();
+  // The last answer this session, at once (the page asks for a new one as it opens).
+  if (kept) show(kept.res, kept.failed);
   function announce() {
     for (const r of retries) {
       const k = postKey(r);
@@ -1773,7 +1793,7 @@
               </Stack>
             </div>
           {:else}
-            <p class="quiet-empty" transition:reveal>{t('downloads.nothingWaiting')}</p>
+            <p class="quiet-empty" transition:reveal>{loaded ? t('downloads.nothingWaiting') : t('common.loading')}</p>
           {/each}
         </section>
 
@@ -1934,7 +1954,7 @@
               {/if}
             {/each}
           {:else}
-            <p class="quiet-empty" transition:reveal>{t('downloads.noSubs')}</p>
+            <p class="quiet-empty" transition:reveal>{loaded ? t('downloads.noSubs') : t('common.loading')}</p>
           {/if}
         </section>
       </div>
@@ -2035,7 +2055,7 @@
               {/if}
             {/if}
           {:else}
-            <p class="quiet-empty">{t('downloads.noFinished')}</p>
+            <p class="quiet-empty">{loaded ? t('downloads.noFinished') : t('common.loading')}</p>
           {/if}
         </section>
       </div>
