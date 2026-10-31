@@ -40,6 +40,19 @@ export class Pages {
    *  once the new page is there. */
   go(deeper: boolean, change: () => void = () => {}): Promise<HTMLElement | null> {
     this.way = deeper ? 1 : -1;
+    return this.follow(() => {
+      change();
+      this.nav++;
+    });
+  }
+
+  /** The page shown changes in place (what it waited for came: "Loading…" for the list): the height follows smoothly
+   *  instead of jumping (a dialog centered by it jumped to its new place). */
+  grow(change: () => void): Promise<HTMLElement | null> {
+    return this.follow(change);
+  }
+
+  private follow(change: () => void): Promise<HTMLElement | null> {
     const animate = !reduced() && !!this.boxEl;
     if (animate) {
       this.height = this.fit(this.boxEl!.offsetHeight); // hold the old height...
@@ -47,7 +60,6 @@ export class Pages {
       clearTimeout(this.settle);
     }
     change();
-    this.nav++;
     return tick().then(() => {
       if (animate) {
         void this.boxEl?.offsetHeight; // the old height is laid out first, so there is something to animate from

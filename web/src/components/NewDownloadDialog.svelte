@@ -6,7 +6,7 @@
   // search: one search for each combination), then once or a subscription (how often, its group). A card in the middle on wider screens, a sheet along the bottom on phones - both above the
   // on-screen keyboard (--kb).
   import { onMount, tick } from 'svelte';
-  import { reveal } from '../lib/motion';
+  import { reveal, swap } from '../lib/motion';
   import { api, type SubGroup } from '../lib/api';
   import { siteLabel, tagQuery, tagsQuery, canOr, sites as siteInfo } from '../lib/sites.svelte';
   import { searchTags, siteSearch, splitSearches, searchWords } from '../lib/siteSearch';
@@ -62,18 +62,28 @@
   let groups = $state<SubGroup[]>([]);
   let origins = $state<SiteChoice[]>([]);
   let loaded = $state(false);
+  let from: Promise<SiteChoice[]> = Promise.resolve([]); // the sites the search's tags came from (asked for at once)
+  const usable = (list: SiteChoice[], sites = downloadSites) => list.filter((c) => sites.includes(c.site));
   onMount(async () => {
     siteInfo.load();
+    // (all asked at once - the tags' sites were asked for only after the rest came back; for "This search" too, so
+    // it's there when picked)
+    if (tags.length) from = tagOrigins(tags);
+    let sites: string[] = [];
     try {
-      const res = await api.downloads();
+      const res = await api.downloadSites();
       await siteInfo.whenLoaded(); // (each site's OR search)
-      downloadSites = res.sites.filter(siteOn);
+      sites = res.sites.filter(siteOn);
       groups = res.groups ?? [];
-      if (fromTags) origins = await tagOrigins(tags, (s) => downloadSites.includes(s));
+      if (fromTags) origins = usable(await from, sites);
     } catch (e) {
       toasts.error((e as Error).message);
     }
-    loaded = true;
+    // (the list comes in place of "Loading…": the dialog's height follows instead of jumping)
+    await pages.grow(() => {
+      downloadSites = sites;
+      loaded = true;
+    });
     focusFirst();
   });
   function lastSite(): string {
@@ -118,13 +128,14 @@
     const el = panel?.querySelector<HTMLElement>('[data-autofocus]');
     // (a text box: with a mouse, ready to type; on a touch screen its keyboard waits for a tap)
     if (el instanceof HTMLInputElement && matchMedia('(pointer: coarse)').matches) return;
-    (el ?? panel)?.focus();
+    // (not scrolled to: while the height grows the box is still short, and it scrolled the page's top out of view)
+    (el ?? panel)?.focus({ preventScroll: true });
   }
 
   // ---- the steps
   async function pickWhat(search: boolean) {
     useSearch = search;
-    if (search) origins = await tagOrigins(tags, (s) => downloadSites.includes(s));
+    if (search) origins = usable(await from);
     go('site');
   }
   // svelte-ignore state_referenced_locally
@@ -277,12 +288,17 @@
             </div>
           {:else if page === 'site'}
             {#if fromTags}<p class="what-tags" title={query}>{searchWords(parse(query))}</p>{/if}
+            <!-- (Loading… goes at once and the list fades in as the height follows - Loading… closing after the list
+                 had come moved the dialog again; Loading… itself only shows if the wait is long enough to see) -->
             {#if !loaded || !siteInfo.loaded}
-              <p class="hint" transition:reveal>{t('common.loading')}</p>
+              <p class="hint waiting">{t('common.loading')}</p>
             {:else if !downloadSites.length}
-              <p class="hint" transition:reveal>{t('newDl.noSites')}</p>
-              <button class="quiet" onclick={() => (router.go('settings', 'sites'), onclose())}>{t('downloads.manageSites')}</button>
+              <div class="came" in:swap>
+                <p class="hint">{t('newDl.noSites')}</p>
+                <button class="quiet" onclick={() => (router.go('settings', 'sites'), onclose())}>{t('downloads.manageSites')}</button>
+              </div>
             {:else}
+              <div class="came" in:swap>
               {#if useSearch && origins.length}
                 <h3 transition:reveal>{t('sitePicker.from')}</h3>
                 <div class="items">
@@ -306,6 +322,7 @@
                   {/each}
                 </div>
               {/if}
+              </div>
             {/if}
           {:else if page === 'search'}
             <!-- What to search for on the site (the library's search written its way, or a new one). -->
@@ -497,6 +514,19 @@
   .items {
     display: grid;
     gap: 2px;
+  }
+  .came {
+    display: grid;
+    gap: 10px;
+  }
+  /* (a short wait shows nothing: "Loading…" appearing and going at once only flickered) */
+  .waiting {
+    animation: waiting 0.2s 0.3s both;
+  }
+  @keyframes waiting {
+    from {
+      opacity: 0;
+    }
   }
   .item {
     display: flex;

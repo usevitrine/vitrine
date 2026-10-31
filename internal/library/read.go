@@ -269,9 +269,8 @@ type SiteCount struct {
 	Count int    `json:"count"`
 }
 
-// TagSites says which sites gave each tag (live files only), most files
-// first - a new download from tags picks its site from them. A tag not in the
-// library, or only added by the user, has none.
+// TagSites says which sites each tag's files came from (live files only, a tag some site gave), most files first - a
+// new download from tags picks its site from them. A tag not in the library, or only added by the user, has none.
 func (l *Library) TagSites(ctx context.Context, texts []string) (map[string][]SiteCount, error) {
 	out := make(map[string][]SiteCount, len(texts))
 	for _, text := range texts {
@@ -295,8 +294,32 @@ func (l *Library) TagSites(ctx context.Context, texts []string) (map[string][]Si
 		if err != nil {
 			return nil, fmt.Errorf("library: %w", err)
 		}
+		// Counted in the index: the tag's files and each site's (2026-10-31: counted in the database, every file
+		// of the tag looked at, a tag on most of a 500k-file library took 0.25-0.8 s - the user: the "Which site?"
+		// page "takes a while"). Only for a tag some site gave (the user's own tag isn't searched for on a site);
+		// files with site tags but from no site (imported, their tags looked up) are counted in the database.
+		if counts := l.ix.TagSiteCounts(id); len(counts) > 0 {
+			var given bool
+			if err := l.db.R.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM file_tags WHERE tag_id = ? AND origin != 0)", id).Scan(&given); err != nil {
+				return nil, fmt.Errorf("library: %w", err)
+			}
+			if !given {
+				continue
+			}
+			names, err := l.SiteNames(ctx)
+			if err != nil {
+				return nil, err
+			}
+			for site, n := range counts {
+				if names[site] != "" {
+					out[text] = append(out[text], SiteCount{Site: names[site], Count: n})
+				}
+			}
+			slices.SortFunc(out[text], func(a, b SiteCount) int { return cmp.Or(b.Count-a.Count, strings.Compare(a.Site, b.Site)) })
+			continue
+		}
 		rows, err := l.db.R.QueryContext(ctx, `
-			SELECT s.name, count(DISTINCT ft.file_id) FROM file_tags ft
+			SELECT s.name, count(*) FROM file_tags ft
 			JOIN sites s ON s.id = ft.origin
 			JOIN files f ON f.id = ft.file_id AND f.deleted_at IS NULL
 			WHERE ft.tag_id = ? AND ft.origin != 0

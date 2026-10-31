@@ -20,7 +20,7 @@
 
   async function check() {
     try {
-      const res = await api.downloads();
+      const res = await api.activeDownloads();
       downloading = res.searches.filter((s) => s.state === 'queued' || s.state === 'running').length;
     } catch {
       /* the welcome works without it */

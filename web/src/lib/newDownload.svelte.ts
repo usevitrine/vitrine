@@ -43,8 +43,8 @@ export function newDownload(tags: string[], { any = false, fallback, subscribe }
   newDownloadDialog.current = { query: or ? `( ${tags.join(' ~ ')} )` : tags.join(' '), fromTags: true, fallback, subscribe };
 }
 
-/** The sites that gave the tags, best first (only sites that can download them). */
-export async function tagOrigins(tags: string[], usable: (site: string) => boolean): Promise<SiteChoice[]> {
+/** The sites that gave the tags, best first. */
+export async function tagOrigins(tags: string[]): Promise<SiteChoice[]> {
   let from: Record<string, { site: string; count: number }[]> = {};
   try {
     from = (await api.tagSites(tags)).tags;
@@ -60,5 +60,5 @@ export async function tagOrigins(tags: string[], usable: (site: string) => boole
       by.set(site, c);
     }
   }
-  return [...by.values()].filter((c) => usable(c.site)).sort((a, b) => b.tags - a.tags || b.files - a.files || a.site.localeCompare(b.site));
+  return [...by.values()].sort((a, b) => b.tags - a.tags || b.files - a.files || a.site.localeCompare(b.site));
 }

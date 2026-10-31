@@ -899,6 +899,31 @@ func TestTagSites(t *testing.T) {
 	if len(res.Tags["red"]) != 0 || res.Tags["nope"] == nil {
 		t.Fatalf("red, nope: %+v", res.Tags)
 	}
+	// Deleted files don't count; a site left with none isn't listed.
+	if err := e.lib.Delete(ctx, []uint32{ids[0], ids[1]}, ""); err != nil {
+		t.Fatal(err)
+	}
+	res.Tags = nil
+	if code := e.call("GET", "/api/tags/sites?t=blue_sky", nil, &res); code != 200 {
+		t.Fatalf("tag sites: %d", code)
+	}
+	if got := res.Tags["blue_sky"]; len(got) != 1 || got[0].Site != "site-b" || got[0].Count != 1 {
+		t.Fatalf("blue_sky after deleting: %+v", got)
+	}
+	// A file from a site: counted in the index (the files the tag's on, from each site); the user's own tag on it
+	// still names no site.
+	e.lib.Index().AddFileSite(ids[2], b)
+	e.call("POST", "/api/tags", map[string]any{"ids": ids[2:], "add": []string{"red"}}, nil)
+	res.Tags = nil
+	if code := e.call("GET", "/api/tags/sites?t=blue_sky&t=red", nil, &res); code != 200 {
+		t.Fatalf("tag sites: %d", code)
+	}
+	if got := res.Tags["blue_sky"]; len(got) != 1 || got[0].Site != "site-b" || got[0].Count != 1 {
+		t.Fatalf("blue_sky from the index: %+v", got)
+	}
+	if len(res.Tags["red"]) != 0 {
+		t.Fatalf("red from the index: %+v", res.Tags["red"])
+	}
 	if code := e.call("GET", "/api/tags/sites", nil, nil); code != 400 {
 		t.Fatalf("no tags: %d", code)
 	}
@@ -1151,7 +1176,7 @@ func TestLicenseNoticesCurrent(t *testing.T) {
 }
 
 // GET /api/downloads?active=1: only what's going on now and the paused sites (the top bar's menu reads it on every
-// change) - not the whole page.
+// change) - not the whole page; ?sites=1 only the sites and groups (the New download dialog's).
 func TestDownloadsActiveOnly(t *testing.T) {
 	e := newEnv(t)
 	e.loginAs("me", "correct horse")
@@ -1166,6 +1191,10 @@ func TestDownloadsActiveOnly(t *testing.T) {
 	}
 	if code := e.call("GET", "/api/downloads?active=1", nil, &active); code != 200 || len(active) != 2 || string(active["searches"]) != "[]" || active["sites_paused"] == nil {
 		t.Fatalf("active: %d %v", code, active)
+	}
+	var light map[string]json.RawMessage
+	if code := e.call("GET", "/api/downloads?sites=1", nil, &light); code != 200 || len(light) != 2 || light["sites"] == nil || light["groups"] == nil {
+		t.Fatalf("sites: %d %v", code, light)
 	}
 }
 

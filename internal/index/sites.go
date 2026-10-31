@@ -126,6 +126,22 @@ func (ix *Index) SiteCounts(ids []uint32) map[uint32]int {
 	return out
 }
 
+// TagSiteCounts counts, per site, the live files that have the tag themselves and came from it.
+func (ix *Index) TagSiteCounts(tag uint32) map[uint32]int {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	out := map[uint32]int{}
+	if int(tag) >= len(ix.raw) || ix.raw[tag] == nil {
+		return out
+	}
+	for site, bm := range ix.siteFiles {
+		if n := int(ix.raw[tag].AndCardinality(bm)); n > 0 {
+			out[site] = n
+		}
+	}
+	return out
+}
+
 // Found by: the files each subscription downloaded, for system:found_by=<its ID> (a subscription's "new" files on
 // the Downloads page open as a search).
 

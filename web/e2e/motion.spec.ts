@@ -87,6 +87,20 @@ test('motion', async ({ page, browser, baseURL }, info) => {
   });
   await record(page, 'd-new-download-close', () => page.keyboard.press('Escape'));
   await settle();
+  // From a tag: straight to "Which site?", its sites asked for (as slow as on a big library).
+  await page.route('**/api/tags/sites?*', async (route) => {
+    await new Promise((r) => setTimeout(r, 700));
+    await route.continue();
+  });
+  await page.goto('/?q=blue_sky');
+  await settle();
+  await page.locator('.chip-main').first().click();
+  await record(page, 'd-new-download-tag', () => page.getByRole('dialog', { name: 'Edit search chip' }).getByRole('button', { name: 'New download' }).click(), {
+    still: 700,
+  });
+  await record(page, 'd-new-download-tag-close', () => page.keyboard.press('Escape'));
+  await page.unroute('**/api/tags/sites?*');
+  await settle();
   // Other pages
   // Selecting, a chip's editor, a notice with Undo, a comic, a dialog
   await page.goto('/');

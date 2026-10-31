@@ -8,11 +8,13 @@ shows this too (Settings > Updates).
 ### Improved
 
 - **The Downloads page opens fast with many subscriptions**: each subscription's pictures and "new since you looked" no longer go through every file it ever found (several seconds with a few hundred subscriptions on a big library), and the page's other numbers aren't worked out again for every new file while subscriptions download.
+- **A new download from a tag opens its "Which site?" page fast**: it no longer waits for the whole Downloads page's numbers (1-3 seconds on a big library), and the sites a tag came from are counted in a moment instead of going through every file with it.
 
 ### Fixed
 
 - **No notification for a subscription that found nothing**: a new subscription whose first check brought no new files (everything already in the library) no longer says it's ready with 0 new files.
 - **Nothing shifts as it finishes opening**: menus, panels, dialogs, sections and notices no longer jump by a pixel the moment their opening animation ends (seen on Windows) - they now come in on whole pixels.
+- **"Which site?" comes in smoothly**: when its list of sites arrives, the dialog grows to fit and the list fades in, instead of the dialog jumping to its new size and place and "Loading…" closing after the list had come.
 
 ## 1.0.12 - 2026-10-30
 

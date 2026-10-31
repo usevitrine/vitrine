@@ -86,7 +86,9 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   needs it (`GET/POST /api/blacklist`, the same as Tags > Tag rules).
 - **Which site for a new download from tags (2026-10-20)**: a tag's New download (the details' tag menu, a search
   chip) and the picked tags' Download all/any go through `newDownload` (lib/newDownload.svelte.ts): it asks the server
-  which sites gave the tags (`GET /api/tags/sites?t=...` -> per tag `[{site, count}]`, live files, most first) and
+  which sites gave the tags (`GET /api/tags/sites?t=...` -> per tag `[{site, count}]`, live files, most first;
+  since 2026-10-31 counted in the index - the tag's files and each site's files, for a tag some site gave - with the
+  database's count only for files from no site: a tag on most of a big library took up to 0.8 s) and
   ranks the sites that can take them (installed, not off; for Any only sites with an OR search for those tags) by how
   many of the tags they gave, then files. More than one: "Download from which site?" (`SitePicker`, a card / a phone
   sheet): those sites with their file counts ("2 of 3 tags" for a site that gave only some), then "Other sites";

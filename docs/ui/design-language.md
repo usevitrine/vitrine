@@ -279,7 +279,11 @@ Palette: https://catppuccin.com/palette
 - **Menus with pages move alike (2026-10-19)**: `lib/pages.svelte.ts` (`Pages`) is the one way menus move
   between pages - the action menus' choice pages, the Sort and filters menu, a tag's Namespace page: the new page
   slides in (from the right going deeper, from the left going back) while the old one slides out, both fading,
-  and the menu's height follows (0.24 s). Base styles `.mpages` / `.mpage` in app.css.
+  and the menu's height follows (0.24 s). Base styles `.mpages` / `.mpage` in app.css. A page whose content comes
+  later (2026-10-31, the New download dialog's "Which site?" - the user: elements animating in "looks buggy"):
+  `pages.grow(change)` - the height follows the same way, "Loading…" goes at once (closing after the list had come,
+  it moved the dialog again) and only shows after 0.3 s, the content fades in (`swap`), and focus goes in without
+  scrolling (the held-short box scrolled its top out of view).
 - **Floating scrollbar (2026-10-19)**: with a mouse, the screens' pages (Downloads, Settings) and the details
   panel hide the browser's own scrollbar (it took room as it came and went, so the page shifted sideways) and get
   a thin thumb over the content at the right edge (`lib/overlayScroll.ts`, `{@attach overlayScroll}`): shown
