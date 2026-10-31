@@ -1104,6 +1104,7 @@ func (d *Downloader) record(s Search, siteID uint32, postID int64, fileID uint32
 	if err := recordSeen(tx, siteID, postID, file, outcome, postErr, strings.TrimSpace(s.Query), d.now().UnixMilli()); err != nil {
 		return false, err
 	}
+	now := d.now().UnixMilli()
 	if fileID != 0 && (outcome == Downloaded || outcome == Already) {
 		// "Found by": the first time this search met the file.
 		var sub any
@@ -1112,7 +1113,7 @@ func (d *Downloader) record(s Search, siteID uint32, postID int64, fileID uint32
 		}
 		if _, err := tx.Exec(`INSERT INTO file_sources (file_id, site_id, query, subscription_id, downloaded, first_at)
 			VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-			fileID, siteID, strings.TrimSpace(s.Query), sub, outcome == Downloaded, d.now().UnixMilli()); err != nil {
+			fileID, siteID, strings.TrimSpace(s.Query), sub, outcome == Downloaded, now); err != nil {
 			return false, err
 		}
 	}
@@ -1134,17 +1135,26 @@ func (d *Downloader) record(s Search, siteID uint32, postID int64, fileID uint32
 	}
 	if fileID != 0 && outcome == Downloaded && s.SubscriptionID != 0 {
 		d.lib.Index().AddFoundBy(fileID, uint32(s.SubscriptionID)) // (system:found_by= finds it)
-		d.foundChanged()
+		d.foundChanged(s.SubscriptionID, now)
 	}
 	d.Changed()
 	return before >= 0, nil
 }
 
-// foundChanged: a subscription found a new file - when each last found one is read again (lastFound).
-func (d *Downloader) foundChanged() {
+// foundChanged: a subscription found a new file at (Unix ms) - set in lastFound's map (a copy: readers share the old
+// one), not read again.
+func (d *Downloader) foundChanged(sub, at int64) {
 	d.statusMu.Lock()
-	d.foundOut = nil
-	d.statusMu.Unlock()
+	defer d.statusMu.Unlock()
+	if d.foundOut == nil || d.foundOut[sub] >= at {
+		return
+	}
+	m := make(map[int64]int64, len(d.foundOut)+1)
+	for k, v := range d.foundOut {
+		m[k] = v
+	}
+	m[sub] = at
+	d.foundOut = m
 }
 
 // handle brings one post into the library.

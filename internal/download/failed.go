@@ -193,6 +193,7 @@ func (d *Downloader) retryPost(ctx context.Context, site string, post int64) (re
 		return "", terr
 	}
 	var foundBy int64 // (the subscription that downloaded it: system:found_by=, once committed)
+	now := d.now().UnixMilli()
 	if q := strings.TrimSpace(query.String); fileID != 0 && q != "" && (outcome == Downloaded || outcome == Already) {
 		var sub any
 		var id int64
@@ -203,7 +204,7 @@ func (d *Downloader) retryPost(ctx context.Context, site string, post int64) (re
 			}
 		}
 		if _, terr := tx.Exec(`INSERT INTO file_sources (file_id, site_id, query, subscription_id, downloaded, first_at)
-			VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`, fileID, st.ID, q, sub, outcome == Downloaded, d.now().UnixMilli()); terr != nil {
+			VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`, fileID, st.ID, q, sub, outcome == Downloaded, now); terr != nil {
 			return "", terr
 		}
 	}
@@ -212,7 +213,7 @@ func (d *Downloader) retryPost(ctx context.Context, site string, post int64) (re
 	}
 	if foundBy != 0 {
 		d.lib.Index().AddFoundBy(fileID, uint32(foundBy))
-		d.foundChanged()
+		d.foundChanged(foundBy, now)
 	}
 	d.Changed()
 	name := outcomeNames[outcome]

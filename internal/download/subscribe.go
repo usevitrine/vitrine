@@ -679,9 +679,11 @@ func (d *Downloader) schedule(ctx context.Context) {
 	}
 }
 
-// lastFound is when each subscription last brought in a new file (Unix ms): read again when one did (foundChanged),
-// else at most every statusEvery (a group over every file a subscription found - asked for on every change of the
-// Downloads page and the tags' bells). The map is shared: read only.
+// lastFound is when each subscription last brought in a new file (Unix ms): kept up to date as one does (foundChanged),
+// read again at most every statusEvery (asked for on every change of the Downloads page and the tags' bells). The map
+// is shared: read only. (2026-10-31, the user: the Downloads page "with a large amount of subs takes ages to load" -
+// a new file threw the map away, so while subscriptions downloaded, each request read it again: a group over every
+// file a subscription found, ~1.2 s on 260 subscriptions and ~600k files.)
 func (d *Downloader) lastFound(ctx context.Context) (map[int64]int64, error) {
 	d.statusMu.Lock()
 	defer d.statusMu.Unlock()
@@ -696,9 +698,14 @@ func (d *Downloader) lastFound(ctx context.Context) (map[int64]int64, error) {
 	return d.foundOut, nil
 }
 
+// readLastFound: per subscription, the newest of its finds - one step into file_sources_sub_found each (its
+// condition repeated, for the partial index), not a group over all of them.
+const lastFoundSQL = `SELECT sub.id, at FROM (SELECT sub.id, (SELECT max(fs.first_at) FROM file_sources fs
+	WHERE fs.subscription_id = sub.id AND fs.subscription_id IS NOT NULL AND fs.downloaded = 1) AS at
+	FROM subscriptions sub) sub WHERE at IS NOT NULL`
+
 func (d *Downloader) readLastFound(ctx context.Context) (map[int64]int64, error) {
-	rows, err := d.db.R.QueryContext(ctx, `SELECT subscription_id, max(first_at) FROM file_sources
-		WHERE subscription_id IS NOT NULL AND downloaded = 1 GROUP BY subscription_id`)
+	rows, err := d.db.R.QueryContext(ctx, lastFoundSQL)
 	if err != nil {
 		return nil, fmt.Errorf("download: %w", err)
 	}
@@ -725,35 +732,71 @@ type SubLook struct {
 	Fresh  int
 }
 
+// Each a few steps into an index per subscription (file_sources_sub_recent, file_sources_sub_found - their conditions
+// repeated) - not a pass over all its files: 6-7 s for the page's 260 subscriptions on ~600k files before (2026-10-31).
+const (
+	recentSQL = `SELECT fs.file_id FROM file_sources fs JOIN files f ON f.id = fs.file_id AND f.deleted_at IS NULL
+	WHERE fs.subscription_id = ? AND fs.subscription_id IS NOT NULL ORDER BY fs.sort_at DESC, fs.file_id DESC LIMIT 4`
+	freshSQL = `SELECT count(*) FROM file_sources fs JOIN files f ON f.id = fs.file_id AND f.deleted_at IS NULL
+	WHERE fs.subscription_id = ? AND fs.subscription_id IS NOT NULL AND fs.downloaded = 1 AND fs.first_at > ?`
+)
+
 // SubscriptionLooks gathers every subscription's SubLook; since: files after it count as fresh (0: none do).
 func (d *Downloader) SubscriptionLooks(ctx context.Context, since int64) (map[int64]*SubLook, error) {
-	rows, err := d.db.R.QueryContext(ctx, `SELECT sub.id,
-		coalesce((SELECT c.id FROM comics c WHERE rtrim(c.url, '/') = rtrim(sub.query, '/') AND c.deleted_at IS NULL LIMIT 1), 0),
-		coalesce((SELECT c.cover FROM comics c WHERE rtrim(c.url, '/') = rtrim(sub.query, '/') AND c.deleted_at IS NULL LIMIT 1), 0),
-		coalesce((SELECT c.pages FROM comics c WHERE rtrim(c.url, '/') = rtrim(sub.query, '/') AND c.deleted_at IS NULL LIMIT 1), 0)
-		FROM subscriptions sub`)
+	// A gallery subscription's comic: the library's comics read once, by address (a subscription's search is its
+	// gallery's address, with or without the last /).
+	type comic struct {
+		id    int64
+		cover uint32
+		pages int
+	}
+	comics := map[string]comic{}
+	rows, err := d.db.R.QueryContext(ctx, `SELECT id, cover, pages, rtrim(url, '/') FROM comics WHERE deleted_at IS NULL AND url != '' ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("download: %w", err)
+	}
+	for rows.Next() {
+		var c comic
+		var cover sql.NullInt64
+		var url string
+		if err := rows.Scan(&c.id, &cover, &c.pages, &url); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("download: %w", err)
+		}
+		c.cover = uint32(cover.Int64)
+		if _, ok := comics[url]; !ok {
+			comics[url] = c
+		}
+	}
+	rows.Close()
+	rows, err = d.db.R.QueryContext(ctx, `SELECT id, rtrim(query, '/') FROM subscriptions`)
 	if err != nil {
 		return nil, fmt.Errorf("download: %w", err)
 	}
 	out := map[int64]*SubLook{}
 	for rows.Next() {
 		var id int64
-		l := &SubLook{}
-		if err := rows.Scan(&id, &l.Comic, &l.Cover, &l.Pages); err != nil {
+		var q string
+		if err := rows.Scan(&id, &q); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("download: %w", err)
 		}
-		out[id] = l
+		c := comics[q]
+		out[id] = &SubLook{Comic: c.id, Cover: c.cover, Pages: c.pages}
 	}
 	rows.Close()
 	for id, l := range out {
+		if since > 0 {
+			if err := d.db.R.QueryRowContext(ctx, freshSQL, id, since).Scan(&l.Fresh); err != nil {
+				return nil, fmt.Errorf("download: %w", err)
+			}
+		}
 		if l.Comic != 0 {
 			continue // (a gallery: its cover - its pages aren't library files)
 		}
 		// Its newest posts in the library - the ones it met that were there already too (2026-10-23: a subscription
-		// whose posts another download had got first showed none).
-		r, err := d.db.R.QueryContext(ctx, `SELECT fs.file_id FROM file_sources fs JOIN files f ON f.id = fs.file_id AND f.deleted_at IS NULL
-			WHERE fs.subscription_id = ? ORDER BY coalesce(f.posted_at, fs.first_at) DESC, fs.file_id DESC LIMIT 4`, id)
+		// whose posts another download had got first showed none). Down file_sources_sub_recent (migration 0047).
+		r, err := d.db.R.QueryContext(ctx, recentSQL, id)
 		if err != nil {
 			return nil, fmt.Errorf("download: %w", err)
 		}
@@ -761,21 +804,6 @@ func (d *Downloader) SubscriptionLooks(ctx context.Context, since int64) (map[in
 			var f uint32
 			if err := r.Scan(&f); err == nil && !slices.Contains(l.Recent, f) { // (once each: the page lists them by file)
 				l.Recent = append(l.Recent, f)
-			}
-		}
-		r.Close()
-	}
-	if since > 0 {
-		r, err := d.db.R.QueryContext(ctx, `SELECT fs.subscription_id, count(*) FROM file_sources fs JOIN files f ON f.id = fs.file_id
-			AND f.deleted_at IS NULL WHERE fs.subscription_id IS NOT NULL AND fs.downloaded = 1 AND fs.first_at > ? GROUP BY fs.subscription_id`, since)
-		if err != nil {
-			return nil, fmt.Errorf("download: %w", err)
-		}
-		for r.Next() {
-			var id int64
-			var n int
-			if err := r.Scan(&id, &n); err == nil && out[id] != nil {
-				out[id].Fresh = n
 			}
 		}
 		r.Close()

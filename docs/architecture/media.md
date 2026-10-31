@@ -73,6 +73,19 @@ Probing, thumbnails, previews and scrub frames (ffmpeg, libvips): how files are 
   find it again); none left: no looking for 30 minutes (new tags come with their types). Made-up library of 150k
   posts x 20 tags: 4.0 s per pick (also with nothing left) -> 47 ms a batch, ~1 ms a post, 53 ms to find there's
   none. `TestLearnTypesForOlderFiles` (still one lookup per file), `TestLearnTypesNoPost`.
+- **The Downloads page with many subscriptions (2026-10-31, the user: it "takes ages to load")**: measured on a
+  library of ~600k files and 260 subscriptions: `/api/subscriptions/looks` (each card's pictures, "new since you
+  looked", a gallery's comic) took 6-7 s, `/api/downloads` 0.1-1.3 s. (1) Each card's newest four files joined every
+  file the subscription met to its file for the posted date and sorted them all; now that date (`posted_at`, else
+  when the search met it) is kept beside each source (`file_sources.sort_at`, migration 0047, kept by two triggers:
+  on a source's insert, on a file's `posted_at` change) in an index per subscription, newest first, and the four are
+  read off its top. "New since" counts a range of `file_sources_sub_found` per subscription instead of grouping all
+  of them; the galleries' comics are read once instead of three scans of the table per subscription. Made-up library
+  of the same size: the cards' pictures 1.1 s -> part of 0.24 s for everything. (2) `lastFound` (1.0.11's shared
+  dates) was thrown away on every new file, so while subscriptions downloaded each request read it again (~1.2 s,
+  seen in goroutine snapshots): now a new file sets its subscription's date in the kept map (`foundChanged(sub, at)`),
+  and the read itself is one step into the index per subscription. `TestSubscriptionLooks` (order, the trigger, the
+  plans), `TestSubscriptionLastFound`.
 - CLI: `vitrine import` makes thumbnails right after importing (`-no-thumbs` to skip); `vitrine process` catches
   up; `vitrine search` and `vitrine tag` exist for trying the library before the web client.
 - A user-typed `ns:tag` only uses a namespace that already exists (plugins declare them); otherwise the whole text is

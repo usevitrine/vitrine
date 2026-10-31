@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -598,6 +599,41 @@ func TestSubscriptionLastFound(t *testing.T) {
 	if f := found(); f != first {
 		t.Fatalf("found at %d after a check with nothing new, want %d", f, first)
 	}
+
+	// New files while the dates are kept: set as they come, not read again (a read on every request while
+	// subscriptions downloaded made the Downloads page slow - the user).
+	advance(2 * time.Hour)
+	found()
+	readAt := e.dl.foundAt
+	advance(time.Second)
+	e.fb.upload(2)
+	e.runDue(t)
+	if f, want := found(), e.dl.now().UnixMilli(); f != want {
+		t.Fatalf("found at %d after new files, want %d", f, want)
+	}
+	if !e.dl.foundAt.Equal(readAt) {
+		t.Errorf("read again at %v (kept since %v)", e.dl.foundAt, readAt)
+	}
+	if fresh, _ := e.dl.readLastFound(ctx); fresh[id] != e.dl.foundOut[id] {
+		t.Errorf("kept %d, the table has %d", e.dl.foundOut[id], fresh[id])
+	}
+
+	// One step into the index per subscription, not a pass over every file found.
+	rows, err := e.db.R.QueryContext(ctx, "EXPLAIN QUERY PLAN "+lastFoundSQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan []string
+	for rows.Next() {
+		var a, b, c int
+		var detail string
+		rows.Scan(&a, &b, &c, &detail)
+		plan = append(plan, detail)
+	}
+	rows.Close()
+	if p := strings.Join(plan, " | "); !strings.Contains(p, "file_sources_sub_found") || strings.Contains(p, "SCAN fs") {
+		t.Errorf("plan: %s", p)
+	}
 }
 
 // A subscription check that comes up while a big download runs goes first: the download steps aside after the post
@@ -883,6 +919,35 @@ func TestSubscriptionLooks(t *testing.T) {
 	q, _ = search.Parse("system:found_by=999")
 	if res := e.lib.Index().Search(q, time.Now()); res.Total != 0 {
 		t.Fatalf("another subscription's: %d", res.Total)
+	}
+
+	// A file's posted date changing (from the site, a merged duplicate): its place among the newest follows (the
+	// date kept beside each source, by trigger).
+	oldest := l.Recent[3]
+	if _, err := e.db.W.Exec("UPDATE files SET posted_at = (SELECT max(posted_at) + 1000 FROM files) WHERE id = ?", oldest); err != nil {
+		t.Fatal(err)
+	}
+	if looks, _ := e.dl.SubscriptionLooks(ctx, 0); looks[id].Recent[0] != oldest || looks[other].Recent[0] != oldest {
+		t.Fatalf("posted now: %v / %v, want %d first", looks[id].Recent, looks[other].Recent, oldest)
+	}
+
+	// One subscription's pictures and count: steps into its own indexes, not a pass over every file found.
+	for _, c := range []struct{ sql, index string }{{recentSQL, "file_sources_sub_recent"}, {freshSQL, "file_sources_sub_found"}} {
+		rows, err := e.db.R.QueryContext(ctx, "EXPLAIN QUERY PLAN "+c.sql, id, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var plan []string
+		for rows.Next() {
+			var a, b, n int
+			var detail string
+			rows.Scan(&a, &b, &n, &detail)
+			plan = append(plan, detail)
+		}
+		rows.Close()
+		if p := strings.Join(plan, " | "); !strings.Contains(p, c.index) || strings.Contains(p, "TEMP B-TREE") {
+			t.Errorf("plan: %s", p)
+		}
 	}
 }
 

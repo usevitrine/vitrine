@@ -5,6 +5,10 @@ shows this too (Settings > Updates).
 
 ## Unreleased
 
+### Improved
+
+- **The Downloads page opens fast with many subscriptions**: each subscription's pictures and "new since you looked" no longer go through every file it ever found (several seconds with a few hundred subscriptions on a big library), and the page's other numbers aren't worked out again for every new file while subscriptions download.
+
 ### Fixed
 
 - **No notification for a subscription that found nothing**: a new subscription whose first check brought no new files (everything already in the library) no longer says it's ready with 0 new files.
