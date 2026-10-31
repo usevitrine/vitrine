@@ -65,6 +65,33 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   arrow keys move between saved searches. Stored on the server (`saved_searches`, migration `0008`; API
   `GET/POST /api/saved`, `POST /api/saved/{id}`, `/api/saved/{id}/remove`, `/api/saved/reorder`), so every device
   has the same list - the first server-side setting.
+- **Saved searches as tiles (2026-10-31)** (the user: "I think this dropdown needs a redesign. Give me some
+  prototypes" -> picked "B · Tiles" and shaped it in comments -> "Good, build it. Just make sure the design is fully
+  animated and in line with the current design"): replaces the list above (what it does stays: save, Update after a
+  change, Save as new, run with its order, Edit renames and deletes with Undo, NEW pills, Esc / a press outside).
+  - **The button**: a floppy disk instead of the star (the user: "change the icon to open this menu from a star to the
+    floppy disk icon"; Lucide's `Save`), lit mauve when the current search is saved, its dot for new files as before.
+  - **Where**: a phone (< 640 px) gets a sheet along the bottom (lib/sheet + lib/sheetDrag like the other menus: grab
+    bar, drag down to close, the page dimmed); wider, a panel floating at the right under the search bar, like the
+    viewer's details (it glides in from the right as it fades in, out the same way). It floats over the grid - making
+    the grid narrower would lay every tile out again on each frame of its glide. A header (the icon, "Saved searches",
+    a close button), then a row: the tabs, Edit, and **+ Save** (opens the name box under it - the chips the default
+    name; dimmed when the search is saved already). The notes ("This search is saved as X", "Changed from X" with
+    Update and Save as new) sit under that row.
+  - **Tiles**, two to a row: each saved search's first three files (one big, two small - the Downloads page's group
+    mosaic; its own order, else the page's), a NEW pill over them, the name on one line (too long: it slides, the
+    design rule's lib/marquee), its file count and a non-default order. The search itself is the tile's hover text (the
+    chips are gone from the menu). Server: `GET /api/saved/looks?sort=<the page's default>` -> each saved search's
+    pictures and each group's files, first tags and pictures (`savedLooks`, internal/server/saved.go); the Comics page's
+    list has none (a quiet box with the library icon in their place).
+  - **Groups**: a tab of their own (`.segmented`, shown only when there are groups), the tiles the same - the tag in its
+    color, "N tags · N files", its first tags ("a, b, c, +N"); **New group** goes to Tags > Rules (where groups are
+    made). Their order is the user's: shared setting `groupOrder` (the rest after them by name). Switching tabs moves
+    like a menu's pages (lib/pages: Groups slides in from the right, the height follows).
+  - **Moving**: press and hold a tile (a mouse: click and hold, ~0.4 s) - it lifts (bigger, tilted, a shadow) and
+    follows the finger, the others glide to make room; let go and it's there (`HoldDrag`, lib/listDrag). A press that
+    moves first is a scroll or the sheet's drag; the press that moved it isn't a tap. Keyboard: Edit, then the arrow
+    keys on a tile's handle. Tiles come and go with `pop` and glide to new places with `moved`.
 - **Fast scroller (built 2026-10-14)** (`FastScroller.svelte`): for results taller than three screens the grid's native
   scrollbar is hidden and a handle sits on the right edge - a tab with a grip, slid off the edge but for a 9 px sliver
   in the grid's side gap while idle (a thin pill until 2026-10-20; only the sliver takes presses then), sliding in

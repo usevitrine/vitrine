@@ -81,8 +81,48 @@ html.standalone {
   --bottom-room: max(var(--safe-bottom), var(--home-bar, 0px));
 }
 
-/* A long line scrolling to its end and back (a download's search, a comic's title): its soft edges, animated with it -
-   only on the side where text is out of view (fixed at both, they covered its first and last letters - the user). */
+/* A long line sliding to its end and back (a download's search, a comic's title, a saved search's name; lib/marquee):
+   slowly forward at an even speed, quickly back (the user: "scroll slowly from left to right, then faster from right
+   to left so the user can quickly read from the beginning again"). Its soft edges move with it - only on a side where
+   text is out of view, gone before it rests there (fixed at both, they covered its first and last letters). */
+.marquee {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.marquee > * {
+  display: inline-block;
+}
+.marquee.long {
+  mask-image: linear-gradient(to right, transparent, #000 var(--edge-l), #000 calc(100% - var(--edge-r)), transparent);
+}
+.marquee.long.sliding {
+  animation: marquee-edges var(--dur, 6s) linear 0.6s infinite;
+}
+.marquee.long.sliding > * {
+  animation: marquee-line var(--dur, 6s) 0.6s infinite;
+}
+@keyframes marquee-line {
+  0%,
+  15% {
+    transform: translateX(0);
+    animation-timing-function: linear;
+  }
+  70%,
+  85% {
+    transform: translateX(var(--shift, 0));
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  93%,
+  100% {
+    transform: translateX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee.long.sliding,
+  .marquee.long.sliding > * {
+    animation: none;
+  }
+}
 @property --edge-l {
   syntax: '<length>';
   inherits: false;
@@ -99,15 +139,25 @@ html.standalone {
     --edge-l: 0px;
     --edge-r: 14px;
   }
-  27%,
-  73% {
+  20%,
+  65% {
     --edge-l: 14px;
     --edge-r: 14px;
   }
-  85%,
-  100% {
+  70%,
+  85% {
     --edge-l: 14px;
     --edge-r: 0px;
+  }
+  87%,
+  89% {
+    --edge-l: 14px;
+    --edge-r: 14px;
+  }
+  93%,
+  100% {
+    --edge-l: 0px;
+    --edge-r: 14px;
   }
 }
 

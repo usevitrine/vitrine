@@ -16,6 +16,7 @@
   // its tile (muted), unless turned off in Settings.
   import { tick, untrack, type ComponentProps } from 'svelte';
   import { pop } from '../lib/motion';
+  import { measure as measureMarquee } from '../lib/marquee';
   import { cubicBezier } from '../lib/hero';
   import { on } from 'svelte/events';
   import type { FileInfo } from '../lib/api';
@@ -166,15 +167,10 @@
     hoverTimer = setTimeout(() => openHover(i, x, y), lastMove.v > SWEEP ? SWEEP_WAIT : 0); // (else at once - after this move's other handlers)
   }
 
-  /** A comic's title too long for its tile: how far to scroll it, and for how long (it goes there and back). */
+  /** A comic's title too long for its tile: how far to slide it, and for how long (lib/marquee). */
   function marquee(e: PointerEvent) {
     const box = (e.currentTarget as HTMLElement).querySelector<HTMLElement>('.comic-title');
-    const text = box?.firstElementChild as HTMLElement | null;
-    if (!box || !text) return;
-    const over = text.scrollWidth - box.clientWidth;
-    box.classList.toggle('long', over > 2);
-    box.style.setProperty('--shift', `${-over}px`);
-    box.style.setProperty('--dur', `${Math.max(2.5, over / 30 + 1.5)}s`);
+    if (box) measureMarquee(box);
   }
 
   /** The card for tile i: about 1.5 tiles across (by area), centered on the tile, inside the grid. */
@@ -1870,7 +1866,7 @@
                 <span class="comic-chip" title={pagesText(c)}><Icon name="pages" size={12} />{c.have < c.pages ? `${num(c.have)}/${num(c.pages)}` : num(c.pages)}</span>
               {/if}
             </span>
-            <span class="comic-title"><span>{c.title}</span></span>
+            <span class="comic-title marquee"><span>{c.title}</span></span>
           </span>
           {#if !c.stack && progress(c) > 0 && !isRead(c)}<span class="comic-progress" style:--p={progress(c)}></span>{/if}
         {:else if tile.f && tile.f.type === 'gif'}
@@ -2275,35 +2271,19 @@
   /* The title: one line, scrolling sideways while the mouse is on the tile when it doesn't fit. */
   .comic-title {
     width: 100%;
-    overflow: hidden;
-    white-space: nowrap;
     font-size: 13px;
     font-weight: 650;
     /* (whole pixels, the chip's too: the foot's parts then sit on whole pixels - at 1.3 (16.9 px) they sat between
        pixels, drawn one way at rest and another while the card moved, so the icon stepped as a hover zoom ended) */
     line-height: 17px;
-    mask-image: linear-gradient(to right, transparent, #000 var(--edge-l), #000 calc(100% - var(--edge-r)), transparent);
   }
-  .comic-title > span {
-    display: inline-block;
-  }
+  /* (one line that slides while the mouse is on the tile - app.css's .marquee, the same everywhere) */
   @media (hover: hover) {
     .tile:hover .comic-title:global(.long) > span {
-      animation: marquee var(--dur, 4s) ease-in-out 0.3s infinite alternate;
+      animation: marquee-line var(--dur, 6s) 0.3s infinite;
     }
-    /* (its soft edges only where text is out of view, moving with it: marquee-edges, app.css) */
     .tile:hover .comic-title:global(.long) {
-      animation: marquee-edges var(--dur, 4s) ease-in-out 0.3s infinite alternate;
-    }
-  }
-  @keyframes marquee {
-    0%,
-    15% {
-      transform: translateX(0);
-    }
-    85%,
-    100% {
-      transform: translateX(var(--shift, 0));
+      animation: marquee-edges var(--dur, 6s) linear 0.3s infinite;
     }
   }
   /* Phones (no hovering): the title on two lines. */

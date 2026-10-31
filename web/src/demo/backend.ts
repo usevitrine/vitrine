@@ -144,6 +144,19 @@ function answer(method: string, path: string, q: URLSearchParams, body: Record<s
         return json({ media: { items: 0, bytes: 0, subscriptions: 0, downloads: 0 }, comics: { items: 0, bytes: 0, subscriptions: 0, downloads: 0 } });
       case '/api/saved':
         return json({ saved: savedList() });
+      case '/api/saved/looks': {
+        // (each saved search's first three files, as the server answers; no groups in the demo)
+        const looks: Record<number, unknown> = {};
+        for (const x of saved) {
+          const sort = x.sort || q.get('sort') || '';
+          const ids = (check(engine.search(s({ q: x.query + (sort ? ' sort:' + sort : ''), limit: 3 }))).ids as number[]) ?? [];
+          const out = check(engine.files(s(ids)));
+          withMedia(out.files);
+          const files = out.files as { id: number; thumb?: string; width: number; height: number }[];
+          looks[x.id] = { count: 0, pics: files.filter((f) => f.thumb).map((f) => ({ id: f.id, thumb: f.thumb, w: f.width, h: f.height })) };
+        }
+        return json({ saved: looks, groups: [] });
+      }
     }
     let m = path.match(/^\/api\/results\/([^/]+)$/);
     if (m) return r('slice', m[1], Number(q.get('offset') ?? 0), Number(q.get('limit') ?? 200));

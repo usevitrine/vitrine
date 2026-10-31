@@ -115,7 +115,7 @@
     else run([...chips, ...added]);
   }
   let starBtn = $state<HTMLButtonElement>();
-  // The star is filled when the current search (and order) is a saved one.
+  // The saved searches button (a floppy disk) is lit when the current search (and order) is a saved one.
   let current = $derived(saved.list.length ? saved.find(format(chips), sort, pageDefault) : undefined);
   onMount(() => {
     if (!saved.loaded) saved.load();
@@ -453,7 +453,7 @@
           editing = null;
           filterMenu = null;
           savedOpen = !savedOpen;
-        }}><Icon name="star" size={19} filled={!!current} />{#if saved.anyNew}<span class="dot" aria-hidden="true" transition:grow></span>{/if}</button>
+        }}><Icon name="save" size={19} />{#if saved.anyNew}<span class="dot" aria-hidden="true" transition:grow></span>{/if}</button>
       {/if}
     </span>
   </div>
@@ -463,17 +463,16 @@
     </div>
   {/if}
   {#if savedOpen}
-    <div class="editor saved-pos" in:pop|global out:pop|global={{ out: true }}>
-      <SavedPanel
-        query={format(chips)}
-        {sort}
-        defaultSort={pageDefault}
-        onrun={(q, s, key) => onsaved(q, s, key)}
-        onclose={(refocus) => {
-          savedOpen = false;
-          if (refocus) starBtn?.focus();
-        }} />
-    </div>
+    <!-- (it comes and goes itself: a sheet on a phone, a panel at the right on a wider screen) -->
+    <SavedPanel
+      query={format(chips)}
+      {sort}
+      defaultSort={pageDefault}
+      onrun={(q, s, key) => onsaved(q, s, key)}
+      onclose={(refocus) => {
+        savedOpen = false;
+        if (refocus) starBtn?.focus();
+      }} />
   {/if}
   <!-- {#key} outside {#if}: each opening is a new menu, the closing one fades out on its own. -->
   {#key filterMenu}

@@ -1515,7 +1515,7 @@ test('saved searches: save, run with its order, update after a change, rename, r
   // (the list is shared with the tests running meanwhile: only this test's own searches are looked at)
   const ours = /^(Images|Pictures|videos)$/;
   const panel = page.getByRole('dialog', { name: 'Saved searches' });
-  const mine = panel.locator('ul.list:not(.groups) > li').filter({ has: page.locator('.name, input.rename') }).filter({ hasText: /Images|Pictures|videos/ });
+  const mine = panel.locator('ul.tiles > li').filter({ has: page.locator('.name, input.rename') }).filter({ hasText: /Images|Pictures|videos/ });
   const names = () => panel.locator('input.rename').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value)).then((v) => v.filter((n) => ours.test(n)));
   // None yet (the server's list made empty here: other tests may have theirs).
   await page.route('**/api/saved*', (r) => (r.request().method() === 'GET' ? r.fulfill({ json: { saved: [] } }) : r.continue()));
@@ -1535,17 +1535,25 @@ test('saved searches: save, run with its order, update after a change, rename, r
   await expect(page.getByText(/files/).first()).toBeVisible();
   const images = await page.evaluate(async () => (await (await fetch('/api/search?q=system:type%3Dimage&limit=0')).json()).total);
   await star.click();
+  // (Save at the top opens the name box; Save there saves)
+  const saveTop = panel.locator('.bar-row').getByRole('button', { name: 'Save' });
+  const saveForm = panel.locator('form.save').getByRole('button', { name: 'Save' });
+  await saveTop.click();
   await panel.getByRole('textbox', { name: 'Name for the current search' }).fill('Images');
-  await panel.getByRole('button', { name: 'Save' }).click();
+  await saveForm.click();
   await expect(panel.getByText('This search is saved as')).toBeVisible();
+  await expect(saveTop).toBeDisabled(); // (saved already)
   await expect(star).toHaveAttribute('aria-label', /saved as Images/);
-  await expect(panel.locator('li', { hasText: 'Images' }).locator('.count')).toHaveText(String(images));
+  await expect(panel.locator('li', { hasText: 'Images' }).locator('.facts')).toHaveText(`${images} files`);
+  // Its tile shows its first files.
+  await expect(panel.locator('li', { hasText: 'Images' }).locator('.mosaic img').first()).toBeVisible();
 
   // Videos, newest imported first (not the default) (the order is saved too).
   await page.keyboard.press('Escape');
   await page.goto('/?q=system:type%3Dvideo&sort=imported');
   await star.click();
-  await panel.getByRole('button', { name: 'Save' }).click(); // no name typed: named after the search
+  await saveTop.click();
+  await saveForm.click(); // no name typed: named after the search
   await expect(panel.locator('li', { hasText: 'videos' })).toContainText('Newest imported');
 
   // Run Images from an empty search: its search, the default order.
@@ -1555,7 +1563,7 @@ test('saved searches: save, run with its order, update after a change, rename, r
   await expect(panel).toHaveCount(0);
   await expect(page).toHaveURL(/q=system(:|%3A)type(%3D|=)image/);
   await expect(page).not.toHaveURL(/sort=/);
-  await expect(page.getByText(new RegExp(`^${images} files`))).toBeVisible();
+  await expect(page.locator('.topbar .count')).toHaveText(new RegExp(`^${images} files`));
   await expect(star).toHaveAttribute('aria-label', /saved as Images/);
   // Run the video one: the sort comes with it.
   await star.click();
@@ -1581,7 +1589,21 @@ test('saved searches: save, run with its order, update after a change, rename, r
   await expect(panel.getByText('This search is saved as')).toContainText('Images');
   await expect(star).toHaveAttribute('aria-label', /saved as Images/);
   await expect(mine).toHaveCount(2);
-  await expect(mine.filter({ hasText: 'Images' })).toContainText(/blue.sky/);
+  await expect(mine.filter({ hasText: 'Images' }).locator('.run')).toHaveAttribute('title', /blue.sky/);
+
+  // Press and hold a tile, then drag it onto another: it moves there.
+  const order = () => mine.locator('.name').allInnerTexts();
+  await expect.poll(order).toEqual(['Images', 'videos']);
+  const from = (await mine.filter({ hasText: 'Images' }).boundingBox())!;
+  const to = (await mine.filter({ hasText: 'videos' }).boundingBox())!;
+  await page.mouse.move(from.x + from.width / 2, from.y + 30);
+  await page.mouse.down();
+  await page.waitForTimeout(550); // (held: it lifts)
+  await expect(mine.filter({ hasText: 'Images' })).toHaveClass(/lifted/);
+  await page.mouse.move(to.x + to.width / 2, to.y + 30, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(order).toEqual(['videos', 'Images']);
+  await expect(panel).toBeVisible(); // (the press that moved it wasn't a tap: nothing ran)
 
   // Edit: rename, move, delete + undo (no Update there: that's for after a change).
   await panel.getByRole('button', { name: 'Edit' }).click();
@@ -1590,7 +1612,9 @@ test('saved searches: save, run with its order, update after a change, rename, r
   await rename.press('Enter');
   await expect(panel.getByRole('textbox', { name: 'Name of Pictures' })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Update' })).toHaveCount(0);
-  await panel.getByRole('button', { name: /^Reorder Pictures/ }).press('ArrowDown');
+  await panel.getByRole('button', { name: /^Reorder Pictures/ }).press('ArrowLeft');
+  await expect.poll(names).toEqual(['Pictures', 'videos']);
+  await panel.getByRole('button', { name: /^Reorder Pictures/ }).press('ArrowRight');
   await expect.poll(names).toEqual(['videos', 'Pictures']);
   await panel.getByRole('button', { name: 'Delete Pictures' }).click();
   await expect.poll(names).toEqual(['videos']);
@@ -1601,43 +1625,72 @@ test('saved searches: save, run with its order, update after a change, rename, r
   await expect.poll(names).toEqual([]);
 });
 
-test('saved searches: a long search takes two lines in the menu, "+N" for the rest', async ({ page }) => {
-  const tags = Array.from({ length: 24 }, (_, i) => `some_long_tag_name_${i}`);
+test('saved searches: tiles - a long name stays on one line and slides, its first and last letters never under the fade; a sheet on phones, a panel at the right on wider screens; groups in a tab of their own', async ({ page }) => {
+  const tags = Array.from({ length: 6 }, (_, i) => `some_long_tag_name_${i}`);
   await page.route('**/api/saved*', (r) =>
     r.request().method() === 'GET'
       ? r.fulfill({
           json: {
             saved: [
-              { id: 901, name: 'Long one', query: tags.join(' '), sort: '', count: 3 },
               { id: 902, name: 'Short one', query: 'blue_sky', sort: '', count: 4 },
-              { id: 903, name: tags.slice(0, 6).join(' '), query: 'red', sort: '', count: 5 },
+              { id: 903, name: tags.join(' '), query: 'red', sort: '', count: 5 },
             ],
           },
         })
       : r.continue(),
   );
+  await page.route('**/api/news*', (r) => r.fulfill({ json: { saved: [], groups: [{ tag: 'some_group', children: 4, new: 2, seen_at: 0 }] } }));
+  await page.route('**/api/saved/looks*', (r) =>
+    r.fulfill({ json: { saved: {}, groups: [{ tag: 'some_group', count: 12, kids: ['blue_sky', 'red', 'sunset'], pics: [] }] } }),
+  );
   await page.goto('/');
   await page.getByRole('button', { name: /^Saved searches/ }).click();
   const panel = page.getByRole('dialog', { name: 'Saved searches' });
-  const long = panel.locator('li', { hasText: 'Long one' }).locator('.q');
-  await expect(long).toHaveClass(/clipped/);
-  await expect(long).toHaveAttribute('data-more', /^\+\d+$/);
-  const h = await long.evaluate((el) => el.getBoundingClientRect().height);
-  const line = await panel.locator('li', { hasText: 'Short one' }).locator('.q').evaluate((el) => el.getBoundingClientRect().height);
-  expect(h).toBeLessThanOrEqual(line * 2 + 6);
-  await expect(panel.locator('li', { hasText: 'Short one' }).locator('.q')).not.toHaveClass(/clipped/);
-  // A long name wraps inside its card, the count beside it (a button's nowrap ran it out of the card, under the count).
-  const named = panel.locator('li', { has: page.locator('.name', { hasText: 'some_long_tag_name_5' }) });
-  const fits = await named.evaluate((li) => {
-    const r = li.getBoundingClientRect();
-    const n = li.querySelector('.name')!.getBoundingClientRect();
-    const c = li.querySelector('.count')!.getBoundingClientRect();
-    return n.right <= c.left && c.right <= r.right && n.height > c.height * 1.5;
+  await expect(panel).toBeVisible();
+  await panel.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished))); // (it has come in)
+  // Where it is: along the bottom on a phone (a sheet), floating at the right under the search bar elsewhere.
+  const box = (await panel.boundingBox())!;
+  const view = page.viewportSize()!;
+  if (view.width < 640) {
+    await expect(panel).toHaveClass(/sheet/);
+    expect(Math.abs(box.y + box.height - view.height)).toBeLessThan(2);
+  } else {
+    await expect(panel).toHaveClass(/side/);
+    expect(Math.abs(box.x + box.width - (view.width - 12))).toBeLessThan(2);
+    const bar = (await page.locator('.bar').first().boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(bar.y + bar.height);
+  }
+  // The long name: one line, sliding, its start clear of the fade at rest (soft edge only at the right).
+  const name = panel.locator('li', { hasText: 'some_long_tag_name_5' }).locator('.name');
+  await expect(name).toHaveClass(/long/);
+  const short = panel.locator('li', { hasText: 'Short one' }).locator('.name');
+  await expect(short).not.toHaveClass(/long/);
+  const one = await name.evaluate((el) => ({ h: el.getBoundingClientRect().height, line: parseFloat(getComputedStyle(el).lineHeight), anim: getComputedStyle(el).animationName }));
+  expect(one.h).toBeLessThan(one.line * 1.5);
+  expect(one.anim).toContain('marquee-edges');
+  const edges = await name.evaluate((el) => {
+    const a = el.getAnimations().find((x) => (x as CSSAnimation).animationName === 'marquee-edges')!;
+    a.pause();
+    const { delay = 0, duration } = a.effect!.getTiming() as { delay: number; duration: number };
+    a.currentTime = delay + duration * 0.05; // (at rest, its start)
+    const s = getComputedStyle(el);
+    const at = [s.getPropertyValue('--edge-l').trim(), s.getPropertyValue('--edge-r').trim()];
+    a.currentTime = delay + duration * 0.78; // (at rest, its end)
+    const s2 = getComputedStyle(el);
+    return [...at, s2.getPropertyValue('--edge-l').trim(), s2.getPropertyValue('--edge-r').trim()];
   });
-  expect(fits).toBe(true);
+  expect(edges).toEqual(['0px', '14px', '14px', '0px']);
+  // The groups: a tab, each a tile with its tags and its files; New group goes to the Tags page.
+  await panel.getByRole('tab', { name: 'Groups' }).click();
+  const group = panel.getByRole('button', { name: /some.group/ });
+  await expect(group).toContainText('4 tags · 12 files');
+  await expect(group).toContainText('blue_sky, red, sunset, +1');
+  await expect(group.locator('.new-pill')).toHaveText('2 new');
+  await expect(panel.getByRole('button', { name: 'Edit' })).toHaveCount(0); // (groups are edited on the Tags page)
+  await panel.getByRole('button', { name: 'New group' }).click();
+  await expect(page).toHaveURL(/\/tags/);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
-
 test('fast scroller: drag the handle to jump, with a date bubble; a press beside the handle is not the scroller\'s', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 430 }); // a short window: 26 files fill several screens
   await page.goto('/');
@@ -5087,12 +5140,20 @@ test('library: the downloads menu: a long search scrolling sideways keeps its fi
     return name.evaluate((el) => [getComputedStyle(el).getPropertyValue('--edge-l'), getComputedStyle(el).getPropertyValue('--edge-r')]);
   };
   const shot = (n: string) => name.screenshot({ path: info.outputPath(`${n}.png`) });
-  expect(await at(0)).toEqual(['0px', '14px']); // the start: its first letters clear, a soft edge where it goes on
+  const x = () => name.evaluate((el) => new DOMMatrix(getComputedStyle(el.firstElementChild!).transform).e);
+  expect(await at(0.05)).toEqual(['0px', '14px']); // at rest at the start: its first letters clear, a soft edge where it goes on
   await shot('start');
-  expect(await at(0.5)).toEqual(['14px', '14px']); // on the way: both
+  expect(await at(0.4)).toEqual(['14px', '14px']); // on the way: both
   await shot('middle');
-  expect(await at(0.999)).toEqual(['14px', '0px']); // the end: its last letters clear
+  expect(await at(0.78)).toEqual(['14px', '0px']); // at rest at the end: its last letters clear
+  const end = await x();
+  expect(end).toBeLessThan(-20);
   await shot('end');
+  // Back quickly (the user: "slowly from left to right, then faster from right to left"): at its start again by 93 %.
+  expect(await at(0.95)).toEqual(['0px', '14px']);
+  expect(await x()).toBe(0);
+  await at(0.89);
+  expect(await x()).toBeGreaterThan(end); // (on its way back)
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
@@ -6151,15 +6212,20 @@ test('saved searches menu: NEW pills on saved searches and group (parent) tags w
   await star.click();
   const panel = page.getByRole('dialog', { name: 'Saved searches' });
   await expect(panel.getByRole('button', { name: /Sky/ }).locator('.new-pill')).toHaveText('4 new');
+  // (the groups: a tab of their own)
+  await panel.getByRole('tab', { name: 'Groups' }).click();
   const group = panel.getByRole('button', { name: /favorite artists|favorite_artists/ });
   await expect(group.locator('.new-pill')).toHaveText('4 new');
   await expect(group).toContainText('1 tag');
-  // Opening Sky: its four files are NEW in the grid; its pill is gone, the group's stays (the star's dot too).
+  await expect(group).toContainText('landscape'); // (its tags)
+  await panel.getByRole('tab', { name: 'Saved' }).click();
+  // Opening Sky: its four files are NEW in the grid; its pill is gone, the group's stays (the button's dot too).
   await panel.getByRole('button', { name: /Sky/ }).click();
-  await expect(page.getByText(/^4 files/)).toBeVisible();
+  await expect(page.locator('.topbar .count')).toHaveText(/^4 files/);
   await expect(page.locator('.tile .new-badge')).toHaveCount(4);
   await star.click();
   await expect(panel.getByRole('button', { name: /Sky/ }).locator('.new-pill')).toHaveCount(0);
+  await panel.getByRole('tab', { name: 'Groups' }).click();
   await expect(group.locator('.new-pill')).toHaveText('4 new');
   // The group: the same, then nothing new anywhere - no dot.
   await group.click();

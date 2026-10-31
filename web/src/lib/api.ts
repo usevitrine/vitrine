@@ -649,6 +649,7 @@ export const api = {
     post<{ saved: SavedSearch[] }>(`/api/saved/${id}?x${sc(scope)}`, change),
   removeSaved: (id: number, scope: Scope = '') => post<{ saved: SavedSearch[] }>(`/api/saved/${id}/remove?x${sc(scope)}`, {}),
   reorderSaved: (ids: number[], scope: Scope = '') => post<{ saved: SavedSearch[] }>('/api/saved/reorder?x' + sc(scope), { ids }),
+  savedLooks: (sort: string) => get<{ saved: Record<string, SavedLook>; groups: SavedLook[] }>('/api/saved/looks?sort=' + encodeURIComponent(sort)),
   scheduleRefresh: (ids: number[]) => post<{ posts: number }>('/api/refresh', { ids }),
   sprite: (id: number) => get<SpriteInfo>(`/api/files/${id}/sprite`),
   refreshFile: (id: number) => post<{ found: number; queued?: number }>(`/api/files/${id}/refresh`, {}),
@@ -719,6 +720,14 @@ export interface LibraryStats {
     hwaccel?: string; // the GPU that decodes videos ("" / none: the processor)
     in_docker: boolean;
   };
+}
+
+/** What the saved searches menu's tile shows of a saved search or group besides its name. */
+export interface SavedLook {
+  tag?: string; // a group tag
+  count: number; // a group: its files
+  kids?: string[]; // a group: its first tags
+  pics: SubPic[]; // its first files (up to 3)
 }
 
 export interface News {

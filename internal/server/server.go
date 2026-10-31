@@ -182,6 +182,7 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.handle("POST /api/seen", s.seen)
 	s.handle("POST /api/saved", s.addSaved)
 	s.handle("POST /api/saved/reorder", s.reorderSaved)
+	s.handle("GET /api/saved/looks", s.savedLooks)
 	s.handle("POST /api/saved/{id}", s.updateSaved)
 	s.handle("POST /api/saved/{id}/remove", s.removeSaved)
 	s.handle("POST /api/refresh", s.scheduleRefresh)

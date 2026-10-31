@@ -7,6 +7,9 @@ shows this too (Settings > Help & about).
 
 ### Improved
 
+- **Saved searches, redesigned**: the menu opens from a floppy disk now (instead of the star). Each saved search is a tile with its first few pictures, its name and how many files it finds, two to a row. Press and hold a tile (or click and hold) to move it. Group tags have a tab of their own, as tiles too, in an order you choose. On a phone the menu comes up from the bottom (drag it down to close); on a computer it's a panel at the right. **Save** sits at the top.
+- **Long lines that slide come back quickly**: a name or search too long for its place slides slowly to its end, then comes back to its start quickly instead of at the same slow speed, and its first and last letters are never faded.
+
 - **The Downloads page opens at once on big libraries**: it no longer waits several seconds every half minute while the tag refresh numbers are counted again (they're counted in the background now, the last ones shown meanwhile). Opened again, it shows what it showed last while the latest comes, and it says "Loading…" instead of "No subscriptions yet" until the first answer arrives.
 - **Settings > Stats, redesigned**: every number in a tile with a few words under it, two to a row on a phone and more on a computer, so nothing is cut off or runs off the card any more. The health check shows its state as a badge, the images / GIFs / videos counts line up under their bar, and long versions (ffmpeg, video decoding) have rows of their own.
 
@@ -15,7 +18,6 @@ shows this too (Settings > Help & about).
 - **The app opens faster again on iPhone**: since 1.0.13 every start waited most of a second before showing anything (the page from the server was held back until a copy had been saved on the device). It's shown the moment it arrives now. And when the phone's own copy of the app is slow to come up (as it often is when you open the app from a notification), the app is loaded from the server instead of waiting for it.
 - **Tapping a notification on iPhone starts the app once**: it used to open a second copy beside the one iOS starts, so both loaded at the same time and the app took a few seconds to appear.
 - **No thumbnail edge around a video as it opens**: for a split second the thumbnail showed around the video's edges while the video faded in (easiest to see on a video that starts black). It now sits exactly behind the video's picture.
-- **Long saved search names wrap**: a long name ran out of its card in the saved searches menu, under its count.
 
 ## 1.0.13 - 2026-10-31
 

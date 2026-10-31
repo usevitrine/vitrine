@@ -49,6 +49,7 @@
     Plus,
     Repeat,
     RotateCcw,
+    Save,
     Search,
     Settings,
     Share,
@@ -108,6 +109,7 @@
     grip: GripVertical,
     retry: RotateCcw,
     star: Star,
+    save: Save, // a floppy disk: saved searches (the user, 2026-10-31: "change the icon ... from a star to the floppy disk")
     up: ArrowUp,
     share: Share,
     addbox: SquarePlus,

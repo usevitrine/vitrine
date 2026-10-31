@@ -308,7 +308,10 @@ Palette: https://catppuccin.com/palette
   right, then faster from right to left so the user can quickly read from the beginning again"): a line too long for
   its place (e.g. a long name kept on one line) rests at its start, moves forward slowly at an even reading speed,
   rests at its end, then comes back quickly (eased, a fraction of the time) and rests at its start again. Still
-  with reduced motion (its start shown, the end faded). Its soft edges follow the rule above.
+  with reduced motion (its start shown, the end faded). Its soft edges follow the rule above. One implementation for
+  all: app.css's `.marquee` (+ `.sliding`; keyframes `marquee-line`, `marquee-edges`) and `lib/marquee` (how far and
+  how long: about 40 px a second forward) - the Downloads menu's searches, a comic's title on hover, the saved
+  searches' names (until 2026-10-31 each had its own copy, going back as slowly as it went).
 - **Hover changes are instant everywhere (2026-10-19)**: no element fades its background on hover (the shared
   button and icon-link styles, chips, chart columns): moving between two neighbors, one fading out while the
   other faded in looked like a flicker. A test checks every clickable element on each screen for a background

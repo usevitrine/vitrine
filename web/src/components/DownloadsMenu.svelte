@@ -1,6 +1,7 @@
 <script lang="ts">
   import { overlayScroll } from '../lib/overlayScroll';
   import { untrack } from 'svelte';
+  import { marquee } from '../lib/marquee';
   import { px, settle, sizeOf, onPixels } from '../lib/motion';
   // The downloads in the top bar (the library): its counter says how many are running or waiting, and the arrow bobs
   // while one downloads. A press opens New download and the downloads going on now - running, then waiting, then
@@ -94,21 +95,6 @@
     if (open) untrack(() => (unfolded = {}));
   });
 
-  /** A search too long for its line scrolls to its end and back, again and again (not with reduced motion). */
-  const marquee = (box: HTMLElement) => {
-    const measure = () => {
-      const text = box.firstElementChild as HTMLElement | null;
-      if (!text) return;
-      const over = text.scrollWidth - box.clientWidth;
-      box.classList.toggle('long', over > 2);
-      box.style.setProperty('--shift', `${-over}px`);
-      box.style.setProperty('--dur', `${Math.max(3, over / 25 + 2)}s`);
-    };
-    const ro = new ResizeObserver(measure);
-    ro.observe(box);
-    measure();
-    return () => ro.disconnect();
-  };
 
   // A press outside closes it (the press goes no further: nothing opens by accident underneath).
   $effect(() => {
@@ -212,7 +198,8 @@
     <SiteIcon host={siteInfo.hosts[s.site] ?? ''} />
     <span class="text">
       <span class="head">
-        <span class="name" title={named(s)} {@attach marquee}><span>{named(s)}</span></span>
+        <!-- (a search too long for its line slides to its end and back: lib/marquee) -->
+        <span class="name marquee sliding" title={named(s)} {@attach marquee}><span>{named(s)}</span></span>
         {#if st === 'running'}
           {@const pct = measurable(s, live.files) ? Math.floor(progress(s, live.files, gallery(s)) * 100) : null}
           {#if pct !== null || speedOf(s)}
@@ -391,30 +378,7 @@
   .name {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
     font-weight: 600;
-  }
-  .name > span {
-    display: inline-block;
-  }
-  /* (its soft edges only where text is out of view, moving with it: marquee-edges, app.css) */
-  .name:global(.long) {
-    mask-image: linear-gradient(to right, transparent, #000 var(--edge-l), #000 calc(100% - var(--edge-r)), transparent);
-    animation: marquee-edges var(--dur, 4s) ease-in-out 0.6s infinite alternate;
-  }
-  .name:global(.long) > span {
-    animation: marquee var(--dur, 4s) ease-in-out 0.6s infinite alternate;
-  }
-  @keyframes marquee {
-    0%,
-    15% {
-      transform: translateX(0);
-    }
-    85%,
-    100% {
-      transform: translateX(var(--shift, 0));
-    }
   }
   /* How far and how fast (as the page's cards: the percent in peach, the speed after a dot), or its state. */
   .now {

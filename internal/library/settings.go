@@ -91,6 +91,17 @@ var settingCheck = map[string]func(json.RawMessage) error{
 	// The trash empties itself of files deleted more than this many days ago (0 / missing = never).
 	"trashDays":    numberIn(0, 3650),
 	"newMode":      oneOf("auto", "button"),
+	// The saved searches menu's Groups tab: the group tags in the user's order (the rest after them, by name).
+	"groupOrder": func(v json.RawMessage) error {
+		var tags []string
+		if err := json.Unmarshal(v, &tags); err != nil {
+			return err
+		}
+		if len(tags) > 1000 || slices.ContainsFunc(tags, func(t string) bool { return len(t) > 300 }) {
+			return fmt.Errorf("too long")
+		}
+		return nil
+	},
 	"hoverPreview": isBool,
 	"cameButton":   isBool, // the viewer's "I came" button and the Rankings page (missing = off)
 	// The app's sections: Media (pictures and videos) and Comics, each can be switched off (missing = on) - never both.

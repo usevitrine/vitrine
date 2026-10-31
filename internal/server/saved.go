@@ -121,6 +121,111 @@ func (s *Server) reorderSaved(w http.ResponseWriter, r *http.Request) {
 	s.writeSaved(w, r)
 }
 
+// ---- Tiles in the saved searches menu: each saved search's and group's first files (2026-10-31, the menu as tiles).
+
+type savedLook struct {
+	Tag   string   `json:"tag,omitempty"`  // a group tag
+	Count int      `json:"count"`          // its files (a group: every file of its tags)
+	Kids  []string `json:"kids,omitempty"` // a group: its first tags
+	Pics  []subPic `json:"pics"`           // the first files it shows (up to 3)
+}
+
+// savedLooks: GET /api/saved/looks?sort=<the page's default order> -> {saved: {id: {pics}}, groups: [{tag, count,
+// kids, pics}]} - what the saved searches menu shows of each besides its name (asked when it opens; the library's
+// list only: the Comics page's tiles have no pictures).
+func (s *Server) savedLooks(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	list, err := s.lib.SavedSearches(ctx, "")
+	if err != nil {
+		savedError(w, err)
+		return
+	}
+	def := r.URL.Query().Get("sort")
+	ix := s.lib.Index()
+	now := time.Now()
+	first := func(text, order string) []uint32 {
+		if order != "" {
+			text += " sort:" + order
+		}
+		q, err := search.Parse(text)
+		if err != nil {
+			q, err = search.Parse(strings.TrimSuffix(text, " sort:"+order)) // (an order the parser doesn't know)
+			if err != nil {
+				return nil
+			}
+		}
+		ids := ix.Search(q, now).IDs
+		return ids[:min(3, len(ids))]
+	}
+	saved := map[int64][]uint32{}
+	var ids []uint32
+	for _, sv := range list {
+		order := sv.Sort
+		if order == "" {
+			order = def
+		}
+		saved[sv.ID] = first(sv.Query, order)
+		ids = append(ids, saved[sv.ID]...)
+	}
+	parents, _ := ix.RelationNames()
+	kids := map[string][]string{}
+	var groups []string
+	for _, p := range parents {
+		if kids[p[1]] == nil {
+			groups = append(groups, p[1])
+		}
+		kids[p[1]] = append(kids[p[1]], p[0])
+	}
+	sort.Strings(groups)
+	looks := make([]savedLook, 0, len(groups))
+	groupFirst := make([][]uint32, 0, len(groups))
+	for _, g := range groups {
+		k := kids[g]
+		sort.Strings(k)
+		l := savedLook{Tag: g, Kids: k[:min(3, len(k))]}
+		if q, err := search.Parse(g); err == nil {
+			l.Count = ix.Count(q, now)
+		}
+		f := first(g, def)
+		ids = append(ids, f...)
+		groupFirst = append(groupFirst, f)
+		looks = append(looks, l)
+	}
+	pics := map[uint32]subPic{}
+	for start := 0; start < len(ids); start += 500 {
+		rows, err := s.lib.Files(ctx, ids[start:min(start+500, len(ids))])
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		for _, row := range rows {
+			if j := s.toJSON(row); j.Thumb != "" {
+				pics[row.ID] = subPic{row.ID, j.Thumb, j.Width, j.Height}
+			}
+		}
+	}
+	keep := func(ids []uint32) []subPic {
+		out := []subPic{}
+		for _, id := range ids {
+			if p, ok := pics[id]; ok {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	out := struct {
+		Saved  map[int64]savedLook `json:"saved"`
+		Groups []savedLook         `json:"groups"`
+	}{Saved: map[int64]savedLook{}, Groups: looks}
+	for id, f := range saved {
+		out.Saved[id] = savedLook{Pics: keep(f)}
+	}
+	for i, f := range groupFirst {
+		out.Groups[i].Pics = keep(f)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 // ---- NEW pills in the saved searches menu: per saved search and per group
 // (parent) tag, the files imported since it was last opened from the menu.
 
