@@ -47,7 +47,9 @@
     "unfavorite": "Remove selected from favourites"
   },
   "stats": {
-    "favorites": "Favourites"
+    "tile": {
+      "favorites": "favourites"
+    }
   },
   "settings": {
     "favoritesSort": "Favourites sort"

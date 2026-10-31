@@ -2,6 +2,9 @@
   // Settings > Stats: the library, downloads, storage and the server at a
   // glance - read when the section opens and again every half minute while
   // it's on screen. (The problem report: ReportCard, in Help & about.)
+  // Every number in a tile, two to a row (four on a wide screen), with a few
+  // words under it; only the long versions are rows - never a number beside a
+  // long hint, which ran off the card on phones.
   import { onMount } from 'svelte';
   import { reveal, moved } from '../lib/motion';
   import { api, type LibraryStats } from '../lib/api';
@@ -10,7 +13,7 @@
   import { toasts } from '../lib/toast.svelte';
   import SiteIcon from './SiteIcon.svelte';
   import Rich from './Rich.svelte';
-  import { t, num, date } from '../lib/i18n.svelte';
+  import { t, num, short, date } from '../lib/i18n.svelte';
 
   const DAYS = 30;
   let st = $state<LibraryStats | null>(null);
@@ -43,12 +46,17 @@
     if (h) return t('stats.uptime.hours', { h, m });
     return t('stats.uptime.minutes', { m: Math.max(1, m) });
   }
-  const short = (ms: number) => date(new Date(ms), { day: 'numeric', month: 'short' });
+  const shortDate = (ms: number) => date(new Date(ms), { day: 'numeric', month: 'short' });
   const day = (offset: number) => {
     const d = new Date();
     d.setDate(d.getDate() - offset);
     return date(d, { day: 'numeric', month: 'short' });
   };
+  /** "VA-API (/dev/dri/renderD128)" -> the name, and the device under it. */
+  function decoder(s = ''): [string, string] {
+    const m = s.match(/^(.*?) \((.*)\)$/);
+    return m ? [m[1], m[2]] : [s, ''];
+  }
 
   // The imports chart: the day under the pointer is read out above it.
   let pick = $state<number | null>(null);
@@ -62,55 +70,54 @@
     <p class="hint">{t('rankings.counting')}</p>
   </section>
 {:else}
+  {@const s = st.server}
+  {@const [dec, device] = decoder(s.hwaccel)}
   <section class="card" transition:reveal>
     <div class="card-head"><h2>{t('menu.library')}</h2></div>
     <div class="tiles">
-      <div class="tile"><b>{n(st.files)}</b><span>{t('stats.tile.files', { n: st.files })}</span></div>
-      <div class="tile"><b>{formatSize(st.bytes)}</b><span>{t('stats.tile.inAll')}</span></div>
+      <div class="tile"><b>{n(st.files)}</b><span>{t('stats.tile.filesSize', { n: st.files, size: formatSize(st.bytes) })}</span></div>
       <div class="tile"><b>{n(st.tags)}</b><span>{t('stats.tile.tags', { n: st.tags })}</span></div>
     </div>
     {#if st.files > 0}
-      <div class="kinds">
-        <div class="bar" role="img" aria-label={st.kinds.map((k) => `${kindLabel(k.kind)}: ${n(k.files)}`).join(', ')}>
-          {#each st.kinds as k (k.kind)}
-            <span style:flex-grow={k.files} style:background={kindColor[k.kind]}></span>
-          {/each}
+      <div class="bar" role="img" aria-label={st.kinds.map((k) => `${kindLabel(k.kind)}: ${n(k.files)}`).join(', ')}>
+        {#each st.kinds as k (k.kind)}
+          <span style:flex-grow={k.files} style:background={kindColor[k.kind]}></span>
+        {/each}
+      </div>
+      <!-- Under the bar: the first kind at its left end, the last at its right, one between in the middle. -->
+      <ul class="legend">
+        {#each st.kinds as k (k.kind)}
+          <li>
+            <span class="what"><span class="dot" style:background={kindColor[k.kind]}></span>{kindLabel(k.kind)}</span>
+            <span class="num">{n(k.files)}</span>
+            <span class="size">{formatSize(k.bytes)}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    <div class="tiles three">
+      <div class="tile"><b>{short(st.tag_links)}</b><span>{st.user_links ? t('stats.tile.tagLinksYours', { n: n(st.user_links) }) : t('stats.tile.tagLinks')}</span></div>
+      <div class="tile"><b>{n(st.favorites)}</b><span>{t('stats.tile.favorites')}</span></div>
+      <div class="tile"><b>{n(st.trash.files)}</b><span>{st.trash.files ? t('stats.tile.trashSize', { size: formatSize(st.trash.bytes) }) : t('stats.tile.trash')}</span></div>
+      <div class="tile"><b>{n(st.removed)}</b><span>{t('stats.tile.removed')}</span></div>
+      <div class="tile"><b>{n(st.untagged)}</b><span>{t('stats.tile.untagged')}</span></div>
+      <div class="tile"><b>{n(st.parents)} · {n(st.siblings)}</b><span>{t('stats.tile.relations')}</span></div>
+    </div>
+    {#if st.health}
+      {@const h = st.health}
+      {@const bad = !!(h.missing_count || h.damaged_count || h.db_problem)}
+      <div class="tile state">
+        <div class="said">
+          <span class="name">{t('stats.health.label')}</span>
+          {#if bad}
+            <span class="bad">{[h.missing_count && t('stats.health.missing', { n: h.missing_count }), h.damaged_count && t('stats.health.damaged', { n: h.damaged_count }), h.db_problem && t('stats.health.database')].filter(Boolean).join(' · ')}</span>
+          {:else if h.db_checked_at}
+            <span>{h.cursor || !h.last_pass_at ? t('stats.health.reading', { pct: Math.min(99, Math.floor((h.verified / Math.max(1, st.files)) * 100)) }) : t('stats.health.allRead', { date: shortDate(h.last_pass_at) })}</span>
+          {/if}
         </div>
-        <ul class="legend">
-          {#each st.kinds as k (k.kind)}
-            <li>
-              <span class="dot" style:background={kindColor[k.kind]}></span>
-              <span class="what">{kindLabel(k.kind)}</span>
-              <span class="num">{n(k.files)}</span>
-              <span class="size">{formatSize(k.bytes)}</span>
-            </li>
-          {/each}
-        </ul>
+        <span class="pill" class:ok={h.db_checked_at && !bad} class:red={bad}>{!h.db_checked_at ? t('stats.health.never') : bad ? t('stats.health.problems') : t('stats.health.fine')}</span>
       </div>
     {/if}
-    <dl class="rows">
-      <div><dt>{t('stats.favorites')}</dt><dd>{n(st.favorites)}</dd></div>
-      <div><dt>{t('stats.tagLinks')}</dt><dd>{n(st.tag_links)}{#if st.user_links}<small>&nbsp;· {t('stats.yours', { n: st.user_links })}</small>{/if}</dd></div>
-      <div><dt>{t('stats.relations')}</dt><dd>{n(st.parents)} · {n(st.siblings)}</dd></div>
-      <div><dt>{t('stats.untagged')}</dt><dd>{n(st.untagged)}</dd></div>
-      <div><dt>{t('stats.trash')}</dt><dd>{n(st.trash.files)}{#if st.trash.files}<small>&nbsp;· {formatSize(st.trash.bytes)}</small>{/if}</dd></div>
-      <div><dt>{t('stats.removed')}</dt><dd>{n(st.removed)}<small>&nbsp;· {t('stats.removedHint')}</small></dd></div>
-      {#if st.health}
-        {@const h = st.health}
-        <div>
-          <dt>{t('stats.health.label')}</dt>
-          <dd>
-            {#if !h.db_checked_at}
-              {t('stats.health.never')}
-            {:else if h.missing_count || h.damaged_count || h.db_problem}
-              <span class="bad">{[h.missing_count && t('stats.health.missing', { n: h.missing_count }), h.damaged_count && t('stats.health.damaged', { n: h.damaged_count }), h.db_problem && t('stats.health.database')].filter(Boolean).join(' · ')}</span>
-            {:else}
-              {t('stats.health.fine')}<small>&nbsp;· {h.cursor || !h.last_pass_at ? t('stats.health.reading', { pct: Math.min(99, Math.floor((h.verified / Math.max(1, st.files)) * 100)) }) : t('stats.health.allRead', { date: short(h.last_pass_at) })}</small>
-            {/if}
-          </dd>
-        </div>
-      {/if}
-    </dl>
   </section>
 
   <section class="card">
@@ -136,28 +143,24 @@
 
   <section class="card">
     <div class="card-head"><h2>{t('stats.downloads')}</h2></div>
-    {#if st.sites.length}
-      <ul class="sites" transition:reveal>
-        {#each st.sites as s (s.site)}
-          <li animate:moved transition:reveal>
-            <SiteIcon host={siteLabel(s.site)} />
-            <span class="what">{siteLabel(s.site)}</span>
-            <span class="num">{n(s.files)} <small>{t('stats.tile.files', { n: s.files })}</small></span>
-            <span class="size">{n(s.posts)} <small>{t('stats.postsSeen', { n: s.posts })}</small></span>
-          </li>
-        {/each}
-      </ul>
-    {:else}
+    {#if !st.sites.length}
       <p class="hint" transition:reveal>{t('stats.nothingDownloaded')}</p>
     {/if}
-    <dl class="rows">
-      <div>
-        <dt>{t('stats.subscriptions')}</dt>
-        <dd>
-          {n(st.subscriptions.total)}{#if st.subscriptions.paused}<small>&nbsp;· {t('stats.paused', { n: st.subscriptions.paused })}</small>{/if}{#if st.subscriptions.failing}<small class="bad">&nbsp;· {t('stats.failing', { n: st.subscriptions.failing })}</small>{/if}
-        </dd>
+    <div class="tiles four">
+      {#each st.sites as s (s.site)}
+        <div class="tile" animate:moved transition:reveal>
+          <span class="site"><SiteIcon host={siteLabel(s.site)} /><span class="name">{siteLabel(s.site)}</span></span>
+          <b>{short(s.files)}</b>
+          <span>{t('stats.tile.filesSeen', { n: s.files, seen: short(s.posts) })}</span>
+        </div>
+      {/each}
+      <div class="tile full">
+        <b>{n(st.subscriptions.total)}</b>
+        <span>
+          {t('stats.tile.subscriptions', { n: st.subscriptions.total })}{#if st.subscriptions.paused}&nbsp;· {t('stats.paused', { n: st.subscriptions.paused })}{/if}{#if st.subscriptions.failing}&nbsp;· <span class="bad">{t('stats.failing', { n: st.subscriptions.failing })}</span>{/if}
+        </span>
       </div>
-    </dl>
+    </div>
   </section>
 
   <section class="card">
@@ -165,71 +168,139 @@
     {#each st.storage.disks as d (d.for)}
       {@const used = d.total - d.free}
       <div class="disk">
-        <div class="disk-head">
-          <span class="what">{diskLabel(d.for)} <small>{diskHint(d.for)}</small></span>
-          <span class="num">{formatSize(d.free)} <small>{t('stats.freeOf', { total: formatSize(d.total) })}</small></span>
-        </div>
+        <div class="disk-head"><span class="what">{diskLabel(d.for)}</span><span class="num">{t('stats.free', { size: formatSize(d.free) })}</span></div>
         <div class="bar meter" class:low={d.free < d.total * 0.1} role="meter" aria-label={t('stats.used', { disk: diskLabel(d.for) })} aria-valuemin={0} aria-valuemax={d.total} aria-valuenow={used}>
           <span style:width="{(used / Math.max(1, d.total)) * 100}%"></span>
         </div>
+        <span class="sub">{t('stats.ofTotal', { total: formatSize(d.total), what: diskHint(d.for) })}</span>
       </div>
     {/each}
-    <dl class="rows">
-      <div><dt>{t('stats.originals')}</dt><dd>{formatSize(st.storage.originals)}</dd></div>
-      <div><dt>{t('stats.database')}</dt><dd>{formatSize(st.storage.database)}</dd></div>
-      <div><dt>{t('stats.thumbnails')}</dt><dd>{formatSize(st.storage.thumbs)}</dd></div>
-      <div><dt>{t('stats.previews')}</dt><dd>{formatSize(st.storage.previews)}<small>&nbsp;· {t('stats.previewsHint')}</small></dd></div>
-      <div><dt>{t('backups.title')}</dt><dd>{formatSize(st.storage.backups)}</dd></div>
-    </dl>
+    <div class="tiles five">
+      <div class="tile"><b>{formatSize(st.storage.originals)}</b><span>{t('stats.tile.originals')}</span></div>
+      <div class="tile"><b>{formatSize(st.storage.thumbs)}</b><span>{t('stats.tile.thumbnails')}</span></div>
+      <div class="tile"><b>{formatSize(st.storage.previews)}</b><span>{t('stats.tile.previews')}</span></div>
+      <div class="tile"><b>{formatSize(st.storage.database)}</b><span>{t('stats.tile.database')}</span></div>
+      <div class="tile"><b>{formatSize(st.storage.backups)}</b><span>{t('stats.tile.backups')}</span></div>
+    </div>
   </section>
 
   <section class="card">
     <div class="card-head"><h2>{t('stats.server')}</h2></div>
+    <div class="tiles four">
+      <div class="tile"><b>{s.version}</b><span>{t('stats.tile.version')}</span></div>
+      <div class="tile"><b>{duration(s.uptime_s)}</b><span>{t('stats.tile.uptime')}</span></div>
+      <div class="tile"><b>{formatSize(s.memory)}</b><span>{t('stats.tile.memory', { size: formatSize(s.heap) })}</span></div>
+      <div class="tile"><b>{t('stats.cpus', { n: s.cpus })}</b><span>{s.os}{s.in_docker ? ' · Docker' : ''}</span></div>
+    </div>
     <dl class="rows">
-      <div><dt>{t('stats.version')}</dt><dd>{st.server.version}</dd></div>
-      <div><dt>{t('stats.uptime.label')}</dt><dd>{duration(st.server.uptime_s)}</dd></div>
-      <div><dt>{t('stats.memory')}</dt><dd>{formatSize(st.server.memory)}<small>&nbsp;· {t('stats.inUse', { size: formatSize(st.server.heap) })}</small></dd></div>
-      <div><dt>{t('stats.system')}</dt><dd>{st.server.os}<small>&nbsp;· {t('stats.cpus', { n: st.server.cpus })}{st.server.in_docker ? ' · Docker' : ''}</small></dd></div>
-      <div><dt>ffmpeg</dt><dd class:bad={!st.server.ffmpeg}>{st.server.ffmpeg || t('stats.notFound')}</dd></div>
-      <div><dt>libvips</dt><dd>{st.server.vips || t('stats.notFound')}{#if !st.server.vips}<small>&nbsp;· {t('stats.imagesUseFfmpeg')}</small>{/if}</dd></div>
-      <div><dt>{t('stats.hwaccel')}</dt><dd>{st.server.hwaccel || t('stats.hwaccelNone')}{#if !st.server.hwaccel}<small>&nbsp;· {t('stats.hwaccelNoneHint')}</small>{/if}</dd></div>
-      <div><dt>Go</dt><dd>{st.server.go.replace(/^go/, '')}</dd></div>
+      <div>
+        <dt>{t('stats.hwaccel')}{#if device || !s.hwaccel}<small>{device || t('stats.hwaccelNoneHint')}</small>{/if}</dt>
+        <dd>{s.hwaccel ? dec : t('stats.hwaccelNone')}</dd>
+      </div>
+      <div><dt>ffmpeg</dt><dd class:bad={!s.ffmpeg}>{s.ffmpeg || t('stats.notFound')}</dd></div>
+      <div><dt>libvips{#if !s.vips}<small>{t('stats.imagesUseFfmpeg')}</small>{/if}</dt><dd>{s.vips || t('stats.notFound')}</dd></div>
+      <div><dt>Go</dt><dd>{s.go.replace(/^go/, '')}</dd></div>
     </dl>
-    <p class="hint">{t('stats.took', { ms: st.took_ms < 1 ? '<1' : num(Math.round(st.took_ms)) })}</p>
   </section>
 {/if}
 
 <style>
   .tiles {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+  /* Four to a row where the card has room (Settings' column on a computer). */
+  @media (min-width: 720px) {
+    .tiles.four {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .tiles.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .tiles.five {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+    .tiles.five > .tile {
+      grid-column: auto !important;
+    }
   }
   .tile {
     display: grid;
-    gap: 2px;
-    padding: 12px;
+    align-content: start;
+    gap: 1px;
+    padding: 10px 12px;
     border-radius: 10px;
     background: var(--base);
     min-width: 0;
-    container-type: inline-size; /* (its number sized to it: "495.2 GB" whole on a narrow phone) */
   }
   .tile b {
-    font-size: min(22px, 18cqi);
+    font-size: 20px;
     font-weight: 650;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
   }
-  .tile span {
+  .tile > span,
+  .sub,
+  small {
+    color: var(--subtext);
+    font-size: var(--font-small);
+    overflow-wrap: anywhere;
+  }
+  .tile.full,
+  .tiles:not(.four, .three) > .tile:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  .site {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin-bottom: 4px;
+  }
+  .site .name {
+    min-width: 0;
+    color: var(--subtext);
+    font-size: var(--font-small);
+    overflow-wrap: anywhere;
+  }
+  /* The health check: what it found, and its state as a pill. */
+  .tile.state {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .said {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+  }
+  .said .name {
+    font-weight: 600;
+  }
+  .said > span:not(.name) {
     color: var(--subtext);
     font-size: var(--font-small);
   }
-  .kinds {
-    display: grid;
-    gap: 10px;
+  .pill {
+    flex: none;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: var(--font-small);
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--surface0);
+    color: var(--subtext);
+  }
+  .pill.ok {
+    background: color-mix(in srgb, var(--green) 16%, transparent);
+    color: var(--green);
+  }
+  .pill.red {
+    background: color-mix(in srgb, var(--red) 16%, transparent);
+    color: var(--red);
   }
   .bar {
     display: flex;
@@ -250,63 +321,66 @@
   .meter.low > span {
     background: var(--red);
   }
-  .legend,
-  .sites {
+  .legend {
     list-style: none;
-    margin: 0;
+    margin: -4px 0 0;
     padding: 0;
     display: grid;
-    gap: 6px;
-  }
-  .legend li,
-  .sites li {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto 5.5em;
-    align-items: center;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
-  .sites li {
-    grid-template-columns: auto minmax(0, 1fr) auto 8.5em;
+  .legend li {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+    align-content: start;
+  }
+  .legend li:nth-child(2):not(:last-child) {
+    justify-items: center;
+    text-align: center;
+  }
+  .legend li:last-child:not(:first-child) {
+    grid-column: 3;
+    justify-items: end;
+    text-align: right;
+  }
+  .legend .what {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--subtext);
+    font-size: var(--font-small);
   }
   .dot {
     width: 9px;
     height: 9px;
     border-radius: 50%;
-  }
-  .what {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    flex: none;
   }
   .num,
   .size,
   dd {
     font-variant-numeric: tabular-nums;
-    text-align: right;
-    white-space: nowrap;
   }
   .size {
     color: var(--subtext);
-  }
-  small {
-    color: var(--subtext);
     font-size: var(--font-small);
   }
-  .bad,
-  small.bad {
+  .bad {
     color: var(--red);
   }
+  /* Rows for what's long (versions, the decoder): its name and any hint on the left, the value
+     on the right, in the middle of the two lines. */
   .rows {
     margin: 0;
     display: grid;
   }
   .rows > div {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     gap: 12px;
-    padding: 7px 0;
+    padding: 8px 0;
     border-top: 1px solid var(--surface0);
   }
   .rows > div:first-child {
@@ -317,13 +391,16 @@
     padding-bottom: 0;
   }
   dt {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
     color: var(--subtext);
   }
   dd {
     margin: 0;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    text-align: right;
+    overflow-wrap: anywhere;
   }
   .readout :global(strong) {
     color: var(--text);
@@ -366,29 +443,19 @@
   }
   .disk {
     display: grid;
-    gap: 8px;
+    gap: 6px;
   }
-  /* A disk's name and hint, then its free space - on a line of its own when they don't fit side by side. */
   .disk-head {
     display: flex;
-    flex-wrap: wrap;
     justify-content: space-between;
     align-items: baseline;
-    gap: 2px 12px;
+    gap: 12px;
   }
   .disk-head .what {
     min-width: 0;
+    color: var(--subtext);
   }
   .disk-head .num {
-    margin-left: auto;
     white-space: nowrap;
-  }
-  .disk-head small {
-    margin-left: 4px;
-  }
-  @media (max-width: 420px) {
-    .disk-head .what small {
-      display: none;
-    }
   }
 </style>

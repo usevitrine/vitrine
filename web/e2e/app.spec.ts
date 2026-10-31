@@ -5771,6 +5771,10 @@ test('Settings > Stats: the library, imports, downloads, storage and the server 
   await expect(library.locator('.tile').first()).toContainText('26');
   await expect(library.locator('.legend')).toContainText('Images');
   await expect(library.locator('.legend')).toContainText('Videos');
+  // Under the bar: the last kind's numbers end at its right edge.
+  const barBox = (await library.locator('.bar').first().boundingBox())!;
+  const lastKind = (await library.locator('.legend li').last().locator('.num').boundingBox())!;
+  expect(Math.abs(lastKind.x + lastKind.width - (barBox.x + barBox.width))).toBeLessThan(2);
   // Today's bar holds today's imports (the whole test library).
   const imports = page.locator('section.card', { has: page.getByRole('heading', { name: 'Imports' }) });
   await expect(imports.locator('.col')).toHaveCount(30);
@@ -5778,12 +5782,23 @@ test('Settings > Stats: the library, imports, downloads, storage and the server 
   await expect(imports.locator('.readout')).toContainText('26 on');
   const storage = page.locator('section.card', { has: page.getByRole('heading', { name: 'Storage' }) });
   await expect(storage.getByRole('meter').first()).toBeVisible();
-  await expect(storage).toContainText(/free of/);
+  await expect(storage).toContainText(/ free/);
+  await expect(storage).toContainText(/of .+ · /);
   const server = page.locator('section.card', { has: page.getByRole('heading', { name: 'Server' }) });
-  await expect(server).toContainText('Running for');
+  await expect(server).toContainText('uptime');
   await expect(server.locator('dd').filter({ hasText: 'Not found' })).toHaveCount(0); // ffmpeg and libvips are there (the tests need them)
-  // Nothing wider than the screen.
+  // Nothing wider than the screen, and nothing sticks out of its card.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const outside = await page.evaluate(() =>
+    [...document.querySelectorAll('section.card')].flatMap((card) => {
+      const c = card.getBoundingClientRect();
+      return [...card.querySelectorAll('*')].filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && (r.right > c.right + 0.5 || r.left < c.left - 0.5);
+      }).map((el) => el.textContent?.slice(0, 40));
+    }),
+  );
+  expect(outside).toEqual([]);
 });
 
 test('problem report: errors in the app reach the server log; the report shows, copies and downloads it, without private values', async ({ page }) => {

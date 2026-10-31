@@ -125,6 +125,18 @@ Settings sections and cards: Library, New files, Sites, Downloads, Notifications
   disk's free space goes to a line of its own when it doesn't fit beside its name and hint; the three tiles size their
   number to the tile (`min(22px, 18cqi)`, a container query) - "495.2 GB" whole, no "...". (The old rules were for
   screens up to 420 px only; the user's phone is wider.)
+- **Stats as tiles (2026-10-31, the user: "lots of truncated text and word wrapping at mobile widths"; picked layout A
+  of three working prototypes - tiles, a list with hints on their own line, a headline number)**: on a 700k-file
+  library the rows ran off the card (a number beside a long hint never shrank; Favorites' number was pushed out of
+  sight). Now every number is a tile - the number, a few lowercase words under it - two to a row, on a wide screen
+  three (Media's six), four (Downloads' sites, Server) or five (Storage); a lone last tile spans the row. Big counts
+  in few characters (`short`: 32.8M tag links, 669K files). The kinds' counts sit under the bar: the first at its left,
+  one in the middle, the last at its right edge. The health check: a tile with what it found and a pill (No problems
+  green, Problems red, Not run yet grey). A disk: name and free space, the meter, "of 5.25 TB · what's on it". Only
+  the long values (video decoding with its device under the name, ffmpeg, libvips, Go) are rows, the value in the
+  middle of the row's two lines. The user's wording: "uptime", "deleted forever", "N seen" (posts), no "made again when
+  needed" under previews, no "Counted in N ms". Test: "Settings > Stats" also checks nothing sticks out of a card and
+  the last kind ends at the bar's right edge.
 - **Media and Comics can be switched off (2026-10-23)** (the user: "an option to disable library and comics ... one HAS
   to be enabled ... prompt the user if they want to delete all the data ... where they need to actively type
   something"; and "in the initial setup the user should pick what they want to enable"): Settings > Viewing > Content

@@ -1638,7 +1638,6 @@
       }
     },
     "uptime": {
-      "label": "Running for",
       "days": {
         "one": "{n} day {h} h",
         "other": "{n} days {h} h"
@@ -1655,28 +1654,44 @@
       "label": "The problem report"
     },
     "tile": {
-      "files": {
-        "one": "file",
-        "other": "files"
+      "filesSize": {
+        "one": "file · {size}",
+        "other": "files · {size}"
       },
-      "inAll": "in all",
       "tags": {
         "one": "tag in use",
         "other": "tags in use"
-      }
+      },
+      "tagLinks": "tag links",
+      "tagLinksYours": "tag links · {n} yours",
+      "favorites": "favorites",
+      "trash": "in the trash",
+      "trashSize": "in the trash · {size}",
+      "removed": "deleted forever",
+      "untagged": "untagged",
+      "relations": "parents · siblings",
+      "filesSeen": {
+        "one": "file · {seen} seen",
+        "other": "files · {seen} seen"
+      },
+      "subscriptions": {
+        "one": "subscription",
+        "other": "subscriptions"
+      },
+      "originals": "originals",
+      "thumbnails": "thumbnails",
+      "previews": "previews",
+      "database": "database",
+      "backups": "backups",
+      "version": "version",
+      "uptime": "uptime",
+      "memory": "memory · {size} in use"
     },
-    "favorites": "Favorites",
-    "tagLinks": "Tag links",
-    "yours": "{n} yours",
-    "relations": "Parents · siblings",
-    "untagged": "Untagged files",
-    "trash": "Deleted, can be undone",
-    "removed": "Deleted for good",
-    "removedHint": "never downloaded again",
     "health": {
       "label": "Health check",
       "never": "Not run yet",
       "fine": "No problems",
+      "problems": "Problems",
       "reading": "{pct} % of the files read back this round",
       "allRead": "every file read back by {date}",
       "missing": "{n} missing",
@@ -1689,27 +1704,15 @@
     "chart": "Files imported per day, last {days} days",
     "today": "Today",
     "downloads": "Downloads",
-    "postsSeen": {
-      "one": "post seen",
-      "other": "posts seen"
-    },
     "nothingDownloaded": "Nothing downloaded yet.",
     "subscriptions": "Subscriptions",
     "paused": "{n} paused",
     "failing": "{n} failing",
     "storage": "Storage",
-    "freeOf": "free of {total}",
+    "free": "{size} free",
+    "ofTotal": "of {total} · {what}",
     "used": "{disk} used",
-    "originals": "Originals",
-    "database": "Database",
-    "thumbnails": "Thumbnails",
-    "previews": "Previews",
-    "previewsHint": "made again when needed",
     "server": "Server",
-    "version": "Version",
-    "memory": "Memory",
-    "inUse": "{size} in use",
-    "system": "System",
     "cpus": {
       "one": "{n} CPU",
       "other": "{n} CPUs"
@@ -1718,8 +1721,7 @@
     "imagesUseFfmpeg": "images use ffmpeg",
     "hwaccel": "Video decoding",
     "hwaccelNone": "The processor",
-    "hwaccelNoneHint": "no graphics hardware found (hwaccel in the config)",
-    "took": "Counted in {ms} ms."
+    "hwaccelNoneHint": "no graphics hardware found (hwaccel in the config)"
   },
   "depth": {
     "label": "Check depth",
