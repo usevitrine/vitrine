@@ -6577,6 +6577,20 @@ test('downloads page: while its answer is slow it says Loading (never "nothing" 
   await expect(page).toHaveURL(/downloads/);
   await expect(page.getByText('Loading…')).toHaveCount(0, { timeout: 1000 });
   await page.unrouteAll({ behavior: 'ignoreErrors' });
+test('opening the app reports how long it took to the server log, once: the page, the first search, the thumbnails, the splash', async ({ page }) => {
+  const reports: { kind?: string; message: string }[] = [];
+  await page.route('**/api/log', (r) => {
+    reports.push(r.request().postDataJSON());
+    return r.fulfill({ json: { ok: true } });
+  });
+  await page.goto('/');
+  await expect.poll(() => reports.filter((x) => x.kind === 'start').length).toBe(1);
+  const msg = reports.find((x) => x.kind === 'start')!.message;
+  expect(msg).toMatch(/^(iPhone|desktop)/);
+  for (const part of ['page ', 'script ', 'drawn ', '| search ', 'thumbs ', 'splash gone ']) expect(msg).toContain(part);
+  expect(msg).not.toContain('q='); // (paths only, never a search)
+  await page.waitForTimeout(500);
+  expect(reports.filter((x) => x.kind === 'start')).toHaveLength(1);
 });
 
 test('a new download from a tag: the sites it came from first (most files first), then the others', async ({ page }) => {

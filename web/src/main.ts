@@ -13,7 +13,9 @@ import { refreshShell } from './lib/appShell';
 import { ownTouches } from './lib/ownTouches';
 import { DEMO } from './lib/demo';
 import { startDemo } from './demo/backend'; // (left out of the app's build: DEMO is false there)
+import { startMark, reportStart } from './lib/startTiming';
 
+startMark('script');
 logErrors();
 ownTouches(); // (the app's own swipes: the browser takes no fling from them - lib/ownTouches)
 trackKeyboard();
@@ -49,7 +51,10 @@ if (splash) {
   const done = () => {
     if (!shown()) return false;
     drawnAt ||= performance.now();
+    startMark('drawn');
     if (!thumbsIn() && performance.now() - drawnAt < 1500) return false;
+    startMark('splash');
+    if (!DEMO) setTimeout(reportStart, 500); // (the thumbnails' timings complete)
     splash.style.transition = 'opacity 0.25s ease-out';
     splash.style.opacity = '0';
     setTimeout(() => splash.remove(), 260);
@@ -105,7 +110,10 @@ async function checkVersion() {
     // Offline: checked again next time.
   }
 }
-if (!DEMO) checkVersion();
+if (!DEMO) {
+  checkVersion();
+  setTimeout(reportStart, 15_000); // (no splash - Android, or it never went: the times so far)
+}
 let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') hiddenAt = Date.now();
