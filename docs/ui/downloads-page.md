@@ -51,7 +51,10 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   going fade and the rest glide. Reduced motion: at once. In the
   queue every download has a handle, the running one too (2026-10-28, the user: "I can't reorder an active initial
   download"): dragged below another, it steps aside after its file in flight (`Reorder` flags it) and the one now ahead
-  starts; retries come first in the stack, so the searches' rows stay together while dragging.
+  starts; retries come first in the stack, so the searches' rows stay together while dragging. A change made on the
+  page (a move, a removal, Clear finished, Unsubscribe) shows at once; an answer to a refresh asked for before it (or
+  one arriving after a newer answer) is thrown away (2026-10-31, the user: a moved download "switches back to its
+  original position briefly and then jumps back" - while downloads run the page asks again on every change).
 - **Retries in the queue**: Retry (or Retry all) on a failed file runs in the background (`StartRetry`) - the card
   shows in its site's queue ("Retrying", the file's bytes and speed from the live stream: `FileProgress.key`), then its
   result for 6 s (Downloaded, or back in Failed files with why); a retry started here gets a notice.

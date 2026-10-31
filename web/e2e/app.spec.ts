@@ -1073,6 +1073,34 @@ test('downloads: pause, resume, reorder, remove, retry (offline test sites)', as
   // Arrow keys on the handle move it too.
   await page.getByRole('button', { name: /^Reorder slow_c/ }).press('ArrowDown');
   await expect.poll(order).toEqual(['slow_a', 'slow_b', 'slow_c']);
+  // Two moves in a row while the page's answers are slow (as while downloads run): the first move's refresh, answered
+  // after the second move, is out of date - the row never goes back to where it was (the user: it "switches back to
+  // its original position briefly and then jumps back").
+  await page.route('**/api/downloads', async (r) => {
+    if (r.request().method() !== 'GET') return r.continue();
+    const res = await r.fetch(); // (the order then, arriving late)
+    await new Promise((done) => setTimeout(done, 600));
+    await r.fulfill({ response: res });
+  });
+  const orders = page.evaluate(
+    () =>
+      new Promise<string[]>((done) => {
+        const seen: string[] = [];
+        const end = performance.now() + 2500;
+        const look = () => {
+          const now = [...document.querySelectorAll('.stack .item .query')].map((e) => e.textContent).filter((x) => x?.startsWith('slow_')).join(' ');
+          if (seen[seen.length - 1] !== now) seen.push(now);
+          if (performance.now() < end) requestAnimationFrame(look);
+          else done(seen);
+        };
+        look();
+      }),
+  );
+  await page.getByRole('button', { name: /^Reorder slow_c/ }).press('ArrowUp');
+  await page.waitForTimeout(200);
+  await page.getByRole('button', { name: /^Reorder slow_c/ }).press('ArrowDown');
+  expect(await orders).toEqual(['slow_a slow_b slow_c', 'slow_a slow_c slow_b', 'slow_a slow_b slow_c']);
+  await page.unroute('**/api/downloads');
   // The one downloading moves too: below slow_b, it steps aside after its file in flight and slow_b takes over.
   await page.getByRole('button', { name: /^Reorder slow_a/ }).press('ArrowDown');
   await expect.poll(order).toEqual(['slow_b', 'slow_a', 'slow_c']);

@@ -356,10 +356,23 @@
     }
   }
 
+  // An answer asked for before a change made here (shown at once) is out of date: while downloads ran the page asked
+  // again on every change, and a reordered download went back to its old place for a moment, then jumped to the new
+  // one again (the user). So is one that comes after a newer answer.
+  let asked = 0;
+  let shown = 0;
+  let changes = 0;
+  /** A change made on the page (the server has it, or will have it before the next refresh is asked for). */
+  const changed = () => changes++;
+
   async function refresh() {
     if (drag) return; // don't move rows under the finger
+    const n = ++asked;
+    const at = changes;
     try {
       const res = await api.downloads();
+      if (n < shown || at !== changes) return;
+      shown = n;
       sites = res.sites;
       sitesOff = res.sites_off ?? [];
       sitesPaused = res.sites_paused ?? {};
@@ -540,6 +553,7 @@
           if (!ok) return;
         }
         await api.removeDownload(s.id);
+        changed();
         searches = searches.filter((x) => x.id !== s.id);
         toasts.show(t('downloads.removed', { query: named(s) }), { cat: 'downloadsStarted', kind: 'removed' });
       }
@@ -652,7 +666,8 @@
   async function clearFinished() {
     try {
       const { removed } = await api.clearDownloads();
-      searches = searches.filter((s) => s.state !== 'done');
+      changed();
+      searches =searches.filter((s) => s.state !== 'done');
       toasts.show(t('downloads.cleared', { n: removed }), { cat: 'downloadsMisc', kind: 'removed' });
     } catch (e) {
       toasts.error((e as Error).message);
@@ -1156,7 +1171,8 @@
         const ok = await confirmAction({ title: t('downloads.unsubTitle', { query: named(s) }), body: t('downloads.unsubBody'), action: t('downloads.unsubscribe'), icon: 'close' });
         if (!ok) return;
         await api.removeSubscription(s.id);
-        subs = subs.filter((x) => x.id !== s.id);
+        changed();
+        subs =subs.filter((x) => x.id !== s.id);
         searches = searches.filter((x) => x.subscription_id !== s.id);
         toasts.show(t('downloads.unsubscribed', { query: named(s) }), { cat: 'downloadsStarted', kind: 'removed' });
       }
@@ -1244,8 +1260,9 @@
     const ids = (queues.find((q) => q.site === site)?.list ?? []).map((s) => s.id);
     const [id] = ids.splice(from, 1);
     ids.splice(to, 0, id);
-    // Show the new order at once, then save it.
+    // Show the new order at once, then save it (what's asked for until it's saved has the old order).
     const pos = new Map(ids.map((x, k) => [x, k]));
+    changed();
     searches = [...searches].sort((a, b) =>
       a.site === site && b.site === site && pos.has(a.id) && pos.has(b.id) ? pos.get(a.id)! - pos.get(b.id)! : 0,
     );
@@ -1254,6 +1271,7 @@
     } catch (e) {
       toasts.error((e as Error).message);
     }
+    changed();
     refresh();
   }
 

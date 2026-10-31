@@ -14,6 +14,7 @@ shows this too (Settings > Updates).
 
 - **No notification for a subscription that found nothing**: a new subscription whose first check brought no new files (everything already in the library) no longer says it's ready with 0 new files.
 - **Nothing shifts as it finishes opening**: menus, panels, dialogs, sections and notices no longer jump by a pixel the moment their opening animation ends (seen on Windows) - they now come in on whole pixels.
+- **A moved download stays where you put it**: on the Downloads page, a download moved in its queue (or one removed) no longer went back to where it was for a moment, then jumped again - seen while downloads ran.
 - **"Which site?" comes in smoothly**: when its list of sites arrives, the dialog grows to fit and the list fades in, instead of the dialog jumping to its new size and place and "Loading…" closing after the list had come.
 
 ## 1.0.12 - 2026-10-30
