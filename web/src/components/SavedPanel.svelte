@@ -455,6 +455,12 @@
     text-align: left;
     color: var(--text);
     font-weight: 400;
+    white-space: normal; /* (a button's nowrap: a long name ran out of the card, under its count) */
+  }
+  .sortl,
+  .new-pill,
+  .count {
+    white-space: nowrap;
   }
   @media (hover: hover) {
     .run:hover {

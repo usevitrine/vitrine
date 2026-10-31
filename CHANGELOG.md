@@ -15,6 +15,7 @@ shows this too (Settings > Help & about).
 - **The app opens faster again on iPhone**: since 1.0.13 every start waited most of a second before showing anything (the page from the server was held back until a copy had been saved on the device). It's shown the moment it arrives now. And when the phone's own copy of the app is slow to come up (as it often is when you open the app from a notification), the app is loaded from the server instead of waiting for it.
 - **Tapping a notification on iPhone starts the app once**: it used to open a second copy beside the one iOS starts, so both loaded at the same time and the app took a few seconds to appear.
 - **No thumbnail edge around a video as it opens**: for a split second the thumbnail showed around the video's edges while the video faded in (easiest to see on a video that starts black). It now sits exactly behind the video's picture.
+- **Long saved search names wrap**: a long name ran out of its card in the saved searches menu, under its count.
 
 ## 1.0.13 - 2026-10-31
 

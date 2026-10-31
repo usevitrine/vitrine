@@ -1604,7 +1604,17 @@ test('saved searches: save, run with its order, update after a change, rename, r
 test('saved searches: a long search takes two lines in the menu, "+N" for the rest', async ({ page }) => {
   const tags = Array.from({ length: 24 }, (_, i) => `some_long_tag_name_${i}`);
   await page.route('**/api/saved*', (r) =>
-    r.request().method() === 'GET' ? r.fulfill({ json: { saved: [{ id: 901, name: 'Long one', query: tags.join(' '), sort: '', count: 3 }, { id: 902, name: 'Short one', query: 'blue_sky', sort: '', count: 4 }] } }) : r.continue(),
+    r.request().method() === 'GET'
+      ? r.fulfill({
+          json: {
+            saved: [
+              { id: 901, name: 'Long one', query: tags.join(' '), sort: '', count: 3 },
+              { id: 902, name: 'Short one', query: 'blue_sky', sort: '', count: 4 },
+              { id: 903, name: tags.slice(0, 6).join(' '), query: 'red', sort: '', count: 5 },
+            ],
+          },
+        })
+      : r.continue(),
   );
   await page.goto('/');
   await page.getByRole('button', { name: /^Saved searches/ }).click();
@@ -1616,6 +1626,15 @@ test('saved searches: a long search takes two lines in the menu, "+N" for the re
   const line = await panel.locator('li', { hasText: 'Short one' }).locator('.q').evaluate((el) => el.getBoundingClientRect().height);
   expect(h).toBeLessThanOrEqual(line * 2 + 6);
   await expect(panel.locator('li', { hasText: 'Short one' }).locator('.q')).not.toHaveClass(/clipped/);
+  // A long name wraps inside its card, the count beside it (a button's nowrap ran it out of the card, under the count).
+  const named = panel.locator('li', { has: page.locator('.name', { hasText: 'some_long_tag_name_5' }) });
+  const fits = await named.evaluate((li) => {
+    const r = li.getBoundingClientRect();
+    const n = li.querySelector('.name')!.getBoundingClientRect();
+    const c = li.querySelector('.count')!.getBoundingClientRect();
+    return n.right <= c.left && c.right <= r.right && n.height > c.height * 1.5;
+  });
+  expect(fits).toBe(true);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
