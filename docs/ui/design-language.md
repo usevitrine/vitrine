@@ -293,6 +293,14 @@ Palette: https://catppuccin.com/palette
   mobile mode")**: every scroller has it - menus, sheets, dropdowns, dialogs, the saved searches, the selection
   bar's tag editor, the Downloads menu and the bell, the comic reader, first steps; on touch screens as well (shown
   while scrolling; a finger can drag it: `touch-action: none`). A new scroller gets `{@attach overlayScroll}`.
+- **Soft edges only where more is hidden (rule, 2026-10-31)** (the user, on a sliding title in the saved searches
+  prototypes: "Make sure the beginning and end of the title isn't cut off by the gradient. This should be a site wide
+  design rule"): a fade over the edge of a sideways row or a line of text sits only on a side where something is out
+  of view - none at the start before it's scrolled, none at the end once it's there - so the first and last
+  characters (or chips, or buttons) are never faded. Already so for every faded row (the search bar's chips, the
+  selection bar, the tag picker's actions, the Downloads lines and menu, the grid's strips: `--edge-l`/`--edge-r`,
+  `--fl`/`--fr` or `fade-l`/`fade-r`, set from the scroll position); anything new that scrolls or slides by itself
+  follows it.
 - **Hover changes are instant everywhere (2026-10-19)**: no element fades its background on hover (the shared
   button and icon-link styles, chips, chart columns): moving between two neighbors, one fading out while the
   other faded in looked like a flicker. A test checks every clickable element on each screen for a background
