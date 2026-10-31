@@ -278,23 +278,47 @@ async function updateBadge() {
   }
 }
 
+// A tapped notification: the open app goes to its page; with none open, a window opens there. Safari (an iPhone's
+// home-screen app) opens the app by itself when a notification is tapped, and that window isn't among the clients yet
+// when this runs - so there the page to open is left as a note (OPEN_NEXT) the starting app reads (router.svelte.ts),
+// and a window is opened only when none has appeared after a while. (Until 2026-10-31 a window was opened at once:
+// the app started twice side by side, the second seconds later; the user: "It felt a bit slower than usual".)
+const OPEN_NEXT = '/open-next';
+const SAFARI = /Safari/.test(self.navigator.userAgent) && !/Chrome|Chromium|CriOS|FxiOS|Android/.test(self.navigator.userAgent);
+
+async function openWin(path) {
+  const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const win = wins.find((w) => new URL(w.url).origin === self.location.origin);
+  if (!win) return false;
+  try {
+    await win.focus();
+  } catch {
+    /* (not allowed this late: it's on screen anyway) */
+  }
+  win.postMessage({ type: 'open', path });
+  return true;
+}
+
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const url = new URL((e.notification.data && e.notification.data.url) || '/', self.location.origin);
+  const path = url.pathname + url.search;
   e.waitUntil(
     (async () => {
-      const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      const win = wins.find((w) => new URL(w.url).origin === url.origin);
-      if (win) {
-        await win.focus();
-        win.postMessage({ type: 'open', path: url.pathname + url.search });
-        return;
-      }
+      if (await openWin(path)) return;
+      const shell = await caches.open(SHELL).catch(() => null);
       // (the app's start report says it was opened from a notification: lib/startTiming.ts)
-      try {
-        await (await caches.open(SHELL)).put(OPENED_BY, new Response(String(Date.now())));
-      } catch {
-        /* not noted */
+      await shell?.put(OPENED_BY, new Response(String(Date.now()))).catch(() => {});
+      if (SAFARI && shell) {
+        await shell.put(OPEN_NEXT, new Response(JSON.stringify({ path, at: Date.now() }))).catch(() => {});
+        for (let i = 0; i < 40; i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          if (!(await shell.match(OPEN_NEXT))) return; // (the starting app took it)
+          const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+          // (a window that has shown up: told, unless it took the note meanwhile - whoever deletes it acts)
+          if (wins.length && (await shell.delete(OPEN_NEXT))) return void (await openWin(path));
+        }
+        if (!(await shell.delete(OPEN_NEXT))) return;
       }
       await self.clients.openWindow(url.href);
     })(),

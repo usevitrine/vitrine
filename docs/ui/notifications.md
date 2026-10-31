@@ -19,6 +19,12 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
   with new files; a subscription check failing (only the first failure in a row - it retries hourly); a search
   finishing; a search giving up its automatic retries. A `push.Notifier` gathers events for 20 s and sends one
   notification per kind ("36 new files" - "b (12) · d (8) · ..."); new files open the library, the rest Downloads.
+- **A tap on iPhone starts the app once (2026-10-31)** (the user, opening from a notification: "It felt a bit slower
+  than usual"; the start reports showed two starts side by side, the second 1.4 s later from `openWindow`): Safari
+  starts the home-screen app by itself on a tap, and that window isn't among the service worker's clients yet when
+  `notificationclick` runs. In Safari the worker now leaves the page as a note (`/open-next` in the shell cache) and
+  waits up to 4 s: the starting app takes the note (`router.svelte.ts`), or a window that shows up is told by
+  postMessage (whoever deletes the note acts on it); only with neither does it open a window. Other browsers as before.
 - **Notices by kind (2026-10-19)**: every toast has a kind (`lib/toast.svelte.ts`), shown as a round icon badge
   in its color - done (green check, the default), info (blue i: something started, or nothing happened), removed
   (peach bin: deleted or taken off a list, usually with Undo) and error (red alert, red-tinted border). The text

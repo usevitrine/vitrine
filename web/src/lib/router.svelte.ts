@@ -72,6 +72,17 @@ class Router {
     navigator.serviceWorker?.addEventListener('message', (e) => {
       if (e.data?.type === 'open' && typeof e.data.path === 'string') this.openPath(e.data.path);
     });
+    // A tapped notification that started the app on an iPhone: the page it's for, left by the service worker (whoever
+    // deletes the note acts on it - the worker tells a window it finds itself).
+    globalThis.caches
+      ?.open('vitrine-shell-v2')
+      .then(async (c) => {
+        const note = await c.match('/open-next');
+        if (!note || !(await c.delete('/open-next'))) return;
+        const { path, at } = await note.json();
+        if (typeof path === 'string' && Date.now() - at < 30_000) this.openPath(path);
+      })
+      .catch(() => {});
     addEventListener('popstate', () => {
       this.screen = screenOf(location.pathname);
       this.sub = subOf(location.pathname);

@@ -2887,6 +2887,26 @@ test('after an update the app starts once, on the new version: the server\'s pag
   });
 });
 
+test('a notification that started the app on an iPhone: the app goes to its page (the service worker\'s note, used once)', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', 'once is enough');
+  await page.goto('/');
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  const note = (at: number) =>
+    page.evaluate(async (at) => {
+      await (await caches.open('vitrine-shell-v2')).put('/open-next', new Response(JSON.stringify({ path: '/downloads', at })));
+    }, at);
+  await note(Date.now());
+  await page.reload();
+  await expect(page).toHaveURL(/\/downloads$/);
+  expect(await page.evaluate(async () => !!(await (await caches.open('vitrine-shell-v2')).match('/open-next')))).toBe(false);
+  // An old note (a start long after the tap) is dropped.
+  await page.goto('/');
+  await note(Date.now() - 60_000);
+  await page.reload();
+  await page.waitForTimeout(500);
+  await expect(page).toHaveURL(/\/$/);
+});
+
 test('offline: the app, the last results and their thumbnails stay on the device', async ({ page, context }) => {
   test.skip(test.info().project.name !== 'desktop-chromium', 'service workers are tested in Chromium');
   const origin = ''; // (the tests run on the built app)
