@@ -65,6 +65,7 @@
   let groups = $state<SubGroup[]>([]);
   let origins = $state<SiteChoice[]>([]);
   let loaded = $state(false);
+  let shown = $state(false); // (the dialog waits for its sites, a moment at most)
   let from: Promise<SiteChoice[]> = Promise.resolve([]); // the sites the search's tags came from (asked for at once)
   const usable = (list: SiteChoice[], sites = downloadSites) => list.filter((c) => sites.includes(c.site));
   onMount(async () => {
@@ -72,6 +73,7 @@
     // (all asked at once - the tags' sites were asked for only after the rest came back; for "This search" too, so
     // it's there when picked)
     if (tags.length) from = tagOrigins(tags);
+    const slow = setTimeout(() => (shown = true), 300); // (a slow server: open with "Loading…", then grow)
     let sites: string[] = [];
     await attempt(async () => {
       const res = await api.downloadSites();
@@ -80,11 +82,17 @@
       groups = res.groups ?? [];
       if (fromTags) origins = usable(await from, sites);
     });
-    // (the list comes in place of "Loading…": the dialog's height follows instead of jumping)
-    await pages.grow(() => {
+    clearTimeout(slow);
+    const fill = () => {
       downloadSites = sites;
       loaded = true;
-    });
+    };
+    // (shown already: the list comes in place of "Loading…", the dialog's height follows instead of jumping)
+    if (shown) await pages.grow(fill);
+    else {
+      fill();
+      shown = true;
+    }
     focusFirst();
   });
   function lastSite(): string {
@@ -225,180 +233,183 @@
 
 <div use:portal>
   <div class="backdrop" role="presentation" in:shade|global out:shade|global={{ out: true }} onpointerdown={onclose}></div>
-  <div
-    class="dialog"
-    class:sheet
-    data-sheet={sheet ? '' : undefined}
-    bind:this={panel}
-    role="dialog"
-    aria-modal="true"
-    aria-label={titles[page]()}
-    tabindex="-1"
-    onkeydown={(e) => {
-      // (here first: from its search box too - an open suggestion list takes Escape before this)
-      if (e.key === 'Escape' && !e.defaultPrevented) {
-        e.preventDefault();
-        onclose();
-      }
-    }}
-    {@attach sheet && sheetDrag(onclose)}
-    {@attach backClose(onclose)}
-    in:sheetIn|global={{ on: sheet, desk: 'pop' }}
-    out:sheetOut|global={{ on: sheet, desk: 'pop' }}>
-    {#if sheet}<GrabBar bleed={14} after={-6} />{/if}
-    <div class="head">
-      {#if trail.length && page !== 'what'}
-        <!-- (its width slides, its gap with it: the title beside it glides instead of jumping) -->
-        <span class="back-slot" transition:reveal={{ axis: 'x' }}
-          ><button type="button" class="icon back" aria-label={t('common.back')} title={t('common.back')} onclick={back}><Icon name="left" size={18} /></button></span
-        >
-      {/if}
-      <h2>{titles[page]()}</h2>
-      <button type="button" class="icon" aria-label={t('sites.close')} title={t('sites.close')} onclick={onclose}><Icon name="close" /></button>
-    </div>
+  <!-- (once its sites are in, or after a moment: opened at its height, not grown from "Loading…" - a centered dialog that grew moved up) -->
+  {#if shown}
+    <div
+      class="dialog"
+      class:sheet
+      data-sheet={sheet ? '' : undefined}
+      bind:this={panel}
+      role="dialog"
+      aria-modal="true"
+      aria-label={titles[page]()}
+      tabindex="-1"
+      onkeydown={(e) => {
+        // (here first: from its search box too - an open suggestion list takes Escape before this)
+        if (e.key === 'Escape' && !e.defaultPrevented) {
+          e.preventDefault();
+          onclose();
+        }
+      }}
+      {@attach sheet && sheetDrag(onclose)}
+      {@attach backClose(onclose)}
+      in:sheetIn|global={{ on: sheet, desk: 'pop' }}
+      out:sheetOut|global={{ on: sheet, desk: 'pop' }}>
+      {#if sheet}<GrabBar bleed={14} after={-6} />{/if}
+      <div class="head">
+        {#if trail.length && page !== 'what'}
+          <!-- (its width slides, its gap with it: the title beside it glides instead of jumping) -->
+          <span class="back-slot" transition:reveal={{ axis: 'x' }}
+            ><button type="button" class="icon back" aria-label={t('common.back')} title={t('common.back')} onclick={back}><Icon name="left" size={18} /></button></span
+          >
+        {/if}
+        <h2>{titles[page]()}</h2>
+        <button type="button" class="icon" aria-label={t('sites.close')} title={t('sites.close')} onclick={onclose}><Icon name="close" /></button>
+      </div>
 
-    <div class="mpages" class:animating={pages.animating} {@attach pages.box} style:height={pages.height !== null ? `${pages.height}px` : undefined}>
-      {#key pages.nav}
-        <div class="mpage" {@attach pages.page} in:pages.pageIn out:pages.pageOut>
-          {#if page === 'what'}
-            <!-- The search in the bar, or a new one. -->
-            <div class="items">
-              <button class="item" onclick={() => pickWhat(true)} data-autofocus>
-                <Icon name="search" size={18} />
-                <span class="item-text"><span class="item-label">{t('newDl.thisSearch')}</span><span class="item-hint q" title={query}>{searchWords(parse(query))}</span></span>
-                <Icon name="right" size={16} />
-              </button>
-              <button class="item" onclick={() => pickWhat(false)}>
-                <Icon name="pencil" size={18} />
-                <span class="item-text"><span class="item-label">{t('newDl.other')}</span><span class="item-hint">{t('newDl.otherHint')}</span></span>
-                <Icon name="right" size={16} />
-              </button>
-            </div>
-          {:else if page === 'site'}
-            {#if fromTags}<p class="what-tags" title={query}>{searchWords(parse(query))}</p>{/if}
-            <!-- (Loading… goes at once and the list fades in as the height follows - Loading… closing after the list
-                 had come moved the dialog again; Loading… itself only shows if the wait is long enough to see) -->
-            {#if !loaded || !siteInfo.loaded}
-              <p class="hint waiting">{t('common.loading')}</p>
-            {:else if !downloadSites.length}
-              <div class="came" in:swap>
-                <p class="hint">{t('newDl.noSites')}</p>
-                <button class="quiet" onclick={() => (router.go('settings', 'sites'), onclose())}>{t('downloads.manageSites')}</button>
-              </div>
-            {:else}
-              <div class="came" in:swap>
-              {#if useSearch && origins.length}
-                <h3 transition:reveal>{t('sitePicker.from')}</h3>
-                <div class="items">
-                  {#each origins as c, k (c.site)}
-                    <button class="item site" onclick={() => pickSite(c.site)} data-autofocus={k === 0 ? true : undefined}>
-                      <SiteIcon host={siteInfo.hosts[c.site] ?? ''} />
-                      <span class="item-text"><span class="item-label">{siteLabel(c.site)}</span></span>
-                      <span class="meta">{c.tags < tags.length ? t('sitePicker.someTags', { count: c.tags, n: tags.length }) : t('common.files', { n: c.files })}</span>
-                    </button>
-                  {/each}
-                </div>
-              {/if}
-              {#if others.length}
-                {#if useSearch && origins.length}<h3 transition:reveal>{t('sitePicker.others')}</h3>{/if}
-                <div class="items">
-                  {#each others as s, k (s)}
-                    <button class="item site" onclick={() => pickSite(s)} data-autofocus={k === 0 && !(useSearch && origins.length) ? true : undefined}>
-                      <SiteIcon host={siteInfo.hosts[s] ?? ''} />
-                      <span class="item-text"><span class="item-label">{siteLabel(s)}</span></span>
-                    </button>
-                  {/each}
-                </div>
-              {/if}
-              </div>
-            {/if}
-          {:else if page === 'search'}
-            <!-- What to search for on the site (the library's search written its way, or a new one). -->
-            <form class="form" onsubmit={toHow}>
-              <TagInput
-                anchor={sheet ? undefined : searchBox}
-                above={sheet}
-                bind:inputEl={searchBox}
-                bind:value={text}
-                multi
-                comics={siteInfo.engines[site] === 'ehentai' ? site : undefined}
-                sites={site}
-                format={(tg) => tagQuery(site, tg)}
-                anyOf={(tags) => (canOr(site, tags) ? tagsQuery(site, tags, true) : null)}
-                label={t('downloads.searchOnSite')}
-                placeholder={siteInfo.hints[site] ?? t('downloads.searchSite', { site: siteLabel(site) })}
-                autofocus={!touch()}
-                onenter={() => toHow()} />
-              {#if split.length}<p class="hint left" transition:reveal>{t('newDl.split', { site: siteLabel(site), n: searches.length })}</p>{/if}
-              {#if left.length}<p class="hint left" transition:reveal>{t('newDl.leftOut', { what: searchWords(left) })}</p>{/if}
-              <div class="foot">
-                <button type="submit" disabled={!ready}>{t('newDl.next')} <Icon name="right" size={16} /></button>
-              </div>
-            </form>
-          {:else}
-            <!-- Once, or a subscription. -->
-            <form class="form" onsubmit={start}>
-              <p class="what" title={label || searches.join('\n')}>
-                <SiteIcon host={siteInfo.hosts[site] ?? ''} /> <span>{label || (searches.length > 1 ? t('newDl.searches', { n: searches.length }) : searches[0])}</span>
-              </p>
-              {#if searches.length > 1}
-                <ul class="split-list" {@attach overlayScroll} transition:reveal>
-                  {#each searches as s (s)}<li>{s}</li>{/each}
-                </ul>
-              {/if}
-              <div class="segmented" role="tablist" aria-label={t('newDl.how')}>
-                <button type="button" role="tab" aria-selected={repeat === '0'} onclick={() => (repeat = '0')} data-autofocus><Icon name="download" size={16} /> {t('downloads.once')}</button>
-                <button type="button" role="tab" aria-selected={repeat !== '0'} onclick={() => repeat === '0' && (repeat = String(DEFAULT_INTERVAL))}><Icon name="bell" size={16} /> {t('downloads.subscribe')}</button>
-              </div>
-              <div class="rows">
-                {#if repeat !== '0'}
-                  <div class="row" transition:reveal>
-                    <span class="row-label">{t('downloads.repeat')}</span>
-                    <Dropdown floating value={repeat} options={intervalOptions} onchange={(v) => (repeat = v)} label={t('downloads.repeat')} heading={t('downloads.repeat')} />
-                  </div>
-                  {#if !favSearch}
-                    <div class="row" transition:reveal>
-                      <span class="row-label">{t('downloads.group')}</span>
-                      <Dropdown
-                        floating
-                        value={formGroup}
-                        options={[{ value: '', label: t('downloads.noGroup') }, ...siteGroups.map((g) => ({ value: String(g.id), label: g.name })), { value: 'new', label: t('downloads.newGroup') }]}
-                        onchange={pickGroup}
-                        label={t('downloads.group')}
-                        heading={t('downloads.addToGroup')} />
-                    </div>
-                    {#if formGroup === 'new'}
-                      <input class="new-group" bind:value={newGroupName} placeholder={t('downloads.newGroupExample')} aria-label={t('downloads.newGroupLabel')} maxlength="60"  transition:reveal/>
-                    {/if}
-                  {/if}
-                {/if}
-                <label class="row">
-                  <span class="row-label">{repeat === '0' ? t('downloads.files') : t('downloads.firstCheck')}</span>
-                  <input
-                    class="max"
-                    bind:value={maxPosts}
-                    type="number"
-                    min="1"
-                    inputmode="numeric"
-                    placeholder={t('downloads.all')}
-                    aria-label={repeat === '0' ? t('downloads.maxFiles') : t('downloads.maxFirst')} />
-                </label>
-              </div>
-              <p class="hint">
-                {#if repeat === '0'}{maxPosts ? t('downloads.noteOnce', { n: Number(maxPosts) }) : t('newDl.onceHint')}
-                {:else}{t('downloads.noteSub', { every: every(+repeat), first: maxPosts ? t('downloads.newestN', { n: Number(maxPosts) }) : t('downloads.everyPost') })}.{/if}
-              </p>
-              <div class="foot">
-                <button type="submit" class="go" disabled={busy}>
-                  {#if repeat === '0'}<Icon name="download" size={18} /> {t('backups.download')}{:else}<Icon name="bell" size={18} /> {t('downloads.subscribe')}{/if}
+      <div class="mpages" class:animating={pages.animating} {@attach pages.box} style:height={pages.height !== null ? `${pages.height}px` : undefined}>
+        {#key pages.nav}
+          <div class="mpage" {@attach pages.page} in:pages.pageIn out:pages.pageOut>
+            {#if page === 'what'}
+              <!-- The search in the bar, or a new one. -->
+              <div class="items">
+                <button class="item" onclick={() => pickWhat(true)} data-autofocus>
+                  <Icon name="search" size={18} />
+                  <span class="item-text"><span class="item-label">{t('newDl.thisSearch')}</span><span class="item-hint q" title={query}>{searchWords(parse(query))}</span></span>
+                  <Icon name="right" size={16} />
+                </button>
+                <button class="item" onclick={() => pickWhat(false)}>
+                  <Icon name="pencil" size={18} />
+                  <span class="item-text"><span class="item-label">{t('newDl.other')}</span><span class="item-hint">{t('newDl.otherHint')}</span></span>
+                  <Icon name="right" size={16} />
                 </button>
               </div>
-            </form>
-          {/if}
-        </div>
-      {/key}
+            {:else if page === 'site'}
+              {#if fromTags}<p class="what-tags" title={query}>{searchWords(parse(query))}</p>{/if}
+              <!-- (Loading… goes at once and the list fades in as the height follows - Loading… closing after the list
+                   had come moved the dialog again; Loading… itself only shows if the wait is long enough to see) -->
+              {#if !loaded || !siteInfo.loaded}
+                <p class="hint waiting">{t('common.loading')}</p>
+              {:else if !downloadSites.length}
+                <div class="came" in:swap>
+                  <p class="hint">{t('newDl.noSites')}</p>
+                  <button class="quiet" onclick={() => (router.go('settings', 'sites'), onclose())}>{t('downloads.manageSites')}</button>
+                </div>
+              {:else}
+                <div class="came" in:swap>
+                {#if useSearch && origins.length}
+                  <h3 transition:reveal>{t('sitePicker.from')}</h3>
+                  <div class="items">
+                    {#each origins as c, k (c.site)}
+                      <button class="item site" onclick={() => pickSite(c.site)} data-autofocus={k === 0 ? true : undefined}>
+                        <SiteIcon host={siteInfo.hosts[c.site] ?? ''} />
+                        <span class="item-text"><span class="item-label">{siteLabel(c.site)}</span></span>
+                        <span class="meta">{c.tags < tags.length ? t('sitePicker.someTags', { count: c.tags, n: tags.length }) : t('common.files', { n: c.files })}</span>
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+                {#if others.length}
+                  {#if useSearch && origins.length}<h3 transition:reveal>{t('sitePicker.others')}</h3>{/if}
+                  <div class="items">
+                    {#each others as s, k (s)}
+                      <button class="item site" onclick={() => pickSite(s)} data-autofocus={k === 0 && !(useSearch && origins.length) ? true : undefined}>
+                        <SiteIcon host={siteInfo.hosts[s] ?? ''} />
+                        <span class="item-text"><span class="item-label">{siteLabel(s)}</span></span>
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+                </div>
+              {/if}
+            {:else if page === 'search'}
+              <!-- What to search for on the site (the library's search written its way, or a new one). -->
+              <form class="form" onsubmit={toHow}>
+                <TagInput
+                  anchor={sheet ? undefined : searchBox}
+                  above={sheet}
+                  bind:inputEl={searchBox}
+                  bind:value={text}
+                  multi
+                  comics={siteInfo.engines[site] === 'ehentai' ? site : undefined}
+                  sites={site}
+                  format={(tg) => tagQuery(site, tg)}
+                  anyOf={(tags) => (canOr(site, tags) ? tagsQuery(site, tags, true) : null)}
+                  label={t('downloads.searchOnSite')}
+                  placeholder={siteInfo.hints[site] ?? t('downloads.searchSite', { site: siteLabel(site) })}
+                  autofocus={!touch()}
+                  onenter={() => toHow()} />
+                {#if split.length}<p class="hint left" transition:reveal>{t('newDl.split', { site: siteLabel(site), n: searches.length })}</p>{/if}
+                {#if left.length}<p class="hint left" transition:reveal>{t('newDl.leftOut', { what: searchWords(left) })}</p>{/if}
+                <div class="foot">
+                  <button type="submit" disabled={!ready}>{t('newDl.next')} <Icon name="right" size={16} /></button>
+                </div>
+              </form>
+            {:else}
+              <!-- Once, or a subscription. -->
+              <form class="form" onsubmit={start}>
+                <p class="what" title={label || searches.join('\n')}>
+                  <SiteIcon host={siteInfo.hosts[site] ?? ''} /> <span>{label || (searches.length > 1 ? t('newDl.searches', { n: searches.length }) : searches[0])}</span>
+                </p>
+                {#if searches.length > 1}
+                  <ul class="split-list" {@attach overlayScroll} transition:reveal>
+                    {#each searches as s (s)}<li>{s}</li>{/each}
+                  </ul>
+                {/if}
+                <div class="segmented" role="tablist" aria-label={t('newDl.how')}>
+                  <button type="button" role="tab" aria-selected={repeat === '0'} onclick={() => (repeat = '0')} data-autofocus><Icon name="download" size={16} /> {t('downloads.once')}</button>
+                  <button type="button" role="tab" aria-selected={repeat !== '0'} onclick={() => repeat === '0' && (repeat = String(DEFAULT_INTERVAL))}><Icon name="bell" size={16} /> {t('downloads.subscribe')}</button>
+                </div>
+                <div class="rows">
+                  {#if repeat !== '0'}
+                    <div class="row" transition:reveal>
+                      <span class="row-label">{t('downloads.repeat')}</span>
+                      <Dropdown floating value={repeat} options={intervalOptions} onchange={(v) => (repeat = v)} label={t('downloads.repeat')} heading={t('downloads.repeat')} />
+                    </div>
+                    {#if !favSearch}
+                      <div class="row" transition:reveal>
+                        <span class="row-label">{t('downloads.group')}</span>
+                        <Dropdown
+                          floating
+                          value={formGroup}
+                          options={[{ value: '', label: t('downloads.noGroup') }, ...siteGroups.map((g) => ({ value: String(g.id), label: g.name })), { value: 'new', label: t('downloads.newGroup') }]}
+                          onchange={pickGroup}
+                          label={t('downloads.group')}
+                          heading={t('downloads.addToGroup')} />
+                      </div>
+                      {#if formGroup === 'new'}
+                        <input class="new-group" bind:value={newGroupName} placeholder={t('downloads.newGroupExample')} aria-label={t('downloads.newGroupLabel')} maxlength="60"  transition:reveal/>
+                      {/if}
+                    {/if}
+                  {/if}
+                  <label class="row">
+                    <span class="row-label">{repeat === '0' ? t('downloads.files') : t('downloads.firstCheck')}</span>
+                    <input
+                      class="max"
+                      bind:value={maxPosts}
+                      type="number"
+                      min="1"
+                      inputmode="numeric"
+                      placeholder={t('downloads.all')}
+                      aria-label={repeat === '0' ? t('downloads.maxFiles') : t('downloads.maxFirst')} />
+                  </label>
+                </div>
+                <p class="hint">
+                  {#if repeat === '0'}{maxPosts ? t('downloads.noteOnce', { n: Number(maxPosts) }) : t('newDl.onceHint')}
+                  {:else}{t('downloads.noteSub', { every: every(+repeat), first: maxPosts ? t('downloads.newestN', { n: Number(maxPosts) }) : t('downloads.everyPost') })}.{/if}
+                </p>
+                <div class="foot">
+                  <button type="submit" class="go" disabled={busy}>
+                    {#if repeat === '0'}<Icon name="download" size={18} /> {t('backups.download')}{:else}<Icon name="bell" size={18} /> {t('downloads.subscribe')}{/if}
+                  </button>
+                </div>
+              </form>
+            {/if}
+          </div>
+        {/key}
+      </div>
     </div>
-  </div>
+  {/if}
 </div>
 
 <style>
