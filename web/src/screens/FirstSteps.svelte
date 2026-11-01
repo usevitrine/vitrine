@@ -19,7 +19,7 @@
   import { whatsNew } from '../lib/whatsNew.svelte';
   import { router } from '../lib/router.svelte';
   import { sites } from '../lib/sites.svelte';
-  import { bytes } from '../lib/live.svelte';
+  import { formatSize } from '../lib/results.svelte';
   import { pushSupport } from '../lib/push.svelte';
   import Logo from '../components/Logo.svelte';
   import Icon from '../components/Icon.svelte';
@@ -212,7 +212,7 @@
             <div>
               <strong>{t('setup.storage.files')}</strong>
               <code>{stats.storage.files_dir}</code>
-              {#if files}<span class="hint">{t('setup.storage.free', { free: bytes(files.free), total: bytes(files.total) })}</span>{/if}
+              {#if files}<span class="hint">{t('setup.storage.free', { free: formatSize(files.free), total: formatSize(files.total) })}</span>{/if}
               {#if low(files)}<span class="fix"><Rich text={t('setup.storage.filesLow')} /></span>{/if}
             </div>
           </li>
@@ -221,7 +221,7 @@
             <div>
               <strong>{t('setup.storage.data')}</strong>
               <code>{stats.storage.data_dir}</code>
-              {#if data && data !== files}<span class="hint">{t('setup.storage.free', { free: bytes(data.free), total: bytes(data.total) })}</span>{/if}
+              {#if data && data !== files}<span class="hint">{t('setup.storage.free', { free: formatSize(data.free), total: formatSize(data.total) })}</span>{/if}
               {#if low(data)}<span class="fix">{t('setup.storage.dataLow')}</span>{/if}
             </div>
           </li>

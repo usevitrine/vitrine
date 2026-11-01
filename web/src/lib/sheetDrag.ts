@@ -10,8 +10,22 @@ export interface DragDown {
   onstart?: () => void;
   /** How far down it is (0 and up). */
   onmove: (dy: number) => void;
-  /** Let go (fast: flicked). */
-  onend: (dy: number, fast: boolean) => void;
+  /** Let go (fling: flicked down 1, flicked back up -1, neither 0 - see closes). */
+  onend: (dy: number, fling: number) => void;
+}
+
+/** Whether a sheet let go there closes: flicked down, once it has moved a little; flicked back up, never (the user:
+ *  "close to being fully closed and I flick back up, it still closes"); otherwise once it's past `far`. */
+export const closes = (dy: number, fling: number, far: number) => (fling < 0 ? false : fling > 0 ? dy > 20 : dy > far);
+
+/** How fast the finger moved at the end (px/ms, down positive), from its last ~80 ms; 0 when it had stopped. */
+const FLING = 0.4;
+function flingOf(trail: { t: number; y: number }[], now: number) {
+  const last = trail[trail.length - 1];
+  if (!last || now - last.t > 100) return 0;
+  const first = trail.find((p) => last.t - p.t <= 80) ?? last;
+  const v = last.t > first.t ? (last.y - first.y) / (last.t - first.t) : 0;
+  return v > FLING ? 1 : v < -FLING ? -1 : 0;
 }
 
 /** The gesture alone (the element follows by the callbacks): for sheets that move themselves (the details panels). */
@@ -19,7 +33,7 @@ export function dragDown(o: DragDown) {
   return (handle: HTMLElement) => {
     let id = -1;
     let start = { x: 0, y: 0 };
-    let startAt = 0;
+    let trail: { t: number; y: number }[] = []; // the finger's last moves (its speed when let go)
     let dy = 0;
     let mode: '' | 'maybe' | 'drag' | 'no' = '';
     let from: HTMLElement | null = null;
@@ -33,6 +47,7 @@ export function dragDown(o: DragDown) {
     };
     const begin = () => {
       mode = 'drag';
+      getSelection()?.removeAllRanges(); // (a mouse: text selected on the way would be dragged by the next press)
       try {
         handle.setPointerCapture(id);
       } catch {
@@ -56,7 +71,7 @@ export function dragDown(o: DragDown) {
       if (t.closest('input, textarea, select, [contenteditable], [role=slider]')) return;
       id = e.pointerId;
       start = { x: e.clientX, y: e.clientY };
-      startAt = performance.now();
+      trail = [{ t: performance.now(), y: e.clientY }];
       dy = 0;
       from = t;
       // The grab bar and the header drag at once; elsewhere the first moves decide.
@@ -66,6 +81,9 @@ export function dragDown(o: DragDown) {
     const move = (e: PointerEvent) => {
       if (e.pointerId !== id) return;
       if (mode === 'maybe') decide(e.clientX, e.clientY);
+      const now = performance.now();
+      trail.push({ t: now, y: e.clientY });
+      while (trail.length > 2 && now - trail[0].t > 150) trail.shift();
       if (mode !== 'drag') return;
       dy = Math.max(0, e.clientY - start.y);
       o.onmove(dy);
@@ -84,7 +102,7 @@ export function dragDown(o: DragDown) {
       if (was !== 'drag') return;
       // (the press became a drag: what it started on isn't pressed)
       if (dy > 4) handle.addEventListener('click', swallow, { capture: true, once: true });
-      o.onend(dy, dy / Math.max(1, performance.now() - startAt) > 0.5);
+      o.onend(dy, flingOf(trail, performance.now()));
     };
     const cancel = (e: PointerEvent) => {
       if (e.pointerId !== id) return;
@@ -96,12 +114,21 @@ export function dragDown(o: DragDown) {
       e.preventDefault();
       e.stopPropagation();
     };
+    // While it's a drag, no text selection and no native drag (of text or a picture): either took the pointer away and
+    // the sheet stopped following it.
+    const noNative = (e: Event) => {
+      if (mode === 'drag') e.preventDefault();
+    };
     handle.addEventListener('pointerdown', down);
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', up);
     handle.addEventListener('pointercancel', cancel);
     handle.addEventListener('touchmove', touchMove, { passive: false });
+    handle.addEventListener('selectstart', noNative);
+    handle.addEventListener('dragstart', noNative);
     return () => {
+      handle.removeEventListener('selectstart', noNative);
+      handle.removeEventListener('dragstart', noNative);
       handle.removeEventListener('pointerdown', down);
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', up);
@@ -127,10 +154,10 @@ export function sheetDrag(close: () => void) {
         const s = sheet();
         if (s) s.style.transform = dy ? `translateY(${dy}px)` : '';
       },
-      onend: (dy, fast) => {
+      onend: (dy, fling) => {
         const s = sheet();
         if (!s) return;
-        if (dy > 80 || (fast && dy > 20)) {
+        if (closes(dy, fling, 80)) {
           s.dataset.dragged = String(dy);
           close();
         } else {

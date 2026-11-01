@@ -46,8 +46,7 @@ func (s *Server) pushSubscribe(w http.ResponseWriter, r *http.Request) {
 		Label        string            `json:"label"`
 		Language     string            `json:"language"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.push.Subscribe(r.Context(), req.Subscription, req.Label, req.Language); err != nil {
@@ -64,8 +63,7 @@ func (s *Server) pushUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Endpoint string `json:"endpoint"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.push.Unsubscribe(r.Context(), req.Endpoint); err != nil {
@@ -82,8 +80,7 @@ func (s *Server) pushTest(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Endpoint string `json:"endpoint"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	l := i18n.For(s.push.Language(r.Context(), req.Endpoint))

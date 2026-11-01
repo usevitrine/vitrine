@@ -3,7 +3,7 @@
 // the library knows is a namespace - "9:16" is a plain tag - so the list
 // comes from the server.
 import { api } from './api';
-import { toasts } from './toast.svelte';
+import { toasts, attempt } from './toast.svelte';
 import { t } from './i18n.svelte';
 
 class Namespaces {
@@ -96,15 +96,13 @@ export function nsChoices(): string[] {
 
 /** Moves a tag to another namespace (on every file); says so. The new tag, or null. */
 export async function moveToNamespace(tag: string, ns: string): Promise<string | null> {
-  try {
+  const moved = await attempt(async () => {
     const res = await api.setTagNamespace(tag, ns);
     await namespaces.load(); // (a namespace no file had before)
     toasts.show(t('namespace.moved', { tag: splitTag(tag).name, ns: nsLabel(ns).toLowerCase(), n: res.files }), { cat: 'tagEdits' });
     return res.tag;
-  } catch (e) {
-    toasts.error((e as Error).message);
-    return null;
-  }
+  });
+  return moved ?? null;
 }
 
 /** "Creator", "General", ... */

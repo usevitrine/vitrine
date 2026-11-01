@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/index"
 	"github.com/usevitrine/vitrine/internal/media"
 	"github.com/usevitrine/vitrine/internal/store"
@@ -50,15 +51,12 @@ func (l *Library) Files(ctx context.Context, ids []uint32) ([]FileRow, error) {
 	byID := make(map[uint32]FileRow, len(ids))
 	// Batches keep the statement under SQLite's parameter limit.
 	for chunk := range slices.Chunk(ids, 500) {
-		args := make([]any, len(chunk))
-		for i, id := range chunk {
-			args[i] = id
-		}
+		marks, args := db.InList(chunk)
 		rows, err := l.db.R.QueryContext(ctx, `
 			SELECT id, sha256, md5, type, size, coalesce(width, 0), coalesce(height, 0), coalesce(duration_ms, 0),
 			       coalesce(has_audio, 0), imported_at, modified_at, deleted_at IS NOT NULL, flags, placeholder,
 			       coalesce(posted_at, 0)
-			FROM files WHERE id IN (?`+strings.Repeat(",?", len(chunk)-1)+`)`, args...)
+			FROM files WHERE id IN (`+marks+`)`, args...)
 		if err != nil {
 			return nil, fmt.Errorf("library: %w", err)
 		}

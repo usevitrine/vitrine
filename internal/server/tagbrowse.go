@@ -27,8 +27,7 @@ func (s *Server) renameTag(w http.ResponseWriter, r *http.Request) {
 		From string `json:"from"`
 		To   string `json:"to"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if strings.TrimSpace(req.To) == "" || strings.ContainsAny(strings.TrimSpace(req.To), " \t") {
@@ -56,8 +55,7 @@ func (s *Server) setTagNamespace(w http.ResponseWriter, r *http.Request) {
 		Tag       string `json:"tag"`
 		Namespace string `json:"namespace"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	t, n, err := s.lib.SetNamespace(r.Context(), s.lib.ParseTag(req.Tag), strings.TrimSpace(req.Namespace))

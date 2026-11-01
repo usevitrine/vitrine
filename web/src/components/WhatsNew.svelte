@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GrabBar from './GrabBar.svelte';
   // What's new after an update (lib/whatsNew): the new version's changes, "Don't show again" and Got it. A window in
   // the middle on wider screens, a sheet along the bottom on phones (drag it down to close - the user). Escape, Back
   // or a press outside close it too; closing marks the version seen.
@@ -61,7 +62,7 @@
     {@attach backClose(close)}
     in:pop
     out:pop={{ out: true }}>
-    {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
+    {#if sheet}<GrabBar />{/if}
     <header class="head">
       <span class="badge" aria-hidden="true"><Icon name="sparkles" size={20} /></span>
       <h2 id="whats-new-title">{title}</h2>
@@ -113,20 +114,6 @@
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
-  }
-  .grab-zone {
-    display: grid;
-    place-items: center;
-    height: 22px;
-    flex: none;
-    touch-action: none;
-    cursor: grab;
-  }
-  .grab-zone span {
-    width: 38px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--surface2);
   }
   .head {
     display: flex;

@@ -5,7 +5,7 @@
   import { api, type BrowsedTag, type Relation } from '../lib/api';
   import { reveal, moved, swap, nudge } from '../lib/motion';
   import { router } from '../lib/router.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { namespaces, nsChoices, moveToNamespace, nsColor, nsLabel, nsRank, splitTag } from '../lib/namespaces.svelte';
   import Dropdown from './Dropdown.svelte';
   import TagInput from './TagInput.svelte';
@@ -80,33 +80,23 @@
   async function rename(bt: BrowsedTag) {
     const to = target.trim();
     if (!to || to === bt.tag) return;
-    busy = true;
-    try {
+    await attempt(async () => {
       const { files } = await api.renameTag(bt.tag, to);
       toasts.show(t('tagBrowser.renamed', { from: bt.tag, to, n: files }), { cat: 'tagEdits' });
       open = null;
       load();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    } finally {
-      busy = false;
-    }
+    }, (b) => (busy = b));
   }
 
   async function alias(bt: BrowsedTag) {
     const to = target.trim();
     if (!to || to === bt.tag) return;
-    busy = true;
-    try {
+    await attempt(async () => {
       onrelations(await api.editRelation('sibling', 'add', bt.tag, to));
       toasts.show(t('tagBrowser.aliased', { from: bt.tag, to }), { cat: 'tagEdits' });
       open = null;
       load();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    } finally {
-      busy = false;
-    }
+    }, (b) => (busy = b));
   }
 </script>
 

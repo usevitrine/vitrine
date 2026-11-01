@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -27,12 +26,10 @@ func (s *Server) setFlareSolverr(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		URL string `json:"url"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errors.New("the downloader isn't running"))
+	if !s.needDL(w) {
 		return
 	}
 	url := strings.TrimRight(strings.TrimSpace(req.URL), "/")

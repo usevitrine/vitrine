@@ -9,7 +9,7 @@
   import type { Snippet } from 'svelte';
   import { cubicOut } from 'svelte/easing';
   import { backClose } from '../lib/backClose';
-  import { dragDown } from '../lib/sheetDrag';
+  import { dragDown, closes } from '../lib/sheetDrag';
   import { overlayScroll } from '../lib/overlayScroll';
   import Icon from './Icon.svelte';
   import { t } from '../lib/i18n.svelte';
@@ -64,9 +64,9 @@
     active: isSheet,
     onstart: () => (dragging = true),
     onmove: (d) => (dy = d),
-    onend: (d, fast) => {
+    onend: (d, fling) => {
       dragging = false;
-      if (d > 90 || (fast && d > 20)) {
+      if (closes(d, fling, 90)) {
         gone = d;
         close();
         return;

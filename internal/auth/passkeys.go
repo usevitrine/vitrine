@@ -24,6 +24,8 @@ import (
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
+
+	"github.com/usevitrine/vitrine/internal/db"
 )
 
 var (
@@ -141,23 +143,18 @@ func (a *Auth) loadAccount(ctx context.Context, id int64) (*account, error) {
 			return nil, err
 		}
 	}
-	rows, err := a.db.R.QueryContext(ctx, "SELECT credential FROM passkeys WHERE user_id = ?", id)
+	creds, err := db.Column[string](ctx, a.db.R, "SELECT credential FROM passkeys WHERE user_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var js string
-		if err := rows.Scan(&js); err != nil {
-			return nil, err
-		}
+	for _, js := range creds {
 		var c webauthn.Credential
 		if err := json.Unmarshal([]byte(js), &c); err != nil {
 			return nil, fmt.Errorf("auth: a stored passkey: %w", err)
 		}
 		u.creds = append(u.creds, c)
 	}
-	return u, rows.Err()
+	return u, nil
 }
 
 // BeginPasskey starts adding a passkey to a user's account on an address: the options for the browser, and the

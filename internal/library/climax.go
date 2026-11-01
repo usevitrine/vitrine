@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"fmt"
 	"slices"
+
+	"github.com/usevitrine/vitrine/internal/db"
 )
 
 // AddClimax counts a press of the viewer's "I came" button on a file. It
@@ -146,20 +148,10 @@ func (l *Library) Rankings(ctx context.Context, from int64, days int, tzOffset i
 	// Per day (and the streak, over all time).
 	dayOf := func(ms int64) int64 { return (ms/1000 + tzOffset) / 86400 }
 	today := dayOf(l.now().UnixMilli())
-	rows, err := q.QueryContext(ctx, "SELECT DISTINCT (at / 1000 + ?) / 86400 FROM climaxes ORDER BY 1 DESC", tzOffset)
+	seen, err := db.Column[int64](ctx, q, "SELECT DISTINCT (at / 1000 + ?) / 86400 FROM climaxes ORDER BY 1 DESC", tzOffset) // days with a press, newest first
 	if err != nil {
 		return out, err
 	}
-	var seen []int64 // days with a press, newest first
-	for rows.Next() {
-		var d int64
-		if err := rows.Scan(&d); err != nil {
-			rows.Close()
-			return out, err
-		}
-		seen = append(seen, d)
-	}
-	rows.Close()
 	// The streak: days in a row ending today - or yesterday, when today has none yet.
 	expect := today
 	if len(seen) > 0 && seen[0] == today-1 {
@@ -193,7 +185,7 @@ func (l *Library) Rankings(ctx context.Context, from int64, days int, tzOffset i
 		rows.Close()
 	}
 	// Top comic pages (the comic reader's presses).
-	rows, err = q.QueryContext(ctx, `SELECT c.comic_id, c.page, max(c.file_id), coalesce(nullif(k.custom_title, ''), k.title), count(*)
+	rows, err := q.QueryContext(ctx, `SELECT c.comic_id, c.page, max(c.file_id), coalesce(nullif(k.custom_title, ''), k.title), count(*)
 		FROM climaxes c JOIN comics k ON k.id = c.comic_id
 		WHERE c.at >= ? AND k.deleted_at IS NULL GROUP BY c.comic_id, c.page ORDER BY 5 DESC, max(c.at) DESC LIMIT 30`, from)
 	if err != nil {
@@ -306,20 +298,10 @@ func (l *Library) RemoveClimaxes(ctx context.Context, file uint32, all bool) (in
 func (l *Library) ClearClimaxes(ctx context.Context) (int, error) {
 	var removed int
 	err := l.write(ctx, func(tx *sql.Tx) (func() error, error) {
-		var files []uint32
-		rows, err := tx.QueryContext(ctx, "SELECT DISTINCT file_id FROM climaxes")
+		files, err := db.Column[uint32](ctx, tx, "SELECT DISTINCT file_id FROM climaxes")
 		if err != nil {
 			return nil, fmt.Errorf("library: %w", err)
 		}
-		for rows.Next() {
-			var id uint32
-			if err := rows.Scan(&id); err != nil {
-				rows.Close()
-				return nil, fmt.Errorf("library: %w", err)
-			}
-			files = append(files, id)
-		}
-		rows.Close()
 		res, err := tx.ExecContext(ctx, "DELETE FROM climaxes")
 		if err != nil {
 			return nil, fmt.Errorf("library: %w", err)

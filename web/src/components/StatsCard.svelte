@@ -10,7 +10,7 @@
   import { api, type LibraryStats } from '../lib/api';
   import { formatSize } from '../lib/results.svelte';
   import { siteLabel } from '../lib/sites.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { attempt } from '../lib/toast.svelte';
   import SiteIcon from './SiteIcon.svelte';
   import Rich from './Rich.svelte';
   import { t, num, short, date } from '../lib/i18n.svelte';
@@ -19,11 +19,9 @@
   let st = $state<LibraryStats | null>(null);
 
   async function load() {
-    try {
+    await attempt(async () => {
       st = await api.stats(DAYS);
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   onMount(() => {
     load();

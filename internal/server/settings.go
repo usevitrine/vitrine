@@ -22,8 +22,7 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) setSettings(w http.ResponseWriter, r *http.Request) {
 	var req map[string]json.RawMessage
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.lib.SetSettings(r.Context(), req); err != nil {

@@ -7,7 +7,7 @@
   import { api, type Comic, type FileTag } from '../lib/api';
   import { nudge } from '../lib/motion';
   import { siteLabel } from '../lib/sites.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import { copyText } from '../lib/clipboard';
   import { isRead, isReading, progress, cropStyle } from '../lib/comics';
@@ -59,7 +59,7 @@
     const value = next === null ? '' : next.trim();
     renaming = false;
     if (next !== null && (!value || value === shownTitle)) return;
-    try {
+    await attempt(async () => {
       const before = shownTitle;
       const hadOwn = !!siteTitle;
       await api.updateComic(comic.id, { title: value });
@@ -72,20 +72,16 @@
         action: { label: t('common.undo'), run: () => rename(hadOwn ? before : null) },
       });
       onchanged();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   async function saveCrop(next: number[] | null) {
     cropping = false;
-    try {
+    await attempt(async () => {
       await api.updateComic(comic.id, { crop: next ?? [] });
       crop = next ?? undefined;
       onchanged();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   // Another comic: its tags replace the last one's in one go (as the file details do: not emptied first - they
@@ -125,14 +121,12 @@
   // Tags read from the site again.
   async function refreshTags() {
     const id = comic.id;
-    try {
+    await attempt(async () => {
       const { found } = await api.comicsRefresh([id]);
       toasts.show(found ? t('details.refreshed', { what: itemName(id, true) }) : t('details.gone'), { cat: 'refreshed', kind: found ? 'done' : 'info' });
       if (id === comic.id) load(id);
       onchanged();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   // Its pages fetched again from the site (e.g. pages that came in wrong).
@@ -144,13 +138,11 @@
       thumbs: comic.thumb ? [comic.thumb] : [],
     });
     if (!ok) return;
-    try {
+    await attempt(async () => {
       await api.comicsRedownload([comic.id]);
       toasts.show(t('comics.againStarted'), { cat: 'comicEdits', kind: 'done' });
       onchanged();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   const languages = $derived(

@@ -56,8 +56,7 @@ func (s *Server) sectionOff(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Delete bool `json:"delete"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.lib.SetSettings(r.Context(), map[string]json.RawMessage{name + "Off": json.RawMessage("true")}); err != nil {

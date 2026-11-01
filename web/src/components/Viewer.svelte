@@ -2,7 +2,7 @@
   import { backClose } from '../lib/backClose';
   import { away } from '../lib/sheet';
   import { pop, px, nudge, onPixels } from '../lib/motion';
-  import { dragDown } from '../lib/sheetDrag';
+  import { dragDown, closes } from '../lib/sheetDrag';
   import { Glide, clampZoom as clampFit, zoomAround, pinchScale } from '../lib/zoom';
   import { reducedMotion } from '../lib/hero';
   import { volume } from '../lib/volume.svelte';
@@ -17,7 +17,7 @@
   import { api, type FileInfo } from '../lib/api';
   import { settings } from '../lib/settings.svelte';
   import { results, viewURL, fullURL } from '../lib/results.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { confirmAction, confirmer } from '../lib/confirm.svelte';
   import { restoreFiles, purgeFiles } from '../lib/trash.svelte';
   import { fullscreen } from '../lib/fullscreen.svelte';
@@ -216,7 +216,7 @@
   async function countClimax() {
     const f = cur;
     if (!f) return;
-    try {
+    await attempt(async () => {
       const res = await api.climax(f.id);
       results.patch(f.id, { came: res.count });
       toasts.show(t(res.count === 1 ? 'viewer.countedFirst' : 'viewer.counted', { what: itemName(f.id), n: res.count }), { cat: 'came',
@@ -228,9 +228,7 @@
           },
         },
       });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   async function toggleFavorite() {
@@ -962,6 +960,11 @@
     void info;
     untrack(() => {
       if (!stageEl || reducedMotion()) return;
+      // (phones: in step with the sheet - its timing; let go after a drag, from where the drag had it: the stage's
+      // rect still has sheetFollow's transform here)
+      const timing = !isSheet()
+        ? { duration: 260, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
+        : { duration: sheetGone > 0 ? 200 : 240, easing: 'cubic-bezier(0.33, 1, 0.68, 1)' };
       const from = fitIn(stageEl.getBoundingClientRect());
       tick().then(() => {
         const slide = stageEl?.querySelector<HTMLElement>('.slide[data-slot="1"]');
@@ -971,10 +974,7 @@
         const dy = from.y - to.y;
         const s = from.fit / to.fit;
         if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(s - 1) < 0.001) return;
-        slide.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${s})` }, { transform: 'translate(0, 0) scale(1)' }], {
-          duration: 260,
-          easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-        });
+        slide.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${s})` }, { transform: 'translate(0, 0) scale(1)' }], timing);
       });
     });
   });
@@ -1004,9 +1004,9 @@
     active: isSheet,
     onstart: () => (sheetDragging = true),
     onmove: (d) => (sheetDy = d),
-    onend: (d, fast) => {
+    onend: (d, fling) => {
       sheetDragging = false;
-      if (d > 90 || (fast && d > 20)) {
+      if (closes(d, fling, 90)) {
         // Closed: it stays where it was let go and slides on from there (put back
         // to its place first, it jumped up for a frame before sliding away).
         sheetGone = d;
@@ -1019,6 +1019,14 @@
   // Opened again: in its place.
   $effect(() => {
     if (info) untrack(() => (sheetDy = 0));
+  });
+  // The picture follows the dragged sheet, as it would sit in the stage the sheet now leaves (taller by the drag):
+  // the stage moved and scaled about its center, on the compositor (the user: "a 1 to 1 animation when closing").
+  const sheetFollow = $derived.by(() => {
+    if (!info || sheetDy <= 0 || !height) return undefined;
+    const f = cur;
+    const fit = (h: number) => (f?.width && f?.height ? Math.min(width / f.width, h / f.height) : 1);
+    return `translate3d(0, ${sheetDy / 2}px, 0) scale(${fit(height + sheetDy) / fit(height)})`;
   });
 
   // ---- keys
@@ -1101,12 +1109,11 @@
       undoable: true,
     });
     if (!ok || cur?.id !== f.id) return;
-    try {
+    const removed = await attempt(async () => {
       await api.remove([f.id]);
-    } catch (e) {
-      toasts.error((e as Error).message);
-      return;
-    }
+      return true;
+    });
+    if (!removed) return;
     toasts.show(t('common.deletedOne', { what: itemName(f.id) }), { cat: 'deleted',
       kind: 'removed',
       action: {
@@ -1175,6 +1182,8 @@
       class:zoom-in={mouse && percent > 0 && zoom.s <= 1.01}
       class:zoom-out={mouse && percent > 0 && zoom.s > 1.01}
       bind:this={stageEl}
+      class:following={sheetDragging}
+      style:transform={sheetFollow}
       bind:clientWidth={width}
       bind:clientHeight={height}
       role="presentation"
@@ -1712,6 +1721,14 @@
     .viewer.info .stage-wrap {
       align-self: start;
       height: calc(100% - var(--kb, 0px) - min(75%, var(--sheet-max-h), calc(100% - var(--kb, 0px) - 56px)));
+      overflow: clip visible; /* (following a dragged sheet the picture grows below it - the sheet covers the rest) */
+    }
+    /* Let go without closing: back with the sheet (closed: no transition - the glide takes over, from there). */
+    .viewer.info .stage {
+      transition: transform 0.22s ease-out;
+    }
+    .viewer.info .stage.following {
+      transition: none;
     }
     /* (its bottom controls go meanwhile, as they did behind the sheet - over the raised picture they covered it) */
     .viewer.info .bottom {

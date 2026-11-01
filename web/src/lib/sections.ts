@@ -5,7 +5,7 @@
 import { api } from './api';
 import { settings } from './settings.svelte';
 import { confirmAction } from './confirm.svelte';
-import { toasts } from './toast.svelte';
+import { toasts, attempt } from './toast.svelte';
 import { formatSize } from './results.svelte';
 import { sites } from './sites.svelte';
 import { t } from './i18n.svelte';
@@ -17,13 +17,9 @@ export const siteOn = (id: string) => (sites.engines[id] === 'ehentai' ? !settin
 
 /** Switches a section off - asked first, then whether to delete everything in it. */
 export async function switchOff(section: Section) {
-  let info: Awaited<ReturnType<typeof api.sections>>[Section] | null = null;
-  try {
-    info = (await api.sections())[section];
-  } catch (e) {
-    toasts.error((e as Error).message);
-    return;
-  }
+  const all = await attempt(() => api.sections());
+  if (all === undefined) return;
+  const info = all[section];
   const name = t(section === 'media' ? 'menu.library' : 'comics.title');
   const ok = await confirmAction({
     title: t('appSections.offTitle', { name }),
@@ -41,13 +37,11 @@ export async function switchOff(section: Section) {
       action: t('appSections.deleteAll'),
       typed: t('appSections.deleteWord'),
     }));
-  try {
+  await attempt(async () => {
     const res = await api.sectionOff(section, !!del);
     if (section === 'media') settings.mediaOff = true;
     else settings.comicsOff = true;
     toasts.show(del ? t('appSections.offDeleting', { name }) : t('appSections.offDone', { name }), { cat: 'deleted', kind: 'info' });
     void res;
-  } catch (e) {
-    toasts.error((e as Error).message);
-  }
+  });
 }

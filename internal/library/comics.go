@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/index"
 	"github.com/usevitrine/vitrine/internal/tag"
 )
@@ -441,22 +442,13 @@ func sortComics(list []Comic, by string) {
 // ComicPages lists a comic's page files in order (missing pages - not yet
 // downloaded - are left out).
 func (l *Library) ComicPages(ctx context.Context, comic int64) ([]uint32, error) {
-	rows, err := l.db.R.QueryContext(ctx, `
+	out, err := db.Column[uint32](ctx, l.db.R, `
 		SELECT p.file_id FROM comic_pages p JOIN files f ON f.id = p.file_id AND f.deleted_at IS NULL
 		WHERE p.comic_id = ? ORDER BY p.page`, comic)
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
 	}
-	defer rows.Close()
-	var out []uint32
-	for rows.Next() {
-		var id uint32
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("library: %w", err)
-		}
-		out = append(out, id)
-	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // SetComicRead remembers where reading stopped.
@@ -579,21 +571,16 @@ func (l *Library) AddComicTags(ctx context.Context, comic int64, tags []tag.Tag)
 
 // ComicHas lists which pages of a comic are stored (0-based).
 func (l *Library) ComicHas(ctx context.Context, comic int64) (map[int]bool, error) {
-	rows, err := l.db.R.QueryContext(ctx, `
+	pages, err := db.Column[int](ctx, l.db.R, `
 		SELECT p.page FROM comic_pages p JOIN files f ON f.id = p.file_id AND f.deleted_at IS NULL WHERE p.comic_id = ?`, comic)
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
 	}
-	defer rows.Close()
 	out := map[int]bool{}
-	for rows.Next() {
-		var p int
-		if err := rows.Scan(&p); err != nil {
-			return nil, fmt.Errorf("library: %w", err)
-		}
+	for _, p := range pages {
 		out[p] = true
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // ComicFrom finds the comic from a site's gallery: its ID and link (0, "" = none).
@@ -820,20 +807,10 @@ func (l *Library) ClearComicPages(ctx context.Context, ids []int64) error {
 			if err := comicExists(ctx, tx, id); err != nil {
 				return nil, err
 			}
-			rows, err := tx.QueryContext(ctx, "SELECT file_id FROM comic_pages WHERE comic_id = ?", id)
+			files, err := db.Column[uint32](ctx, tx, "SELECT file_id FROM comic_pages WHERE comic_id = ?", id)
 			if err != nil {
 				return nil, fmt.Errorf("library: %w", err)
 			}
-			var files []uint32
-			for rows.Next() {
-				var f uint32
-				if err := rows.Scan(&f); err != nil {
-					rows.Close()
-					return nil, fmt.Errorf("library: %w", err)
-				}
-				files = append(files, f)
-			}
-			rows.Close()
 			if _, err := tx.ExecContext(ctx, "DELETE FROM comic_pages WHERE comic_id = ?", id); err != nil {
 				return nil, fmt.Errorf("library: %w", err)
 			}

@@ -17,8 +17,7 @@ import (
 //   GET  /api/plugins/{id}/traces    what wiping the site would remove -> {traces, any, backups}
 
 func (s *Server) listPlugins(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	list, err := s.dl.Plugins(r.Context(), r.URL.Query().Get("refresh") != "")
@@ -30,15 +29,13 @@ func (s *Server) listPlugins(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) installPlugin(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
 		ID string `json:"id"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	res, err := s.dl.InstallFromIndex(r.Context(), req.ID)
@@ -46,15 +43,13 @@ func (s *Server) installPlugin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) uploadPlugin(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
 		YAML string `json:"yaml"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	res, err := s.dl.InstallPlugin(r.Context(), []byte(req.YAML))
@@ -76,16 +71,14 @@ func (s *Server) installed(w http.ResponseWriter, res download.Installed, err er
 // searches, subscriptions and credentials stay - or, with wipe, every trace of the site goes (wipe.go; not when the
 // site stays, back to its built-in plugin).
 func (s *Server) removePlugin(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
 		Wipe    bool `json:"wipe"`
 		Backups bool `json:"backups"` // the older backups too
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	res, err := s.dl.RemovePlugin(r.Context(), r.PathValue("id"))

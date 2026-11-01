@@ -24,7 +24,7 @@
   import { useScope } from '../lib/scope.svelte';
   import { pagesText, progress, isRead, isReading, cropStyle, markComicsRead } from '../lib/comics';
   import { collections } from '../lib/collections.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import { restoreFiles, purgeFiles } from '../lib/trash.svelte';
   import { settings } from '../lib/settings.svelte';
@@ -1664,12 +1664,11 @@
       undoable: true,
     });
     if (!ok) return;
-    try {
+    const removed = await attempt(async () => {
       await results.remove([id]);
-    } catch (err) {
-      toasts.error((err as Error).message);
-      return;
-    }
+      return true;
+    });
+    if (!removed) return;
     selection.ids.delete(id);
     toasts.show(t('common.deletedOne', { what: itemName(id, comics) }), { cat: 'deleted',
       kind: 'removed',

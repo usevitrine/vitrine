@@ -8,7 +8,7 @@
   import { router } from '../lib/router.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   import { splitTag, nsColor } from '../lib/namespaces.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import Icon from '../components/Icon.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import Rich from '../components/Rich.svelte';
@@ -34,7 +34,7 @@
   }
 
   async function load(p: string) {
-    try {
+    await attempt(async () => {
       const d = await api.rankings(p);
       if (p !== period) return;
       data = d;
@@ -45,9 +45,7 @@
         for (const f of res.files) next.set(f.id, f);
         files = next;
       }
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   $effect(() => {
     const p = period;
@@ -77,14 +75,12 @@
       icon: 'trash',
     });
     if (!ok) return;
-    try {
+    await attempt(async () => {
       const { removed } = await api.clearClimaxes();
       toasts.show(t('rankings.cleared', { n: removed }), { cat: 'tagEdits', kind: 'removed' });
       files = new Map();
       await load(period);
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   /** "20 Oct" this year, "20 Oct 2025" before. */
   function firstDate(ms: number): string {

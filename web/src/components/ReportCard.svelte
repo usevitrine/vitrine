@@ -4,7 +4,7 @@
   import { overlayScroll } from '../lib/overlayScroll';
   import { reveal } from '../lib/motion';
   import { api } from '../lib/api';
-  import { toasts } from '../lib/toast.svelte';
+  import { attempt } from '../lib/toast.svelte';
   import { copyText } from '../lib/clipboard';
   import Icon from './Icon.svelte';
   import { t } from '../lib/i18n.svelte';
@@ -26,13 +26,8 @@
       showReport = false;
       return;
     }
-    let text: string;
-    try {
-      text = await getReport();
-    } catch (e) {
-      toasts.error((e as Error).message);
-      return;
-    }
+    const text = await attempt(getReport);
+    if (text === undefined) return;
     if (what === 'show') showReport = true;
     else if (what === 'copy') copyText(text, t('stats.report.what'));
     else {

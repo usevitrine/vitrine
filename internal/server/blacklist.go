@@ -20,8 +20,7 @@ func (s *Server) setBlacklist(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Tags []string `json:"tags"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	tags, err := s.lib.SetBlacklist(r.Context(), req.Tags)
@@ -56,8 +55,7 @@ func (s *Server) deleteBlacklisted(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Tags []string `json:"tags"` // empty = the whole blacklist
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if len(req.Tags) == 0 {

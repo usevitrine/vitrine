@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/usevitrine/vitrine/internal/db"
 )
 
 // Collections: comics that belong together (a series), named by the user. A comic is in one at most; the Comics
@@ -216,20 +218,10 @@ func (l *Library) DeleteCollectionComics(ctx context.Context, id int64) ([]int64
 	if err := l.db.R.QueryRowContext(ctx, "SELECT 1 FROM collections WHERE id = ?", id).Scan(&one); err != nil {
 		return nil, ErrNoCollection
 	}
-	rows, err := l.db.R.QueryContext(ctx, "SELECT id FROM comics WHERE collection_id = ? AND deleted_at IS NULL", id)
+	ids, err := db.Column[int64](ctx, l.db.R, "SELECT id FROM comics WHERE collection_id = ? AND deleted_at IS NULL", id)
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
 	}
-	var ids []int64
-	for rows.Next() {
-		var c int64
-		if err := rows.Scan(&c); err != nil {
-			rows.Close()
-			return nil, fmt.Errorf("library: %w", err)
-		}
-		ids = append(ids, c)
-	}
-	rows.Close()
 	if err := l.DeleteComics(ctx, ids); err != nil {
 		return nil, err
 	}

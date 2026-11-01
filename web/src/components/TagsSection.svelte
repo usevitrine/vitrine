@@ -11,7 +11,7 @@
   import type { FileTag } from '../lib/api';
   import { blacklist as bl } from '../lib/blacklist.svelte';
   import { format, parse } from '../lib/query';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { copyText } from '../lib/clipboard';
   import { longPress } from '../lib/longPress';
   import { useScope } from '../lib/scope.svelte';
@@ -87,7 +87,7 @@
     toRemove = [];
     adding = '';
     if (!add.length && !remove.length) return;
-    try {
+    await attempt(async () => {
       await save?.(add, remove);
       const parts = [add.length ? t('details.added', { n: add.length }) : '', remove.length ? t('selection.removedTags', { n: remove.length }) : ''].filter(Boolean);
       toasts.show(t('details.tagsSaved', { what: itemName(item, comic), changes: parts.join(', ') }), { cat: 'tags',
@@ -99,9 +99,7 @@
           },
         },
       });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
     reload();
   }
   onDestroy(() => {
@@ -126,7 +124,7 @@
   }
 
   async function remove(tag: string) {
-    try {
+    await attempt(async () => {
       await save?.([], [tag]);
       toasts.show(t('details.removedTag', { tag, what: itemName(item, comic) }), { cat: 'tags',
         kind: 'removed',
@@ -138,9 +136,7 @@
           },
         },
       });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
     reload();
   }
 
@@ -203,12 +199,10 @@
   bl.load();
   async function setBlacklist(next: string[], said: string) {
     const before = bl.tags ?? [];
-    try {
+    await attempt(async () => {
       await bl.set(next);
       toasts.show(said, { cat: 'tags', action: { label: t('common.undo'), run: () => bl.set(before) } });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   const blacklisted = (tag: string) => !!bl.entryFor(tag);
   /** Added as the site writes it: the bare name ("creator:x" -> "x") - sites send bare tags, the library files them

@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/usevitrine/vitrine/internal/db"
 )
 
 // Managing searches: pause, resume, remove, clear finished, reorder.
@@ -162,7 +164,7 @@ func (d *Downloader) Reorder(ctx context.Context, site string, ids []int64) erro
 		return fmt.Errorf("download: %w", err)
 	}
 	defer tx.Rollback()
-	rows, err := tx.QueryContext(ctx, "SELECT id FROM searches WHERE site_id = ? ORDER BY position", st.ID)
+	all, err := db.Column[int64](ctx, tx, "SELECT id FROM searches WHERE site_id = ? ORDER BY position", st.ID)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
@@ -172,18 +174,12 @@ func (d *Downloader) Reorder(ctx context.Context, site string, ids []int64) erro
 		in[id] = true
 	}
 	known := map[int64]bool{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return err
-		}
+	for _, id := range all {
 		known[id] = true
 		if !in[id] {
 			rest = append(rest, id)
 		}
 	}
-	rows.Close()
 	for _, id := range ids {
 		if !known[id] {
 			return fmt.Errorf("download: search %d on %s: %w", id, site, ErrNoSearch)
@@ -221,26 +217,16 @@ func retryWaitsJSON(w []time.Duration) string {
 // retryFailed puts failed searches whose automatic retry is due back in their
 // queues (subscription checks have their own schedule).
 func (d *Downloader) retryFailed(ctx context.Context) error {
-	rows, err := d.db.W.QueryContext(ctx, `UPDATE searches SET state = 'queued', error = NULL, finished_at = NULL, retry_at = NULL
+	sites, err := db.Column[string](ctx, d.db.W, `UPDATE searches SET state = 'queued', error = NULL, finished_at = NULL, retry_at = NULL
 		WHERE state = 'failed' AND subscription_id IS NULL AND retry_at IS NOT NULL AND retry_at <= ?
 		RETURNING (SELECT name FROM sites WHERE id = searches.site_id)`, d.now().UnixMilli())
-	if err != nil {
-		return fmt.Errorf("download: %w", err)
-	}
-	var sites []string
-	for rows.Next() {
-		var s string
-		if err := rows.Scan(&s); err != nil {
-			rows.Close()
-			return err
-		}
-		sites = append(sites, s)
-	}
-	rows.Close()
-	for _, s := range sites {
+	for _, s := range sites { // (also those read before an error: their searches are queued)
 		if _, ok := d.all()[s]; ok {
 			d.wake(s)
 		}
 	}
-	return rows.Err()
+	if err != nil {
+		return fmt.Errorf("download: %w", err)
+	}
+	return nil
 }

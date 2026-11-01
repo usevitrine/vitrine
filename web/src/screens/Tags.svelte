@@ -4,7 +4,7 @@
   import { onMount } from 'svelte';
   import { reveal, pop, moved } from '../lib/motion';
   import { api, type Relation } from '../lib/api';
-  import { toasts } from '../lib/toast.svelte';
+  import { attempt } from '../lib/toast.svelte';
   import TagInput from '../components/TagInput.svelte';
   import { tagColor } from '../lib/namespaces.svelte';
   import Icon from '../components/Icon.svelte';
@@ -37,26 +37,22 @@
   });
 
   async function load() {
-    try {
+    await attempt(async () => {
       const r = await api.relations();
       parents = r.parents;
       siblings = r.siblings;
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   onMount(load);
 
   async function edit(kind: 'parent' | 'sibling', action: 'add' | 'remove', a: string, b = '') {
-    try {
+    const ok = await attempt(async () => {
       const r = await api.editRelation(kind, action, a.trim(), b.trim());
       parents = r.parents;
       siblings = r.siblings;
       return true;
-    } catch (e) {
-      toasts.error((e as Error).message);
-      return false;
-    }
+    });
+    return ok ?? false;
   }
 
   async function addParent() {

@@ -134,8 +134,7 @@ func (s *Server) passkeyFinish(w http.ResponseWriter, r *http.Request) {
 		Name       string          `json:"name"`
 		Credential json.RawMessage `json:"credential"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	p, err := s.auth.FinishPasskey(r.Context(), userOf(r).ID, takeCeremony(w, r), req.Name, req.Credential)
@@ -188,8 +187,7 @@ func (s *Server) passkeyOnly(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		On bool `json:"on"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	u := userOf(r)
@@ -210,8 +208,7 @@ func (s *Server) accountChange(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 		Name     string `json:"name"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	u := userOf(r)

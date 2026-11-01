@@ -8,7 +8,7 @@
   import { reveal } from '../lib/motion';
   import Rich from './Rich.svelte';
   import { install, where } from '../lib/install.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { t } from '../lib/i18n.svelte';
 
   type IconName = 'share' | 'addbox' | 'library' | 'morev' | 'more' | 'menu' | 'download' | 'plus' | 'external';
@@ -53,11 +53,9 @@
   const how = $derived(steps());
 
   async function run() {
-    try {
+    await attempt(async () => {
       if (await install.run()) toasts.show(t('install.installed'), { cat: 'device' });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 </script>
 

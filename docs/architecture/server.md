@@ -110,6 +110,13 @@ Made while building items 1-3 of step 1 (repo skeleton, file store, metadata DB)
   autocomplete on the word being typed, an endless square-tile grid loading 200 results at a time with the 4x4
   placeholder behind each thumbnail, a viewer (image/video, tags clickable). A stand-in until the Svelte client.
 - Checked in Chrome against a 34-file library: first page in ~35 ms in all; no console errors.
+- **Shared helpers (2026-11-01, a code audit)**: handlers read their body with `decode` (a 400 written when it isn't
+  JSON), the route's `{id}` with `pathID(w, r, "collection")` / `pathFileID` (a 400 "bad … ID"; four collection
+  routes had ignored the parse error, a bad id becoming 0) and check the downloader with `s.needDL(w)` (503) -
+  `internal/server/request.go`. One-column queries go through `db.Column[T]` (closes the rows, always checks
+  `rows.Err()` - several hand-written loops skipped it) and `IN (...)` lists through `db.InList` -
+  `internal/db/query.go`. In the web app an action that shows its error as a notice is `attempt(fn, busy?)`
+  (`lib/toast.svelte.ts`), and phone sheets share `components/GrabBar.svelte`.
 
 ## Local socket and the command line (2026-10-23)
 The user (to-do 100): "so you can fully interact with it and debug it through the command line - not only for you,

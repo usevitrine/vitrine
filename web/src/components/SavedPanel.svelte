@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   import { reveal, moved, nudge, pop, glide, reduced } from '../lib/motion';
   // Saved searches: save the current search (and its order), run one with a tap; changed after running one, update
@@ -13,7 +14,7 @@
   import { fade } from 'svelte/transition';
   import { useScope } from '../lib/scope.svelte';
   import { settings } from '../lib/settings.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { label, parse } from '../lib/query';
   import { tagColor } from '../lib/namespaces.svelte';
   import { sortOptions } from './SortMenu.svelte';
@@ -142,8 +143,7 @@
   async function saveCurrent(e?: SubmitEvent) {
     e?.preventDefault();
     if (!query.trim() || busy) return;
-    busy = true;
-    try {
+    await attempt(async () => {
       const n = name.trim() || autoName;
       saved.lastRun = await saved.add(n, query, sort === defaultSort ? '' : sort);
       name = '';
@@ -151,11 +151,7 @@
       if (tab !== 'saved') switchTab('saved');
       toasts.show(t('saved.saved', { name: n }), { cat: 'savedSearches' });
       loadLooks();
-    } catch (err) {
-      toasts.error((err as Error).message);
-    } finally {
-      busy = false;
-    }
+    }, (b) => (busy = b));
   }
 
   // A tap runs it: the menu goes first and the search runs once a sheet is out of sight - run together, the library
@@ -177,26 +173,20 @@
   async function rename(s: SavedSearch, value: string) {
     const v = value.trim();
     if (!v || v === s.name) return;
-    try {
-      await saved.update(s.id, { name: v });
-    } catch (err) {
-      toasts.error((err as Error).message);
-    }
+    await attempt(() => saved.update(s.id, { name: v }));
   }
 
   async function useCurrent(s: SavedSearch) {
-    try {
+    await attempt(async () => {
       await saved.update(s.id, { query, sort: sort === defaultSort ? '' : sort });
       toasts.show(t('saved.updated', { name: s.name }), { cat: 'savedSearches' });
       loadLooks();
-    } catch (err) {
-      toasts.error((err as Error).message);
-    }
+    });
   }
 
   async function remove(s: SavedSearch) {
     const order = saved.list.map((x) => x.id);
-    try {
+    await attempt(async () => {
       await saved.remove(s.id);
       toasts.show(t('saved.deleted', { name: s.name }), {
         cat: 'savedSearches',
@@ -210,20 +200,14 @@
           },
         },
       });
-    } catch (err) {
-      toasts.error((err as Error).message);
-    }
+    });
   }
 
   async function move(from: number, to: number) {
     const ids = saved.list.map((s) => s.id);
     const [id] = ids.splice(from, 1);
     ids.splice(to, 0, id);
-    try {
-      await saved.reorder(ids);
-    } catch (err) {
-      toasts.error((err as Error).message);
-    }
+    await attempt(() => saved.reorder(ids));
   }
   function moveGroup(from: number, to: number) {
     const tags = groups.map((g) => g.tag);
@@ -333,7 +317,7 @@
     aria-label={t('saved.title')}
     tabindex="-1"
     onkeydown={onKey}>
-    {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
+    {#if sheet}<GrabBar stuck bleed={12} after={-12} z={2} />{/if}
     <div class="head">
       <h2><Icon name="save" size={18} /> {t('saved.title')}</h2>
       <button class="icon" aria-label={t('saved.close')} title={t('saved.close')} onclick={() => onclose(true)}><Icon name="close" size={20} /></button>
@@ -546,24 +530,6 @@
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
-  }
-  .grab-zone {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    display: grid;
-    place-items: center;
-    height: 22px;
-    margin: 0 -12px -12px;
-    background: var(--mantle);
-    touch-action: none;
-    cursor: grab;
-  }
-  .grab-zone span {
-    width: 38px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--surface2);
   }
   .head {
     display: flex;

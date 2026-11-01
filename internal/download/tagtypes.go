@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/library"
 	"github.com/usevitrine/vitrine/internal/plugin"
 )
@@ -154,23 +155,14 @@ func (d *Downloader) nextTypePost(ctx context.Context, st *Site) (postID int64, 
 // untypedTags finds a batch of the site's tags with no known type that a file has from the site: tag by tag, each
 // two index lookups - never every post with every tag.
 func (d *Downloader) untypedTags(ctx context.Context, st *Site) ([]int64, error) {
-	rows, err := d.db.R.QueryContext(ctx, `SELECT t.id FROM tags t
+	out, err := db.Column[int64](ctx, d.db.R, `SELECT t.id FROM tags t
 		WHERE NOT EXISTS (SELECT 1 FROM tag_types tt WHERE tt.site_id = ?1 AND tt.name = t.name)
 			AND EXISTS (SELECT 1 FROM file_tags ft WHERE ft.tag_id = t.id AND ft.origin = ?1)
 		LIMIT ?2`, st.ID, typeTagsBatch)
 	if err != nil {
 		return nil, fmt.Errorf("download: %w", err)
 	}
-	defer rows.Close()
-	var out []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("download: %w", err)
-		}
-		out = append(out, id)
-	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // refreshPost reads a post from the site again and writes what it says now

@@ -3,6 +3,20 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Improved
+
+- **The picture follows the details sheet** (phones): drag the details down and the picture moves and grows with your finger into the room the sheet leaves. Let go and it carries on from there as the sheet closes, or goes back up with it.
+
+### Fixed
+
+- **A sheet flicked back up stays open**: dragging a menu or the details nearly closed and flicking back up closed it anyway. Now it goes back up.
+- **Sheets dragged with a mouse in a narrow window** no longer stop following the pointer after the first drag.
+- **File sizes are written the same way everywhere** (one screen said "12.0 MB" where another said "12 MB").
+- **The tag menu on a computer** no longer plays two opening animations at once.
+- **A comic collection given a malformed ID** is refused instead of being treated as collection 0.
+
 ## 1.0.14 - 2026-11-01
 
 ### New

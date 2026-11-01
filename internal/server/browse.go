@@ -22,8 +22,7 @@ import (
 
 // browseSite is a site that can be browsed: a gallery engine that shows page thumbnails, switched on.
 func (s *Server) browseSite(w http.ResponseWriter, id string) (*download.Site, plugin.BrowseEngine, bool) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return nil, nil, false
 	}
 	st := s.dl.Site(id)

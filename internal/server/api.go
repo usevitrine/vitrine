@@ -63,8 +63,7 @@ type credentials struct {
 
 func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 	var c credentials
-	if err := readJSON(r, &c); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &c) {
 		return
 	}
 	if err := s.auth.Setup(r.Context(), c.Name, c.Password); err != nil {
@@ -80,8 +79,7 @@ func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	var c credentials
-	if err := readJSON(r, &c); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &c) {
 		return
 	}
 	s.startSession(w, r, c)
@@ -398,12 +396,11 @@ func (s *Server) files(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) fileTags(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseUint(r.PathValue("id"), 10, 32)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, errors.New("bad file ID"))
+	id, ok := pathFileID(w, r)
+	if !ok {
 		return
 	}
-	tags, err := s.lib.FileTags(r.Context(), uint32(id))
+	tags, err := s.lib.FileTags(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -416,7 +413,7 @@ func (s *Server) fileTags(w http.ResponseWriter, r *http.Request) {
 	for i, t := range tags {
 		out[i] = tagJSON{t.Tag, t.Origins}
 	}
-	links, err := s.lib.FileURLs(r.Context(), uint32(id))
+	links, err := s.lib.FileURLs(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -431,7 +428,7 @@ func (s *Server) fileTags(w http.ResponseWriter, r *http.Request) {
 	for i, u := range links {
 		urls[i] = urlJSON{kinds[u.Kind], u.Site, u.URL}
 	}
-	sources, err := s.lib.FileSources(r.Context(), uint32(id))
+	sources, err := s.lib.FileSources(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -457,8 +454,7 @@ func (s *Server) editTags(w http.ResponseWriter, r *http.Request) {
 		Add    []string `json:"add"`
 		Remove []string `json:"remove"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	parse := func(texts []string) []tag.Tag {
@@ -490,8 +486,7 @@ func (s *Server) deleteFiles(w http.ResponseWriter, r *http.Request) {
 		IDs    []uint32 `json:"ids"`
 		Reason string   `json:"reason"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.lib.Delete(r.Context(), req.IDs, req.Reason); err != nil {
@@ -507,8 +502,7 @@ func (s *Server) favorite(w http.ResponseWriter, r *http.Request) {
 		IDs []uint32 `json:"ids"`
 		On  bool     `json:"on"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	n, err := s.lib.SetFavorite(r.Context(), req.IDs, req.On)
@@ -525,8 +519,7 @@ func (s *Server) seenFiles(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDs []uint32 `json:"ids"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if len(req.IDs) > 1000 {
@@ -545,8 +538,7 @@ func (s *Server) undeleteFiles(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDs []uint32 `json:"ids"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.lib.Undelete(r.Context(), req.IDs); err != nil {
@@ -581,8 +573,7 @@ func (s *Server) editRelation(w http.ResponseWriter, r *http.Request) {
 		From   string `json:"from"`   // child, or the sibling
 		To     string `json:"to"`     // parent, or the ideal tag
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	from, to := s.lib.ParseTag(req.From), s.lib.ParseTag(req.To)
@@ -741,17 +732,16 @@ func (s *Server) resultDates(w http.ResponseWriter, r *http.Request) {
 // spriteInfo: GET /api/files/{id}/sprite -> the video's preview-frame layout
 // and image URL (404 while they're not made yet).
 func (s *Server) spriteInfo(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseUint(r.PathValue("id"), 10, 32)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, errors.New("bad file ID"))
+	id, ok := pathFileID(w, r)
+	if !ok {
 		return
 	}
-	rows, err := s.lib.Files(r.Context(), []uint32{uint32(id)})
+	rows, err := s.lib.Files(r.Context(), []uint32{id})
 	if err != nil || len(rows) == 0 {
 		writeError(w, http.StatusNotFound, errors.New("no such file"))
 		return
 	}
-	sp, err := s.lib.Sprite(r.Context(), uint32(id), false)
+	sp, err := s.lib.Sprite(r.Context(), id, false)
 	if errors.Is(err, thumbs.ErrNotFound) {
 		writeError(w, http.StatusNotFound, errors.New("no preview frames yet"))
 		return
@@ -831,8 +821,7 @@ func (s *Server) tagsOf(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDs []uint32 `json:"ids"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	tags, err := s.lib.TagsOf(r.Context(), req.IDs)

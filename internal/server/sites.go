@@ -11,8 +11,7 @@ import (
 // never out: responses only say which fields are set.
 
 func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"sites": orEmpty(s.dl.SiteInfos())})
@@ -21,8 +20,7 @@ func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
 // setCredentials: POST /api/sites/{id}/credentials {values: {field: value}};
 // an empty value removes that field. -> {sites}.
 func (s *Server) setCredentials(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
@@ -49,8 +47,7 @@ func (s *Server) setCredentials(w http.ResponseWriter, r *http.Request) {
 // runs for the site (its queue and subscriptions wait); on: it carries on.
 // trySite: POST /api/sites/{id}/try - a paused site (it kept failing to answer) tries again now -> {sites}.
 func (s *Server) trySite(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	err := s.dl.TryNow(r.PathValue("id"))
@@ -65,15 +62,13 @@ func (s *Server) trySite(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) setSiteOff(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
 		Off bool `json:"off"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	err := s.dl.SetOff(r.Context(), r.PathValue("id"), req.Off)
@@ -90,15 +85,13 @@ func (s *Server) setSiteOff(w http.ResponseWriter, r *http.Request) {
 // testSite: POST /api/sites/{id}/test [{values}] -> {ok, posts, message, detail}. Values: typed credentials to try
 // over the saved ones, without saving them (the login dialog's Test); none = the saved ones.
 func (s *Server) testSite(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
 		Values map[string]string `json:"values"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	res, err := s.dl.TestSite(r.Context(), r.PathValue("id"), req.Values)

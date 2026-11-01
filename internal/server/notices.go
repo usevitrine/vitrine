@@ -176,8 +176,7 @@ func (s *Server) addNotice(w http.ResponseWriter, r *http.Request) {
 		Tone     string `json:"tone"`
 		Category string `json:"category"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	req.Text = strings.TrimSpace(req.Text)
@@ -201,8 +200,7 @@ func (s *Server) markNotices(clear bool) http.HandlerFunc {
 		var req struct {
 			UpTo int64 `json:"up_to"`
 		}
-		if err := readJSON(r, &req); err != nil {
-			writeError(w, http.StatusBadRequest, err)
+		if !decode(w, r, &req) {
 			return
 		}
 		s.notices.mark(req.UpTo, clear)

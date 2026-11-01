@@ -42,8 +42,7 @@ func (s *Server) subscriptionTags(w http.ResponseWriter, r *http.Request) {
 // subscription. interval is in seconds. Optional group: group_id, or
 // group_name (a new group on the site; an existing one of that name is used).
 func (s *Server) addSubscription(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
@@ -57,8 +56,7 @@ func (s *Server) addSubscription(w http.ResponseWriter, r *http.Request) {
 		Favorite   bool   `json:"favorite"` // its files become favorites too
 		Label      string `json:"label"`    // its name where the query says little (a gallery's title)
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if req.GroupName != "" && req.SearchID == 0 {
@@ -98,23 +96,13 @@ func (s *Server) addSubscription(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sub)
 }
 
-func subscriptionID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, errors.New("bad subscription ID"))
-		return 0, false
-	}
-	return id, true
-}
-
 // updateSubscription changes a subscription: {interval?, paused?, group_id?, check_depth?}
 // (group_id 0 = no group; check_depth -1 = its group's, site's or the setting for all).
 func (s *Server) updateSubscription(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
-	id, ok := subscriptionID(w, r)
+	id, ok := pathID(w, r, "subscription")
 	if !ok {
 		return
 	}
@@ -124,8 +112,7 @@ func (s *Server) updateSubscription(w http.ResponseWriter, r *http.Request) {
 		GroupID  *int64 `json:"group_id"`
 		Depth    *int   `json:"check_depth"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	var c download.SubscriptionChange
@@ -156,11 +143,10 @@ func (s *Server) updateSubscription(w http.ResponseWriter, r *http.Request) {
 // subscriptionAction: POST /api/subscriptions/{id}/{check|remove}. Removing
 // keeps the files.
 func (s *Server) subscriptionAction(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
-	id, ok := subscriptionID(w, r)
+	id, ok := pathID(w, r, "subscription")
 	if !ok {
 		return
 	}
@@ -192,11 +178,10 @@ func (s *Server) subscriptionAction(w http.ResponseWriter, r *http.Request) {
 // favGone lists a favorites subscription's files no longer in the site's
 // favorites: GET /api/subscriptions/{id}/fav-gone -> {files: [id]}.
 func (s *Server) favGone(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
-	id, ok := subscriptionID(w, r)
+	id, ok := pathID(w, r, "subscription")
 	if !ok {
 		return
 	}
@@ -226,8 +211,7 @@ type subLook struct {
 // subscriptionLooks: GET /api/subscriptions/looks?since=<Unix ms> -> {looks: {id: {recent, comic, cover, fresh}}} -
 // what the Downloads page shows of each subscription besides its numbers (asked when its tab opens).
 func (s *Server) subscriptionLooks(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	since, _ := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)

@@ -9,7 +9,8 @@
   import { overlayScroll } from '../lib/overlayScroll';
   import { onMount, tick, untrack } from 'svelte';
   import { slide } from 'svelte/transition';
-  import { live, bytes } from '../lib/live.svelte';
+  import { live } from '../lib/live.svelte';
+  import { formatSize } from '../lib/results.svelte';
   import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf, goalOf, oneGallery } from '../lib/downloadProgress';
   import { reveal, moved, glide, nudge, pop } from '../lib/motion';
   import Stack from '../components/Stack.svelte';
@@ -18,7 +19,7 @@
   import { subNames } from '../lib/subNames.svelte';
   import { subTags } from '../lib/subTags.svelte';
   import { tagColor, splitTag } from '../lib/namespaces.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { settings } from '../lib/settings.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import Icon from '../components/Icon.svelte';
@@ -37,13 +38,11 @@
   let sitesOff = $state<string[]>([]); // switched off in Settings: their queues and subscriptions wait
   let sitesPaused = $state<Record<string, SitePause>>({}); // paused by themselves: they kept failing to answer
   async function tryNow(id: string) {
-    try {
+    await attempt(async () => {
       await api.trySite(id);
       toasts.show(t('downloads.tryingNow', { site: siteLabel(id) }), { cat: 'downloadsMisc' });
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   let searches = $state<DownloadSearch[]>([]);
   let subs = $state<Subscription[]>([]);
@@ -251,43 +250,36 @@
   };
 
   async function groupAct(g: SubGroup, action: 'check' | 'pause' | 'resume') {
-    try {
+    await attempt(async () => {
       await api.groupAction(g.id, action);
       toasts.show(action === 'check' ? t('downloads.checking', { name: g.name }) : t(action === 'pause' ? 'downloads.paused' : 'downloads.resumed', { name: g.name }), { cat: 'downloadsControl',
         kind: action === 'check' ? 'info' : 'done',
       });
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   async function groupInterval(g: SubGroup, v: string) {
-    try {
+    await attempt(async () => {
       await api.updateGroup(g.id, { interval: +v });
       toasts.show(t('downloads.groupInterval', { name: g.name, every: every(+v) }), { cat: 'groups' });
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   async function groupDepth(g: SubGroup, n: number) {
-    try {
+    await attempt(async () => {
       await api.updateGroup(g.id, { check_depth: n });
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   async function renameGroup(e: SubmitEvent) {
     e.preventDefault();
-    if (!renaming) return;
-    try {
-      await api.updateGroup(renaming.id, { name: renaming.name });
+    const r = renaming;
+    if (!r) return;
+    await attempt(async () => {
+      await api.updateGroup(r.id, { name: r.name });
       renaming = null;
       refresh();
-    } catch (err) {
-      toasts.error((err as Error).message);
-    }
+    });
   }
   async function deleteGroup(g: SubGroup) {
     const n = subs.filter((x) => x.group_id === g.id).length;
@@ -297,13 +289,11 @@
       action: t('downloads.deleteGroup'),
     });
     if (!ok) return;
-    try {
+    await attempt(async () => {
       await api.groupAction(g.id, 'remove');
       toasts.show(t('downloads.groupDeleted', { name: g.name }), { cat: 'groups', kind: 'removed' });
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   function groupMenu(g: SubGroup, v: string) {
     if (v === 'rename') renaming = { id: g.id, name: g.name };
@@ -314,27 +304,24 @@
       moving = { sub: s.id, name: '' };
       return;
     }
-    try {
+    await attempt(async () => {
       await api.updateSubscription(s.id, { group_id: +v });
       const g = groups.find((x) => x.id === +v);
       toasts.show(g ? t('downloads.moved', { query: named(s), name: g.name }) : t('downloads.noGroupNow', { query: named(s) }), { cat: 'groups' });
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   async function moveToNew(e: SubmitEvent, s: Subscription) {
     e.preventDefault();
-    if (!moving?.name.trim()) return;
-    try {
-      const g = await api.addGroup(s.site, moving.name);
+    const m = moving;
+    if (!m?.name.trim()) return;
+    await attempt(async () => {
+      const g = await api.addGroup(s.site, m.name);
       await api.updateSubscription(s.id, { group_id: g.id });
       toasts.show(t('downloads.movedNew', { query: named(s), name: g.name }), { cat: 'groups' });
       moving = null;
       refresh();
-    } catch (err) {
-      toasts.error((err as Error).message);
-    }
+    });
   }
   function pickFormGroup(v: string) {
     formGroup = v;
@@ -441,7 +428,7 @@
   });
   function speedOf(id: number): string {
     const sp = speeds[id];
-    return sp && now - sp.at < 4000 ? t('downloads.speed', { size: bytes(sp.v) }) : '';
+    return sp && now - sp.at < 4000 ? t('downloads.speed', { size: formatSize(sp.v) }) : '';
   }
 
   // ---- the queue's cards (2026-10-28, the user: "too cramped" - direction D of the prototypes): one line each
@@ -510,8 +497,7 @@
   async function add(e: SubmitEvent) {
     e.preventDefault();
     if (!query.trim()) return;
-    busy = true;
-    try {
+    await attempt(async () => {
       if (repeat !== '0') {
         const group = favSearch ? {} : formGroup === 'new' ? { group_name: newGroupName.trim() } : formGroup ? { group_id: +formGroup } : {};
         if (!favSearch && formGroup === 'new' && !newGroupName.trim()) throw new Error(t('downloads.nameGroupFirst'));
@@ -529,11 +515,7 @@
       rememberSite(site);
       query = '';
       refresh();
-    } catch (err) {
-      toasts.error((err as Error).message);
-    } finally {
-      busy = false;
-    }
+    }, (b) => (busy = b));
   }
 
   // The queue (running, waiting, paused) grouped by site in queue order;
@@ -555,7 +537,7 @@
   let failedCount = $derived(finished.filter((s) => s.state === 'failed').length);
 
   async function act(s: DownloadSearch, action: 'pause' | 'resume' | 'remove') {
-    try {
+    await attempt(async () => {
       if (action === 'pause') await api.pauseDownload(s.id);
       if (action === 'resume') await api.resumeDownload(s.id);
       if (action === 'remove') {
@@ -576,9 +558,7 @@
         toasts.show(t('downloads.removed', { query: named(s) }), { cat: 'downloadsStarted', kind: 'removed' });
       }
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   /** Every failed download tries again, each from where it stopped. */
@@ -684,14 +664,12 @@
   }
 
   async function clearFinished() {
-    try {
+    await attempt(async () => {
       const { removed } = await api.clearDownloads();
       changed();
       searches =searches.filter((s) => s.state !== 'done');
       toasts.show(t('downloads.cleared', { n: removed }), { cat: 'downloadsMisc', kind: 'removed' });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   // ---- Tabs: Queue (with the tag refresh), Subscriptions, History (failed files, finished downloads); the last one
@@ -840,14 +818,12 @@
     await refresh();
   }
   async function dismissPosts(list: FailedPost[]) {
-    try {
+    await attempt(async () => {
       const { dismissed } = await api.dismissPosts(list.map((f) => ({ site: f.site, post: f.post })));
       const gone = new Set(list.map(postKey));
       failedPosts = failedPosts.filter((f) => !gone.has(postKey(f)));
       toasts.show(t('downloads.dismissed', { n: dismissed }), { cat: 'downloadsMisc', kind: 'removed' });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
     refresh();
   }
 
@@ -1140,13 +1116,11 @@
     !!x.subscription_id || subs.some((s) => s.site === x.site && s.query === x.query.trim());
 
   async function subscribeSearch(x: DownloadSearch) {
-    try {
+    await attempt(async () => {
       await api.subscribeSearch(x.id, DEFAULT_INTERVAL);
       toasts.show(t('downloads.subscribedSearch', { query: x.query, every: every(DEFAULT_INTERVAL) }), { cat: 'downloadsStarted' });
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   // Files no longer in the site's favorites (a favorites subscription noticed): delete them, or keep them.
@@ -1181,7 +1155,7 @@
   }
 
   async function subAct(s: Subscription, action: 'check' | 'pause' | 'resume' | 'remove') {
-    try {
+    await attempt(async () => {
       if (action === 'check') {
         await api.checkSubscription(s.id);
         toasts.show(t('downloads.checking', { name: named(s) }), { cat: 'downloadsControl', kind: 'info' });
@@ -1197,28 +1171,22 @@
         toasts.show(t('downloads.unsubscribed', { query: named(s) }), { cat: 'downloadsStarted', kind: 'removed' });
       }
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   async function changeInterval(s: Subscription, v: string) {
-    try {
+    await attempt(async () => {
       await api.updateSubscription(s.id, { interval: +v });
       toasts.show(t('downloads.interval', { query: named(s), every: every(+v) }), { cat: 'downloadsControl' });
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   async function changeDepth(s: Subscription, n: number) {
-    try {
+    await attempt(async () => {
       await api.updateSubscription(s.id, { check_depth: n });
       refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   /** The depth a subscription gets unless it sets one: its group's, else its site's or the one for all. */
   function inheritedDepth(s: Subscription): number {
@@ -1286,11 +1254,7 @@
     searches = [...searches].sort((a, b) =>
       a.site === site && b.site === site && pos.has(a.id) && pos.has(b.id) ? pos.get(a.id)! - pos.get(b.id)! : 0,
     );
-    try {
-      await api.reorderDownloads(site, ids);
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    await attempt(() => api.reorderDownloads(site, ids));
     changed();
     refresh();
   }
@@ -1394,10 +1358,10 @@
       <div class="line-stats">
         <div class="counts" {@attach edgeFades}>
           <span class="stat lead"><Icon name="retry" size={12} /> {t('downloads.retryKind')}</span>
-          {#if file && !done}<span class="stat">{file.total > 0 ? t('downloads.sizeOf', { read: bytes(file.read), total: bytes(file.total) }) : bytes(file.read)}</span>{/if}
+          {#if file && !done}<span class="stat">{file.total > 0 ? t('downloads.sizeOf', { read: formatSize(file.read), total: formatSize(file.total) }) : formatSize(file.read)}</span>{/if}
           {#if r.query}<span class="stat quiet">{r.query}</span>{/if}
         </div>
-        {#if !done && speed}<span class="stat speed">{t('downloads.speed', { size: bytes(speed) })}</span>{/if}
+        {#if !done && speed}<span class="stat speed">{t('downloads.speed', { size: formatSize(speed) })}</span>{/if}
       </div>
       {#if done && r.error}<p class="error small" transition:reveal>{r.error}</p>{/if}
     </div>

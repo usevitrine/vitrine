@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   // What to do with a tag tapped in the details: search with it (add, exclude,
   // a new search), start a new download for it, copy it (with or without its namespace), put it in
@@ -145,7 +146,7 @@
     style:visibility={pos.ready ? undefined : 'hidden'}
     style:--c={nsColor(parts.ns)}
     onkeydown={keydown}>
-    {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
+    {#if sheet}<GrabBar stuck bleed={12} />{/if}
     <div class="mpages" class:animating={pages.animating} {@attach pages.box} style:height={pages.height !== null ? `${pages.height}px` : undefined}>
     {#key pages.nav}
     <div class="mpage" {@attach pages.page} in:pages.pageIn out:pages.pageOut>
@@ -268,11 +269,6 @@
   .backdrop.dim {
     background: rgb(17 17 27 / 0.5);
   }
-  @keyframes fade {
-    from {
-      opacity: 0;
-    }
-  }
   /* Phones: a sheet like the details panel - edge to edge along the bottom,
      rounded top corners, a grab bar (drag down to close), and room at the
      bottom for the home bar and the screen's rounded corners. */
@@ -289,25 +285,6 @@
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
-    animation: none; /* it slides (lib/sheet) */
-  }
-  .grab-zone {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: grid;
-    place-items: center;
-    height: 22px;
-    margin: 0 -12px;
-    background: var(--mantle);
-    touch-action: none;
-    cursor: grab;
-  }
-  .grab-zone span {
-    width: 38px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--surface2);
   }
   .menu {
     position: fixed;
@@ -319,20 +296,7 @@
     border: 1px solid var(--surface1);
     border-radius: 14px;
     box-shadow: 0 16px 40px rgb(0 0 0 / 0.55);
-    animation: pop 0.12s ease-out;
-  }
-  @keyframes pop {
-    from {
-      opacity: 0;
-      transform: translateY(-4px) scale(0.98);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .backdrop.dim,
-    .menu.sheet,
-    .menu {
-      animation: none;
-    }
+    /* (no CSS animation: lib/sheet's 'drop' brings it in - both played at once, 2026-11-01) */
   }
   .head {
     display: grid;

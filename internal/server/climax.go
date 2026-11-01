@@ -16,8 +16,7 @@ func (s *Server) climax(w http.ResponseWriter, r *http.Request) {
 		Comic int64  `json:"comic"`
 		Page  int    `json:"page"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	var id int64
@@ -40,8 +39,7 @@ func (s *Server) undoClimax(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ID int64 `json:"id"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	file, n, err := s.lib.UndoClimax(r.Context(), req.ID)
@@ -86,8 +84,7 @@ func (s *Server) removeClimaxes(w http.ResponseWriter, r *http.Request) {
 		File uint32 `json:"file"`
 		All  bool   `json:"all"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	n, err := s.lib.RemoveClimaxes(r.Context(), req.File, req.All)

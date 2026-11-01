@@ -399,8 +399,7 @@ func (s *Server) clientLog(w http.ResponseWriter, r *http.Request) {
 		Stack   string `json:"stack"`
 		Where   string `json:"where"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	clientErrors.Lock()

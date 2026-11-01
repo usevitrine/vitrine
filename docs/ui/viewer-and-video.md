@@ -124,6 +124,14 @@ lays them out at the original size.
   where the sheet begins (the sheet's own height in CSS: `min(75%, --sheet-max-h, 100% - keyboard - 56px)`), so the
   picture fits in the room above it, gliding there like the wide screens' (it stayed centered behind the sheet, the room
   above empty); its bottom controls go meanwhile (as they did behind the sheet).
+  **Following a dragged sheet** (2026-11-01, the user: "a 1 to 1 animation when closing the details panel where the
+  image resizes and shifts live"): while the sheet is dragged down, the stage is moved and scaled about its center
+  (a transform, `sheetFollow`) to where the picture would sit in a stage taller by the drag; the stage-wrap clips only
+  sideways meanwhile (`overflow: clip visible`), so the growing picture isn't cut off under the sheet. Let go without
+  closing, it goes back with the sheet (the same 0.22 s ease-out). Let go to close: the glide to the full stage starts
+  from the dragged rect (measured with the transform still on) with the sheet's own timing (200 ms ease-out, as the
+  sheet leaves from where it was let go). On phones, opening and closing by a tap also use the sheet's timing (240 ms
+  ease-out) instead of the wide screens' 260 ms curve, so the picture and the sheet move together.
 - **Details: copy links; swipe down (2026-10-16, user)**: the post page and source rows have a copy button after the
   open-in-new-tab arrow (toast "Copied the post page link"). Swiping down with the details open closes the viewer on
   wide screens (the details are a column beside the picture); on phones the sheet covers the picture, so it goes first.

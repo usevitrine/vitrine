@@ -137,23 +137,18 @@ func (s *Service) Subscribe(ctx context.Context, sub Subscription, label, langua
 // languages lists the languages devices get notifications in (a device
 // without its own gets the server's default).
 func (s *Service) languages(ctx context.Context) ([]string, error) {
-	rows, err := s.db.R.QueryContext(ctx, "SELECT DISTINCT language FROM push_subscriptions")
+	langs, err := db.Column[string](ctx, s.db.R, "SELECT DISTINCT language FROM push_subscriptions")
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	var out []string
-	for rows.Next() {
-		var l string
-		if err := rows.Scan(&l); err != nil {
-			return nil, err
-		}
+	for _, l := range langs {
 		l = i18n.For(l).Tag() // ("" or a language no longer there: the default)
 		if !slices.Contains(out, l) {
 			out = append(out, l)
 		}
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // Language is the language a device gets notifications in.

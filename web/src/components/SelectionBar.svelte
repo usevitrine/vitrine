@@ -8,7 +8,7 @@
   import { backClose } from '../lib/backClose';
   import { api } from '../lib/api';
   import { useScope } from '../lib/scope.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import { restoreFiles, purgeFiles } from '../lib/trash.svelte';
   import TagInput from './TagInput.svelte';
@@ -101,8 +101,7 @@
     const ids = selection.list();
     const add = toAdd.slice();
     const remove = toRemove.slice();
-    busy = true;
-    try {
+    await attempt(async () => {
       if (comics) await api.comicsTags(ids, add, remove);
       else await api.editTags(ids, add, remove);
       const parts = [add.length ? t('selection.addedTags', { n: add.length }) : '', remove.length ? t('selection.removedTags', { n: remove.length }) : ''].filter(Boolean);
@@ -110,11 +109,7 @@
       editing = false;
       ids.forEach((id) => results.forget(id));
       await results.refresh(); // the search may match differently now
-    } catch (e) {
-      toasts.error((e as Error).message);
-    } finally {
-      busy = false;
-    }
+    }, (b) => (busy = b));
   }
 
   // All the selected files already favorites (as far as the loaded details tell): the heart removes them.
@@ -164,8 +159,7 @@
       undoable: true,
     });
     if (!ok) return;
-    busy = true;
-    try {
+    await attempt(async () => {
       await results.remove(ids);
       selection.clear();
       toasts.show(t(comics ? 'comics.deletedN' : 'common.deletedFiles', { n: ids.length }), { cat: 'deleted',
@@ -179,18 +173,13 @@
         },
       });
       await results.refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    } finally {
-      busy = false;
-    }
+    }, (b) => (busy = b));
   }
 
   // Re-reads the files' posts from their sites when each site is next idle.
   async function refreshTags() {
     const ids = selection.list();
-    busy = true;
-    try {
+    await attempt(async () => {
       if (comics) {
         // Read from their sites now (one request each).
         const { found } = await api.comicsRefresh(ids);
@@ -206,11 +195,7 @@
           : t(sk('noSite')),
         { cat: 'refreshed', kind: 'info' },
       );
-    } catch (e) {
-      toasts.error((e as Error).message);
-    } finally {
-      busy = false;
-    }
+    }, (b) => (busy = b));
   }
 
   async function selectAll() {

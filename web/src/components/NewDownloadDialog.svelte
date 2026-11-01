@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   // A new download from the library (2026-10-22: the Library's download button), a page at a time: the library's
   // search or another one (only when the search has tags), the site (where the search's tags came from first), the
@@ -15,7 +16,7 @@
   import { siteOn } from '../lib/sections';
   import { intervals, DEFAULT_INTERVAL, cap, every } from '../lib/schedule';
   import { router } from '../lib/router.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { backClose } from '../lib/backClose';
   import { sheetDrag } from '../lib/sheetDrag';
   import { sheetIn, sheetOut, shade } from '../lib/sheet';
@@ -70,15 +71,13 @@
     // it's there when picked)
     if (tags.length) from = tagOrigins(tags);
     let sites: string[] = [];
-    try {
+    await attempt(async () => {
       const res = await api.downloadSites();
       await siteInfo.whenLoaded(); // (each site's OR search)
       sites = res.sites.filter(siteOn);
       groups = res.groups ?? [];
       if (fromTags) origins = usable(await from, sites);
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
     // (the list comes in place of "Loading…": the dialog's height follows instead of jumping)
     await pages.grow(() => {
       downloadSites = sites;
@@ -184,8 +183,7 @@
   async function start(e: SubmitEvent) {
     e.preventDefault();
     if (!ready || busy) return;
-    busy = true;
-    try {
+    await attempt(async () => {
       const q = searches.length > 1 ? t('newDl.searches', { n: searches.length }) : searches[0];
       if (repeat !== '0') {
         if (!favSearch && formGroup === 'new' && !newGroupName.trim()) throw new Error(t('downloads.nameGroupFirst'));
@@ -207,11 +205,7 @@
       }
       ondone?.(repeat !== '0');
       onclose();
-    } catch (err) {
-      toasts.error((err as Error).message);
-    } finally {
-      busy = false;
-    }
+    }, (b) => (busy = b));
   }
 
   const titles: Record<Page, () => string> = {
@@ -257,7 +251,7 @@
     {@attach backClose(onclose)}
     in:sheetIn|global={{ on: sheet, desk: 'pop' }}
     out:sheetOut|global={{ on: sheet, desk: 'pop' }}>
-    {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
+    {#if sheet}<GrabBar bleed={14} after={-6} />{/if}
     <div class="head">
       {#if trail.length && page !== 'what'}
         <!-- (its width slides, its gap with it: the title beside it glides instead of jumping) -->
@@ -459,20 +453,6 @@
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
-  }
-  .grab-zone {
-    display: grid;
-    place-items: center;
-    height: 22px;
-    margin: 0 -14px -6px;
-    touch-action: none;
-    cursor: grab;
-  }
-  .grab-zone span {
-    width: 38px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--surface2);
   }
   .head {
     display: flex;

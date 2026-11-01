@@ -260,6 +260,10 @@ Palette: https://catppuccin.com/palette
   phones sit edge to edge along the bottom with rounded top corners, a grab bar (`lib/sheetDrag.ts`: drag down
   > 80 px or flick to close, else it springs back; it leaves from where it was let go) and bottom padding of
   30 px + the home bar (`--safe-bottom`; 16 px was too little on an iPhone), so the last row clears the iPhone's rounded corners.
+  **One grab bar (2026-11-01)**: `components/GrabBar.svelte` on all nine sheets (it was copied into each, markup and
+  CSS); what differs is a prop - `stuck` (a sheet that scrolls: kept at its top, on the sheet's background), `bleed`
+  (across the sheet's side padding), `after` (its gap to what follows), `z`. The sheets' own box CSS stays in each
+  (their layers, padding and scrolling really differ).
 - **One spinner style (2026-10-19)**: every ring spinner (thumbnail being made, thumbnail on its way, the viewer's
   loading) is a faint ring with the accent (mauve) going round.
 - **Hints: few and short (2026-10-19)**: a hint only where a name alone could mislead, in a few words (the filter
@@ -338,6 +342,13 @@ Palette: https://catppuccin.com/palette
   swallowed); touch: `touchmove` is canceled once it's a drag (no scroll or bounce). Action menus, the tag and chip
   menus, Sort and filters, the site picker, the confirm dialog and both details panels (the viewer's, the Comics
   page's) use it.
+  **Let go: the finger's last speed decides (2026-11-01)**, the user: "if I tap and drag and it's close to being fully
+  closed and I flick back up, it still closes". The speed is the finger's over its last ~80 ms (0 if it had stopped
+  for 100 ms), not the whole drag's average: flicked down (> 0.4 px/ms) it closes once past 20 px; flicked back up it
+  stays, however far down; otherwise it closes past the sheet's distance (80 px, the details 90) - `closes()`.
+  **No text selection or native drag while dragging** (found testing that): with a mouse a drag selected the sheet's
+  text, and the next press on it started a native text drag - the sheet stopped following after one move. A drag
+  clears the selection and cancels `selectstart`/`dragstart` on the sheet.
 - **Tile overlays (2026-10-21)**: everything on a tile sits in one `.face`, clipped to the rounded shape as one
   (`clip-path`; a hover card or a comic: also `mask-image`, a layer of its own) - clipping each piece showed a sliver
   of the picture around a comic's dark foot; the foot reaches a pixel past the edges; a tile has no background of its
@@ -361,3 +372,6 @@ Palette: https://catppuccin.com/palette
   was padding: the dashed border's top edge sat under the floating search bar).
 - **⋮ menus (2026-10-22)** (the user: "vertical dots, they take up less room"): ActionMenu's own trigger is vertical
   dots in a 24 px wide button everywhere (a menu with an icon of its own keeps its width).
+- **File sizes one way (2026-11-01)**: `formatSize` (lib/results) everywhere - one decimal below 10, none from
+  there ("9.9 MB", "12 MB", "1.1 TB"), in units of 1024, written the language's way. Before, a second formatter
+  (`bytes`, the Downloads page) and Settings' own wrote the same size "12.0 MB" and "12 MB"; found by a code audit.

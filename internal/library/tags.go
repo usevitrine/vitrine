@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/index"
 	"github.com/usevitrine/vitrine/internal/tag"
 )
@@ -145,23 +146,10 @@ func (l *Library) lookupTags(ctx context.Context, tx *sql.Tx, tags []tag.Tag, cr
 // fileTags returns the tags a file has: any origin counts, except site tags
 // the user removed (hidden) - unless the user also added them.
 func fileTags(ctx context.Context, tx *sql.Tx, file uint32) ([]uint32, error) {
-	rows, err := tx.QueryContext(ctx, `
+	return db.Column[uint32](ctx, tx, `
 		SELECT DISTINCT tag_id FROM file_tags ft
 		WHERE file_id = ? AND (origin = 0 OR NOT EXISTS (
 			SELECT 1 FROM hidden_tags h WHERE h.file_id = ft.file_id AND h.tag_id = ft.tag_id))`, file)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var ids []uint32
-	for rows.Next() {
-		var id uint32
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
 }
 
 // diff lists what is in b but not a (added) and in a but not b (removed).

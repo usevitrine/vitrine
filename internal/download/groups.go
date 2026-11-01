@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/library"
 )
 
@@ -211,20 +212,11 @@ func (d *Downloader) members(ctx context.Context, groupID int64) ([]int64, error
 	if _, err := d.GetGroup(ctx, groupID); err != nil {
 		return nil, err
 	}
-	rows, err := d.db.R.QueryContext(ctx, "SELECT id FROM subscriptions WHERE group_id = ? ORDER BY id", groupID)
+	ids, err := db.Column[int64](ctx, d.db.R, "SELECT id FROM subscriptions WHERE group_id = ? ORDER BY id", groupID)
 	if err != nil {
 		return nil, fmt.Errorf("download: %w", err)
 	}
-	defer rows.Close()
-	var ids []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
+	return ids, nil
 }
 
 // GroupAction checks, pauses or resumes every subscription in a group

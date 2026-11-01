@@ -120,12 +120,14 @@ func (s *Server) inCollection(r *http.Request, ids []uint32, collection int64) (
 
 // orderCollection: POST /api/comics/collections/{id}/order {ids} - its comics in that order.
 func (s *Server) orderCollection(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	id, ok := pathID(w, r, "collection")
+	if !ok {
+		return
+	}
 	var req struct {
 		IDs []int64 `json:"ids"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.lib.OrderCollection(r.Context(), id, req.IDs); err != nil {
@@ -181,15 +183,6 @@ func (s *Server) listComics(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"comics": out, "total": total})
 }
 
-func comicID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, errors.New("bad comic ID"))
-		return 0, false
-	}
-	return id, true
-}
-
 func comicError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, library.ErrNoComic):
@@ -202,7 +195,7 @@ func comicError(w http.ResponseWriter, err error) {
 }
 
 func (s *Server) getComic(w http.ResponseWriter, r *http.Request) {
-	id, ok := comicID(w, r)
+	id, ok := pathID(w, r, "comic")
 	if !ok {
 		return
 	}
@@ -247,7 +240,7 @@ func (s *Server) getComic(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateComic(w http.ResponseWriter, r *http.Request) {
-	id, ok := comicID(w, r)
+	id, ok := pathID(w, r, "comic")
 	if !ok {
 		return
 	}
@@ -258,8 +251,7 @@ func (s *Server) updateComic(w http.ResponseWriter, r *http.Request) {
 		Tags     []string   `json:"tags"`     // the user's tags (null: unchanged)
 		AddTags  []string   `json:"add_tags"` // more tags of the user's
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if req.ReadPage != nil {
@@ -523,8 +515,7 @@ func (s *Server) comicsAction(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"files": len(req.IDs), "tags": orEmpty(tags)})
 	case "refresh":
-		if s.dl == nil {
-			writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+		if !s.needDL(w) {
 			return
 		}
 		n, err := s.dl.RefreshComics(ctx, req.IDs)
@@ -535,8 +526,7 @@ func (s *Server) comicsAction(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]int{"found": n})
 	case "redownload":
 		// Their pages fetched again: cleared, then a download of each gallery.
-		if s.dl == nil {
-			writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+		if !s.needDL(w) {
 			return
 		}
 		list, err := s.lib.ComicsByID(ctx, req.IDs)
@@ -596,8 +586,7 @@ func (s *Server) createCollection(w http.ResponseWriter, r *http.Request) {
 		Name string  `json:"name"`
 		IDs  []int64 `json:"ids"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	req.IDs = slices.DeleteFunc(req.IDs, func(id int64) bool { return id >= collectionTile })
@@ -611,12 +600,14 @@ func (s *Server) createCollection(w http.ResponseWriter, r *http.Request) {
 
 // renameCollection: POST /api/comics/collections/{id} {name}.
 func (s *Server) renameCollection(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	id, ok := pathID(w, r, "collection")
+	if !ok {
+		return
+	}
 	var req struct {
 		Name string `json:"name"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.lib.RenameCollection(r.Context(), id, req.Name); err != nil {
@@ -629,7 +620,10 @@ func (s *Server) renameCollection(w http.ResponseWriter, r *http.Request) {
 // deleteCollectionComics: POST /api/comics/collections/{id}/delete -> {ids}: the collection with its comics (into the
 // trash; ids: the comics, for an undo).
 func (s *Server) deleteCollectionComics(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	id, ok := pathID(w, r, "collection")
+	if !ok {
+		return
+	}
 	ids, err := s.lib.DeleteCollectionComics(r.Context(), id)
 	if err != nil {
 		collectionError(w, err)
@@ -640,7 +634,10 @@ func (s *Server) deleteCollectionComics(w http.ResponseWriter, r *http.Request) 
 
 // deleteCollection: POST /api/comics/collections/{id}/remove - its comics stay, on their own again.
 func (s *Server) deleteCollection(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	id, ok := pathID(w, r, "collection")
+	if !ok {
+		return
+	}
 	if err := s.lib.DeleteCollection(r.Context(), id); err != nil {
 		collectionError(w, err)
 		return

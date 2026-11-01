@@ -9,7 +9,7 @@
   import { settings } from '../lib/settings.svelte';
   import { passkeysWork, addPasskey, deviceName, cancelled } from '../lib/passkeys';
   import { confirmAction } from '../lib/confirm.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import Icon from './Icon.svelte';
   import Rich from './Rich.svelte';
   import { t, date } from '../lib/i18n.svelte';
@@ -54,12 +54,10 @@
     }
   }
   async function logoutOthers() {
-    try {
+    await attempt(async () => {
       const { ended } = await api.logoutOthers();
       toasts.show(ended ? t('settings.account.loggedOutOthers', { n: ended }) : t('settings.account.noOthers'), { cat: 'account', kind: 'info' });
-    } catch (err) {
-      toasts.error((err as Error).message);
-    }
+    });
   }
 
   // ---- passkeys
@@ -69,11 +67,9 @@
   let renaming = $state<number | null>(null);
   let renameTo = $state('');
   onMount(async () => {
-    try {
+    await attempt(async () => {
       keys = await api.passkeys();
-    } catch (err) {
-      toasts.error((err as Error).message);
-    }
+    });
   });
   const host = (origin: string) => origin.replace(/^https?:\/\//, '');
   const day = (ms: number) => date(new Date(ms), { day: 'numeric', month: 'short', year: 'numeric' });
@@ -98,20 +94,16 @@
       icon: 'trash',
     });
     if (!ok) return;
-    try {
+    await attempt(async () => {
       keys = await api.passkeyRemove(id);
-    } catch (err) {
-      toasts.error((err as Error).message);
-    }
+    });
   }
   async function rename(e: SubmitEvent, id: number) {
     e.preventDefault();
-    try {
+    await attempt(async () => {
       keys = await api.passkeyRename(id, renameTo);
       renaming = null;
-    } catch (err) {
-      toasts.error((err as Error).message);
-    }
+    });
   }
   async function setOnly(on: boolean) {
     try {

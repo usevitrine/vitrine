@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/plugin"
 )
 
@@ -141,13 +141,9 @@ func (d *Downloader) ScheduleRefresh(ctx context.Context, files []uint32) (int, 
 		return 0, nil
 	}
 	n := 0
-	for chunk := range chunks(files, 500) {
-		args := make([]any, len(chunk))
-		for i, f := range chunk {
-			args[i] = f
-		}
-		res, err := d.db.W.ExecContext(ctx, "UPDATE seen_posts SET seen_at = 0 WHERE file_id IN (?"+
-			strings.Repeat(",?", len(chunk)-1)+")", args...)
+	for chunk := range slices.Chunk(files, 500) {
+		marks, args := db.InList(chunk)
+		res, err := d.db.W.ExecContext(ctx, "UPDATE seen_posts SET seen_at = 0 WHERE file_id IN ("+marks+")", args...)
 		if err != nil {
 			return n, fmt.Errorf("download: %w", err)
 		}
@@ -162,18 +158,6 @@ func (d *Downloader) ScheduleRefresh(ctx context.Context, files []uint32) (int, 
 		d.wake(site)
 	}
 	return n, nil
-}
-
-func chunks[T any](s []T, n int) func(func([]T) bool) {
-	return func(yield func([]T) bool) {
-		for len(s) > 0 {
-			k := min(n, len(s))
-			if !yield(s[:k]) {
-				return
-			}
-			s = s[k:]
-		}
-	}
 }
 
 // RefreshFile reads the file's posts from their sites again now (waiting for

@@ -10,7 +10,7 @@
   import { api, type DupeFile, type DupePair } from '../lib/api';
   import { dupes, levels } from '../lib/dupes.svelte';
   import { formatDuration, formatSize, viewURL, results } from '../lib/results.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import Dropdown from '../components/Dropdown.svelte';
   import Icon from '../components/Icon.svelte';
   import { t, num, date } from '../lib/i18n.svelte';
@@ -131,18 +131,16 @@
     total = Math.max(0, total - 1);
     dupes.count = total;
     shown = 'a';
-    try {
+    await attempt(async () => {
       await api.decideDupe(p.a.id, p.b.id, keep);
       last = { pair: p, keep };
       if (dropped) results.changedElsewhere(); // (the deleted one leaves the library behind now)
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
     if (pairs.length < 5 && remaining > pairs.length) load();
     else if (dropped) load(); // the deleted file's other pairs leave the count too
   }
   async function undo(p: DupePair) {
-    try {
+    await attempt(async () => {
       await api.undoDupe(p.a.id, p.b.id);
       if (last?.pair === p) last = null;
       results.changedElsewhere();
@@ -150,9 +148,7 @@
       pairs = [p, ...pairs.filter((x) => key(x) !== key(p))];
       shown = 'a';
       await load();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   function skip() {
     if (!cur) return;

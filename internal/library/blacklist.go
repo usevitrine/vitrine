@@ -10,6 +10,7 @@ import (
 
 	"github.com/RoaringBitmap/roaring/v2"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/index"
 	"github.com/usevitrine/vitrine/internal/search"
 	"github.com/usevitrine/vitrine/internal/tag"
@@ -74,20 +75,11 @@ func (b *Blacklist) Match(tags []string) string {
 
 // Blacklist reads the blacklist.
 func (l *Library) Blacklist(ctx context.Context) (*Blacklist, error) {
-	rows, err := l.db.R.QueryContext(ctx, "SELECT pattern FROM blacklist ORDER BY pattern")
+	patterns, err := db.Column[string](ctx, l.db.R, "SELECT pattern FROM blacklist ORDER BY pattern")
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
 	}
-	defer rows.Close()
-	b := &Blacklist{patterns: []string{}}
-	for rows.Next() {
-		var p string
-		if err := rows.Scan(&p); err != nil {
-			return nil, err
-		}
-		b.patterns = append(b.patterns, p)
-	}
-	return b, rows.Err()
+	return &Blacklist{patterns: append([]string{}, patterns...)}, nil
 }
 
 // SetBlacklist replaces the blacklist (entries are normalized; duplicates

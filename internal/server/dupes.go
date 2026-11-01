@@ -77,8 +77,7 @@ func (s *Server) decideDupe(w http.ResponseWriter, r *http.Request) {
 		B    uint32 `json:"b"`
 		Keep string `json:"keep"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	var err error
@@ -106,8 +105,7 @@ func (s *Server) undoDupe(w http.ResponseWriter, r *http.Request) {
 		A uint32 `json:"a"`
 		B uint32 `json:"b"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.lib.UndoDupe(r.Context(), req.A, req.B); err != nil {

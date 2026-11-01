@@ -18,7 +18,7 @@
   import { t, num } from '../lib/i18n.svelte';
   import { fullscreen } from '../lib/fullscreen.svelte';
   import { settings } from '../lib/settings.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import Icon from './Icon.svelte';
   import ActionMenu from './ActionMenu.svelte';
 
@@ -295,7 +295,7 @@
     const setCount = (n: number) => {
       if (pages[p]) pages[p] = { ...pages[p], came: n };
     };
-    try {
+    await attempt(async () => {
       const res = await api.climaxPage(c.id, p);
       setCount(res.count);
       const what = t('common.pageOfComic', { page: p + 1, id: c.id });
@@ -308,9 +308,7 @@
           },
         },
       });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   const pageCame = $derived(shown.length ? (pages[shown[0]]?.came ?? 0) : 0);
 

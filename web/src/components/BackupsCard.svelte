@@ -7,7 +7,7 @@
   import { api, type BackupInfo } from '../lib/api';
   import { settings } from '../lib/settings.svelte';
   import { formatSize } from '../lib/results.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import Dropdown from './Dropdown.svelte';
   import Icon from './Icon.svelte';
@@ -43,16 +43,11 @@
 
 
   async function backUpNow() {
-    making = true;
-    try {
+    await attempt(async () => {
       const { backup } = await api.createBackup();
       toasts.show(t('backups.done', { size: formatSize(backup.size) }), { cat: 'backups' });
       await load();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    } finally {
-      making = false;
-    }
+    }, (b) => (making = b));
   }
 
   /** Saves a backup file (the browser's own download). */
@@ -68,13 +63,11 @@
   async function remove(b: BackupInfo) {
     const ok = await confirmAction({ title: t('backups.deleteTitle', { when: when(b.created_at) }), action: t('common.delete') });
     if (!ok) return;
-    try {
+    await attempt(async () => {
       await api.deleteBackup(b.name);
       list = list.filter((x) => x.name !== b.name);
       toasts.show(t('backups.deleted', { when: when(b.created_at) }), { cat: 'backups', kind: 'removed' });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   async function restore(b: BackupInfo) {
@@ -85,15 +78,10 @@
       icon: 'undo',
     });
     if (!ok) return;
-    staging = true;
-    try {
+    await attempt(async () => {
       await api.restoreBackup(b.name);
       pending = true;
-    } catch (e) {
-      toasts.error((e as Error).message);
-    } finally {
-      staging = false;
-    }
+    }, (b) => (staging = b));
   }
 
   async function restoreFile(e: Event) {
@@ -107,25 +95,18 @@
       icon: 'undo',
     });
     if (!ok) return;
-    staging = true;
-    try {
+    await attempt(async () => {
       await api.uploadBackup(file);
       pending = true;
-    } catch (err) {
-      toasts.error((err as Error).message);
-    } finally {
-      staging = false;
-    }
+    }, (b) => (staging = b));
   }
 
   async function cancelRestore() {
-    try {
+    await attempt(async () => {
       await api.cancelRestore();
       pending = false;
       toasts.show(t('backups.restoreCanceled'), { cat: 'backups', kind: 'info' });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   // Restart: Vitrine stops; Docker or a service manager starts it again. The

@@ -11,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/media"
 	"github.com/usevitrine/vitrine/internal/store"
 )
@@ -65,17 +66,12 @@ func (l *Library) saveHealth(ctx context.Context, h Health) error {
 
 // CheckDatabase runs SQLite's quick check on meta.db ("" when sound).
 func (l *Library) CheckDatabase(ctx context.Context) (string, error) {
-	rows, err := l.db.R.QueryContext(ctx, "PRAGMA quick_check(20)")
+	lines, err := db.Column[string](ctx, l.db.R, "PRAGMA quick_check(20)")
 	if err != nil {
 		return "", err
 	}
-	defer rows.Close()
 	var problem string
-	for rows.Next() {
-		var s string
-		if err := rows.Scan(&s); err != nil {
-			return "", err
-		}
+	for _, s := range lines {
 		if s != "ok" {
 			if problem != "" {
 				problem += "; "
@@ -83,7 +79,7 @@ func (l *Library) CheckDatabase(ctx context.Context) (string, error) {
 			problem += s
 		}
 	}
-	return problem, rows.Err()
+	return problem, nil
 }
 
 // storedFile is a file as the health check reads it.

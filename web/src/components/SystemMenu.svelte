@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   // The filter menu (like hydrus-web's system predicates, but only what
   // Vitrine has): pick a filter, fill in its short form, and it's added to the
@@ -331,7 +332,7 @@
       onclose(true);
     }
   }}>
-  {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
+  {#if sheet}<GrabBar stuck bleed={14} after={-6} z={2} />{/if}
   <div class="mpages" class:animating={pages.animating} {@attach pages.box} style:height={pages.height !== null ? `${pages.height}px` : undefined}>
   {#key pages.nav}
   <div class="mpage" {@attach pages.page} in:pages.pageIn out:pages.pageOut>
@@ -601,11 +602,6 @@
     z-index: 60;
     background: rgb(17 17 27 / 0.5);
   }
-  @keyframes fade {
-    from {
-      opacity: 0;
-    }
-  }
   .panel.sheet {
     position: fixed;
     z-index: 61;
@@ -623,30 +619,6 @@
   .panel.sheet.form-view {
     max-height: none;
     overflow: visible;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .backdrop,
-    .panel.sheet {
-      animation: none;
-    }
-  }
-  .grab-zone {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    display: grid;
-    place-items: center;
-    height: 22px;
-    margin: 0 -14px -6px;
-    background: var(--mantle);
-    touch-action: none;
-    cursor: grab;
-  }
-  .grab-zone span {
-    width: 38px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--surface2);
   }
   /* The order: one full-width button (it opens the Sort by page). */
   .sort-pick {

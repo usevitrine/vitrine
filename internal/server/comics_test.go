@@ -201,3 +201,24 @@ func TestComicSearch(t *testing.T) {
 		t.Fatalf("the library's saved searches: %+v", saved.Saved)
 	}
 }
+
+func TestCollectionBadID(t *testing.T) {
+	e := newEnv(t)
+	e.loginAs("me", "a long password")
+	for _, c := range []struct {
+		path string
+		body any
+	}{
+		{"/api/comics/collections/x", map[string]string{"name": "some_name"}},
+		{"/api/comics/collections/x/order", map[string]any{"ids": []int64{}}},
+		{"/api/comics/collections/x/delete", map[string]any{}},
+		{"/api/comics/collections/x/remove", map[string]any{}},
+	} {
+		var out struct {
+			Error string `json:"error"`
+		}
+		if code := e.call("POST", c.path, c.body, &out); code != 400 || out.Error != "bad collection ID" {
+			t.Errorf("%s: %d %q", c.path, code, out.Error)
+		}
+	}
+}

@@ -120,20 +120,11 @@ func (s *Store) PutSprite(ctx context.Context, file uint32, sp Sprite) error {
 
 // OldSprites lists the files whose preview frames were made by an older recipe.
 func (s *Store) OldSprites(ctx context.Context, version int) ([]uint32, error) {
-	rows, err := s.db.R.QueryContext(ctx, "SELECT file_id FROM sprites WHERE version < ?", version)
+	ids, err := db.Column[uint32](ctx, s.db.R, "SELECT file_id FROM sprites WHERE version < ?", version)
 	if err != nil {
 		return nil, fmt.Errorf("thumbs: %w", err)
 	}
-	defer rows.Close()
-	var ids []uint32
-	for rows.Next() {
-		var id uint32
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("thumbs: %w", err)
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
+	return ids, nil
 }
 
 // GetSprite loads a video's preview frames (withData = false: only the layout).

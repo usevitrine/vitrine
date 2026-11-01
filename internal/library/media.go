@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/media"
 	"github.com/usevitrine/vitrine/internal/store"
 	"github.com/usevitrine/vitrine/internal/thumbs"
@@ -124,20 +125,7 @@ func (l *Library) pendingMedia(ctx context.Context, retryFailed bool, limit int)
 	if limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", limit)
 	}
-	rows, err := l.db.R.QueryContext(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var ids []uint32
-	for rows.Next() {
-		var id uint32
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
+	return db.Column[uint32](ctx, l.db.R, q)
 }
 
 // ProcessMany runs ProcessMedia over files with several workers (newest

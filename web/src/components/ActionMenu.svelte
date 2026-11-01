@@ -23,6 +23,7 @@
 </script>
 
 <script lang="ts">
+  import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   // A ⋯ button with the actions of a row (e.g. a subscription): a menu at the
   // button, or an action sheet along the bottom on phones. An item with choices
@@ -223,7 +224,7 @@
       out:menuOut
       style:visibility={sheet || pos.ready ? undefined : 'hidden'}
       onkeydown={keydown}>
-      {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
+      {#if sheet}<GrabBar stuck bleed={12} />{/if}
       <div class="mpages" class:animating={pages.animating} {@attach pages.box} style:height={pages.height !== null ? `${pages.height}px` : undefined}>
       {#key pages.nav}
       <div class="mpage" {@attach pages.page} in:pages.pageIn out:pages.pageOut>
@@ -349,24 +350,6 @@
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
-  }
-  .grab-zone {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: grid;
-    place-items: center;
-    height: 22px;
-    margin: 0 -12px;
-    background: var(--mantle);
-    touch-action: none;
-    cursor: grab;
-  }
-  .grab-zone span {
-    width: 38px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--surface2);
   }
   /* Pages stack in one grid cell, so the old and the new can cross. */
   .head {

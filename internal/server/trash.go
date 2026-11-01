@@ -34,8 +34,7 @@ func (s *Server) purgeTrash(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDs []uint32 `json:"ids"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	n, err := s.lib.PurgeFiles(r.Context(), req.IDs)
@@ -54,8 +53,7 @@ func (s *Server) emptyTrash(w http.ResponseWriter, r *http.Request) {
 		Limit int `json:"limit"`
 	}
 	if r.ContentLength != 0 {
-		if err := readJSON(r, &req); err != nil {
-			writeError(w, http.StatusBadRequest, err)
+		if !decode(w, r, &req) {
 			return
 		}
 	}
@@ -85,8 +83,7 @@ func (s *Server) purgeComicsTrash(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDs []int64 `json:"ids"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	n, err := s.lib.PurgeComics(r.Context(), req.IDs)

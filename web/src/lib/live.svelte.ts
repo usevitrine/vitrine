@@ -1,4 +1,3 @@
-import { t, i18n } from './i18n.svelte';
 import { notices } from './notices.svelte';
 // Live updates from the server (GET /api/events, Server-Sent Events): the
 // download queue changed, and the files downloading right now. A dropped
@@ -133,18 +132,3 @@ class Live {
 }
 
 export const live = new Live();
-
-/** 1536 -> "1.5 KB", 12_345_678 -> "11.8 MB" (written the language's way). */
-export function bytes(n: number): string {
-  if (n < 1024) return t('unit.size.B', { n });
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let v = n / 1024;
-  let i = 0;
-  while (v >= 1000 && i < units.length - 1) {
-    v /= 1024;
-    i++;
-  }
-  const digits = v < 9.95 ? 1 : 0;
-  const x = new Intl.NumberFormat(i18n.lang, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(v);
-  return t(`unit.size.${units[i]}`, { x });
-}

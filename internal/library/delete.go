@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/index"
 	"github.com/usevitrine/vitrine/internal/media"
 	"github.com/usevitrine/vitrine/internal/store"
@@ -196,30 +196,18 @@ func (l *Library) PurgeComics(ctx context.Context, ids []int64) (int, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
-	marks := "?" + strings.Repeat(",?", len(ids)-1)
-	args := make([]any, len(ids))
-	for i, id := range ids {
-		args[i] = id
-	}
-	var files []any
+	marks, args := db.InList(ids)
+	var files []int64
 	var n int
 	err := l.write(ctx, func(tx *sql.Tx) (func() error, error) {
 		// (the pages only these comics have, deleted with them)
-		rows, err := tx.QueryContext(ctx, `SELECT DISTINCT p.file_id FROM comic_pages p JOIN files f ON f.id = p.file_id
+		var err error
+		files, err = db.Column[int64](ctx, tx, `SELECT DISTINCT p.file_id FROM comic_pages p JOIN files f ON f.id = p.file_id
 			WHERE p.comic_id IN (`+marks+`) AND f.deleted_at IS NOT NULL AND f.flags & 64 != 0
 			AND NOT EXISTS (SELECT 1 FROM comic_pages o WHERE o.file_id = p.file_id AND o.comic_id NOT IN (`+marks+`))`, append(args, args...)...)
 		if err != nil {
 			return nil, fmt.Errorf("library: %w", err)
 		}
-		for rows.Next() {
-			var id int64
-			if err := rows.Scan(&id); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			files = append(files, id)
-		}
-		rows.Close()
 		res, err := tx.ExecContext(ctx, "DELETE FROM comics WHERE deleted_at IS NOT NULL AND id IN ("+marks+")", args...)
 		if err != nil {
 			return nil, fmt.Errorf("library: %w", err)
@@ -231,26 +219,17 @@ func (l *Library) PurgeComics(ctx context.Context, ids []int64) (int, error) {
 	if err != nil || len(files) == 0 {
 		return n, err
 	}
-	_, err = l.purge(ctx, "deleted_at IS NOT NULL AND id IN (?"+strings.Repeat(",?", len(files)-1)+")", files, -1)
+	fmarks, fargs := db.InList(files)
+	_, err = l.purge(ctx, "deleted_at IS NOT NULL AND id IN ("+fmarks+")", fargs, -1)
 	return n, err
 }
 
 // EmptyComicsTrash removes every deleted comic for good (see PurgeComics).
 func (l *Library) EmptyComicsTrash(ctx context.Context) (int, error) {
-	rows, err := l.db.R.QueryContext(ctx, "SELECT id FROM comics WHERE deleted_at IS NOT NULL")
+	ids, err := db.Column[int64](ctx, l.db.R, "SELECT id FROM comics WHERE deleted_at IS NOT NULL")
 	if err != nil {
 		return 0, fmt.Errorf("library: %w", err)
 	}
-	var ids []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		ids = append(ids, id)
-	}
-	rows.Close()
 	return l.PurgeComics(ctx, ids)
 }
 
@@ -267,11 +246,8 @@ func (l *Library) PurgeFiles(ctx context.Context, ids []uint32) (int, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
-	args := make([]any, len(ids))
-	for i, id := range ids {
-		args[i] = id
-	}
-	return l.purge(ctx, "deleted_at IS NOT NULL AND flags & 64 = 0 AND id IN (?"+strings.Repeat(",?", len(ids)-1)+")", args, -1)
+	marks, args := db.InList(ids)
+	return l.purge(ctx, "deleted_at IS NOT NULL AND flags & 64 = 0 AND id IN ("+marks+")", args, -1)
 }
 
 // EmptyTrash removes every deleted library file for good (comics keep their own: see Purge).

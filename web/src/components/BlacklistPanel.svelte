@@ -5,14 +5,13 @@
   import { reveal, pop, moved } from '../lib/motion';
   import { api, type BlacklistMatches } from '../lib/api';
   import { blacklist } from '../lib/blacklist.svelte';
-  import { results } from '../lib/results.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { results, formatSize } from '../lib/results.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import { router } from '../lib/router.svelte';
   import TagInput from './TagInput.svelte';
   import Icon from './Icon.svelte';
   import Rich from './Rich.svelte';
-  import { bytes } from '../lib/live.svelte';
   import { t, num } from '../lib/i18n.svelte';
 
   /** Tags offered with a tap (the first steps: common ones), those not in the list yet. */
@@ -52,12 +51,10 @@
   });
 
   async function save(next: string[]) {
-    try {
+    await attempt(async () => {
       await blacklist.set(next);
       loadMatches();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   // Several tags at once are fine (pasted lists: spaces, commas or new lines).
@@ -91,8 +88,7 @@
       undoable: true,
     });
     if (!ok) return;
-    busy = true;
-    try {
+    await attempt(async () => {
       const res = await api.deleteBlacklisted();
       toasts.show(t('common.deletedFiles', { n: res.deleted }), { cat: 'deleted',
         kind: 'removed',
@@ -109,11 +105,7 @@
       });
       loadMatches();
       results.changedElsewhere(); // (the library behind: they go from it now, not at the next reload)
-    } catch (e) {
-      toasts.error((e as Error).message);
-    } finally {
-      busy = false;
-    }
+    }, (b) => (busy = b));
   }
 
 </script>
@@ -157,7 +149,7 @@
         <div class="summary" transition:reveal>
           <p>
             <Rich text={t('blacklist.matches', { n: matches.total })} />
-            <span class="muted">· {bytes(matches.size)}</span>
+            <span class="muted">· {formatSize(matches.size)}</span>
           </p>
           <p class="hint">
             {matches.tags

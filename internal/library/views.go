@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/index"
 )
 
@@ -71,20 +72,10 @@ func viewStats(ctx context.Context, tx *sql.Tx, file uint32) (index.ViewStats, e
 func (l *Library) ClearViews(ctx context.Context) (int, error) {
 	var removed int
 	err := l.write(ctx, func(tx *sql.Tx) (func() error, error) {
-		var files []uint32
-		rows, err := tx.QueryContext(ctx, "SELECT DISTINCT file_id FROM views")
+		files, err := db.Column[uint32](ctx, tx, "SELECT DISTINCT file_id FROM views")
 		if err != nil {
 			return nil, fmt.Errorf("library: %w", err)
 		}
-		for rows.Next() {
-			var id uint32
-			if err := rows.Scan(&id); err != nil {
-				rows.Close()
-				return nil, fmt.Errorf("library: %w", err)
-			}
-			files = append(files, id)
-		}
-		rows.Close()
 		res, err := tx.ExecContext(ctx, "DELETE FROM views")
 		if err != nil {
 			return nil, fmt.Errorf("library: %w", err)

@@ -6,7 +6,7 @@
 import { api } from './api';
 import { router } from './router.svelte';
 import { confirmAction } from './confirm.svelte';
-import { toasts } from './toast.svelte';
+import { toasts, attempt } from './toast.svelte';
 import { formatSize } from './results.svelte';
 import { itemName, t } from './i18n.svelte';
 
@@ -56,12 +56,11 @@ const ofComics = (r: Refreshable) => r.index === 'comics';
 
 /** Files (or comics) back from the trash. */
 export async function restoreFiles(results: Refreshable, ids: number[]) {
-  try {
+  const restored = await attempt(async () => {
     await (ofComics(results) ? api.undeleteComics(ids) : api.restore(ids));
-  } catch (e) {
-    toasts.error((e as Error).message);
-    return false;
-  }
+    return true;
+  });
+  if (!restored) return false;
   const restoredWords = ids.length === 1 ? t('trash.restoredOne', { what: itemName(ids[0], ofComics(results)) }) : t(ofComics(results) ? 'trash.restoredComics' : 'trash.restored', { n: ids.length });
   toasts.show(restoredWords, { cat: 'deleted', kind: 'done' });
   await Promise.all([results.refresh(), trash.load()]);
@@ -109,7 +108,7 @@ export async function emptyTrash(results: Refreshable) {
   });
   if (!ok) return;
   trash.emptying = true;
-  try {
+  await attempt(async () => {
     let purged = 0;
     if (comics) purged = (await api.emptyComicsTrash()).purged;
     else {
@@ -122,9 +121,7 @@ export async function emptyTrash(results: Refreshable) {
       }
     }
     toasts.show(t(comics ? 'trash.purgedComics' : 'trash.purged', { n: purged }), { cat: 'deleted', kind: 'removed' });
-  } catch (e) {
-    toasts.error((e as Error).message);
-  }
+  });
   try {
     await Promise.all([results.refresh(), trash.load()]);
   } finally {

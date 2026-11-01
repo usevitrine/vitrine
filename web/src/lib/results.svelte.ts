@@ -455,14 +455,20 @@ export function formatDuration(ms: number): string {
   return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
 
+/** 1536 -> "1.5 KB", 12_345_678 -> "12 MB" (written the language's way): one decimal below 10, none from there -
+ *  every size in the app this way (2026-11-01: two formatters had written the same size "12.0 MB" and "12 MB"). */
 export function formatSize(n: number): string {
-  const fixed = (v: number, digits: number) =>
-    new Intl.NumberFormat(i18n.lang, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(v);
-  if (n >= 2 ** 40) return t('unit.size.TB', { x: fixed(n / 2 ** 40, 2) });
-  if (n >= 1 << 30) return t('unit.size.GB', { x: fixed(n / (1 << 30), 1) });
-  if (n >= 1 << 20) return t('unit.size.MB', { x: fixed(n / (1 << 20), 1) });
-  if (n >= 1 << 10) return t('unit.size.KB', { x: fixed(Math.round(n / (1 << 10)), 0) });
-  return t('unit.size.B', { n });
+  if (n < 1024) return t('unit.size.B', { n });
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1000 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  const digits = v < 9.95 ? 1 : 0;
+  const x = new Intl.NumberFormat(i18n.lang, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(v);
+  return t(`unit.size.${units[i]}`, { x });
 }
 
 // Phones view huge images as resized copies: decoding a very large original

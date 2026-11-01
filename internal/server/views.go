@@ -21,8 +21,7 @@ func (s *Server) addViews(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Views []library.View `json:"views"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	got, err := s.lib.AddViews(r.Context(), req.Views)

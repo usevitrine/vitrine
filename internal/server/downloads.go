@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/usevitrine/vitrine/internal/download"
@@ -17,8 +16,7 @@ func (s *Server) SetDownloader(dl *download.Downloader) { s.dl = dl }
 var errNoDownloader = errors.New("the downloader isn't running")
 
 func (s *Server) listDownloads(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	list, err := s.dl.List(r.Context())
@@ -95,8 +93,7 @@ func (s *Server) listDownloads(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) addDownload(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
@@ -106,8 +103,7 @@ func (s *Server) addDownload(w http.ResponseWriter, r *http.Request) {
 		Favorite bool   `json:"favorite"` // its files become favorites too
 		Label    string `json:"label"`    // its name where the query says little (a gallery's title)
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if strings.TrimSpace(req.Query) == "" {
@@ -151,15 +147,14 @@ func downloadError(w http.ResponseWriter, err error) {
 // changeDownload pauses, resumes or removes one search:
 // POST /api/downloads/{id}/{pause|resume|remove}. Removing keeps the files.
 func (s *Server) changeDownload(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, errors.New("bad search ID"))
+	id, ok := pathID(w, r, "search")
+	if !ok {
 		return
 	}
+	var err error
 	switch r.PathValue("action") {
 	case "pause":
 		err = s.dl.Pause(r.Context(), id)
@@ -180,8 +175,7 @@ func (s *Server) changeDownload(w http.ResponseWriter, r *http.Request) {
 
 // clearDownloads removes every finished search (files stay).
 func (s *Server) clearDownloads(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	n, err := s.dl.ClearFinished(r.Context())
@@ -194,16 +188,14 @@ func (s *Server) clearDownloads(w http.ResponseWriter, r *http.Request) {
 
 // reorderDownloads sets a site's queue order: {site, ids}.
 func (s *Server) reorderDownloads(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
 		Site string  `json:"site"`
 		IDs  []int64 `json:"ids"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.dl.Reorder(r.Context(), req.Site, req.IDs); err != nil {
@@ -215,8 +207,7 @@ func (s *Server) reorderDownloads(w http.ResponseWriter, r *http.Request) {
 
 // failedPosts: GET /api/failed-posts -> {posts: [{site, post, url, query, error, at}]}.
 func (s *Server) failedPosts(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	list, err := s.dl.FailedPosts(r.Context())
@@ -230,15 +221,13 @@ func (s *Server) failedPosts(w http.ResponseWriter, r *http.Request) {
 // dismissPosts: POST /api/failed-posts/dismiss {posts: [{site, post}]} -> {dismissed}: off the list (a later search
 // that meets one tries it again).
 func (s *Server) dismissPosts(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
 		Posts []download.PostRef `json:"posts"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	n, err := s.dl.DismissFailed(r.Context(), req.Posts)
@@ -252,16 +241,14 @@ func (s *Server) dismissPosts(w http.ResponseWriter, r *http.Request) {
 // retryPost: POST /api/failed-posts/retry {site, post} -> {outcome, error?}:
 // one failed post tried again now.
 func (s *Server) retryPost(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
 		Site string `json:"site"`
 		Post int64  `json:"post,string"` // as text (see download.FailedPost)
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	// In the background (the page shows it in its site's queue, with its progress, and its result): at once.

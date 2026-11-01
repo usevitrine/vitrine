@@ -86,3 +86,17 @@ class Toasts {
 
 export const toasts = new Toasts();
 notices.onScreen = (text, kind, cat) => toasts.popup(text, kind, cat);
+
+/** Runs `fn`; if it fails, its message is an error notice instead of a throw (the result is then undefined). `busy`
+ *  hears true before and false after, either way - e.g. `(b) => (saving = b)` for a button that waits meanwhile. */
+export async function attempt<T>(fn: () => Promise<T>, busy?: (on: boolean) => void): Promise<T | undefined> {
+  busy?.(true);
+  try {
+    return await fn();
+  } catch (e) {
+    toasts.error((e as Error).message);
+    return undefined;
+  } finally {
+    busy?.(false);
+  }
+}

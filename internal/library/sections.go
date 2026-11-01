@@ -3,6 +3,8 @@ package library
 import (
 	"context"
 	"fmt"
+
+	"github.com/usevitrine/vitrine/internal/db"
 )
 
 // The app's two sections (2026-10-23, the user: "an option to disable library and comics in the settings ... prompt
@@ -34,20 +36,10 @@ func (l *Library) ComicsSize(ctx context.Context) (SectionSize, error) {
 // DeleteAllMedia deletes every library file for good (into the trash, then the trash emptied); comics keep their
 // pages. It returns how many went.
 func (l *Library) DeleteAllMedia(ctx context.Context) (int, error) {
-	rows, err := l.db.R.QueryContext(ctx, "SELECT id FROM files WHERE deleted_at IS NULL AND flags & 64 = 0")
+	ids, err := db.Column[uint32](ctx, l.db.R, "SELECT id FROM files WHERE deleted_at IS NULL AND flags & 64 = 0")
 	if err != nil {
 		return 0, fmt.Errorf("library: %w", err)
 	}
-	var ids []uint32
-	for rows.Next() {
-		var id uint32
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		ids = append(ids, id)
-	}
-	rows.Close()
 	for len(ids) > 0 { // (in batches: one long write would hold every other write up)
 		n := min(len(ids), 2000)
 		if err := l.Delete(ctx, ids[:n], ""); err != nil {
@@ -60,20 +52,10 @@ func (l *Library) DeleteAllMedia(ctx context.Context) (int, error) {
 
 // DeleteAllComics deletes every comic for good (and their own pages). It returns how many went.
 func (l *Library) DeleteAllComics(ctx context.Context) (int, error) {
-	rows, err := l.db.R.QueryContext(ctx, "SELECT id FROM comics WHERE deleted_at IS NULL")
+	ids, err := db.Column[int64](ctx, l.db.R, "SELECT id FROM comics WHERE deleted_at IS NULL")
 	if err != nil {
 		return 0, fmt.Errorf("library: %w", err)
 	}
-	var ids []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		ids = append(ids, id)
-	}
-	rows.Close()
 	for len(ids) > 0 { // (in batches, as the files: one long write would hold every other write up)
 		n := min(len(ids), 500)
 		if err := l.DeleteComics(ctx, ids[:n]); err != nil {

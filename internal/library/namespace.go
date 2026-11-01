@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/index"
 	"github.com/usevitrine/vitrine/internal/tag"
 )
@@ -96,20 +97,10 @@ func (l *Library) SetNamespace(ctx context.Context, from tag.Tag, ns string) (ta
 		if rel > 0 {
 			return nil, ErrHasRelations
 		}
-		rows, err := tx.QueryContext(ctx, "SELECT DISTINCT file_id FROM file_tags WHERE tag_id = ?", id)
+		affected, err := db.Column[uint32](ctx, tx, "SELECT DISTINCT file_id FROM file_tags WHERE tag_id = ?", id)
 		if err != nil {
 			return nil, err
 		}
-		var affected []uint32
-		for rows.Next() {
-			var f uint32
-			if err := rows.Scan(&f); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			affected = append(affected, f)
-		}
-		rows.Close()
 		befores := make([][]uint32, len(affected))
 		for i, f := range affected {
 			if befores[i], err = fileTags(ctx, tx, f); err != nil {

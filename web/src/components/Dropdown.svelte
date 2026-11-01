@@ -1,4 +1,5 @@
 <script lang="ts" generics="T extends string">
+  import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   import { glide } from '../lib/motion';
   // A dropdown in Vitrine's own look (the native one doesn't match the design,
@@ -217,7 +218,7 @@
         onkeydown={onListKey}
         in:sheetIn
         out:sheetOut>
-        <div class="grab-zone" aria-hidden="true"><span></span></div>
+        <GrabBar stuck bleed={12} />
         {@render items(heading || label)}
       </div>
     </div>
@@ -347,24 +348,6 @@
   /* (a touch isn't a cursor: the chosen one shows by its check and color) */
   .menu.sheet .option.active {
     background: none;
-  }
-  .grab-zone {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: grid;
-    place-items: center;
-    height: 22px;
-    margin: 0 -12px;
-    background: var(--mantle);
-    touch-action: none;
-    cursor: grab;
-  }
-  .grab-zone span {
-    width: 38px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--surface2);
   }
   .heading {
     padding: 6px 10px 4px;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   // A search chip's menu: its text, editable in place (with OR alternatives),
   // and what to do with it - exclude or include it, add an alternative, split
@@ -165,7 +166,7 @@
     aria-label={t('chip.edit')}
     tabindex="-1"
     style:--c={parts ? nsColor(parts.ns) : 'var(--mauve)'}>
-    {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
+    {#if sheet}<GrabBar stuck bleed={12} />{/if}
     <div class="mpages" class:animating={pages.animating} {@attach pages.box} style:height={pages.height !== null ? `${pages.height}px` : undefined}>
     {#key pages.nav}
     <div class="mpage" {@attach pages.page} in:pages.pageIn out:pages.pageOut>
@@ -273,11 +274,6 @@
     z-index: 60;
     background: rgb(17 17 27 / 0.5);
   }
-  @keyframes fade {
-    from {
-      opacity: 0;
-    }
-  }
   .menu {
     position: relative;
     z-index: 1;
@@ -303,30 +299,6 @@
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .backdrop.dim,
-    .menu.sheet {
-      animation: none;
-    }
-  }
-  .grab-zone {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: grid;
-    place-items: center;
-    height: 22px;
-    margin: 0 -12px;
-    background: var(--mantle);
-    touch-action: none;
-    cursor: grab;
-  }
-  .grab-zone span {
-    width: 38px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--surface2);
   }
   .head {
     display: grid;

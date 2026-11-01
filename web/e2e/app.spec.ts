@@ -3606,6 +3606,54 @@ test('phones: with the details up, the picture sits in the room above the sheet'
   expect(Math.round(back.y)).toBe(Math.round(before.y));
 });
 
+test('phones: dragging the details sheet down, the picture follows it live (grows into the room it leaves); let go, it goes back or on from there', async ({ page }) => {
+  const vw = page.viewportSize()!;
+  test.skip(vw.width >= 900, 'phones only');
+  await page.goto('/');
+  await page.locator('.tile').nth(3).click();
+  const pic = page.locator('.viewer .slide[data-slot="1"] img:not(.under)').first();
+  await expect(pic).toBeVisible();
+  const full = (await pic.boundingBox())!;
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  const panel = page.getByRole('complementary', { name: 'Details' });
+  await page.waitForTimeout(500);
+  const up = (await pic.boundingBox())!;
+  const head = (await panel.locator('.panel-head').boundingBox())!;
+  const x = head.x + head.width / 3;
+  const drag = async (to: number) => {
+    for (let i = 1; i <= 6; i++) await page.mouse.move(x, head.y + 20 + (to * i) / 6);
+  };
+  // Half way down (held): the picture is lower and bigger than with the sheet up, its middle in the room above it.
+  await page.mouse.move(x, head.y + 20);
+  await page.mouse.down();
+  await drag(60);
+  await page.waitForTimeout(100);
+  const mid = (await pic.boundingBox())!;
+  const sheetTop = (await panel.boundingBox())!.y;
+  expect(mid.height).toBeGreaterThan(up.height + 5);
+  expect(mid.height).toBeLessThan(full.height);
+  expect(Math.abs(mid.y + mid.height / 2 - sheetTop / 2)).toBeLessThan(3);
+  // Let go there: not closed - both go back.
+  await page.mouse.up();
+  await expect(panel).toBeVisible();
+  await page.waitForTimeout(400);
+  expect(Math.abs((await pic.boundingBox())!.height - up.height)).toBeLessThan(1);
+  // Dragged far and let go: closed, the picture going on from where the drag had it (no jump back first).
+  await page.mouse.move(x, head.y + 20);
+  await page.mouse.down();
+  await drag(200);
+  await page.waitForTimeout(100);
+  const held = (await pic.boundingBox())!;
+  await page.mouse.up();
+  const after = (await pic.boundingBox())!;
+  expect(after.height).toBeGreaterThanOrEqual(held.height - 2);
+  await expect(panel).toHaveCount(0);
+  await page.waitForTimeout(400);
+  const back = (await pic.boundingBox())!;
+  expect(Math.abs(back.height - full.height)).toBeLessThan(1);
+  expect(Math.abs(back.y - full.y)).toBeLessThan(1);
+});
+
 test('details: a close button, Escape, a tap outside; phones: a sheet (the standard height) that drags down to close', async ({ page }) => {
   await page.goto('/');
   await page.locator('.tile').nth(3).click();
@@ -3640,6 +3688,28 @@ test('details: a close button, Escape, a tap outside; phones: a sheet (the stand
     await page.mouse.move(x, head.y + 20);
     await page.mouse.down();
     for (let i = 1; i <= 8; i++) await page.mouse.move(x, head.y + 20 + i * 25);
+    await page.mouse.up();
+    await expect(panel).toHaveCount(0);
+    // Dragged nearly all the way, then flicked back up: it stays (the user: "it still closes").
+    await open();
+    await page.waitForTimeout(400);
+    const h2 = (await panel.locator('.panel-head').boundingBox())!;
+    await page.mouse.move(x, h2.y + 20);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i++) await page.mouse.move(x, h2.y + 20 + i * 40);
+    await page.waitForTimeout(150); // (held there a moment)
+    for (let i = 1; i <= 3; i++) await page.mouse.move(x, h2.y + 20 + 400 - i * 30);
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    await expect(panel).toBeVisible();
+    expect(Math.abs((await panel.boundingBox())!.y - box.y)).toBeLessThan(2); // back in its place
+    // Dragged that far and held still, let go: closes, as before. (With a mouse the flick above had selected the
+    // sheet's text, and this press dragged it natively - the sheet stopped following after one move.)
+    expect(await page.evaluate(() => String(getSelection()))).toBe('');
+    await page.mouse.move(x, h2.y + 20);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i++) await page.mouse.move(x, h2.y + 20 + i * 15);
+    await page.waitForTimeout(150);
     await page.mouse.up();
     await expect(panel).toHaveCount(0);
   }
@@ -4604,6 +4674,16 @@ test('phones: action sheets sit edge to edge like the details and drag down to c
   await page.mouse.up();
   await expect(menu).toBeVisible();
   await page.waitForTimeout(300);
+  // Dragged nearly off, then flicked back up: it stays.
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(g.x + g.width / 2, g.y + box.height - 20, { steps: 8 });
+  await page.waitForTimeout(150);
+  await page.mouse.move(g.x + g.width / 2, g.y + box.height - 110, { steps: 3 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  await expect(menu).toBeVisible();
+  expect(Math.abs((await menu.boundingBox())!.y - box.y)).toBeLessThan(2);
   await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
   await page.mouse.down();
   await page.mouse.move(g.x + g.width / 2, g.y + 200, { steps: 8 });

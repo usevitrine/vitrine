@@ -37,7 +37,7 @@
   import { api } from '../lib/api';
   import { setFavorite } from '../lib/favorites';
   import { confirmAction } from '../lib/confirm.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
 
   provideScope(comicsScope);
   const { results, selection } = comicsScope;
@@ -355,12 +355,11 @@
       undoable: true,
     });
     if (!ok) return;
-    try {
+    const removed = await attempt(async () => {
       await results.remove([c.id]);
-    } catch (e) {
-      toasts.error((e as Error).message);
-      return;
-    }
+      return true;
+    });
+    if (!removed) return;
     if (openID === c.id) closeReader();
     details = null;
     toasts.show(t('common.deletedOne', { what: itemName(c.id, true) }), { cat: 'deleted',
@@ -395,13 +394,11 @@
   let panelBusy = $state(false); // (a dialog of the details is open)
   async function saveCrop(c: Comic, crop: number[] | null) {
     cropping = null;
-    try {
+    await attempt(async () => {
       await api.updateComic(c.id, { crop: crop ?? [] });
       results.forget(c.id);
       await results.refresh();
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   let pendingSearch: string | null = null;

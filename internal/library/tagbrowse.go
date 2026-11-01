@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/index"
 	"github.com/usevitrine/vitrine/internal/tag"
 )
@@ -26,29 +26,24 @@ func (l *Library) TagList(ctx context.Context, filter, ns string, byName bool, o
 	if len(list) == 0 {
 		return total, out, nil
 	}
-	args := make([]any, len(list))
+	tags := make([]uint32, len(list))
 	for i, t := range list {
 		out[i].TagCount = t
-		args[i] = t.ID
+		tags[i] = t.ID
 	}
-	rows, err := l.db.R.QueryContext(ctx, "SELECT DISTINCT tag_id FROM file_tags WHERE origin <> 0 AND tag_id IN (?"+
-		strings.Repeat(",?", len(args)-1)+")", args...)
+	marks, args := db.InList(tags)
+	ids, err := db.Column[uint32](ctx, l.db.R, "SELECT DISTINCT tag_id FROM file_tags WHERE origin <> 0 AND tag_id IN ("+marks+")", args...)
 	if err != nil {
 		return 0, nil, fmt.Errorf("library: %w", err)
 	}
-	defer rows.Close()
 	site := map[uint32]bool{}
-	for rows.Next() {
-		var id uint32
-		if err := rows.Scan(&id); err != nil {
-			return 0, nil, err
-		}
+	for _, id := range ids {
 		site[id] = true
 	}
 	for i := range out {
 		out[i].FromSites = site[out[i].ID]
 	}
-	return total, out, rows.Err()
+	return total, out, nil
 }
 
 // Rename errors.
@@ -91,20 +86,10 @@ func (l *Library) RenameTag(ctx context.Context, from, to tag.Tag) (int, error) 
 	if n > 0 {
 		return 0, ErrHasRelations
 	}
-	rows, err := l.db.R.QueryContext(ctx, "SELECT file_id FROM file_tags WHERE tag_id = ? AND origin = 0", id)
+	files, err := db.Column[uint32](ctx, l.db.R, "SELECT file_id FROM file_tags WHERE tag_id = ? AND origin = 0", id)
 	if err != nil {
 		return 0, fmt.Errorf("library: %w", err)
 	}
-	var files []uint32
-	for rows.Next() {
-		var f uint32
-		if err := rows.Scan(&f); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		files = append(files, f)
-	}
-	rows.Close()
 	if len(files) == 0 {
 		return 0, nil
 	}

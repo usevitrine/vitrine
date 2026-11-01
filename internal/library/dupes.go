@@ -11,6 +11,7 @@ import (
 
 	"golang.org/x/image/webp"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/dupes"
 	"github.com/usevitrine/vitrine/internal/media"
 )
@@ -22,28 +23,15 @@ import (
 // PendingPHash lists live files with a thumbnail but no hash attempt yet,
 // newest first (at most limit).
 func (l *Library) PendingPHash(ctx context.Context, limit int) ([]uint32, error) {
-	return l.ids(ctx, pendingPHashSQL, limit)
+	ids, err := db.Column[uint32](ctx, l.db.R, pendingPHashSQL, limit)
+	if err != nil {
+		return nil, fmt.Errorf("library: %w", err)
+	}
+	return ids, nil
 }
 
 // (a thumbnail, no hash, not comic-only: as in the files_pending_phash index, migration 0046 - only waiting files read)
 const pendingPHashSQL = `SELECT id FROM files WHERE deleted_at IS NULL AND flags & 98 = 2 ORDER BY id DESC LIMIT ?`
-
-func (l *Library) ids(ctx context.Context, query string, args ...any) ([]uint32, error) {
-	rows, err := l.db.R.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("library: %w", err)
-	}
-	defer rows.Close()
-	var ids []uint32
-	for rows.Next() {
-		var id uint32
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
-}
 
 // HashFiles makes the files' perceptual hashes and records the pairs they
 // form with the rest of the library. It returns how many pairs were new.

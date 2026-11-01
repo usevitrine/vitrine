@@ -7,7 +7,7 @@
   import { router } from '../lib/router.svelte';
   import { siteLabel } from '../lib/sites.svelte';
   import { formatDuration, formatSize, results } from '../lib/results.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import { settings } from '../lib/settings.svelte';
   import { copyText } from '../lib/clipboard';
   import TagsSection from './TagsSection.svelte';
@@ -30,13 +30,11 @@
   // The "I came" count (Settings > Viewing): the latest press taken off, or all of them.
   async function removeCame(all: boolean) {
     const id = file.id;
-    try {
+    await attempt(async () => {
       const { count } = await api.removeClimaxes(id, all);
       results.patch(id, { came: count });
       toasts.show(all ? t('details.came.reset') : count ? t('details.came.removedOne', { n: count }) : t('details.came.removed'), { cat: 'came', kind: 'removed' });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   let tags = $state<FileTag[]>([]);
@@ -92,15 +90,13 @@
   // Reads the file's posts from their sites again now.
   async function refreshTags() {
     const id = file.id;
-    try {
+    await attempt(async () => {
       const { found, queued } = await api.refreshFile(id);
       // (a paused site - it kept failing to answer: queued for when it does)
       if (queued && !found) toasts.show(t('details.refreshQueued'), { cat: 'refreshed' });
       else toasts.show(found ? t('details.refreshed', { what: itemName(id) }) : t('details.gone'), { cat: 'refreshed', kind: found ? 'done' : 'info' });
       if (id === file.id) load(id);
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
   const copy = copyText;
 

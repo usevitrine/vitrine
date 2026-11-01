@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   import { px, settle, sizeOf, onPixels } from '../lib/motion';
   // The confirmation before a destructive action (lib/confirm): what goes (a
@@ -86,7 +87,7 @@
     aria-describedby={c.body ? 'confirm-body' : undefined}
     in:pop
     out:pop={{ out: true }}>
-    {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
+    {#if sheet}<GrabBar bleed={20} after={10} />{/if}
     {#if c.thumbs?.length}
       <div class="thumbs" aria-hidden="true" style:--n={Math.min(3, c.thumbs.length)}>
         {#each c.thumbs.slice(0, 3) as t, i (t)}
@@ -176,21 +177,6 @@
     border-width: 1px 0 0;
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
-  }
-  .grab-zone {
-    justify-self: stretch;
-    display: grid;
-    place-items: center;
-    height: 22px;
-    margin: 0 -20px 10px;
-    touch-action: none;
-    cursor: grab;
-  }
-  .grab-zone span {
-    width: 38px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--surface2);
   }
   .badge {
     display: grid;

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/search"
 )
 
@@ -146,7 +147,7 @@ func (l *Library) ReorderSavedSearches(ctx context.Context, ids []int64) error {
 		return fmt.Errorf("library: %w", err)
 	}
 	defer tx.Rollback()
-	rows, err := tx.QueryContext(ctx, "SELECT id FROM saved_searches ORDER BY position, id")
+	all, err := db.Column[int64](ctx, tx, "SELECT id FROM saved_searches ORDER BY position, id")
 	if err != nil {
 		return fmt.Errorf("library: %w", err)
 	}
@@ -156,18 +157,12 @@ func (l *Library) ReorderSavedSearches(ctx context.Context, ids []int64) error {
 	}
 	var rest []int64
 	known := map[int64]bool{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return err
-		}
+	for _, id := range all {
 		known[id] = true
 		if !want[id] {
 			rest = append(rest, id)
 		}
 	}
-	rows.Close()
 	for _, id := range ids {
 		if !known[id] {
 			return ErrNoSaved

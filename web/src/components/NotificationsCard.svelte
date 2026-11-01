@@ -5,7 +5,7 @@
   import { reveal, moved } from '../lib/motion';
   import { push, deviceLabel } from '../lib/push.svelte';
   import { settings } from '../lib/settings.svelte';
-  import { toasts } from '../lib/toast.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
   import Icon from './Icon.svelte';
   import Rich from './Rich.svelte';
   import { t, date } from '../lib/i18n.svelte';
@@ -43,12 +43,10 @@
   }
 
   async function remove(endpoint: string, name: string) {
-    try {
+    await attempt(async () => {
       await push.remove(endpoint);
       toasts.show(t('notify.removed', { name }), { cat: 'device', kind: 'removed' });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   const added = (ms: number) => date(ms, { day: 'numeric', month: 'short', year: 'numeric' });

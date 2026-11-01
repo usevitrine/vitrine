@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"github.com/usevitrine/vitrine/internal/db"
 )
 
 // Favorites removed on the site: a subscription to a user's favorites keeps
@@ -30,24 +32,18 @@ func (d *Downloader) markFavGone(ctx context.Context, subID int64, seen map[int6
 	if len(seen) == 0 {
 		return 0, nil
 	}
-	rows, err := d.db.R.QueryContext(ctx, "SELECT post_id FROM fav_members WHERE subscription_id = ? AND gone_at IS NULL", subID)
+	posts, err := db.Column[int64](ctx, d.db.R, "SELECT post_id FROM fav_members WHERE subscription_id = ? AND gone_at IS NULL", subID)
 	if err != nil {
 		return 0, fmt.Errorf("download: %w", err)
 	}
 	var gone []int64
-	for rows.Next() {
-		var p int64
-		if err := rows.Scan(&p); err != nil {
-			rows.Close()
-			return 0, fmt.Errorf("download: %w", err)
-		}
+	for _, p := range posts {
 		if !seen[p] {
 			gone = append(gone, p)
 		}
 	}
-	rows.Close()
-	if err := rows.Err(); err != nil || len(gone) == 0 {
-		return 0, err
+	if len(gone) == 0 {
+		return 0, nil
 	}
 	tx, err := d.db.W.BeginTx(ctx, nil)
 	if err != nil {
@@ -70,22 +66,13 @@ func (d *Downloader) markFavGone(ctx context.Context, subID int64, seen map[int6
 // FavGone lists the files of a subscription's posts no longer in the
 // favorites (live files only), newest mark first.
 func (d *Downloader) FavGone(ctx context.Context, subID int64) ([]uint32, error) {
-	rows, err := d.db.R.QueryContext(ctx, `
+	out, err := db.Column[uint32](ctx, d.db.R, `
 		SELECT m.file_id FROM fav_members m JOIN files f ON f.id = m.file_id AND f.deleted_at IS NULL
 		WHERE m.subscription_id = ? AND m.gone_at IS NOT NULL ORDER BY m.gone_at DESC, m.post_id DESC`, subID)
 	if err != nil {
 		return nil, fmt.Errorf("download: %w", err)
 	}
-	defer rows.Close()
-	out := []uint32{}
-	for rows.Next() {
-		var id uint32
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("download: %w", err)
-		}
-		out = append(out, id)
-	}
-	return out, rows.Err()
+	return append([]uint32{}, out...), nil
 }
 
 // favGoneCounts is each subscription's number of files no longer in its favorites.

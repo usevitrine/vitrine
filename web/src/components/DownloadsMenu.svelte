@@ -15,7 +15,8 @@
   import { backClose } from '../lib/backClose';
   import { swallowPress, leaving } from '../lib/outside';
   import { activeDownloads as active } from '../lib/activeDownloads.svelte';
-  import { live, bytes } from '../lib/live.svelte';
+  import { live } from '../lib/live.svelte';
+  import { formatSize } from '../lib/results.svelte';
   import { measurable, progress, goalOf, galleryNow, oneGallery } from '../lib/downloadProgress';
   import { openNewDownload } from '../lib/newDownload.svelte';
   import { sites as siteInfo, siteLabel } from '../lib/sites.svelte';
@@ -81,7 +82,7 @@
   }
 
   /** How fast it downloads (the server's average over the last seconds). */
-  const speedOf = (s: DownloadSearch) => (live.speed[s.id] > 0 ? t('downloads.speed', { size: bytes(live.speed[s.id]) }) : '');
+  const speedOf = (s: DownloadSearch) => (live.speed[s.id] > 0 ? t('downloads.speed', { size: formatSize(live.speed[s.id]) }) : '');
 
   // A site's downloads together (in the list's order: running, waiting, paused), the sites as they come first.
   const groups = $derived.by(() => {

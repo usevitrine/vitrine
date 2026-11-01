@@ -1,7 +1,7 @@
 // A tag's parent tags, picked in a menu (the details' tag menu, a search chip's menu): every parent there is, which of
 // them have this tag as a child, and putting it in or taking it out (GET/POST /api/relations, as Tags > Rules).
 import { api, type Relation } from './api';
-import { toasts } from './toast.svelte';
+import { attempt } from './toast.svelte';
 
 export class TagParents {
   relations = $state<Relation[] | null>(null);
@@ -37,15 +37,10 @@ export class TagParents {
     const p = parent.trim();
     const tag = this.tag();
     if (!p || !tag || p === tag || this.busy) return false;
-    this.busy = true;
-    try {
+    const ok = await attempt(async () => {
       this.relations = (await api.editRelation('parent', on ? 'add' : 'remove', tag, p)).parents;
       return true;
-    } catch (err) {
-      toasts.error((err as Error).message);
-      return false;
-    } finally {
-      this.busy = false;
-    }
+    }, (b) => (this.busy = b));
+    return ok ?? false;
   }
 }

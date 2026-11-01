@@ -44,8 +44,7 @@ func (s *Server) addSaved(w http.ResponseWriter, r *http.Request) {
 		Query string `json:"query"`
 		Sort  string `json:"sort"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	id, err := s.lib.SaveSearch(r.Context(), req.Name, req.Query, req.Sort, r.URL.Query().Get("scope"))
@@ -61,18 +60,9 @@ func (s *Server) addSaved(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "saved": orEmpty(list)})
 }
 
-func savedID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, errors.New("bad saved search ID"))
-		return 0, false
-	}
-	return id, true
-}
-
 // updateSaved: POST /api/saved/{id} {name?, query?, sort?} -> {saved}.
 func (s *Server) updateSaved(w http.ResponseWriter, r *http.Request) {
-	id, ok := savedID(w, r)
+	id, ok := pathID(w, r, "saved search")
 	if !ok {
 		return
 	}
@@ -81,8 +71,7 @@ func (s *Server) updateSaved(w http.ResponseWriter, r *http.Request) {
 		Query *string `json:"query"`
 		Sort  *string `json:"sort"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.lib.UpdateSavedSearch(r.Context(), id, library.SavedChange{Name: req.Name, Query: req.Query, Sort: req.Sort}); err != nil {
@@ -94,7 +83,7 @@ func (s *Server) updateSaved(w http.ResponseWriter, r *http.Request) {
 
 // removeSaved: POST /api/saved/{id}/remove -> {saved}.
 func (s *Server) removeSaved(w http.ResponseWriter, r *http.Request) {
-	id, ok := savedID(w, r)
+	id, ok := pathID(w, r, "saved search")
 	if !ok {
 		return
 	}
@@ -110,8 +99,7 @@ func (s *Server) reorderSaved(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDs []int64 `json:"ids"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if err := s.lib.ReorderSavedSearches(r.Context(), req.IDs); err != nil {

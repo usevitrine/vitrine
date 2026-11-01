@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/media"
 	"github.com/usevitrine/vitrine/internal/store"
 	"github.com/usevitrine/vitrine/internal/thumbs"
@@ -23,20 +24,11 @@ const pendingSpritesSQL = `SELECT id FROM files
 // PendingSprites lists live, probed videos without preview frames yet,
 // newest first (at most limit).
 func (l *Library) PendingSprites(ctx context.Context, limit int) ([]uint32, error) {
-	rows, err := l.db.R.QueryContext(ctx, pendingSpritesSQL, limit)
+	ids, err := db.Column[uint32](ctx, l.db.R, pendingSpritesSQL, limit)
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
 	}
-	defer rows.Close()
-	var ids []uint32
-	for rows.Next() {
-		var id uint32
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
+	return ids, nil
 }
 
 // RequeueOldSprites marks videos whose preview frames were made by an older
@@ -124,20 +116,11 @@ func (l *Library) Sprite(ctx context.Context, id uint32, withData bool) (thumbs.
 // LargeStills lists live still images (not GIFs: they may be animated) whose
 // long side is over minSide, newest first.
 func (l *Library) LargeStills(ctx context.Context, minSide int) ([]uint32, error) {
-	rows, err := l.db.R.QueryContext(ctx, `SELECT id FROM files
+	ids, err := db.Column[uint32](ctx, l.db.R, `SELECT id FROM files
 		WHERE deleted_at IS NULL AND type BETWEEN ? AND ? AND type != ? AND max(width, height) > ?
 		ORDER BY id DESC`, int(media.JPEG), int(media.AVIF), int(media.GIF), minSide)
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
 	}
-	defer rows.Close()
-	var ids []uint32
-	for rows.Next() {
-		var id uint32
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
+	return ids, nil
 }

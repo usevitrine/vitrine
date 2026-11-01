@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/search"
 	"github.com/usevitrine/vitrine/internal/store"
 )
@@ -106,21 +107,17 @@ func (l *Library) WipeSite(ctx context.Context, name string) (Wiped, error) {
 	names := append(l.ix.SiteAliases(uint32(site)), name)
 
 	// Its tags, to remove afterwards those nothing else has.
-	tags, err := l.ids(ctx, "SELECT DISTINCT tag_id FROM file_tags WHERE origin = ?1 UNION SELECT DISTINCT tag_id FROM comic_tags WHERE origin = ?1", site)
+	tags, err := db.Column[uint32](ctx, l.db.R, "SELECT DISTINCT tag_id FROM file_tags WHERE origin = ?1 UNION SELECT DISTINCT tag_id FROM comic_tags WHERE origin = ?1", site)
 	if err != nil {
-		return w, err
+		return w, fmt.Errorf("library: %w", err)
 	}
 
 	// 1. Its comics (pages only they have go with them).
-	comics, err := l.ids(ctx, "SELECT id FROM comics WHERE site_id = ?", site)
+	comics, err := db.Column[int64](ctx, l.db.R, "SELECT id FROM comics WHERE site_id = ?", site)
 	if err != nil {
-		return w, err
+		return w, fmt.Errorf("library: %w", err)
 	}
-	for c := range slices.Chunk(comics, 500) {
-		ids := make([]int64, len(c))
-		for i, id := range c {
-			ids[i] = int64(id)
-		}
+	for ids := range slices.Chunk(comics, 500) {
 		if err := l.DeleteComics(ctx, ids); err != nil {
 			return w, err
 		}
@@ -152,13 +149,13 @@ func (l *Library) WipeSite(ctx context.Context, name string) (Wiped, error) {
 	}
 	rows.Close()
 	for batch := range slices.Chunk(files, 2000) {
-		var alive []uint32
-		var ids, shas []any
+		var alive, all []uint32
+		var shas []any
 		for _, f := range batch {
 			if f.alive {
 				alive = append(alive, f.id)
 			}
-			ids = append(ids, f.id)
+			all = append(all, f.id)
 			shas = append(shas, f.sha)
 			var h store.Hash
 			copy(h[:], f.sha)
@@ -167,7 +164,7 @@ func (l *Library) WipeSite(ctx context.Context, name string) (Wiped, error) {
 		if err := l.Delete(ctx, alive, ""); err != nil {
 			return w, err
 		}
-		marks := "?" + strings.Repeat(",?", len(ids)-1)
+		marks, ids := db.InList(all)
 		if err := l.write(ctx, func(tx *sql.Tx) (func() error, error) { // (pages no comic has any more: into the trash too)
 			_, err := tx.ExecContext(ctx, "UPDATE files SET deleted_at = ? WHERE deleted_at IS NULL AND id IN ("+marks+")", append([]any{l.now().UnixMilli()}, ids...)...)
 			return nil, err
@@ -188,9 +185,9 @@ func (l *Library) WipeSite(ctx context.Context, name string) (Wiped, error) {
 	}
 
 	// 3. The files another site gave too: its tags, links and sources taken off (not an edit: modified stays).
-	shared, err := l.ids(ctx, "SELECT id FROM files f WHERE deleted_at IS NULL AND flags & 64 = 0 AND "+fromSite, site)
+	shared, err := db.Column[uint32](ctx, l.db.R, "SELECT id FROM files f WHERE deleted_at IS NULL AND flags & 64 = 0 AND "+fromSite, site)
 	if err != nil {
-		return w, err
+		return w, fmt.Errorf("library: %w", err)
 	}
 	strip := func(tx *sql.Tx, f uint32) error {
 		for _, q := range []string{
@@ -216,19 +213,10 @@ func (l *Library) WipeSite(ctx context.Context, name string) (Wiped, error) {
 	// 4. Everything else naming it, in one go (the trash's files and pages too: no index to keep up).
 	var subs []uint32
 	err = l.write(ctx, func(tx *sql.Tx) (func() error, error) {
-		rows, err := tx.QueryContext(ctx, "SELECT id FROM subscriptions WHERE site_id = ?", site)
-		if err != nil {
+		var err error
+		if subs, err = db.Column[uint32](ctx, tx, "SELECT id FROM subscriptions WHERE site_id = ?", site); err != nil {
 			return nil, err
 		}
-		for rows.Next() {
-			var id uint32
-			if err := rows.Scan(&id); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			subs = append(subs, id)
-		}
-		rows.Close()
 		for _, q := range []string{
 			"DELETE FROM file_tags WHERE origin = ?1",
 			"DELETE FROM file_urls WHERE site_id = ?1",
@@ -271,30 +259,16 @@ func (l *Library) WipeSite(ctx context.Context, name string) (Wiped, error) {
 	// 5. Its tags nothing else has any more, and links no file has.
 	var gone []uint32
 	for batch := range slices.Chunk(tags, 500) {
-		args := make([]any, len(batch))
-		for i, id := range batch {
-			args[i] = id
-		}
-		marks := "?" + strings.Repeat(",?", len(batch)-1)
+		marks, args := db.InList(batch)
 		if err := l.write(ctx, func(tx *sql.Tx) (func() error, error) {
-			rows, err := tx.QueryContext(ctx, `DELETE FROM tags WHERE id IN (`+marks+`)
+			ids, err := db.Column[uint32](ctx, tx, `DELETE FROM tags WHERE id IN (`+marks+`)
 				AND NOT EXISTS (SELECT 1 FROM file_tags WHERE tag_id = tags.id)
 				AND NOT EXISTS (SELECT 1 FROM comic_tags WHERE tag_id = tags.id)
 				AND NOT EXISTS (SELECT 1 FROM tag_parents WHERE child_id = tags.id OR parent_id = tags.id)
 				AND NOT EXISTS (SELECT 1 FROM tag_siblings WHERE from_id = tags.id OR to_id = tags.id)
 				RETURNING id`, args...)
-			if err != nil {
-				return nil, err
-			}
-			defer rows.Close()
-			for rows.Next() {
-				var id uint32
-				if err := rows.Scan(&id); err != nil {
-					return nil, err
-				}
-				gone = append(gone, id)
-			}
-			return nil, rows.Err()
+			gone = append(gone, ids...)
+			return nil, err
 		}); err != nil {
 			return w, err
 		}

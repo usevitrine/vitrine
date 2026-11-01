@@ -15,8 +15,8 @@
   import { sortOptions } from '../components/SortMenu.svelte';
   import { offeredSorts, comicSortFields, sortInfo, splitSort, joinSort } from '../lib/system';
   import { confirmAction } from '../lib/confirm.svelte';
-  import { toasts } from '../lib/toast.svelte';
-  import { results } from '../lib/results.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
+  import { results, formatSize } from '../lib/results.svelte';
   import InstallHelp from '../components/InstallHelp.svelte';
   import SitesCard from '../components/SitesCard.svelte';
   import DownloadRules from '../components/DownloadRules.svelte';
@@ -34,7 +34,7 @@
   import AccountCard from '../components/AccountCard.svelte';
   import BrowseSettings from '../components/BrowseSettings.svelte';
   import ComicsSearchSetting from '../components/ComicsSearchSetting.svelte';
-  import { t, num, i18n, languages } from '../lib/i18n.svelte';
+  import { t, i18n, languages } from '../lib/i18n.svelte';
 
   let { user, onLoggedOut, onRenamed }: { user: string; onLoggedOut: () => void; onRenamed?: (name: string) => void } = $props();
   let stats = $state<{ files: number; tags: number; server?: { version: string } } | null>(null);
@@ -42,13 +42,11 @@
   async function clearViews() {
     const ok = await confirmAction({ title: t('settings.videos.clearViewsTitle'), body: t('settings.videos.clearViewsBody'), action: t('settings.videos.clearViews'), icon: 'trash' });
     if (!ok) return;
-    try {
+    await attempt(async () => {
       const { removed } = await api.clearViews();
       results.refresh();
       toasts.show(t('settings.videos.viewsCleared', { n: removed }), { cat: 'tagEdits', kind: 'removed' });
-    } catch (e) {
-      toasts.error((e as Error).message);
-    }
+    });
   }
 
   // Shown to diagnose layout problems on phones (e.g. iOS home-screen app gaps).
@@ -114,7 +112,6 @@
     await clearSaved();
     await loadSaved();
   }
-  const mb = (n: number) => (n < 1024 * 1024 ? t('unit.size.KB', { x: num(Math.round(n / 1024)) }) : t('unit.size.MB', { x: num(Math.round(n / (1024 * 1024))) }));
 </script>
 
 <Sections
@@ -388,7 +385,7 @@
                 <div class="field">
                   <span class="field-label">{t('settings.device.saved')}</span>
                   <span class="hint">
-                    {#if saved?.thumbs}{t('settings.device.thumbs', { n: saved.thumbs })}{saved.bytes ? ` · ${t('settings.device.inAll', { size: mb(saved.bytes) })}` : ''}{:else}{t('settings.device.nothing')}{/if}.
+                    {#if saved?.thumbs}{t('settings.device.thumbs', { n: saved.thumbs })}{saved.bytes ? ` · ${t('settings.device.inAll', { size: formatSize(saved.bytes) })}` : ''}{:else}{t('settings.device.nothing')}{/if}.
                     {t('settings.device.offline')}
                   </span>
                   {#if helper && helper.state !== 'running'}

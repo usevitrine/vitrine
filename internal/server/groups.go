@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -15,26 +14,15 @@ import (
 //   POST /api/sub-groups/{id}/{check|pause|resume|remove}
 //                                                    remove deletes the group; its subscriptions stay
 
-func groupID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, errors.New("bad group ID"))
-		return 0, false
-	}
-	return id, true
-}
-
 func (s *Server) addGroup(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
 	var req struct {
 		Site string `json:"site"`
 		Name string `json:"name"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	id, err := s.dl.CreateGroup(r.Context(), req.Site, req.Name)
@@ -51,11 +39,10 @@ func (s *Server) addGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateGroup(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
-	id, ok := groupID(w, r)
+	id, ok := pathID(w, r, "group")
 	if !ok {
 		return
 	}
@@ -64,8 +51,7 @@ func (s *Server) updateGroup(w http.ResponseWriter, r *http.Request) {
 		Interval *int64  `json:"interval"`
 		Depth    *int    `json:"check_depth"`
 	}
-	if err := readJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
+	if !decode(w, r, &req) {
 		return
 	}
 	if req.Name != nil {
@@ -95,11 +81,10 @@ func (s *Server) updateGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) groupAction(w http.ResponseWriter, r *http.Request) {
-	if s.dl == nil {
-		writeError(w, http.StatusServiceUnavailable, errNoDownloader)
+	if !s.needDL(w) {
 		return
 	}
-	id, ok := groupID(w, r)
+	id, ok := pathID(w, r, "group")
 	if !ok {
 		return
 	}
