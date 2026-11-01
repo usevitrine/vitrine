@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/usevitrine/vitrine/internal/index"
 	"github.com/usevitrine/vitrine/internal/media"
 	"github.com/usevitrine/vitrine/internal/store"
 	"github.com/usevitrine/vitrine/internal/tag"
@@ -34,6 +35,7 @@ type FileRow struct {
 	Deleted     bool
 	Favorite    bool
 	Climaxes    int // times counted with the "I came" button
+	Views       index.ViewStats
 	Flags       int // FlagProbed, FlagThumbnail, FlagMediaError
 	Placeholder []byte
 	Path        string // the original in the store
@@ -75,6 +77,7 @@ func (l *Library) Files(ctx context.Context, ids []uint32) ([]FileRow, error) {
 			f.Path = l.store.Path(f.SHA256, f.Type)
 			f.Favorite = l.ix.IsFavorite(f.ID)
 			f.Climaxes = l.ix.Climaxes(f.ID)
+			f.Views = l.ix.Views(f.ID)
 			byID[f.ID] = f
 		}
 		rows.Close()

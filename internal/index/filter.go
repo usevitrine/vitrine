@@ -16,7 +16,7 @@ import (
 func bounds(s search.System, now time.Time) (lo, hi int64, negate, ok bool) {
 	lo, hi = math.MinInt64, math.MaxInt64
 	switch s.Field {
-	case search.FieldImported, search.FieldModified, search.FieldPosted:
+	case search.FieldImported, search.FieldModified, search.FieldPosted, search.FieldViewed:
 		if s.AgeText != "" {
 			// age = now - t, so "age < A" is "t > now - A".
 			edge := now.UnixMilli() - s.Age.Milliseconds()
@@ -50,7 +50,8 @@ func bounds(s search.System, now time.Time) (lo, hi int64, negate, ok bool) {
 		return lo, hi, negate, true
 	case search.FieldAnimated:
 		return 1, math.MaxInt64, false, true // (a duration: still pictures have none)
-	case search.FieldSize, search.FieldWidth, search.FieldHeight, search.FieldDuration, search.FieldTagCount, search.FieldClimax, search.FieldPages:
+	case search.FieldSize, search.FieldWidth, search.FieldHeight, search.FieldDuration, search.FieldTagCount, search.FieldClimax, search.FieldPages,
+		search.FieldViews, search.FieldViewTime:
 		x := s.Num
 		switch s.Op {
 		case search.OpLt:
@@ -95,6 +96,12 @@ func (ix *Index) column(f search.Field) (i64 []int64, u32 []uint32, u16 []uint16
 		return ix.favAt, nil, nil
 	case search.FieldClimax:
 		return nil, nil, ix.climaxes
+	case search.FieldViews:
+		return nil, ix.views, nil
+	case search.FieldViewTime:
+		return ix.viewMS, nil, nil
+	case search.FieldViewed:
+		return ix.viewedAt, nil, nil
 	case search.FieldPages:
 		if ix.comic != nil {
 			return nil, ix.comic.pages, nil

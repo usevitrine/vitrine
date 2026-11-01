@@ -344,6 +344,9 @@ type fileJSON struct {
 	HasAudio    bool   `json:"has_audio"`
 	Favorite    bool   `json:"favorite,omitempty"`
 	Climaxes    int    `json:"came,omitempty"`
+	Views       int    `json:"views,omitempty"`     // times viewed
+	ViewMS      int64  `json:"view_ms,omitempty"`   // how long, all views together
+	ViewedAt    int64  `json:"viewed_at,omitempty"` // the last view's start (Unix ms)
 	ImportedAt  int64  `json:"imported_at"`
 	ModifiedAt  int64  `json:"modified_at"`
 	PostedAt    int64  `json:"posted_at,omitempty"`   // when posted on its site (upload time)
@@ -356,6 +359,7 @@ func (s *Server) toJSON(f library.FileRow) fileJSON {
 	j := fileJSON{
 		ID: f.ID, SHA256: f.SHA256.String(), Type: f.Type.String(), MIME: f.Type.MIME(), Size: f.Size,
 		Width: f.Width, Height: f.Height, DurationMS: f.DurationMS, HasAudio: f.HasAudio, Favorite: f.Favorite, Climaxes: f.Climaxes,
+		Views: f.Views.Count, ViewMS: f.Views.MS, ViewedAt: f.Views.Last,
 		ImportedAt: f.ImportedAt, ModifiedAt: f.ModifiedAt, PostedAt: f.PostedAt, Placeholder: f.Placeholder,
 		URL: "/files/" + f.SHA256.String() + "." + f.Type.Ext(),
 	}

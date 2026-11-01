@@ -79,6 +79,9 @@ const (
 	FieldNew      // a NEW file: imported after the device's "seen" time (system:new; Since, SkipBulk: filled in by the server)
 	FieldAnimated // moves: a video or an animated picture - it has a duration (system:animated)
 	FieldTitle    // comics: sort only, by title
+	FieldViews    // times viewed in the viewer (system:views=0 never; sort:views)
+	FieldViewTime // how long viewed, all views together (system:viewtime>10m; sort:viewtime)
+	FieldViewed   // when last viewed (system:viewed<7d - like imported; never viewed: 0, "long ago"; sort:viewed)
 	FieldRandom   // sort only; keep last (sizes per-field arrays)
 )
 
@@ -172,6 +175,9 @@ var fieldNames = map[Field]string{
 	FieldRead:     "read",
 	FieldFoundBy:  "found_by",
 	FieldTitle:    "title",
+	FieldViews:    "views",
+	FieldViewTime: "viewtime",
+	FieldViewed:   "viewed",
 	FieldRandom:   "random",
 }
 
@@ -222,14 +228,14 @@ func (s System) String() string {
 		return name
 	case FieldRead:
 		return "system:" + readStates[s.Num]
-	case FieldImported, FieldModified, FieldPosted:
+	case FieldImported, FieldModified, FieldPosted, FieldViewed:
 		if s.AgeText != "" {
 			return name + s.Op.String() + s.AgeText
 		}
 		return name + s.Op.String() + s.TimeText
 	case FieldSize:
 		return name + s.Op.String() + formatSize(s.Num)
-	case FieldDuration:
+	case FieldDuration, FieldViewTime:
 		return name + s.Op.String() + formatDuration(s.Num)
 	case FieldType:
 		return name + s.Op.String() + s.TypeText

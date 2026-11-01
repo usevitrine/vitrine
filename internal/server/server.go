@@ -138,6 +138,8 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.handle("POST /api/climax/undo", s.undoClimax)
 	s.handle("POST /api/climax/remove", s.removeClimaxes)
 	s.handle("POST /api/climax/clear", s.clearClimaxes)
+	s.handle("POST /api/views", s.addViews)
+	s.handle("POST /api/views/clear", s.clearViews)
 	s.handle("GET /api/rankings", s.rankings)
 	s.handle("POST /api/undelete", s.undeleteFiles)
 	s.handle("GET /api/sections", s.sections)

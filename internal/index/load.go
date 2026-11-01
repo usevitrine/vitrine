@@ -46,6 +46,7 @@ func load(ctx context.Context, db *sql.DB, trash bool) (*Index, error) {
 		{"found by", ix.loadFoundBy},
 		{"favorites", ix.loadFavorites},
 		{"climaxes", ix.loadClimaxes},
+		{"views", ix.loadViews},
 	}
 	for _, s := range steps {
 		if err := s.fn(ctx, tx); err != nil {
@@ -342,6 +343,25 @@ func (ix *Index) loadClimaxes(ctx context.Context, tx *sql.Tx) error {
 		}
 		ix.growFiles(id)
 		ix.climaxes[id] = uint16(min(n, 65535))
+	}
+	return rows.Err()
+}
+
+func (ix *Index) loadViews(ctx context.Context, tx *sql.Tx) error {
+	rows, err := tx.QueryContext(ctx, "SELECT file_id, count(*), sum(ms), max(at) FROM views WHERE 1"+ix.only("file_id")+" GROUP BY file_id")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uint32
+		var n int
+		var ms, last int64
+		if err := rows.Scan(&id, &n, &ms, &last); err != nil {
+			return err
+		}
+		ix.growFiles(id)
+		ix.views[id], ix.viewMS[id], ix.viewedAt[id] = uint32(n), ms, last
 	}
 	return rows.Err()
 }

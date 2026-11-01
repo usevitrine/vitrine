@@ -32,7 +32,8 @@
     sizeUnits,
     typeChoices,
     ratingChoices,
-    sortFields,
+    offeredSorts,
+    isTime,
     comicSortFields,
     comicGroups,
     browseGroups,
@@ -87,9 +88,10 @@
   const comics = useScope().kind === 'comics';
   const fi = (id: FilterId) => filterInfo(id, comics);
   const si = (field: string) => (browse ? { label: t(`browse.sort.${field}`), desc: null, asc: null } : sortInfo(field, comics));
-  const shownGroups = browse ? browseGroups : comics ? comicGroups : groups;
-  // ("Times came" only with the "I came" button on)
-  const offered = $derived(browse ? ['newest', ...sorts] : comics ? comicSortFields : sortFields.filter((f) => f !== 'came' || settings.came));
+  // (the Views group only while views are counted)
+  const shownGroups = browse ? browseGroups : comics ? comicGroups : groups.filter((g) => !g.views || settings.views);
+  // ("Times came" only with the "I came" button on; the view orders while views are counted)
+  const offered = $derived(browse ? ['newest', ...sorts] : comics ? comicSortFields : offeredSorts(settings.came, settings.views));
 
   // svelte-ignore state_referenced_locally
   let form = $state<Form | null>(initial ? { ...initial, values: [...initial.values] } : null);
@@ -124,8 +126,12 @@
       .catch(() => (tagChoices = []));
   });
 
+  // (Last viewed: "More than … ago" is "Not in the last" - never viewed counts too)
   const timeModes: { value: TimeMode; label: string }[] = $derived(
-    (['last', 'ago', 'since', 'before', 'on'] as TimeMode[]).map((value) => ({ value, label: t(`filterMenu.when.${value}`) })),
+    (['last', 'ago', 'since', 'before', 'on'] as TimeMode[]).map((value) => ({
+      value,
+      label: t(form?.id === 'viewed' && value === 'ago' ? 'filterMenu.when.notLast' : `filterMenu.when.${value}`),
+    })),
   );
   const siteChoices = $derived(
     [...new Set(Object.values(sites.names))].sort().map((s) => ({ value: s, label: s })),
@@ -293,8 +299,6 @@
     document.addEventListener('pointerdown', down, true);
     return () => document.removeEventListener('pointerdown', down, true);
   });
-
-  const isTime = (id: FilterId) => id === 'imported' || id === 'uploaded' || id === 'modified';
 </script>
 
 <!-- Escape closes the menu even when nothing in it has focus (e.g. just after a page slid in). -->
@@ -482,12 +486,12 @@
               aria-label={t('filterMenu.howMany')}
               data-autofocus />
             <Dropdown floating={sheet} value={form.unit} options={timeUnits} onchange={(v) => (form!.unit = v)} label={t('filterMenu.unit')} />
-            {#if form.mode === 'ago'}<span class="word" transition:nudge>{t('filterMenu.ago')}</span>{/if}
+            {#if form.mode === 'ago' && form.id !== 'viewed'}<span class="word" transition:nudge>{t('filterMenu.ago')}</span>{/if}
           </div>
         {:else}
           <input type="date" bind:value={form.date} aria-label={t('filterMenu.date')} data-autofocus />
         {/if}
-      {:else if form.id === 'duration' || form.id === 'size' || form.id === 'width' || form.id === 'height' || form.id === 'tags' || form.id === 'pages'}
+      {:else if form.id === 'duration' || form.id === 'size' || form.id === 'width' || form.id === 'height' || form.id === 'tags' || form.id === 'pages' || form.id === 'views'}
         <div class="row">
           <Dropdown floating={sheet} value={form.cmp} options={comparisons(form.id)} onchange={(v: Cmp) => (form!.cmp = v)} label={t('filterMenu.comparison')} />
           <input
@@ -498,7 +502,7 @@
             inputmode={form.id === 'duration' || form.id === 'size' ? 'decimal' : 'numeric'}
             value={form.num}
               oninput={(e) => (form!.num = e.currentTarget.value)}
-            placeholder={{ duration: '30', size: '100', width: '1920', height: '1080', tags: '5', pages: '20' }[form.id]}
+            placeholder={{ duration: '30', size: '100', width: '1920', height: '1080', tags: '5', pages: '20', views: '3' }[form.id]}
             aria-label={t('filterMenu.value')}
             data-autofocus />
           {#if form.id === 'duration'}
@@ -509,6 +513,8 @@
             <span class="word">{t('filterMenu.tagsWord')}</span>
           {:else if form.id === 'pages'}
             <span class="word">{t('filterMenu.pagesWord')}</span>
+          {:else if form.id === 'views'}
+            <span class="word">{t('filterMenu.timesWord')}</span>
           {:else}
             <span class="word">{t('filterMenu.pixels')}</span>
           {/if}

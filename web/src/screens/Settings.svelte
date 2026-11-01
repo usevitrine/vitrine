@@ -13,7 +13,10 @@
   import { displayInfo } from '../lib/viewport';
   import ActionMenu, { type MenuItem } from '../components/ActionMenu.svelte';
   import { sortOptions } from '../components/SortMenu.svelte';
-  import { sortFields, comicSortFields, sortInfo, splitSort, joinSort } from '../lib/system';
+  import { offeredSorts, comicSortFields, sortInfo, splitSort, joinSort } from '../lib/system';
+  import { confirmAction } from '../lib/confirm.svelte';
+  import { toasts } from '../lib/toast.svelte';
+  import { results } from '../lib/results.svelte';
   import InstallHelp from '../components/InstallHelp.svelte';
   import SitesCard from '../components/SitesCard.svelte';
   import DownloadRules from '../components/DownloadRules.svelte';
@@ -35,6 +38,19 @@
 
   let { user, onLoggedOut, onRenamed }: { user: string; onLoggedOut: () => void; onRenamed?: (name: string) => void } = $props();
   let stats = $state<{ files: number; tags: number; server?: { version: string } } | null>(null);
+  // View counts: every file's views taken off (asks first).
+  async function clearViews() {
+    const ok = await confirmAction({ title: t('settings.videos.clearViewsTitle'), body: t('settings.videos.clearViewsBody'), action: t('settings.videos.clearViews'), icon: 'trash' });
+    if (!ok) return;
+    try {
+      const { removed } = await api.clearViews();
+      results.refresh();
+      toasts.show(t('settings.videos.viewsCleared', { n: removed }), { cat: 'tagEdits', kind: 'removed' });
+    } catch (e) {
+      toasts.error((e as Error).message);
+    }
+  }
+
   // Shown to diagnose layout problems on phones (e.g. iOS home-screen app gaps).
   let display = $state(displayInfo());
 
@@ -43,7 +59,7 @@
   const sortLabel = (v: string, comics = false) => sortOptions(comics).find((o) => o.value === v)?.label ?? v;
   function sortItems(value: string, set: (v: string) => void = (v) => (settings.defaultSort = v), comics = false): MenuItem[] {
     const cur = splitSort(value);
-    return (comics ? comicSortFields : sortFields).filter((f) => f !== 'came' || settings.came).map((f) => {
+    return (comics ? comicSortFields : offeredSorts(settings.came, settings.views)).map((f) => {
       const i = sortInfo(f, comics);
       const on = cur.field === f;
       if (!i.desc) return { label: i.label, on, run: () => set(f) };
@@ -314,6 +330,16 @@
                 <span class="hint">{t('settings.videos.cameHint')}</span>
               </span>
             </label>
+            <label class="check" transition:reveal>
+              <input type="checkbox" bind:checked={settings.countViews} />
+              <span class="field">
+                <span class="field-label">{t('settings.videos.views')}</span>
+                <span class="hint">{t('settings.videos.viewsHint')}</span>
+              </span>
+            </label>
+            <div class="clear-views" transition:reveal>
+              <button class="quiet" onclick={clearViews}><Icon name="trash" size={16} /> {t('settings.videos.clearViews')}</button>
+            </div>
             {/if}
             <label class="check">
               <input type="checkbox" bind:checked={settings.hoverPreview} />
@@ -431,6 +457,12 @@
   }
   .check input {
     margin-top: 2px;
+  }
+  /* (under "Count views", in line with its words) */
+  .clear-views {
+    display: flex;
+    padding-left: 30px;
+    margin-top: -4px;
   }
   .install-card {
     display: grid;

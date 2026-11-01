@@ -1,6 +1,25 @@
 # Favorites and rankings
 
-Favorites (the heart), NEW pills in saved searches, the opt-in "I came" button and the Rankings page.
+Favorites (the heart), NEW pills in saved searches, view counts, the opt-in "I came" button and the Rankings page.
+
+## View counts (2026-11-01)
+The user asked how view counts should work, then: "Everything you suggest sounds good". On by default (Settings >
+Viewing, "Count views", shared setting `countViews`; nothing counted, filtered or shown in Safe for work mode).
+- **A view**: a file in the viewer for 2 s on screen (an image) or 3 s of play (a video - buffering and paused time
+  don't count); swiping past doesn't. Hover previews and tiles aren't views. Comics' pages aren't (later, if wanted).
+  How long goes with it (on screen; a video: played) - "most watched" says more than "most opened".
+- **One view per visit**: a view starting within 30 minutes of the file's last ending adds its time to that one
+  (swiping back and forth, the app put away and back, two devices) - decided on the server.
+- **Stored**: one row per view (`views`: file, start, ms; migration 0050), so any period can be counted later (a
+  most-viewed section on the Rankings page: not yet - the sort covers it). The index keeps per file the count, the
+  total time and the last view's start (`system:views`, `system:viewtime`, `system:viewed`; sorts of the same names).
+- **Sent** (`lib/views.ts`): when the file goes out of view (the next one, the viewer closing, the app put away - then
+  `fetch` with keepalive, so it isn't lost; not `sendBeacon`: the server takes JSON only). Views that can't be sent
+  wait on the device (localStorage) for the next. `POST /api/views {views: [{file, at, ms}]}` -> each file's counts;
+  `POST /api/views/clear` (Settings > Viewing, Clear all views; asks first).
+- **Seen in**: the details (Viewed "12 times · 8 minutes", Last viewed "Yesterday at 21:04"; not on tiles); the
+  filter menu's Views group - Last viewed (in the last / not in the last - never viewed counts as not -, since, before,
+  on), Never viewed (`system:views=0`), Times viewed; the orders Last viewed, Times viewed, Time viewed.
 
 ## Favorites (2026-10-19)
 The one user mark on a file (still no ratings): a heart. Stored in `favorites` (file, when it became one; migration

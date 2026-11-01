@@ -72,6 +72,9 @@ type Index struct {
 	favorite *roaring.Bitmap // favorites (deleted ones too: they're favorites again on undo)
 	favAt    []int64         // when each became a favorite (Unix ms; 0 = not one)
 	climaxes []uint16        // times counted with the "I came" button
+	views    []uint32        // times viewed (system:views, sort:views)
+	viewMS   []int64         // how long, all views together (system:viewtime, sort:viewtime)
+	viewedAt []int64         // the last view's start (Unix ms; 0 = never - system:viewed, sort:viewed)
 	size     []int64
 	typ      []media.Type
 	width    []uint32
@@ -148,6 +151,9 @@ func (ix *Index) growFiles(id uint32) {
 	ix.tagCount = slices.Grow(ix.tagCount, c-len(ix.tagCount))[:n]
 	ix.favAt = slices.Grow(ix.favAt, c-len(ix.favAt))[:n]
 	ix.climaxes = slices.Grow(ix.climaxes, c-len(ix.climaxes))[:n]
+	ix.views = slices.Grow(ix.views, c-len(ix.views))[:n]
+	ix.viewMS = slices.Grow(ix.viewMS, c-len(ix.viewMS))[:n]
+	ix.viewedAt = slices.Grow(ix.viewedAt, c-len(ix.viewedAt))[:n]
 }
 
 // AddNamespace registers a namespace.
@@ -395,6 +401,36 @@ func (ix *Index) SetClimaxes(id uint32, n int) {
 	ix.growFiles(id)
 	ix.climaxes[id] = uint16(min(max(n, 0), 65535))
 	ix.invalidateSort(search.FieldClimax)
+}
+
+// ViewStats is a file's views: how many, how long in all (ms), the last one's start (Unix ms; 0 = never).
+type ViewStats struct {
+	Count int
+	MS    int64
+	Last  int64
+}
+
+// SetViews sets a file's views.
+func (ix *Index) SetViews(id uint32, v ViewStats) {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	ix.growFiles(id)
+	ix.views[id] = uint32(max(v.Count, 0))
+	ix.viewMS[id] = v.MS
+	ix.viewedAt[id] = v.Last
+	ix.invalidateSort(search.FieldViews)
+	ix.invalidateSort(search.FieldViewTime)
+	ix.invalidateSort(search.FieldViewed)
+}
+
+// Views returns a file's views.
+func (ix *Index) Views(id uint32) ViewStats {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	if int(id) >= len(ix.views) {
+		return ViewStats{}
+	}
+	return ViewStats{Count: int(ix.views[id]), MS: ix.viewMS[id], Last: ix.viewedAt[id]}
 }
 
 // Climaxes returns how many times a file was counted.

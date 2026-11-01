@@ -18,7 +18,8 @@ import (
 //	*part*          any tag matching the pattern ('*' = any text); ns:* = any tag in ns
 //	( a ~ b ~ -c )  an OR group: files matching any member
 //	system:...      a filter: imported, uploaded, modified, size, width, height, duration,
-//	                tags (tag count), has_audio, favorite, type, rating - e.g.
+//	                tags (tag count), has_audio, favorite, type, rating, views (times viewed),
+//	                viewtime (how long), viewed (when last; never = long ago) - e.g.
 //	                system:imported<5d  system:size>=1.5GB  system:duration>30s
 //	                system:type=video,gif  system:rating!=explicit
 //	sort:field      result order: imported, uploaded (when posted on its
@@ -146,6 +147,9 @@ var fieldAliases = map[string]Field{
 	"came": FieldClimax, "climax": FieldClimax, "climaxes": FieldClimax,
 	"pages": FieldPages, "page_count": FieldPages,
 	"read": FieldRead, "title": FieldTitle,
+	"views": FieldViews, "view_count": FieldViews, "viewcount": FieldViews,
+	"viewtime": FieldViewTime, "view_time": FieldViewTime, "watched": FieldViewTime,
+	"viewed": FieldViewed, "last_viewed": FieldViewed,
 }
 
 // readAliases are the comics' read-state filters (FieldRead).
@@ -194,13 +198,13 @@ func parseSystem(s string, loc *time.Location) (System, error) {
 
 	var err error
 	switch f {
-	case FieldImported, FieldModified, FieldPosted:
+	case FieldImported, FieldModified, FieldPosted, FieldViewed:
 		err = parseTimeValue(&sys, val, loc)
 	case FieldSize:
 		sys.Num, err = parseSize(val)
-	case FieldDuration:
+	case FieldDuration, FieldViewTime:
 		sys.Num, err = parseDurationMS(val)
-	case FieldWidth, FieldHeight, FieldTagCount, FieldClimax, FieldPages:
+	case FieldWidth, FieldHeight, FieldTagCount, FieldClimax, FieldPages, FieldViews:
 		sys.Num, err = strconv.ParseInt(val, 10, 64)
 		if err == nil && sys.Num < 0 {
 			err = fmt.Errorf("negative")

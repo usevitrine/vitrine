@@ -107,6 +107,15 @@
     "tags": {
       "label": "Number of tags"
     },
+    "viewed": {
+      "label": "Last viewed"
+    },
+    "views": {
+      "label": "Times viewed"
+    },
+    "never_viewed": {
+      "label": "Never viewed"
+    },
     "rating": {
       "label": "Rating",
       "general": "General",
@@ -125,7 +134,8 @@
       "when": "When",
       "file": "File",
       "other": "Other",
-      "comic": "Comic"
+      "comic": "Comic",
+      "views": "Views"
     },
     "added": {
       "label": "Added",
@@ -188,6 +198,21 @@
       "label": "Times came",
       "desc": "Most",
       "asc": "Fewest"
+    },
+    "viewed": {
+      "label": "Last viewed",
+      "desc": "Most recent",
+      "asc": "Least recent"
+    },
+    "views": {
+      "label": "Times viewed",
+      "desc": "Most",
+      "asc": "Fewest"
+    },
+    "viewtime": {
+      "label": "Time viewed",
+      "desc": "Longest",
+      "asc": "Shortest"
     },
     "size": {
       "label": "File size",
@@ -353,6 +378,31 @@
       "on": "modified on {date}",
       "notOn": "modified not on {date}"
     },
+    "viewed": {
+      "last": "viewed in the last {amount}",
+      "ago": "not viewed in the last {amount}",
+      "since": "viewed since {date}",
+      "after": "viewed after {date}",
+      "before": "last viewed before {date}",
+      "until": "last viewed until {date}",
+      "on": "last viewed on {date}",
+      "notOn": "not last viewed on {date}"
+    },
+    "neverViewed": "never viewed",
+    "fewerViews": {
+      "one": "viewed fewer than {n} time",
+      "other": "viewed fewer than {n} times"
+    },
+    "moreViews": {
+      "one": "viewed more than {n} time",
+      "other": "viewed more than {n} times"
+    },
+    "views": {
+      "one": "viewed {op} {n} time",
+      "other": "viewed {op} {n} times"
+    },
+    "watchedMore": "viewed longer than {x} in all",
+    "watchedLess": "viewed less than {x} in all",
     "shorter": "shorter than {x}",
     "longer": "longer than {x}",
     "length": "length {op} {x}",
@@ -634,6 +684,15 @@
       "mutedHint": "Unmuting lasts for that video only.",
       "came": "\"I came\" button",
       "cameHint": "Counts in the viewer, with rankings in the menu.",
+      "views": "Count views",
+      "viewsHint": "A file shown for 2 seconds (a video played for 3) counts as a view. Search and sort by them; the details show them.",
+      "clearViews": "Clear all views",
+      "clearViewsTitle": "Clear every view?",
+      "clearViewsBody": "Every file's view count, time and last view are removed. This can't be undone.",
+      "viewsCleared": {
+        "one": "Cleared {n} view",
+        "other": "Cleared {n} views"
+      },
       "hover": "Play videos on hover",
       "hoverHint": "With a mouse: resting on a video plays it."
     },
@@ -2094,6 +2153,7 @@
     "when": {
       "last": "In the last",
       "ago": "More than … ago",
+      "notLast": "Not in the last",
       "since": "Since a date",
       "before": "Before a date",
       "on": "On a date"
@@ -2134,6 +2194,7 @@
     "results": "results",
     "add": "Add filter",
     "pagesWord": "pages",
+    "timesWord": "times",
     "noneYet": "None yet."
   },
   "details": {
@@ -2163,6 +2224,8 @@
     "sound": "sound",
     "silent": "silent",
     "fileId": "File ID",
+    "views": "Viewed",
+    "lastViewed": "Last viewed",
     "copyId": "Copy the file ID",
     "what": {
       "id": "the file ID",

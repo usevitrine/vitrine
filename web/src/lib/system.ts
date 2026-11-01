@@ -21,6 +21,9 @@ export type FilterId =
   | 'favorite'
   | 'not_favorite'
   | 'tags'
+  | 'viewed'
+  | 'views'
+  | 'never_viewed'
   | 'rating'
   | 'site'
   | 'limit'
@@ -47,7 +50,7 @@ const choice = <V extends string>(value: V, key: string) => ({
 const withHint = new Set<FilterId>(['imported', 'uploaded', 'modified', 'limit']);
 // A hint only where the name alone could mislead (kept to a few words).
 export const filters = Object.fromEntries(
-  (['imported', 'uploaded', 'modified', 'type', 'duration', 'size', 'width', 'height', 'has_audio', 'no_audio', 'animated', 'new', 'favorite', 'not_favorite', 'tags', 'rating', 'site', 'limit', 'pages', 'unread', 'reading', 'read', 'category', 'language', 'stars', 'expunged', 'torrent'] as FilterId[]).map(
+  (['imported', 'uploaded', 'modified', 'type', 'duration', 'size', 'width', 'height', 'has_audio', 'no_audio', 'animated', 'new', 'favorite', 'not_favorite', 'tags', 'viewed', 'views', 'never_viewed', 'rating', 'site', 'limit', 'pages', 'unread', 'reading', 'read', 'category', 'language', 'stars', 'expunged', 'torrent'] as FilterId[]).map(
     (id) => [
       id,
       {
@@ -62,9 +65,11 @@ export const filters = Object.fromEntries(
   ),
 ) as Record<FilterId, { label: string; hint?: string }>;
 
-export const groups: { name: string; items: FilterId[] }[] = [
+export const groups: { name: string; items: FilterId[]; views?: boolean }[] = [
   { get name() { return t('filter.group.when'); }, items: ['imported', 'uploaded', 'modified'] },
   { get name() { return t('filter.group.file'); }, items: ['type', 'animated', 'duration', 'size', 'width', 'height', 'has_audio', 'no_audio'] },
+  // (only while views are counted: settings.views)
+  { get name() { return t('filter.group.views'); }, items: ['viewed', 'never_viewed', 'views'], views: true },
   { get name() { return t('filter.group.other'); }, items: ['new', 'favorite', 'not_favorite', 'tags', 'rating', 'limit'] }, // Site: the From row at the top
 ];
 
@@ -102,11 +107,14 @@ export const tagFilter = (id: FilterId) => id === 'category' || id === 'language
 // words that fit the field. Offered in the menu: sortFields; any other field
 // the server knows (typed as sort:size, ...) still shows with its own words.
 
-export const sortFields = ['imported', 'uploaded', 'modified', 'favorite', 'came', 'size', 'duration', 'width', 'height', 'tags', 'random'];
+export const sortFields = ['imported', 'uploaded', 'modified', 'favorite', 'came', 'viewed', 'views', 'viewtime', 'size', 'duration', 'width', 'height', 'tags', 'random'];
+/** The orders a page offers: the view ones only while views are counted, "Times came" only with its button. */
+export const offeredSorts = (came: boolean, views: boolean) =>
+  sortFields.filter((f) => (f !== 'came' || came) && (views || !['viewed', 'views', 'viewtime'].includes(f)));
 /** The Comics page's orders. */
 export const comicSortFields = ['imported', 'uploaded', 'modified', 'read', 'title', 'pages', 'favorite', 'tags', 'random'];
 
-const sortWords = new Set(['imported', 'uploaded', 'modified', 'favorite', 'came', 'size', 'duration', 'width', 'height', 'tags', 'read', 'title', 'pages']);
+const sortWords = new Set(['imported', 'uploaded', 'modified', 'favorite', 'came', 'viewed', 'views', 'viewtime', 'size', 'duration', 'width', 'height', 'tags', 'read', 'title', 'pages']);
 
 /** "imported_asc" -> { field: "imported", asc: true }. */
 export function splitSort(sort: string): { field: string; asc: boolean } {
@@ -134,7 +142,7 @@ export function sortInfo(field: string, comics = false): { label: string; desc: 
 
 /** Filters with nothing to fill in: picking one adds it straight away. */
 export const instant = (id: FilterId) =>
-  id === 'has_audio' || id === 'no_audio' || id === 'animated' || id === 'new' || id === 'favorite' || id === 'not_favorite' || id === 'unread' || id === 'reading' || id === 'read' || id === 'expunged' || id === 'torrent';
+  id === 'has_audio' || id === 'no_audio' || id === 'animated' || id === 'new' || id === 'favorite' || id === 'not_favorite' || id === 'never_viewed' || id === 'unread' || id === 'reading' || id === 'read' || id === 'expunged' || id === 'torrent';
 
 export type TimeMode = 'last' | 'ago' | 'since' | 'before' | 'on';
 export type Cmp = '<' | '<=' | '=' | '>=' | '>' | '!=';
@@ -167,6 +175,7 @@ export function comparisons(id: FilterId): { value: Cmp; label: string }[] {
       return [choice<Cmp>('<', 'cmp.smaller'), choice<Cmp>('>', 'cmp.larger')];
     case 'tags':
     case 'pages':
+    case 'views':
       return [choice<Cmp>('<', 'cmp.fewer'), choice<Cmp>('>', 'cmp.more'), choice<Cmp>('=', 'cmp.exactly')];
     default: // width, height
       return [choice<Cmp>('>=', 'cmp.atLeast'), choice<Cmp>('<=', 'cmp.atMost'), choice<Cmp>('=', 'cmp.exactly')];
@@ -195,12 +204,12 @@ export function defaults(id: FilterId): Form {
   if (id === 'size') Object.assign(f, { unit: 'MB', cmp: '>' });
   if (id === 'width' || id === 'height') f.cmp = '>=';
   if (id === 'tags') f.cmp = '<';
-  if (id === 'pages') f.cmp = '>';
+  if (id === 'pages' || id === 'views') f.cmp = '>';
   if (id === 'limit') f.num = '1000';
   return f;
 }
 
-const isTime = (id: FilterId) => id === 'imported' || id === 'uploaded' || id === 'modified';
+export const isTime = (id: FilterId) => id === 'imported' || id === 'uploaded' || id === 'modified' || id === 'viewed';
 const positive = (s: string) => /^\d+(\.\d+)?$/.test(s.trim()) && Number(s) > 0;
 const whole = (s: string) => /^\d+$/.test(s.trim());
 
@@ -221,6 +230,8 @@ export function build(f: Form): string {
       return 'system:favorite';
     case 'not_favorite':
       return '-system:favorite';
+    case 'never_viewed':
+      return 'system:views=0';
     case 'animated':
     case 'new':
     case 'unread':
@@ -245,6 +256,7 @@ export function build(f: Form): string {
     case 'width':
     case 'height':
     case 'tags':
+    case 'views':
       return whole(n) ? `system:${f.id}${f.cmp}${n}` : '';
     case 'type':
     case 'rating':
@@ -266,12 +278,13 @@ export function read(text: string): Form | null {
   if (neg) return null;
   const state = readState(t);
   if (state) return defaults(state);
+  if (t === 'system:views=0') return defaults('never_viewed');
   const lim = /^(?:limit:|system:limit=)(\d+)$/.exec(t);
   if (lim) return { ...defaults('limit'), num: lim[1] };
   const m = /^system:([a-z_]+)(<=|>=|!=|<|>|=)(.+)$/.exec(t);
   if (!m) return null;
   const [, field, op, val] = m;
-  const id = ({ import: 'imported', posted: 'uploaded', upload: 'uploaded', filesize: 'size', length: 'duration', filetype: 'type', tag_count: 'tags' } as Record<string, string>)[field] ?? field;
+  const id = ({ import: 'imported', posted: 'uploaded', upload: 'uploaded', filesize: 'size', length: 'duration', filetype: 'type', tag_count: 'tags', view_count: 'views', viewcount: 'views', last_viewed: 'viewed' } as Record<string, string>)[field] ?? field;
   if (!(id in filters)) return null;
   const f = defaults(id as FilterId);
   if (isTime(f.id)) {
@@ -298,6 +311,7 @@ export function read(text: string): Form | null {
     case 'height':
     case 'tags':
     case 'pages':
+    case 'views':
       if (!/^\d+$/.test(val) || !comparisons(f.id).some((c) => c.value === op)) return null;
       return { ...f, cmp: op as Cmp, num: val };
     case 'stars':
@@ -343,7 +357,7 @@ export function describe(text: string, comics = false): string | null {
   }
   const f = read(text);
   const field = f?.id ?? rawField;
-  if (field === 'imported' || field === 'uploaded' || field === 'modified') {
+  if (field === 'imported' || field === 'uploaded' || field === 'modified' || field === 'viewed') {
     const w = comics && field !== 'uploaded' ? (field === 'imported' ? 'added' : 'updated') : field;
     const age = /^(\d+(?:\.\d+)?)(mo|min|[smhdwy])$/.exec(val);
     if (age) return t(op.startsWith('<') ? `describe.${w}.last` : `describe.${w}.ago`, { amount: amount(age[1], age[2]) });
@@ -363,6 +377,15 @@ export function describe(text: string, comics = false): string | null {
     case 'width':
     case 'height':
       return t(`describe.${field}`, { op: symbol[op], x: val });
+    case 'never_viewed':
+      return t('describe.neverViewed');
+    case 'views':
+      return op === '<' ? t('describe.fewerViews', { n: Number(val) }) : op === '>' ? t('describe.moreViews', { n: Number(val) }) : t('describe.views', { op: symbol[op], n: Number(val) });
+    case 'viewtime': {
+      const d = /^(\d+(?:\.\d+)?)(s|m|h)?$/.exec(val);
+      const x = d ? amount(d[1], d[2] ?? 's') : val;
+      return op === '<' || op === '<=' ? t('describe.watchedLess', { x }) : t('describe.watchedMore', { x });
+    }
     case 'pages':
       return op === '<' ? t('describe.fewerPages', { n: Number(val) }) : op === '>' ? t('describe.morePages', { n: Number(val) }) : t('describe.pages', { op: symbol[op], n: Number(val) });
     case 'tags':

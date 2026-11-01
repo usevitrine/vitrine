@@ -197,6 +197,66 @@ test('viewer: a video stays on screen, playing, when "I came" or the heart is pr
   }
 });
 
+test('view counts: a file shown 2 s is a view with its time (one passed quickly is not); the details say so; the filters find it; Settings can clear them', async ({ page }) => {
+  // (the library is shared by the test projects running at once, and the server adds a view within half an hour of
+  // the file's last to that one: compared by the time added, not the count)
+  const stats = (id: number) =>
+    page.evaluate(async (id) => (await (await fetch('/api/files?ids=' + id)).json()).files[0] as { views?: number; view_ms?: number; viewed_at?: number }, id);
+  await page.goto('/?q=' + encodeURIComponent('system:type=image'));
+  const tiles = page.locator('.sizer > .tile');
+  await expect(tiles.nth(2)).toBeVisible();
+  const ids = await tiles.evaluateAll((ts) => ts.slice(0, 3).map((t) => Number((t as HTMLElement).dataset.id)));
+  const before = await Promise.all(ids.map(stats));
+  await tiles.first().click();
+  await page.waitForTimeout(2600);
+  await page.keyboard.press('ArrowRight'); // the second: passed quickly
+  await page.waitForTimeout(300);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(2600);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.viewer')).toHaveCount(0);
+  await expect.poll(async () => (await stats(ids[0])).view_ms ?? 0).toBeGreaterThanOrEqual((before[0].view_ms ?? 0) + 2000);
+  await expect.poll(async () => (await stats(ids[2])).view_ms ?? 0).toBeGreaterThanOrEqual((before[2].view_ms ?? 0) + 2000);
+  expect((await stats(ids[1])).view_ms ?? 0).toBe(before[1].view_ms ?? 0);
+  expect((await stats(ids[0])).views).toBeGreaterThanOrEqual(1);
+  // The filters: viewed in the last hour has it; never viewed doesn't.
+  const found = (q: string) => page.evaluate(async (q) => (await (await fetch('/api/search?limit=1000&q=' + encodeURIComponent(q))).json()).ids as number[], q);
+  expect(await found('system:views>0 system:viewed<1h')).toContain(ids[0]);
+  expect(await found('system:views=0')).not.toContain(ids[0]);
+  expect(await found('system:views=0')).toContain(ids[1]);
+  // The details: how often and how long, and when last.
+  await tiles.first().click();
+  if (!(await page.locator('.viewer aside.panel').isVisible())) await page.getByRole('button', { name: 'Details' }).click();
+  const panel = page.locator('.viewer aside.panel');
+  await expect(panel.locator('dl > div', { has: page.locator('dt', { hasText: /^Viewed$/ }) })).toContainText(/\d+ times? · \d+ seconds?/);
+  await expect(panel.locator('dl > div', { has: page.locator('dt', { hasText: 'Last viewed' }) })).toContainText('Today at');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  // A video: the time it played (paused, it isn't counted on).
+  await page.goto('/?q=' + encodeURIComponent('system:type=video'));
+  const vid = Number(await tiles.first().getAttribute('data-id'));
+  const vBefore = (await stats(vid)).view_ms ?? 0;
+  await tiles.first().click();
+  const video = page.locator('.slide[data-slot="1"] video');
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(3.5);
+  await video.evaluate((v: HTMLVideoElement) => v.pause());
+  await page.waitForTimeout(1500);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.viewer')).toHaveCount(0);
+  await expect.poll(async () => (await stats(vid)).view_ms ?? 0).toBeGreaterThanOrEqual(vBefore + 3000);
+  expect((await stats(vid)).view_ms ?? 0).toBeLessThan(vBefore + 5500);
+  // The filter menu has the Views group; a chip reads in words.
+  await page.goto('/?q=' + encodeURIComponent('system:views=0 system:viewed>30d'));
+  await expect(page.locator('.chip', { hasText: 'never viewed' })).toBeVisible();
+  await expect(page.locator('.chip', { hasText: 'not viewed in the last 30 days' })).toBeVisible();
+  // Settings: Count views, and Clear all views (asks first; answered here - the library is shared).
+  await page.route('**/api/views/clear', (r) => r.fulfill({ json: { removed: 7 } }));
+  await page.goto('/settings/viewing');
+  await expect(page.getByRole('checkbox', { name: /Count views/ })).toBeChecked();
+  await page.getByRole('button', { name: 'Clear all views' }).click();
+  await confirmIn(page, 'Clear all views');
+  await expect(page.getByText('Cleared 7 views')).toBeVisible();
+});
 test('viewer: open, swipe to the next file, swipe down to close', async ({ page }) => {
   await page.goto('/');
   await page.locator('.tile').nth(0).click();

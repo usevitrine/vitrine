@@ -19,6 +19,14 @@
 
   let { file, onsearch }: { file: FileInfo; onsearch: (q: string) => void } = $props();
 
+  /** How long a file was viewed in all, in words: "45 seconds", "8 minutes", "2 hours". */
+  function viewTime(ms: number): string {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return t('unit.amount.s', { n: s });
+    if (s < 3600) return t('unit.amount.m', { n: Math.round(s / 60) });
+    return t('unit.amount.h', { n: Math.round(s / 360) / 10 });
+  }
+
   // The "I came" count (Settings > Viewing): the latest press taken off, or all of them.
   async function removeCame(all: boolean) {
     const id = file.id;
@@ -165,6 +173,18 @@
       <div transition:reveal>
         <dt>{t('filter.uploaded.label')}</dt>
         <dd title={fullDate(file.posted_at)}>{when(file.posted_at)}</dd>
+      </div>
+    {/if}
+    {#if settings.views && file.views}
+      <div transition:reveal>
+        <dt>{t('details.views')}</dt>
+        <dd>{t('details.came.times', { n: file.views })}<span class="muted">{' · '}{viewTime(file.view_ms ?? 0)}</span></dd>
+      </div>
+    {/if}
+    {#if settings.views && file.viewed_at}
+      <div transition:reveal>
+        <dt>{t('details.lastViewed')}</dt>
+        <dd title={fullDate(file.viewed_at)}>{when(file.viewed_at)}</dd>
       </div>
     {/if}
     {#if settings.came && file.came}

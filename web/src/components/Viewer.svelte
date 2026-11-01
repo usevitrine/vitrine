@@ -27,6 +27,7 @@
   import FilePanel from './FilePanel.svelte';
   import Icon from './Icon.svelte';
   import { setFavorite } from '../lib/favorites';
+  import { views } from '../lib/views';
   import { itemName, t, num } from '../lib/i18n.svelte';
 
   let {
@@ -198,6 +199,17 @@
       } else if (f?.id !== newHere) newHere = null;
     });
   });
+  // View counts (lib/views): the file in view, and its video once there is one. (A file not loaded yet - cur undefined
+  // for a moment - isn't another file: the one counting carries on.)
+  $effect(() => {
+    const f = cur;
+    const h = hidden;
+    untrack(() => {
+      if (h) views.show(null);
+      else if (f) views.show(f.id, f.mime.startsWith('video/'), () => videoEls[f.id] ?? undefined);
+    });
+  });
+  $effect(() => () => views.show(null));
   /** The heart: the file in view becomes a favorite or stops being one (no notice: the heart shows it).
    *  On the Favorites page it leaves the list, like a deleted file: the next one shows (none left: closed). */
   /** The "I came" button (Settings > Viewing): counted, with Undo for a mis-tap. */

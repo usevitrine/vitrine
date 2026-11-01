@@ -9,7 +9,7 @@ Library
 3. Post URL and **source** links kept apart; import/modified times.
 4. Delete with a 7-day undo window; tombstones so deleted files are never downloaded again.
 5. Periodic **tag refresh** of existing posts.
-6. Not planned: user ratings (favorites instead: a heart, 2026-10-19; an opt-in "I came" counter with Rankings, 2026-10-20), inbox/archive, PTR, Hydrus import, adding your own files (web upload, watched folders). Low priority: notes, view counts.
+6. Not planned: user ratings (favorites instead: a heart, 2026-10-19; an opt-in "I came" counter with Rankings, 2026-10-20), inbox/archive, PTR, Hydrus import, adding your own files (web upload, watched folders). Low priority: notes. View counts: **built 2026-11-01** (see `docs/library/favorites-and-rankings.md`).
 
 Search
 7. Tags with AND / OR / NOT, wildcards, namespace searches; parent tags find their children's files.

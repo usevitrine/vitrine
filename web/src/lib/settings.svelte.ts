@@ -22,7 +22,7 @@ function save(key: string, value: unknown) {
 }
 
 /** The settings every device shares (the server's allow-list). */
-const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck', 'whatsNew', 'whatsNewSeen', 'groupOrder'] as const;
+const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'countViews', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck', 'whatsNew', 'whatsNewSeen', 'groupOrder'] as const;
 type SharedKey = (typeof shared)[number];
 
 class Settings {
@@ -69,6 +69,12 @@ class Settings {
   /** The "I came" button, Rankings and counts: on, and not in SFW mode. */
   get came() {
     return this.cameButton && !this.sfwMode;
+  }
+  /** View counts (Settings > Viewing): the viewer counts each file's views (on unless turned off). */
+  countViews = $state(load('countViews', true));
+  /** Views counted, and their filters, orders and details line: on, and not in SFW mode. */
+  get views() {
+    return this.countViews && !this.sfwMode;
   }
   /** Signed out: a plain sign-in page that says nothing about what it's for (off unless turned on). */
   anonymousLogin = $state(load('anonymousLogin', false));

@@ -5,6 +5,10 @@ shows this too (Settings > Help & about).
 
 ## Unreleased
 
+### New
+
+- **View counts**: Vitrine counts how often you've viewed each file and for how long. A file counts once it has been on screen for 2 seconds, or a video has played for 3; swiping past doesn't count. The details show how many times, how long and when you last viewed it. Search for files you've never viewed, or haven't viewed lately, and sort by most viewed, most watched or recently viewed. Turn it off, or clear all views, in Settings > Viewing.
+
 ### Improved
 
 - **Saved searches, redesigned**: the menu opens from a floppy disk now (instead of the star). Each saved search is a tile with its first few pictures, its name and how many files it finds, two to a row. Press and hold a tile (or click and hold) to move it. Parent tags have a tab of their own, as tiles too, in an order you choose. On a phone the menu comes up from the bottom (drag it down to close); on a computer it's a panel at the right. **Save** sits at the top.

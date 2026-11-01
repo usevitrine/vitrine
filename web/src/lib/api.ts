@@ -140,6 +140,9 @@ export interface FileInfo {
   has_audio: boolean;
   favorite?: boolean;
   came?: number; // times counted with the "I came" button
+  views?: number; // times viewed
+  view_ms?: number; // how long, all views together
+  viewed_at?: number; // the last view's start (Unix ms)
   imported_at: number;
   modified_at: number;
   posted_at?: number; // when posted on its site (upload time)
@@ -587,6 +590,13 @@ export const api = {
   climaxPage: (comic: number, page: number) => post<{ id: number; count: number }>('/api/climax', { comic, page }),
   removeClimaxes: (file: number, all: boolean) => post<{ count: number }>('/api/climax/remove', { file, all }),
   clearClimaxes: () => post<{ removed: number }>('/api/climax/clear', {}),
+  /** Views the viewer gathered (lib/views); keepalive: sent even as the page goes (the app put away). */
+  addViews: async (views: { file: number; at: number; ms: number }[], keepalive = false) => {
+    const resp = await fetch('/api/views', { method: 'POST', keepalive, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ views }) });
+    if (!resp.ok) throw new ApiError(resp.statusText, resp.status);
+    return (await resp.json()) as { files: { id: number; views: number; view_ms: number; viewed_at: number }[] };
+  },
+  clearViews: () => post<{ removed: number }>('/api/views/clear', {}),
   undoClimax: (id: number) => post<{ file: number; count: number }>('/api/climax/undo', { id }),
   rankings: (period: string) => get<Rankings>(`/api/rankings?period=${period}&tz=${-new Date().getTimezoneOffset()}`),
   stats: (days = 0) => get<LibraryStats>(`/api/stats?days=${days}&tz=${-new Date().getTimezoneOffset()}`),

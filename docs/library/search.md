@@ -53,8 +53,11 @@ The text form (`internal/search`; every chip maps to one term, so text and chips
   `size` (`>1.5GB`, `<100KB`; 1 KB = 1024 B), `width`, `height`, `duration` (`>30s`, `<=1m30s`; a bare number is
   seconds), `tags` (tag count), `has_audio` (no value; `-system:has_audio` for silent), `type` (`=video`,
   `=image`, `!=jpg,mp4`, any format name or extension), `rating` (`=general|sensitive|questionable|explicit`,
-  `safe` = general, `!=` too). Operators: `< <= > >= = !=`.
-- `sort:` `imported` (default, newest first), `modified`, `size`, `width`, `height`, `duration`, `tags`, `random`
+  `safe` = general, `!=` too), `views` (times viewed; `=0` never), `viewtime` (how long, all views: `>10m`),
+  `viewed` (when last, like `imported`; a file never viewed counts as long ago: `>30d` = not in the last 30 days).
+  Operators: `< <= > >= = !=`.
+- `sort:` `imported` (default, newest first), `modified`, `size`, `width`, `height`, `duration`, `tags`, `views`,
+  `viewtime`, `viewed`, `random`
   (`random_<seed>` repeats an order; each file's place is a hash of seed and ID, so files added later land in the
   order without reshuffling the others - 4.7 ms for 100k files); add `_asc` for ascending. `limit:N` keeps the first
   N in sort order.

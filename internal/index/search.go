@@ -303,6 +303,12 @@ func (ix *Index) sortKey(f search.Field) func(id uint32) int64 {
 		return func(id uint32) int64 { return ix.favAt[id] }
 	case search.FieldClimax:
 		return func(id uint32) int64 { return int64(ix.climaxes[id]) }
+	case search.FieldViews:
+		return func(id uint32) int64 { return int64(ix.views[id]) }
+	case search.FieldViewTime:
+		return func(id uint32) int64 { return ix.viewMS[id] }
+	case search.FieldViewed:
+		return func(id uint32) int64 { return ix.viewedAt[id] }
 	case search.FieldPages, search.FieldRead, search.FieldTitle:
 		if c := ix.comic; c != nil {
 			return c.sortKey(f)
