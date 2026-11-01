@@ -2,9 +2,10 @@
   import { overlayScroll } from '../lib/overlayScroll';
   // A search chip's menu: its text, editable in place (with OR alternatives),
   // and what to do with it - exclude or include it, add an alternative, split
-  // a group, search with only it, start a new download for it, copy it,
-  // remove it. Like a tag's menu in the details: a menu under the chip, a
-  // sheet along the bottom on phones. Edits apply on Enter and on closing.
+  // a group, search with only it, start a new download for it, put it in
+  // parent tags (a page of its own, as in the tag menu), copy it, remove it.
+  // Like a tag's menu in the details: a menu under the chip, a sheet along the
+  // bottom on phones. Edits apply on Enter and on closing.
   import { backClose } from '../lib/backClose';
   import { reveal, nudge } from '../lib/motion';
   import { kindOf, titleTerm,type Atom, type Chip } from '../lib/query';
@@ -18,6 +19,9 @@
   import { on } from 'svelte/events';
   import { t } from '../lib/i18n.svelte';
   import { useScope } from '../lib/scope.svelte';
+  import { Pages } from '../lib/pages.svelte';
+  import { TagParents } from '../lib/parents.svelte';
+  import ParentsPage from './ParentsPage.svelte';
 
   let {
     chip,
@@ -50,6 +54,26 @@
   const parts = $derived(single ? splitTag(single.text.trim()) : null);
   // A tag, or an OR group of tags (its download: the site's OR search) - not a filter, wildcard or excluded tag.
   const downloadable = $derived(atoms.length > 0 && atoms.every((a) => !a.neg && a.text.trim() !== '' && kindOf(a.text) === 'tag'));
+
+  // Parent tags: one library tag (not a filter, wildcard or OR group; its parents asked for once it is one).
+  const parentTag = $derived(!comics && single && kindOf(single.text.trim()) === 'tag' ? single.text.trim() : '');
+  const parents = new TagParents(() => parentTag);
+  let asked = false;
+  $effect(() => {
+    if (parentTag && !asked) {
+      asked = true;
+      parents.load();
+    }
+  });
+  const mine = $derived(parents.mine);
+  let page = $state<'' | 'parents'>('');
+  const pages = new Pages(); // (moves like every menu's)
+  function show(to: typeof page) {
+    if (to) apply(); // (what was typed is the chip from here)
+    pages
+      .go(to !== '', () => (page = to))
+      .then((el) => el?.querySelector<HTMLElement>(to ? '[role^=menuitem], input' : '.item')?.focus({ preventScroll: true }));
+  }
 
   const kept = () => atoms.filter((a) => a.text.trim() !== '').map((a) => ({ neg: a.neg, text: titleTerm(a.text) }));
 
@@ -142,6 +166,12 @@
     tabindex="-1"
     style:--c={parts ? nsColor(parts.ns) : 'var(--mauve)'}>
     {#if sheet}<div class="grab-zone" aria-hidden="true"><span></span></div>{/if}
+    <div class="mpages" class:animating={pages.animating} {@attach pages.box} style:height={pages.height !== null ? `${pages.height}px` : undefined}>
+    {#key pages.nav}
+    <div class="mpage" {@attach pages.page} in:pages.pageIn out:pages.pageOut>
+    {#if page === 'parents'}
+      <ParentsPage {parents} tag={parentTag} onback={() => show('')} />
+    {:else}
     <div class="head">
       {#if single && parts}
         <span class="name">{#each (parts.name || ' ').split('_') as part, k}{#if k}_<wbr />{/if}{part}{/each}</span>
@@ -197,6 +227,14 @@
           ondownload(tags);
         })}
       {/if}
+      {#if parentTag}
+        <button class="item" onclick={() => show('parents')} transition:reveal>
+          <Icon name="stack" size={18} />
+          <span class="grow">{t('tagMenu.parents')}</span>
+          {#if mine.size}<span class="now" transition:nudge>{mine.size === 1 ? [...mine][0] : t('tagMenu.nParents', { n: mine.size })}</span>{/if}
+          <Icon name="right" size={16} />
+        </button>
+      {/if}
     </div>
 
     {#if single && parts && single.text.trim()}
@@ -217,6 +255,10 @@
 
     <div class="group">
       {@render item('close', t('tagMenu.removeFromSearch'), remove, 'danger')}
+    </div>
+    {/if}
+    </div>
+    {/key}
     </div>
   </div>
 </div>
@@ -375,5 +417,14 @@
   .danger,
   .danger > :global(svg) {
     color: var(--red);
+  }
+  .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  .now {
+    font-size: 12px;
+    color: var(--subtext);
+    overflow-wrap: anywhere;
   }
 </style>

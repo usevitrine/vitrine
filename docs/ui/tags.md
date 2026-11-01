@@ -15,7 +15,10 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   "N parents"), the library's tags only. Its page (lib/pages, like Namespace): every parent tag with a check when this
   tag is one of its children - a tap puts it in or takes it out, the menu stays open; a parent this tag was the only
   child of stays listed once taken out, so a second tap puts it back - and a box for a new parent by name (+).
-  `GET/POST /api/relations`, the same as Tags > Rules. The saved searches menu calls them parents too (its tab
+  `GET/POST /api/relations`, the same as Tags > Rules. The search bar too (the user: "You should be able to add tags
+  to a parent in the search bar too"): a chip's menu (`ChipEditor`) has the same item and page when the chip is one
+  library tag (not a filter, wildcard or OR group) - one page component (`ParentsPage`) and one helper
+  (`lib/parents.svelte.ts`) for both menus. The saved searches menu calls them parents too (its tab
   "Parents", "New parent"; the user: "rename group to parent in the new menu").
 - **Tags a subscription follows (2026-10-30, the user: "wherever a tag is displayed, i want an indicator that a tag is
   present in a subscription")**: a small mauve bell after the tag (`SubMark.svelte`) - filled when a subscription's

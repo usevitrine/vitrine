@@ -17,8 +17,8 @@
   import SubMark from './SubMark.svelte';
   import { subTags } from '../lib/subTags.svelte';
   import { siteLabel } from '../lib/sites.svelte';
-  import { api, type Relation } from '../lib/api';
-  import { toasts } from '../lib/toast.svelte';
+  import { TagParents } from '../lib/parents.svelte';
+  import ParentsPage from './ParentsPage.svelte';
   import { nudge } from '../lib/motion';
 
   let {
@@ -70,45 +70,12 @@
       .then((el) => el?.querySelector<HTMLElement>('[role^=menuitem], input')?.focus({ preventScroll: true }));
   }
 
-  // ---- parent tags (2026-11-01, the user: "Tap menus on tag chips should have an option to add a tag to a
-  // parent/group tag"): every parent there is, checked when this tag is one of its children; a tap puts it in or
-  // takes it out (the menu stays open); a new one by name. Asked once the menu opens (for the count on its item).
-  let relations = $state<Relation[] | null>(null);
-  let busy = $state(false);
-  let newParent = $state('');
-  // (one this tag was the only child of stays in the list once taken out - a parent is only its children - so a
-  // second tap puts it back)
-  let shown = new Set<string>();
-  const allParents = $derived.by(() => {
-    for (const r of relations ?? []) shown.add(r.to);
-    return [...shown].sort((a, b) => a.localeCompare(b));
-  });
-  const mine = $derived(new Set((relations ?? []).filter((r) => r.from === tag).map((r) => r.to)));
+  // Parent tags (a page of its own, ParentsPage): asked once the menu opens (the parent's name on its item).
+  const parents = new TagParents(() => tag);
+  const mine = $derived(parents.mine);
   $effect(() => {
-    if (!parenting) return;
-    api.relations().then(
-      (r) => (relations = r.parents),
-      () => (relations = []),
-    );
+    if (parenting) parents.load();
   });
-  async function setParent(p: string, on: boolean) {
-    p = p.trim();
-    if (!p || p === tag || busy) return false;
-    busy = true;
-    try {
-      relations = (await api.editRelation('parent', on ? 'add' : 'remove', tag, p)).parents;
-      return true;
-    } catch (err) {
-      toasts.error((err as Error).message);
-      return false;
-    } finally {
-      busy = false;
-    }
-  }
-  async function addNew(e: Event) {
-    e.preventDefault();
-    if (await setParent(newParent, true)) newParent = '';
-  }
   let pos = $state({ left: 0, top: 0, ready: false });
   // Phones: an action sheet along the bottom; wider screens: a menu at the tag.
   const sheet = matchMedia('(max-width: 639px)').matches;
@@ -183,33 +150,7 @@
     {#key pages.nav}
     <div class="mpage" {@attach pages.page} in:pages.pageIn out:pages.pageOut>
     {#if page === 'parents'}
-      <div class="head page">
-        <button class="back" aria-label={t('common.back')} onclick={() => show('')}><Icon name="left" size={18} /></button>
-        <span class="name">{t('tagMenu.parents')}</span>
-      </div>
-      <div class="group" role="group" aria-label={t('tagMenu.parents')}>
-        {#each allParents as p (p)}
-          {@const on = mine.has(p)}
-          <button role="menuitemcheckbox" aria-checked={on} class:on disabled={busy} onclick={() => setParent(p, !on)}>
-            <Icon name="stack" size={18} />
-            <span class="grow name-of">{p}</span>
-            {#if on}<span class="tick" transition:nudge><Icon name="check" size={16} /></span>{/if}
-          </button>
-        {:else}
-          <p class="note">{t('tagMenu.noParents')}</p>
-        {/each}
-      </div>
-      <form class="group new-parent" onsubmit={addNew}>
-        <input
-          bind:value={newParent}
-          placeholder={t('tagMenu.newParent')}
-          aria-label={t('tagMenu.newParent')}
-          autocapitalize="off"
-          autocomplete="off"
-          spellcheck="false" />
-        <button type="submit" class="add" disabled={busy || !newParent.trim() || newParent.trim() === tag} aria-label={t('tagMenu.addParent')} title={t('tagMenu.addParent')}
-          ><Icon name="plus" size={18} /></button>
-      </form>
+      <ParentsPage {parents} {tag} onback={() => show('')} />
     {:else if page === 'ns'}
       <div class="head page">
         <button class="back" aria-label={t('common.back')} onclick={() => show('')}><Icon name="left" size={18} /></button>
@@ -533,34 +474,5 @@
   }
   button.on > :global(svg) {
     color: var(--mauve);
-  }
-  .name-of {
-    overflow-wrap: anywhere;
-  }
-  .tick {
-    display: inline-flex;
-    color: var(--mauve);
-  }
-  .note {
-    margin: 0;
-    padding: 6px 12px 8px;
-    font-size: 13px;
-    color: var(--subtext);
-  }
-  .new-parent {
-    display: flex;
-    gap: 6px;
-    padding: 6px 4px 2px;
-  }
-  .new-parent input {
-    flex: 1;
-    min-width: 0;
-  }
-  .new-parent .add {
-    flex: none;
-    width: var(--control-h);
-    padding: 0;
-    justify-content: center;
-    background: var(--surface0);
   }
 </style>

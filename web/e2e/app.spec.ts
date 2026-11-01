@@ -1251,7 +1251,7 @@ test('subscriptions: subscribe, failed check, pause, interval, unsubscribe (offl
   await rowMenu(page, 'the download sub_b', 'Remove'); // the plain search stays until removed
 });
 
-test('tag menu: Parent tags - put the tag in a new parent, take it out and back with a tap (the menu stays open), the item shows its parent', async ({ page }) => {
+test('tag menu: Parent tags - put the tag in a new parent, take it out and back with a tap (the menu stays open), the item shows its parent; the same in a search chip\'s menu',async ({ page }) => {
   const parent = `e2e_parent_${test.info().project.name.replace(/\W/g, '_')}`;
   const parentsOf = () =>
     page.evaluate(async () => (await (await fetch('/api/relations')).json()).parents as { from: string; to: string }[]);
@@ -1278,6 +1278,23 @@ test('tag menu: Parent tags - put the tag in a new parent, take it out and back 
   await menu.getByRole('button', { name: 'Back' }).click();
   await expect(menu.getByRole('menuitem', { name: /^Parent tags/ })).toContainText(parent);
   await page.keyboard.press('Escape');
+  // The search bar too: a chip's menu has the same page (the user: "You should be able to add tags to a parent in the
+  // search bar too").
+  await page.goto('/?q=blue_sky');
+  await page.locator('.chip-main').first().click();
+  const editor = page.getByRole('dialog', { name: 'Edit search chip' });
+  await expect(editor.getByRole('button', { name: /^Parent tags/ })).toContainText(parent);
+  await editor.getByRole('button', { name: /^Parent tags/ }).click();
+  const there = editor.getByRole('menuitemcheckbox', { name: parent });
+  await expect(there).toHaveAttribute('aria-checked', 'true');
+  await there.click();
+  await expect(there).toHaveAttribute('aria-checked', 'false');
+  expect(await parentsOf()).not.toContainEqual({ from: 'blue_sky', to: parent });
+  await editor.getByRole('button', { name: 'Back' }).click();
+  await expect(editor.getByRole('button', { name: /^Parent tags/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(editor).toHaveCount(0);
+  await expect(page).toHaveURL(/q=blue_sky/); // (the chip as it was)
   await page.evaluate(
     (p) => fetch('/api/relations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'parent', action: 'remove', from: 'blue_sky', to: p }) }),
     parent,
