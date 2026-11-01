@@ -7,6 +7,8 @@ shows this too (Settings > Help & about).
 
 ### Fixed
 
+- **Centered text**: small text in chips and buttons (the site kinds when adding a site, for one) sat about a pixel
+  high on Windows; it's centered now.
 - **Downloads and notifications menus**: New and All in the heading have their words and icons on one line, with even
   room on both sides.
 - **Saved searches**: switching between the Saved and Groups tabs no longer shows both tabs' buttons for a moment.

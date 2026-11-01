@@ -1,5 +1,5 @@
 import { mount } from 'svelte';
-import '@fontsource-variable/plus-jakarta-sans';
+import './font.css';
 import './app.css';
 import App from './App.svelte';
 import { toasts } from './lib/toast.svelte';

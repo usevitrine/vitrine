@@ -96,8 +96,10 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   variable font bundled with the app (`@fontsource-variable/plus-jakarta-sans`; woff2 files split
   by script, only the ones a page's text needs are fetched; no outside font service - self-hosted, offline, private),
   then the system stack (system-ui, -apple-system, Segoe UI, Roboto); line height 1.4. Until then: the system stack.
-  Its own metrics stay (ascent 1.04 / descent 0.22): measured in buttons of 32 and 44 px at 12-16 px text, they
-  center capitals best; an override (97% / 29%, tried 2026-11-01) lifted the text 1-2 px too high. What did make
+  Its faces are declared in `web/src/font.css` (not fontsource's CSS) with `ascent-override: 105%` (its own 1.04;
+  2026-11-01, the user: text high in chips): Windows rounds a line's ascent to whole pixels, and at 12 px (chips,
+  small buttons) 12.48 rounded down, capitals 0.9 px above the middle; 12.6 rounds up. Measured: 11-24 px within
+  0.2 px of the middle (15 px: 0.9 low, as before). Not lower: 97% (tried the same day) lifted text 1-2 px. What did make
   words sit off next to icons: a control on a half pixel (e.g. a 32 px button in 35 px of room) - text snaps to whole
   pixels, icons don't - so keep the room around controls even, and icons 16 px in 32 px buttons. An icon at a button's
   end has empty margins in its drawing (a chevron: 6 px a side at 16 px); pull it in with a negative margin so the
