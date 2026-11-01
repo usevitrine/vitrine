@@ -120,21 +120,14 @@ func (s *Server) RunUpdateChecks(ctx context.Context) {
 	if s.updates == nil {
 		return
 	}
-	wait := 3 * time.Minute
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(wait):
-		}
-		wait = time.Hour
+	Every(ctx, 3*time.Minute, time.Hour, func() {
 		s.updates.mu.Lock()
 		due := time.Since(time.UnixMilli(s.updates.at)) > 23*time.Hour+30*time.Minute
 		s.updates.mu.Unlock()
 		if due && s.updateCheckOn(ctx) {
 			s.checkForUpdate(ctx)
 		}
-	}
+	})
 }
 
 // checkForUpdate asks GitHub for the latest release and tells the bell about a newer one (once per version).

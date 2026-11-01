@@ -81,7 +81,7 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.mux.HandleFunc("POST /api/passkeys/login/finish", s.passkeyLoginFinish)
 	web := webRoot()
 	if set, err := lib.Settings(context.Background()); err == nil {
-		s.anonymous.Store(string(set["anonymousLogin"]) == "true")
+		s.applySettings(set) // (the downloader's settings when it's set: SetDownloader)
 	}
 	s.mux.Handle("GET /startup.png", s.unlessAnonymous(http.HandlerFunc((&startupImages{web: web, cache: map[startupKey][]byte{}}).serve)))
 	s.mux.Handle("GET /", s.unlessAnonymous(staticHandler(web)))

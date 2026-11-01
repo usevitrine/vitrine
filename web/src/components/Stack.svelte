@@ -8,6 +8,7 @@
   // (transforms only: smooth on a phone); the stack's height follows them.
   import type { Snippet } from 'svelte';
   import { cubicOut } from 'svelte/easing';
+  import { reduced } from '../lib/motion';
   import { t } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
 
@@ -45,7 +46,6 @@
     framed?: boolean;
   } = $props();
 
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // A mouse on the peeking edges: the cards behind fan out a little - a hint of the unfold (2026-10-24; the user found
   // the "+N" chip turning the accent and dropping "weird"). The stack keeps its height (nothing below moves).
   const TEASE = 5;

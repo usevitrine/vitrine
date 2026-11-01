@@ -16,3 +16,16 @@ export function swallowPress(e: PointerEvent) {
 /** Whether a menu is already on its way out (Svelte makes an element fading out
  *  inert): a press then is meant for what's under it, not to close it again. */
 export const leaving = (el: Element | null | undefined) => !!el?.closest('[inert]');
+
+/** Closes a menu on a press outside it (swallowed): `inside` says what counts as the menu (its button too), `panel`
+ *  - when given - is skipped while it's on its way out. Returns the clean-up (for an $effect). */
+export function pressOutside(inside: (t: HTMLElement) => boolean, close: () => void, panel?: () => Element | null | undefined) {
+  const down = (e: PointerEvent) => {
+    if (panel && leaving(panel())) return;
+    if (inside(e.target as HTMLElement)) return;
+    swallowPress(e);
+    close();
+  };
+  document.addEventListener('pointerdown', down, true);
+  return () => document.removeEventListener('pointerdown', down, true);
+}

@@ -12,6 +12,7 @@ import { api, type UpdateState } from './api';
 import { refreshShell } from './appShell';
 import { toasts } from './toast.svelte';
 import { t } from './i18n.svelte';
+import { read, remove, write } from './storage';
 
 export type UpdateStep = 'backup' | 'download' | 'restart' | 'start';
 export const updateSteps: UpdateStep[] = ['backup', 'download', 'restart', 'start'];
@@ -103,11 +104,7 @@ class Updater {
     clearInterval(this.timer);
     this.progress = 1;
     await sleep(700); // (the bar fills, the last step checks)
-    try {
-      sessionStorage.setItem(UPDATED_KEY, version);
-    } catch {
-      /* no "Updated" message then */
-    }
+    write(UPDATED_KEY, version, 'session'); // (no storage: no "Updated" message then)
     this.leaving = true;
     await sleep(550); // (the steps fade, the logo glides to where the splash will draw it)
     location.replace('/'); // (the library as it opens: the default search and sort - the user)
@@ -127,13 +124,8 @@ class Updater {
 
   /** After the reload: say what was updated to (once the splash has faded the app in). */
   announce() {
-    let to: string | null = null;
-    try {
-      to = sessionStorage.getItem(UPDATED_KEY);
-      sessionStorage.removeItem(UPDATED_KEY);
-    } catch {
-      return;
-    }
+    const to = read(UPDATED_KEY, 'session');
+    remove(UPDATED_KEY, 'session');
     if (to) setTimeout(() => toasts.show(t('updates.updated', { version: to }), { kind: 'done', cat: 'release' }), 900);
   }
 }

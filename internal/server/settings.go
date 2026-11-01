@@ -33,21 +33,38 @@ func (s *Server) setSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	// (when a site that keeps failing to answer pauses: applied at once)
-	if v, ok := req["pauseAfter"]; ok && s.dl != nil {
+	s.applySettings(req)
+	s.getSettings(w, r)
+}
+
+// applySettings hands the settings the running program keeps in memory to it: the stored ones at the start (New,
+// SetDownloader) and each change (POST /api/settings, /api/flaresolverr) - one place, so a setting can't apply on
+// change but not after a restart, or the other way round. Only the keys in set; the other settings are read where
+// they're used.
+func (s *Server) applySettings(set map[string]json.RawMessage) {
+	if v, ok := set["anonymousLogin"]; ok {
+		s.anonymous.Store(string(v) == "true")
+	}
+	if s.dl == nil {
+		return
+	}
+	// (when a site that keeps failing to answer pauses)
+	if v, ok := set["pauseAfter"]; ok {
 		var n int
 		if json.Unmarshal(v, &n) == nil {
 			s.dl.SetPauseAfter(n)
 		}
 	}
-	if v, ok := req["anonymousLogin"]; ok {
-		s.anonymous.Store(string(v) == "true")
-	}
-	if v, ok := req["checksFirst"]; ok && s.dl != nil {
+	if v, ok := set["checksFirst"]; ok {
 		var on bool
 		if json.Unmarshal(v, &on) == nil {
 			s.dl.SetChecksFirst(on)
 		}
 	}
-	s.getSettings(w, r)
+	if v, ok := set["flaresolverrURL"]; ok {
+		var u string
+		if json.Unmarshal(v, &u) == nil {
+			s.dl.Solver.SetEndpoint(u)
+		}
+	}
 }

@@ -5,7 +5,7 @@
   // pages' thumbnails (the site's small ones: nothing against its image limit). The page gives the panel's frame.
   import { tick } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
-  import { reveal, pop } from '../lib/motion';
+  import { reveal, pop, reduced } from '../lib/motion';
   import { api, type BrowseGallery, type BrowseThumb, type FileTag } from '../lib/api';
   import { siteLabel } from '../lib/sites.svelte';
   import { namespaces } from '../lib/namespaces.svelte';
@@ -107,8 +107,7 @@
     tick().then(onStrip); // (new thumbnails: the arrows - and maybe more, when they don't fill the row yet)
   });
   function step(dir: number) {
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    strip?.scrollBy({ left: dir * strip.clientWidth * 0.8, behavior: reduced ? 'auto' : 'smooth' });
+    strip?.scrollBy({ left: dir * strip.clientWidth * 0.8, behavior: reduced() ? 'auto' : 'smooth' });
   }
   function wheel(el: HTMLElement) {
     const on = (e: WheelEvent) => {

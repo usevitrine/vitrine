@@ -1,12 +1,10 @@
 <script lang="ts">
-  import { px, settle, sizeOf, onPixels } from '../lib/motion';
   // A small dialog over everything (Rename, Crop the cover): a dimmed backdrop, a card in the middle that pops in,
   // a heading with a close button; Escape, Back and a press outside close it. Its content brings its own buttons
   // (a ".foot" row is styled here: buttons on the right, a ".spacer" pushing some to the left).
   import type { Snippet } from 'svelte';
-  import { cubicOut } from 'svelte/easing';
   import { backClose } from '../lib/backClose';
-  import { shade } from '../lib/sheet';
+  import { sheetIn, sheetOut, shade } from '../lib/sheet';
   import Icon from './Icon.svelte';
   import { t } from '../lib/i18n.svelte';
 
@@ -22,17 +20,6 @@
     children: Snippet;
   } = $props();
 
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function pop(node: Element, { out = false } = {}) {
-    if (reduced()) return { duration: 0 };
-    if (!out) onPixels(node);
-    // (going: as plain as coming - it shrinks and sinks a little as it fades, not just a blink)
-    return {
-      duration: out ? 200 : 220,
-      easing: cubicOut,
-      css: (k: number) => `opacity: ${k}; transform: translateY(${px(out ? (1 - k) * 8 : 0)}) scale(${settle(0.94 + 0.06 * k, sizeOf(node))})`,
-    };
-  }
 </script>
 
 <svelte:window
@@ -44,7 +31,7 @@
   }} />
 
 <div class="backdrop" role="presentation" in:shade out:shade={{ out: true }} onpointerdown={onclose}></div>
-<div class="dialog" role="dialog" aria-modal="true" aria-label={title} style:--w="{width}px" {@attach backClose(onclose)} in:pop out:pop={{ out: true }}>
+<div class="dialog" role="dialog" aria-modal="true" aria-label={title} style:--w="{width}px" {@attach backClose(onclose)} in:sheetIn={{ on: false, desk: 'pop' }} out:sheetOut={{ on: false, desk: 'pop' }}>
   <header>
     <h2>{title}</h2>
     <button type="button" class="icon" aria-label={t('sites.close')} onclick={onclose}><Icon name="close" /></button>

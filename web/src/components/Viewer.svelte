@@ -1,12 +1,10 @@
 <script lang="ts">
   import { backClose } from '../lib/backClose';
-  import { away } from '../lib/sheet';
-  import { pop, px, nudge, onPixels } from '../lib/motion';
-  import { dragDown, closes } from '../lib/sheetDrag';
+  import { pop, nudge, onPixels, reduced } from '../lib/motion';
+  import { DetailsSheet } from '../lib/detailsSheet.svelte';
   import { Glide, clampZoom as clampFit, zoomAround, pinchScale } from '../lib/zoom';
-  import { reducedMotion } from '../lib/hero';
+  import { WIDE, fineMouse } from '../lib/media';
   import { volume } from '../lib/volume.svelte';
-  import { cubicOut } from 'svelte/easing';
   import { cubicBezier } from '../lib/hero';
   // Full-screen viewer over the same result list as the grid: swipe or use
   // the arrow keys to move through every result (no pages), swipe down or
@@ -38,7 +36,7 @@
     hidden = false,
   }: { index: number; onclose: () => void; onsearch: (q: string) => void; startInfo?: boolean; hidden?: boolean } = $props();
 
-  const wide = matchMedia('(min-width: 900px)');
+  const wide = matchMedia(WIDE);
   // Narrower (phones): the controls split, as in a phone's photo app - close, where you are and the details at the
   // top; the actions along the bottom, in reach of a thumb (2026-10-25, the user: on a phone with a six-figure library
   // the top bar's buttons ran off the screen - "need to rethink the ui of the viewer"). Wide screens: one bar on top.
@@ -51,7 +49,7 @@
   // A mouse (desktop): moving between files is instant, a click zooms to 100 %
   // (or plays/pauses a video) and the controls always show. Touch: slides, a
   // tap shows/hides the controls, a double tap zooms.
-  const mouse = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const mouse = fineMouse();
   let chrome = $state(true);
   let viewerEl = $state<HTMLElement>();
   // Full screen ends with the viewer.
@@ -151,7 +149,7 @@
       clearTimeout(fallback);
       raf = requestAnimationFrame(() => {
         videoShown[id] = true;
-        done = window.setTimeout(() => (thumbGone[id] = true), reducedMotion() ? 0 : 260);
+        done = window.setTimeout(() => (thumbGone[id] = true), reduced() ? 0 : 260);
       });
     };
     // Only once a frame is really on screen: the browser says so with
@@ -945,7 +943,7 @@
   // ---- the details: a sheet on phones (slides up; dragging its header down
   // closes it), a column on wide screens (the panel slides in from the edge and
   // the picture glides aside to make room - below).
-  const isSheet = () => matchMedia('(max-width: 899px)').matches;
+  const isSheet = () => !matchMedia(WIDE).matches;
   const column = (t: number) => cubicBezier(0.2, 0.8, 0.2, 1, t);
   // The details' column (wide screens) or sheet (phones: the stage ends where it begins) comes and goes at once, and
   // the picture glides from where it was to its new place (centered in the narrower or wider stage, fitted to it) - on
@@ -959,12 +957,12 @@
   $effect.pre(() => {
     void info;
     untrack(() => {
-      if (!stageEl || reducedMotion()) return;
+      if (!stageEl || reduced()) return;
       // (phones: in step with the sheet - its timing; let go after a drag, from where the drag had it: the stage's
       // rect still has sheetFollow's transform here)
       const timing = !isSheet()
         ? { duration: 260, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
-        : { duration: sheetGone > 0 ? 200 : 240, easing: 'cubic-bezier(0.33, 1, 0.68, 1)' };
+        : { duration: ds.gone > 0 ? 200 : 240, easing: 'cubic-bezier(0.33, 1, 0.68, 1)' };
       const from = fitIn(stageEl.getBoundingClientRect());
       tick().then(() => {
         const slide = stageEl?.querySelector<HTMLElement>('.slide[data-slot="1"]');
@@ -978,51 +976,27 @@
       });
     });
   });
-  let sheetGone = 0; // how far the sheet was dragged when it was let go (it leaves from there)
+  // Phones: dragged down from anywhere on it closes it (lib/detailsSheet).
+  const ds = new DetailsSheet(isSheet, () => (info = false));
   // In and out separately (a two-way transition: plays its way in backwards to
   // leave - from where the sheet rests, so a dragged one jumped up first).
   function sheet(node: Element, { out = false } = {}) {
-    if (reducedMotion()) return { duration: 0 };
+    if (reduced()) return { duration: 0 };
+    if (isSheet()) return ds.slide(node, out);
     if (!out) onPixels(node);
-    if (out && isSheet() && sheetGone > 0) {
-      const from = sheetGone;
-      sheetGone = 0;
-      return { duration: 200, easing: cubicOut, css: (t: number) => `transform: translateY(${px(from * t + (1 - t) * away(node))})` };
-    }
     // Wide screens: the column is there (or gone) at once; the panel slides in from the edge - and out over the
     // picture, held at the right (its column is gone already).
-    if (!isSheet()) {
-      const held = out ? 'position: absolute; top: 0; right: 0; bottom: 0; width: 340px; z-index: 2;' : '';
-      return { duration: 260, easing: column, css: (t: number) => `${held} transform: translateX(${(1 - t) * 100}%)` };
-    }
-    return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${px((1 - t) * away(node))})` };
+    const held = out ? 'position: absolute; top: 0; right: 0; bottom: 0; width: 340px; z-index: 2;' : '';
+    return { duration: 260, easing: column, css: (t: number) => `${held} transform: translateX(${(1 - t) * 100}%)` };
   }
-  // Phones: dragged down from anywhere on it closes it (lib/sheetDrag: a list scrolled down scrolls first).
-  let sheetDragging = $state(false);
-  let sheetDy = $state(0);
-  const sheetDrag = dragDown({
-    active: isSheet,
-    onstart: () => (sheetDragging = true),
-    onmove: (d) => (sheetDy = d),
-    onend: (d, fling) => {
-      sheetDragging = false;
-      if (closes(d, fling, 90)) {
-        // Closed: it stays where it was let go and slides on from there (put back
-        // to its place first, it jumped up for a frame before sliding away).
-        sheetGone = d;
-        info = false;
-        return;
-      }
-      sheetDy = 0;
-    },
-  });
   // Opened again: in its place.
   $effect(() => {
-    if (info) untrack(() => (sheetDy = 0));
+    if (info) untrack(() => (ds.dy = 0));
   });
   // The picture follows the dragged sheet, as it would sit in the stage the sheet now leaves (taller by the drag):
   // the stage moved and scaled about its center, on the compositor (the user: "a 1 to 1 animation when closing").
   const sheetFollow = $derived.by(() => {
+    const sheetDy = ds.dy;
     if (!info || sheetDy <= 0 || !height) return undefined;
     const f = cur;
     const fit = (h: number) => (f?.width && f?.height ? Math.min(width / f.width, h / f.height) : 1);
@@ -1182,7 +1156,7 @@
       class:zoom-in={mouse && percent > 0 && zoom.s <= 1.01}
       class:zoom-out={mouse && percent > 0 && zoom.s > 1.01}
       bind:this={stageEl}
-      class:following={sheetDragging}
+      class:following={ds.dragging}
       style:transform={sheetFollow}
       bind:clientWidth={width}
       bind:clientHeight={height}
@@ -1309,12 +1283,12 @@
 
   {#if info && panelFile}
     <aside
-      class="panel"
+      class="panel details-panel"
       {@attach backClose(() => (info = false))}
-      {@attach sheetDrag}
-      class:dragging={sheetDragging}
+      {@attach ds.drag}
+      class:dragging={ds.dragging}
       aria-label={t('fileMenu.details')}
-      style:transform={sheetDy ? `translateY(${sheetDy}px)` : undefined}
+      style:transform={ds.dy ? `translateY(${ds.dy}px)` : undefined}
       in:sheet
       out:sheet={{ out: true }}>
       <header class="panel-head">
@@ -1658,23 +1632,12 @@
   .viewer.idle .stage {
     cursor: none;
   }
-  /* The details: a column on the right (wide screens), a sheet over the
-     bottom three quarters (phones). A header with the close button; the body scrolls. */
-  .panel {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    background: var(--mantle);
-    border-left: 1px solid var(--surface0);
-  }
-  .panel-head {
-    flex: none;
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: calc(8px + var(--safe-top)) 8px 8px 16px;
-    border-bottom: 1px solid var(--surface0);
+  /* The details (.details-panel in app.css: a column on the right on wide screens, a sheet on phones) - here: a quiet
+     Delete in its header, under the status bar on wide screens (the viewer covers the whole screen). */
+  @media (min-width: 900px) {
+    .panel-head {
+      padding-top: calc(8px + var(--safe-top));
+    }
   }
   @media (hover: hover) {
     .panel-head .delete:hover {
@@ -1682,39 +1645,15 @@
       background: color-mix(in srgb, var(--red) 12%, transparent);
     }
   }
-  .panel-head h2 {
-    flex: 1;
-    margin: 0;
-    font-size: 17px;
-    font-weight: 700;
-  }
-  .grab {
-    display: none;
-  }
-  .panel-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: 16px 16px calc(24px + var(--bottom-room));
-  }
   @media (max-width: 899px) {
     .panel {
       position: absolute;
       left: 0;
       right: 0;
       bottom: var(--kb, 0px); /* above the on-screen keyboard */
-      height: 75%;
       max-height: min(var(--sheet-max-h), calc(100% - var(--kb, 0px) - 56px));
-      border-left: none;
-      border-radius: 20px 20px 0 0;
-      box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
       z-index: 3;
       will-change: transform; /* (its own layer, always drawn over the picture's - iOS) */
-      transition: transform 0.22s ease-out;
-    }
-    .panel.dragging {
-      transition: none;
     }
     /* The details up: the picture in the room above the sheet (it stayed centered behind it, the room above empty) -
        the stage ends where the sheet begins (the sheet's own height, below), the picture gliding there (columnMove). */
@@ -1734,25 +1673,6 @@
     .viewer.info .bottom {
       opacity: 0;
       pointer-events: none;
-    }
-    .panel-head {
-      padding: 18px 8px 6px 20px;
-      touch-action: none; /* drag it down to close */
-      cursor: grab;
-    }
-    .grab {
-      display: block;
-      position: absolute;
-      top: 7px;
-      left: 50%;
-      width: 38px;
-      height: 5px;
-      margin-left: -19px;
-      border-radius: 3px;
-      background: var(--surface2);
-    }
-    .panel-body {
-      padding: 16px 20px calc(24px + var(--bottom-room));
     }
   }
 </style>

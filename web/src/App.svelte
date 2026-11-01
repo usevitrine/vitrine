@@ -4,7 +4,8 @@
   import { live } from './lib/live.svelte';
   import { onMount, untrack } from 'svelte';
   import { fade } from 'svelte/transition';
-  import { reveal, pop, glide } from './lib/motion';
+  import { reveal, pop, glide, reduced } from './lib/motion';
+  import { readJSON, remove, writeJSON } from './lib/storage';
   import { api, setLoggedOutHandler, type Session, toPlainSignIn } from './lib/api';
   import { router, type Screen } from './lib/router.svelte';
   import Icon from './components/Icon.svelte';
@@ -84,7 +85,7 @@
     const now = router.screen;
     untrack(() => {
       if (now === shownScreen) return;
-      leaving = matchMedia('(prefers-reduced-motion: reduce)').matches ? null : shownScreen;
+      leaving = reduced() ? null : shownScreen;
       shownScreen = now;
       clearTimeout(leaveTimer);
       leaveTimer = window.setTimeout(() => (leaving = null), 200);
@@ -102,22 +103,12 @@
 
   // The last known session (this device): the app opens on it at once and asks
   // the server in the background (logged out meanwhile: the login screen).
-  const known = (() => {
-    try {
-      return JSON.parse(localStorage.getItem('vitrine.session') ?? 'null') as Session | null;
-    } catch {
-      return null;
-    }
-  })();
+  const known = readJSON<Session | null>('vitrine.session', null);
   onMount(async () => {
     setLoggedOutHandler(() => {
       if (session?.anonymous || settings.anonymousLogin) return toPlainSignIn();
       if (session) session = { ...session, logged_in: false };
-      try {
-        localStorage.removeItem('vitrine.session');
-      } catch {
-        /* nothing kept */
-      }
+      remove('vitrine.session');
     });
     if (known?.logged_in) session = known;
     try {
@@ -125,12 +116,8 @@
       if (!s.logged_in && !s.setup_needed && s.anonymous) return toPlainSignIn();
       session = s;
       i18n.setServerDefault(s.language);
-      try {
-        if (s.logged_in) localStorage.setItem('vitrine.session', JSON.stringify(s));
-        else localStorage.removeItem('vitrine.session');
-      } catch {
-        /* not kept: asked again next time */
-      }
+      if (s.logged_in) writeJSON('vitrine.session', s); // (not kept: asked again next time)
+      else remove('vitrine.session');
     } catch (e) {
       if (!session) failed = (e as Error).message; // offline with a known session: carry on
     }
@@ -214,22 +201,10 @@
 
   // Menu items with sub-pages fold (folded to begin with); what's open is
   // remembered on this device.
-  let unfolded = $state<string[]>(
-    (() => {
-      try {
-        return JSON.parse(localStorage.getItem('vitrine.menuOpen') ?? '[]') as string[];
-      } catch {
-        return [];
-      }
-    })(),
-  );
+  let unfolded = $state<string[]>(readJSON<string[]>('vitrine.menuOpen', []));
   function toggleFold(screen: string) {
     unfolded = unfolded.includes(screen) ? unfolded.filter((x) => x !== screen) : [...unfolded, screen];
-    try {
-      localStorage.setItem('vitrine.menuOpen', JSON.stringify(unfolded));
-    } catch {
-      /* not remembered */
-    }
+    writeJSON('vitrine.menuOpen', unfolded);
   }
 
   let comicsOpened = $state(false);

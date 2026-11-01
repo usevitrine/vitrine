@@ -5,6 +5,7 @@
   // opens its details in the app's details panel (GalleryPanel: like a comic's), with Download in the panel's header.
   import { onMount } from 'svelte';
   import { reveal, pop, glide, swap } from '../lib/motion';
+  import { read, write } from '../lib/storage';
   import { fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { api, type BrowseGallery } from '../lib/api';
@@ -36,20 +37,12 @@
   let pad = $derived(topbar.h + headH);
 
   function lastSite(): string {
-    try {
-      return localStorage.getItem('vitrine.browseSite') ?? '';
-    } catch {
-      return '';
-    }
+    return read('vitrine.browseSite') ?? '';
   }
   function pickSite(id: string) {
     results.site = id;
     selection.ids.clear();
-    try {
-      localStorage.setItem('vitrine.browseSite', id);
-    } catch {
-      /* not remembered - fine */
-    }
+    write('vitrine.browseSite', id);
     results.search(query);
   }
   function search(q: string) {

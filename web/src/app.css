@@ -539,6 +539,73 @@ a {
   touch-action: none;
 }
 
+/* The details panel (the viewer's, and DetailsPanel's elsewhere - one look): a column on the right on wide screens, a
+   sheet over the bottom three quarters on phones, dragged down from anywhere to close (lib/detailsSheet). Where it
+   sits and over what is each one's own. */
+.details-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--mantle);
+  border-left: 1px solid var(--surface0);
+}
+.details-panel .panel-head {
+  flex: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid var(--surface0);
+}
+.details-panel .panel-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+.details-panel .grab {
+  display: none;
+}
+.details-panel .panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 16px calc(24px + var(--bottom-room));
+}
+@media (max-width: 899px) {
+  .details-panel {
+    height: 75%;
+    border-left: none;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
+    transition: transform 0.22s ease-out;
+  }
+  .details-panel.dragging {
+    transition: none;
+  }
+  .details-panel .panel-head {
+    padding: 18px 8px 6px 20px;
+    touch-action: none; /* drag it down to close */
+    cursor: grab;
+  }
+  .details-panel .grab {
+    display: block;
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    width: 38px;
+    height: 5px;
+    margin-left: -19px;
+    border-radius: 3px;
+    background: var(--surface2);
+  }
+  .details-panel .panel-body {
+    padding: 16px 20px calc(24px + var(--bottom-room));
+  }
+}
+
 /* The viewer's open/close animation (lib/hero.ts, inside #app): just under the
    viewer (40), which is see-through while it opens, its controls above. */
 .hero-layer {

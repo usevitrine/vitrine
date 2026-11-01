@@ -3,23 +3,10 @@
 // screen spacing is per device. Local reads and writes never throw: private
 // modes may block storage.
 import { api } from './api';
+import { readJSON, writeJSON } from './storage';
 
-function load<T>(key: string, fallback: T): T {
-  try {
-    const v = localStorage.getItem('vitrine.' + key);
-    return v === null ? fallback : (JSON.parse(v) as T);
-  } catch {
-    return fallback;
-  }
-}
-
-function save(key: string, value: unknown) {
-  try {
-    localStorage.setItem('vitrine.' + key, JSON.stringify(value));
-  } catch {
-    /* not saved - fine */
-  }
-}
+const load = <T>(key: string, fallback: T): T => readJSON('vitrine.' + key, fallback);
+const save = (key: string, value: unknown) => writeJSON('vitrine.' + key, value);
 
 /** The settings every device shares (the server's allow-list). */
 const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'countViews', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck', 'whatsNew', 'whatsNewSeen', 'groupOrder'] as const;
@@ -204,7 +191,7 @@ class Settings {
     clearTimeout(this.timer);
     const values = this.pending;
     this.pending = {};
-    fetch('/api/settings', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) }).catch(() => {});
+    api.setSettings(values, true).catch(() => {});
   }
 
   /** Sends changes in one request, a moment after the last one (sliders, typing). */

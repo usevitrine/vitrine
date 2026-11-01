@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { phone } from '../lib/media';
   import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   // The filter menu (like hydrus-web's system predicates, but only what
@@ -7,7 +8,7 @@
   // tapping a filter chip (then the form opens filled in, and updates it).
   import { backClose } from '../lib/backClose';
   import { reveal, pop, nudge } from '../lib/motion';
-  import { swallowPress, leaving } from '../lib/outside';
+  import { pressOutside } from '../lib/outside';
   import { onMount, tick } from 'svelte';
   import Dropdown from './Dropdown.svelte';
   import { sheetDrag } from '../lib/sheetDrag';
@@ -281,25 +282,20 @@
   });
 
   // Phones: a sheet along the bottom (like the other menus there).
-  const sheet = matchMedia('(max-width: 639px)').matches;
+  const sheet = phone();
   function portal(node: HTMLElement) {
     if (sheet) document.body.appendChild(node);
     return { destroy: () => sheet && node.remove() };
   }
 
   // A press outside the menu and the search bar closes it.
-  $effect(() => {
-    const down = (e: PointerEvent) => {
-      if (leaving(panel)) return; // closed already, fading out
-      const t = e.target as HTMLElement;
-      if (!panel?.contains(t) && !t.closest('.bar') && !t.closest('[data-floating]')) {
-        swallowPress(e);
-        onclose(false);
-      }
-    };
-    document.addEventListener('pointerdown', down, true);
-    return () => document.removeEventListener('pointerdown', down, true);
-  });
+  $effect(() =>
+    pressOutside(
+      (t) => !!(panel?.contains(t) || t.closest('.bar, [data-floating]')),
+      () => onclose(false),
+      () => panel,
+    ),
+  );
 </script>
 
 <!-- Escape closes the menu even when nothing in it has focus (e.g. just after a page slid in). -->

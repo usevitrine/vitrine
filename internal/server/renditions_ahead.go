@@ -16,18 +16,11 @@ func (s *Server) RunRenditionsAhead(ctx context.Context) {
 	if s.rend == nil {
 		return
 	}
-	wait := 2 * time.Minute
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(wait):
-		}
-		wait = 10 * time.Minute
+	Every(ctx, 2*time.Minute, 10*time.Minute, func() {
 		if n := s.makeRenditionsAhead(ctx); n > 0 {
 			s.log.Info("screen-sized copies made ahead", "made", n)
 		}
-	}
+	})
 }
 
 func (s *Server) makeRenditionsAhead(ctx context.Context) int {

@@ -15,7 +15,8 @@
   // select a range. Hovering a video or animated GIF with a mouse plays it in
   // its tile (muted), unless turned off in Settings.
   import { tick, untrack, type ComponentProps } from 'svelte';
-  import { pop } from '../lib/motion';
+  import { pop, reduced } from '../lib/motion';
+  import { fineMouse, touch } from '../lib/media';
   import { measure as measureMarquee } from '../lib/marquee';
   import { cubicBezier } from '../lib/hero';
   import { on } from 'svelte/events';
@@ -67,7 +68,7 @@
   let width = $state(0);
   let height = $state(0);
   let scrollTop = $state(0);
-  const coarse = matchMedia('(pointer: coarse)').matches;
+  const coarse = touch();
   // The space between tiles: hairline squares; masonry roomier (with rounded corners).
   let GAP = $derived(isMasonry ? (coarse ? 6 : 10) : 2);
 
@@ -76,7 +77,7 @@
   // in it (muted; a thin line shows how far), a picture shows bigger, a GIF
   // animates. It opens at once (2026-10-21, user: no delay - it waited 200 ms for the mouse to rest) and stays while
   // the mouse is anywhere on it; onto another tile, that one opens instead.
-  const canHover = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const canHover = fineMouse();
   // x, y, w, h: the card, in the list (where the tile goes while zoomed; it
   // grows there from its place, unfolding to the file's shape).
   type Hover = { i: number; id: number; x: number; y: number; w: number; h: number; lead: number };
@@ -375,7 +376,7 @@
   /** Draws tile t (laid out as card, placed by base) from one place to another; done when it's there. */
   function fly(t: HTMLElement, from: Rect, to: Rect, card: Rect, base: { x: number; y: number }, m: Motion, done?: () => void) {
     land(t);
-    if (reducedMotion()) return done?.();
+    if (reduced()) return done?.();
     const { fit, parts } = insides(t);
     for (const { el, origin } of parts) el.style.transformOrigin = origin;
     // By the translate and scale properties (the tile's own transform - its place - is left alone): they come before
@@ -638,7 +639,7 @@
   // touch on the grid decides; not while the scroller itself is held).
   let fastSide = $state<'left' | 'right'>('right');
   $effect(() => {
-    if (!el || !matchMedia('(pointer: coarse)').matches) return;
+    if (!el || !touch()) return;
     const node = el;
     const touched = (e: TouchEvent) => {
       if (fastDrag || (e.target as HTMLElement).closest('.fast')) return;
@@ -932,7 +933,7 @@
       flip = null;
       const skip = skipFlip;
       skipFlip = false;
-      if (skip || cleared || !el || !size || reducedMotion()) return;
+      if (skip || cleared || !el || !size || reduced()) return;
       flip = snapshot();
       tick().then(playFlip);
     });
@@ -963,7 +964,6 @@
     maxStagger: 12,
     scale: 0.92,
   };
-  const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   /** Where every tile on screen is now (by file), with a copy to fade out if it goes. */
   function snapshot(): Map<number, Snap> {
     const snap = new Map<number, Snap>();
@@ -983,7 +983,7 @@
    *  screen any more that is still in the list (scrolled out of sight: no departure). */
   function animateFrom(before: Map<number, Snap>, keep: (id: number) => boolean = () => false) {
     // (nothing on screen before - the first results: they just show, each thumbnail fading in as it loads)
-    if (!el || reducedMotion() || !before.size) return;
+    if (!el || reduced() || !before.size) return;
     const sizer = el.querySelector<HTMLElement>('.sizer');
     if (!sizer) return;
     const sr = sizer.getBoundingClientRect();
@@ -1048,7 +1048,7 @@
   }
   /** Every tile on screen appears (a grid shown again - back from Comics or the library - or Comics' first results). */
   function appearAll() {
-    if (!el || reducedMotion()) return;
+    if (!el || reduced()) return;
     const box = el.getBoundingClientRect();
     const list: { el: HTMLElement; c: number }[] = [];
     for (const t of el.querySelectorAll<HTMLElement>('.sizer > .tile')) {
@@ -1069,7 +1069,7 @@
       const sizer = el?.querySelector<HTMLElement>('.sizer');
       if (s && !cleared) {
         cleared = true;
-        if (!sizer || reducedMotion() || !tiles.length) {
+        if (!sizer || reduced() || !tiles.length) {
           clearedView = true;
           return;
         }
@@ -1252,14 +1252,14 @@
     if (lead > 0 && rowH && scrollTop < rowH - 1) closeGaps();
   });
   function closeGaps() {
-    const before = reducedMotion() ? null : snapshot();
+    const before = reduced() ? null : snapshot();
     lead = 0;
     if (before) tick().then(() => animateFrom(before, (id) => results.indexOf(id) >= 0));
   }
 
   /** Back to the top (smoothly, unless reduced motion). */
   export function toTop(instant = false) {
-    el?.scrollTo({ top: 0, behavior: instant || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    el?.scrollTo({ top: 0, behavior: instant || reduced() ? 'auto' : 'smooth' });
   }
 
   /** The rounded corners of the tile at index (px; 0 when square or not on screen) - a picture flying to or from it

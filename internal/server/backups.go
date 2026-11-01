@@ -61,21 +61,14 @@ func (s *Server) RunDailyBackups(ctx context.Context) {
 	if s.backups == nil {
 		return
 	}
-	wait := 5 * time.Minute
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(wait):
-		}
-		wait = time.Hour
+	Every(ctx, 5*time.Minute, time.Hour, func() {
 		auto, keep := s.BackupSettings(ctx)
 		if !auto {
-			continue
+			return
 		}
 		list, err := s.backups.m.List()
 		if err == nil && len(list) > 0 && time.Since(time.UnixMilli(list[0].CreatedAt)) < 23*time.Hour+30*time.Minute {
-			continue
+			return
 		}
 		b, err := s.backups.m.Create(ctx, keep)
 		s.backups.mu.Lock()
@@ -89,7 +82,7 @@ func (s *Server) RunDailyBackups(ctx context.Context) {
 			s.log.Info("daily backup made", "name", b.Name, "size", b.Size)
 		}
 		s.backups.mu.Unlock()
-	}
+	})
 }
 
 func (s *Server) listBackups(w http.ResponseWriter, r *http.Request) {

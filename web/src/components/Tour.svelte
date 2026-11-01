@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { glide } from '../lib/motion';
+  import { glide, reduced } from '../lib/motion';
+  import { touch as touchScreen } from '../lib/media';
   // The short tour (lib/tour): one hint at a time beside the thing it's about, which is lit up (the rest of the page
   // dimmed around it, still usable). Hints whose thing isn't on screen are left out (an empty library has no file to
   // point at). Next / Done; Skip tour or Esc ends it - for good, on this device.
   import { onMount } from 'svelte';
     import { cubicOut } from 'svelte/easing';
   import { tour } from '../lib/tour.svelte';
-  import { reducedMotion } from '../lib/hero';
   import { t } from '../lib/i18n.svelte';
 
-  const touch = matchMedia('(pointer: coarse)').matches;
+  const touch = touchScreen();
   const all = [
     { sel: '.bar [role="combobox"]', title: t('tour.search.title'), text: t('tour.search.text') },
     { sel: 'button.dl', title: t('tour.download.title'), text: t('tour.download.text') },
@@ -95,7 +95,7 @@
       style:left="{place.left}px"
       style:top="{place.top}px"
       style:width="{place.w}px"
-      in:glide={{ y: 8, duration: reducedMotion() ? 0 : 220, easing: cubicOut }}>
+      in:glide={{ y: 8, duration: reduced() ? 0 : 220, easing: cubicOut }}>
       <p class="step">{t('tour.of', { n: i + 1, total: hints.length })}</p>
       <h2>{h.title}</h2>
       <p class="text">{h.text}</p>

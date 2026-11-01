@@ -33,8 +33,6 @@ export function rectOf(el: Element): Rect {
   return { x: r.left, y: r.top, w: r.width, h: r.height };
 }
 
-export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 /** A picture that flies: its address, its shape (width / height) and, when only part of it shows (a comic's
  *  cropped cover), that part as fractions [x, y, w, h] - then the shape is the part's. */
 export interface HeroPicture {

@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -208,9 +207,7 @@ func gelbooruFavorites(ctx context.Context, c *Client, userID string) ([]Post, e
 			seen[id] = true
 			found++
 			p := Post{ID: id, PostURL: m.Post(id), Partial: true, Rating: m.Rating("")}
-			if b, err := hex.DecodeString(md5); err == nil && len(b) == 16 {
-				copy(p.MD5[:], b)
-			}
+			p.MD5 = ParseMD5(md5)
 			out = append(out, p)
 		}
 		for _, mm := range favThumb.FindAllStringSubmatch(text, -1) {

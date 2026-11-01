@@ -4,8 +4,9 @@
   // stays on the left and the section shows beside it. Each section has its
   // own address (/settings/backups), so the navigation menu can list them.
   // Phones and tablets (top spacing is for the home-screen app there).
-  const touchScreen = matchMedia('(pointer: coarse)').matches;
+  const touchScreen = touch();
   import { onMount } from 'svelte';
+  import { touch } from '../lib/media';
   import { reveal, pop } from '../lib/motion';
   import { api, toPlainSignIn } from '../lib/api';
   import { settings } from '../lib/settings.svelte';

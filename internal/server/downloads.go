@@ -10,8 +10,16 @@ import (
 	"github.com/usevitrine/vitrine/internal/plugin"
 )
 
-// SetDownloader enables the download API.
-func (s *Server) SetDownloader(dl *download.Downloader) { s.dl = dl }
+// SetDownloader enables the download API and applies the stored settings the downloader keeps in memory
+// (applySettings) - before dl.Run.
+func (s *Server) SetDownloader(dl *download.Downloader) {
+	s.dl = dl
+	if set, err := s.lib.Settings(context.Background()); err == nil {
+		s.applySettings(set)
+	} else {
+		s.log.Error("settings not applied to the downloader", "err", err)
+	}
+}
 
 var errNoDownloader = errors.New("the downloader isn't running")
 

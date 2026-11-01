@@ -9,6 +9,7 @@
   // bottom on phones. Edits apply on Enter and on closing.
   import { backClose } from '../lib/backClose';
   import { reveal, nudge } from '../lib/motion';
+  import { phone } from '../lib/media';
   import { kindOf, titleTerm,type Atom, type Chip } from '../lib/query';
   import { nsColor, nsLabel, splitTag } from '../lib/namespaces.svelte';
   import { copyText } from '../lib/clipboard';
@@ -47,7 +48,7 @@
   let atoms = $state<Atom[]>(chip.atoms.map((a) => ({ ...a })));
   let focusLast = $state(false);
   // Phones: a sheet along the bottom; wider screens: a menu under the chip.
-  const sheet = matchMedia('(max-width: 639px)').matches;
+  const sheet = phone();
   // With a mouse the text is ready to type in; on touch screens no keyboard pops up.
   const mouse = matchMedia('(pointer: fine)').matches;
 

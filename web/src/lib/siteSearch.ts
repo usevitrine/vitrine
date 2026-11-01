@@ -6,7 +6,14 @@ import { parse, label, kindOf, type Chip } from './query';
 import { tagQuery, tagsQuery, canOr } from './sites.svelte';
 import { t } from './i18n.svelte';
 
-const tagChip = (c: Chip) => c.atoms.every((a) => a.text.trim() !== '' && kindOf(a.text) === 'tag');
+/** A site search for your own favorites there (fav:me): its files can become favorites here too. */
+export const ownFavorites = (q: string) => /^fav:me$/i.test(q.trim());
+
+/** A site search for anyone's favorites (fav:<user>, favorited_by=, a favorites page's link): a subscription to it
+ *  goes in the site's own Favorites group. */
+export const favoritesSearch = (q: string) => /^fav:\S+$|^favorited_by=/i.test(q.trim()) || /[?&]page=favorites(&|&amp;)s=view/.test(q);
+
+const tagChip =(c: Chip) => c.atoms.every((a) => a.text.trim() !== '' && kindOf(a.text) === 'tag');
 
 /** The tags a library search names (OR groups too; excluded ones as well - they say where the search came from). */
 export function searchTags(q: string): string[] {

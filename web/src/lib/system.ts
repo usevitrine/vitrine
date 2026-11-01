@@ -5,6 +5,36 @@ import { subNames } from './subNames.svelte';
 // form for each, turning a form into search text (internal/search's syntax)
 // and back, and a plain-words label for a filter chip.
 
+// ---- The filter words of the search syntax, for everything here and elsewhere that reads them (chips, the filter
+// menu, Browse's site search, sort:).
+
+/** favorite's spellings (favourite, fav, favorited, ...): system:favorite, sort:favorite. A regex source. */
+export const FAVORITE_WORDS = 'favou?rites?|fav|favou?rited';
+const favorite = new RegExp(`^system:(${FAVORITE_WORDS})$`, 'i');
+
+/** system:favorite in any of its spellings. */
+export const isFavorite = (t: string) => favorite.test(t);
+
+/** The filters without a value (system:expunged, ...; lowercase). */
+const isFlag = (low: string) => /^system:(expunged|torrent|animated|new)$/.test(low);
+
+/** A filter with a comparison (system:<field><op><value>, lowercase): its parts, or null. */
+export function comparison(low: string): { field: string; op: string; val: string } | null {
+  const m = /^system:([a-z_]+)(<=|>=|!=|<|>|=)(.+)$/.exec(low);
+  return m ? { field: m[1], op: m[2], val: m[3] } : null;
+}
+
+/** An age in a time filter (5d, 2.5h, 3mo, 10min): its number and unit. */
+const AGE = /^(\d+(?:\.\d+)?)(mo|min|[smhdwy])$/;
+/** A length in a duration filter (30, 30s, 2m): its number and unit. */
+const DURATION = /^(\d+(?:\.\d+)?)(s|m)?$/;
+
+/** A site filter (system:site=a,b or system:site!=a): not, and its sites as written. */
+export function siteFilter(text: string): { not: boolean; sites: string } | null {
+  const m = /^system:site\s*(!?=)\s*(.+)$/i.exec(text);
+  return m ? { not: m[1] === '!=', sites: m[2] } : null;
+}
+
 export type FilterId =
   | 'imported'
   | 'uploaded'
@@ -273,7 +303,7 @@ export function read(text: string): Form | null {
   const neg = text.startsWith('-');
   const t = (neg ? text.slice(1) : text).toLowerCase();
   if (t === 'system:has_audio') return defaults(neg ? 'no_audio' : 'has_audio');
-  if (!neg && (t === 'system:expunged' || t === 'system:torrent' || t === 'system:animated' || t === 'system:new')) return defaults(t.slice(7) as FilterId);
+  if (!neg && isFlag(t)) return defaults(t.slice(7) as FilterId);
   if (isFavorite(t)) return defaults(neg ? 'not_favorite' : 'favorite');
   if (neg) return null;
   const state = readState(t);
@@ -281,14 +311,14 @@ export function read(text: string): Form | null {
   if (t === 'system:views=0') return defaults('never_viewed');
   const lim = /^(?:limit:|system:limit=)(\d+)$/.exec(t);
   if (lim) return { ...defaults('limit'), num: lim[1] };
-  const m = /^system:([a-z_]+)(<=|>=|!=|<|>|=)(.+)$/.exec(t);
+  const m = comparison(t);
   if (!m) return null;
-  const [, field, op, val] = m;
-  const id = ({ import: 'imported', posted: 'uploaded', upload: 'uploaded', filesize: 'size', length: 'duration', filetype: 'type', tag_count: 'tags', view_count: 'views', viewcount: 'views', last_viewed: 'viewed' } as Record<string, string>)[field] ?? field;
+  const { field, op, val } = m;
+  const id =({ import: 'imported', posted: 'uploaded', upload: 'uploaded', filesize: 'size', length: 'duration', filetype: 'type', tag_count: 'tags', view_count: 'views', viewcount: 'views', last_viewed: 'viewed' } as Record<string, string>)[field] ?? field;
   if (!(id in filters)) return null;
   const f = defaults(id as FilterId);
   if (isTime(f.id)) {
-    const age = /^(\d+(?:\.\d+)?)(mo|min|[smhdwy])$/.exec(val);
+    const age = AGE.exec(val);
     if (age && (op === '<' || op === '<=' || op === '>' || op === '>=')) {
       return { ...f, mode: op.startsWith('<') ? 'last' : 'ago', num: age[1], unit: age[2] === 'min' ? 'm' : age[2] === 's' ? 'm' : age[2] };
     }
@@ -298,7 +328,7 @@ export function read(text: string): Form | null {
   }
   switch (f.id) {
     case 'duration': {
-      const d = /^(\d+(?:\.\d+)?)(s|m)?$/.exec(val);
+      const d = DURATION.exec(val);
       if (!d || !comparisons('duration').some((c) => c.value === op)) return null;
       return { ...f, cmp: op as Cmp, num: d[1], unit: d[2] ?? 's' };
     }
@@ -343,13 +373,13 @@ const symbol: Record<string, string> = { '<': '<', '<=': '≤', '=': '=', '>=': 
 export function describe(text: string, comics = false): string | null {
   const low = text.toLowerCase();
   if (low === 'system:has_audio') return t('describe.hasAudio');
-  if (low === 'system:expunged' || low === 'system:torrent' || low === 'system:animated' || low === 'system:new') return t(`describe.${low.slice(7)}`);
+  if (isFlag(low)) return t(`describe.${low.slice(7)}`);
   const state = readState(low);
   if (state) return t(`describe.${state}`);
   if (isFavorite(low)) return t('describe.favorite');
-  const m = /^system:([a-z_]+)(<=|>=|!=|<|>|=)(.+)$/.exec(low);
+  const m = comparison(low);
   if (!m) return null;
-  const [, rawField, op, val] = m;
+  const { field: rawField, op, val } = m;
   if (rawField === 'found_by') {
     // (a subscription's new files, opened from the Downloads page)
     const name = subNames.of(Number(val));
@@ -359,14 +389,14 @@ export function describe(text: string, comics = false): string | null {
   const field = f?.id ?? rawField;
   if (field === 'imported' || field === 'uploaded' || field === 'modified' || field === 'viewed') {
     const w = comics && field !== 'uploaded' ? (field === 'imported' ? 'added' : 'updated') : field;
-    const age = /^(\d+(?:\.\d+)?)(mo|min|[smhdwy])$/.exec(val);
+    const age = AGE.exec(val);
     if (age) return t(op.startsWith('<') ? `describe.${w}.last` : `describe.${w}.ago`, { amount: amount(age[1], age[2]) });
     const words: Record<string, string> = { '>=': 'since', '>': 'after', '<': 'before', '<=': 'until', '=': 'on', '!=': 'notOn' };
     return t(`describe.${w}.${words[op]}`, { date: dateWords(val) });
   }
   switch (field) {
     case 'duration': {
-      const d = /^(\d+(?:\.\d+)?)(s|m)?$/.exec(val);
+      const d = DURATION.exec(val);
       const x = d ? amount(d[1], d[2] ?? 's') : val;
       return op === '<' || op === '<=' ? t('describe.shorter', { x }) : op === '>' || op === '>=' ? t('describe.longer', { x }) : t('describe.length', { op: symbol[op], x });
     }
@@ -402,8 +432,6 @@ export function describe(text: string, comics = false): string | null {
   return null;
 }
 
-/** system:favorite in any of its spellings (favourite, fav, ...). */
-export const isFavorite = (t: string) => /^system:(favou?rites?|fav|favou?rited)$/i.test(t);
 
 /** A comics read-state filter (system:unread, system:reading, system:read and their other spellings). */
 function readState(text: string): 'unread' | 'reading' | 'read' | null {

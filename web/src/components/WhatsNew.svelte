@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { phone } from '../lib/media';
   import GrabBar from './GrabBar.svelte';
   // What's new after an update (lib/whatsNew): the new version's changes, "Don't show again" and Got it. A window in
   // the middle on wider screens, a sheet along the bottom on phones (drag it down to close - the user). Escape, Back
@@ -7,16 +8,13 @@
   import { backClose } from '../lib/backClose';
   import { sheetIn, sheetOut, shade } from '../lib/sheet';
   import { sheetDrag } from '../lib/sheetDrag';
-  import { px, settle, sizeOf, onPixels } from '../lib/motion';
-  import { cubicOut } from 'svelte/easing';
   import { whatsNew } from '../lib/whatsNew.svelte';
   import ChangelogCard from './ChangelogCard.svelte';
   import Icon from './Icon.svelte';
   import { t } from '../lib/i18n.svelte';
 
   const versions = $derived(whatsNew.shown);
-  const sheet = matchMedia('(max-width: 639px)').matches;
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sheet = phone();
   let dontShow = $state(false);
   let box = $state<HTMLElement>();
 
@@ -24,17 +22,6 @@
   $effect(() => {
     if (versions) box?.focus({ preventScroll: true }); // (the window, not its button: no focus ring at first)
   });
-
-  function pop(node: Element, { out = false } = {}) {
-    if (sheet) return out ? sheetOut(node) : sheetIn(node);
-    if (reduced()) return { duration: 0 };
-    if (!out) onPixels(node);
-    return {
-      duration: out ? 200 : 220,
-      easing: cubicOut,
-      css: (k: number) => `opacity: ${k}; transform: translateY(${px(out ? (1 - k) * 8 : 0)}) scale(${settle(0.94 + 0.06 * k, sizeOf(node))})`,
-    };
-  }
 </script>
 
 <svelte:window
@@ -60,8 +47,8 @@
     data-sheet={sheet ? '' : undefined}
     {@attach sheet && sheetDrag(close)}
     {@attach backClose(close)}
-    in:pop
-    out:pop={{ out: true }}>
+    in:sheetIn={{ on: sheet, desk: 'pop' }}
+    out:sheetOut={{ on: sheet, desk: 'pop' }}>
     {#if sheet}<GrabBar />{/if}
     <header class="head">
       <span class="badge" aria-hidden="true"><Icon name="sparkles" size={20} /></span>

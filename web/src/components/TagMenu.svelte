@@ -21,6 +21,7 @@
   import { TagParents } from '../lib/parents.svelte';
   import ParentsPage from './ParentsPage.svelte';
   import { nudge } from '../lib/motion';
+  import { phone } from '../lib/media';
 
   let {
     tag,
@@ -79,7 +80,7 @@
   });
   let pos = $state({ left: 0, top: 0, ready: false });
   // Phones: an action sheet along the bottom; wider screens: a menu at the tag.
-  const sheet = matchMedia('(max-width: 639px)').matches;
+  const sheet = phone();
 
   // Under the tag (above it if there's no room), inside the window.
   $effect(() => {

@@ -2,6 +2,7 @@
   import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   import { glide } from '../lib/motion';
+  import { phone } from '../lib/media';
   // A dropdown in Vitrine's own look (the native one doesn't match the design,
   // least of all on desktop): a trigger button and a floating list - on phones a sheet along the bottom, like every
   // menu there (2026-10-25, the user: "on mobile all dropdowns should be the sheet"). Keyboard:
@@ -9,7 +10,7 @@
   import { backClose } from '../lib/backClose';
   import type { Snippet } from 'svelte';
   import Icon from './Icon.svelte';
-  import { swallowPress } from '../lib/outside';
+  import { pressOutside } from '../lib/outside';
   import { sheetIn, sheetOut, shade } from '../lib/sheet';
   import { sheetDrag } from '../lib/sheetDrag';
 
@@ -90,7 +91,7 @@
   });
 
   function show() {
-    sheet = matchMedia('(max-width: 639px)').matches;
+    sheet = phone();
     active = Math.max(0, options.findIndex((o) => o.value === value));
     placeMenu();
     open = true;
@@ -130,20 +131,14 @@
   // Close on a press outside.
   $effect(() => {
     if (!open) return;
-    const down = (e: PointerEvent) => {
-      if (root && !root.contains(e.target as Node) && !list?.contains(e.target as Node)) {
-        swallowPress(e);
-        hide(false);
-      }
-    };
-    document.addEventListener('pointerdown', down, true);
+    const off = pressOutside((t) => !root || root.contains(t) || !!list?.contains(t), () => hide(false));
     // Floating: scrolling what's behind it closes it (it would be left behind).
     const scrolled = (e: Event) => {
       if (floating && !list?.contains(e.target as Node)) hide(false);
     };
     document.addEventListener('scroll', scrolled, true);
     return () => {
-      document.removeEventListener('pointerdown', down, true);
+      off();
       document.removeEventListener('scroll', scrolled, true);
     };
   });

@@ -6,6 +6,8 @@
   // the other (undo from the notice, or within the usual 7 days).
   import { onMount } from 'svelte';
   import { pop, swap, nudge, reduced } from '../lib/motion';
+  import { wide } from '../lib/media';
+  import { read, write } from '../lib/storage';
   import { SvelteSet } from 'svelte/reactivity';
   import { api, type DupeFile, type DupePair } from '../lib/api';
   import { dupes, levels } from '../lib/dupes.svelte';
@@ -45,23 +47,12 @@
   let percent = $derived(progress.total ? Math.floor((progress.checked / progress.total) * 100) : 100);
 
   // ---- view: flip (one at a time, in place) or side by side
-  const wide = typeof matchMedia === 'function' && matchMedia('(min-width: 900px)').matches;
-  let mode = $state<'flip' | 'side'>(stored('vitrine.dupeView', wide ? 'side' : 'flip') as 'flip' | 'side');
+  let mode = $state<'flip' | 'side'>((read('vitrine.dupeView') ?? (wide() ? 'side' : 'flip')) as 'flip' | 'side');
+  // (no storage, or nothing kept yet: side by side on a wide screen)
   let shown = $state<Side>('a');
-  function stored(k: string, fallback: string) {
-    try {
-      return localStorage.getItem(k) ?? fallback;
-    } catch {
-      return fallback;
-    }
-  }
   function setMode(m: 'flip' | 'side') {
     mode = m;
-    try {
-      localStorage.setItem('vitrine.dupeView', m);
-    } catch {
-      /* this session only */
-    }
+    write('vitrine.dupeView', m); // (no storage: this session only)
   }
 
   /** Going: held where it was (out of the flow, so what comes in takes its place at once) as it fades. Its place as

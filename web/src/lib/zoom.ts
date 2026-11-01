@@ -1,6 +1,7 @@
 // Zooming a picture (the viewer, the comic reader): a scale and an offset in px from the middle of its box.
 // Kept inside the box's edges; zoomed around a point; past the limits a pinch goes on with resistance; a flicked
 // pan keeps gliding (like Photos), slowing down, stopping at the edges.
+import { reduced } from './motion';
 
 export interface Zoom {
   s: number;
@@ -47,7 +48,7 @@ export class Glide {
     const now = performance.now();
     const recent = this.trail.filter((p) => now - p.t < 100);
     this.trail = [];
-    if (recent.length < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (recent.length < 2 || reduced()) return;
     const a = recent[0];
     const b = recent[recent.length - 1];
     const span = Math.max(1, b.t - a.t);

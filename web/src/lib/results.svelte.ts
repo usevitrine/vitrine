@@ -8,6 +8,7 @@ import { settings } from './settings.svelte';
 import { decodeShapes } from './masonry';
 import { t, i18n } from './i18n.svelte';
 import { updateBadge } from './badge';
+import { touch } from './media';
 
 const SLICE = 500; // IDs per slice request
 const FIRST = 500; // IDs sent with the search itself
@@ -474,7 +475,7 @@ export function formatSize(n: number): string {
 // Phones view huge images as resized copies: decoding a very large original
 // can crash Safari (iOS is a first-class target). Desktops get copies only for
 // truly enormous images.
-const touchScreen = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const touchScreen = touch();
 function sized(f: FileInfo, limit: number, extra = ''): string {
   if (!f.mime.startsWith('image/') || f.type === 'gif' || !f.width) return f.url;
   if (Math.max(f.width, f.height) <= limit) return f.url;

@@ -12,7 +12,9 @@
   import { live } from '../lib/live.svelte';
   import { formatSize } from '../lib/results.svelte';
   import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf, goalOf, oneGallery } from '../lib/downloadProgress';
-  import { reveal, moved, glide, nudge, pop } from '../lib/motion';
+  import { reveal, moved, glide, nudge, pop, reduced } from '../lib/motion';
+  import { read, readJSON, write, writeJSON } from '../lib/storage';
+  import { ownFavorites, favoritesSearch } from '../lib/siteSearch';
   import Stack from '../components/Stack.svelte';
   import { api, type DownloadSearch, type RefreshStatus, type Subscription, type SubGroup, type FailedPost, type RetryJob, type SubLook, type SubPic } from '../lib/api';
   import SiteIcon from '../components/SiteIcon.svelte';
@@ -71,20 +73,12 @@
   const filtering = $derived(subFilter.trim() !== '' || attentionOnly);
   let subSort = $state<SubSort>(loadSubSort());
   function loadSubSort(): SubSort {
-    try {
-      const v = localStorage.getItem('vitrine.subSort');
-      return subSortOptions.some((o) => o.value === v) ? (v as SubSort) : 'next';
-    } catch {
-      return 'next';
-    }
+    const v = read('vitrine.subSort');
+    return subSortOptions.some((o) => o.value === v) ? (v as SubSort) : 'next';
   }
   function setSubSort(v: SubSort) {
     subSort = v;
-    try {
-      localStorage.setItem('vitrine.subSort', v);
-    } catch {
-      /* not remembered - fine */
-    }
+    write('vitrine.subSort', v);
   }
   const shownSubs = $derived.by(() => {
     const f = subFilter.trim().toLowerCase();
@@ -111,53 +105,33 @@
   let renaming = $state<{ id: number; name: string } | null>(null);
 
   function loadExpanded(): number[] {
-    try {
-      return JSON.parse(localStorage.getItem('vitrine.openGroups') ?? '[]');
-    } catch {
-      return [];
-    }
+    return readJSON<number[]>('vitrine.openGroups', []);
   }
   function toggleGroup(id: number, open = !expanded.includes(id)) {
     expanded = open ? [...new Set([...expanded, id])] : expanded.filter((x) => x !== id);
-    try {
-      localStorage.setItem('vitrine.openGroups', JSON.stringify(expanded));
-    } catch {
-      /* not remembered - fine */
-    }
+    writeJSON('vitrine.openGroups', expanded);
   }
 
   // Whole sites fold too (their queue, or their groups and subscriptions);
   // remembered on this device. Keys: "queue:<site>" and "subs:<site>".
   let foldedSites = $state<string[]>(loadFolded());
   function loadFolded(): string[] {
-    try {
-      return JSON.parse(localStorage.getItem('vitrine.foldedSites') ?? '[]');
-    } catch {
-      return [];
-    }
+    return loadList('vitrine.foldedSites');
   }
   // The subscriptions' sites start folded (like their groups: the user), open only where opened on this device.
   let openSubSites = $state<string[]>(loadList('vitrine.openSubSites'));
   function loadList(key: string): string[] {
-    try {
-      return JSON.parse(localStorage.getItem(key) ?? '[]');
-    } catch {
-      return [];
-    }
+    return readJSON<string[]>(key, []);
   }
   const siteFolded = (key: string) => (key.startsWith('subs:') ? !openSubSites.includes(key) : foldedSites.includes(key));
   function toggleSite(key: string) {
     const flip = (list: string[]) => (list.includes(key) ? list.filter((x) => x !== key) : [...list, key]);
-    try {
-      if (key.startsWith('subs:')) {
-        openSubSites = flip(openSubSites);
-        localStorage.setItem('vitrine.openSubSites', JSON.stringify(openSubSites));
-      } else {
-        foldedSites = flip(foldedSites);
-        localStorage.setItem('vitrine.foldedSites', JSON.stringify(foldedSites));
-      }
-    } catch {
-      /* not remembered - fine */
+    if (key.startsWith('subs:')) {
+      openSubSites = flip(openSubSites);
+      writeJSON('vitrine.openSubSites', openSubSites);
+    } else {
+      foldedSites = flip(foldedSites);
+      writeJSON('vitrine.foldedSites', foldedSites);
     }
   }
 
@@ -336,18 +310,10 @@
 
   // The New download form starts on the site used last (this device).
   function lastSite(): string {
-    try {
-      return localStorage.getItem('vitrine.lastSite') ?? '';
-    } catch {
-      return '';
-    }
+    return read('vitrine.lastSite') ?? '';
   }
   function rememberSite(id: string) {
-    try {
-      localStorage.setItem('vitrine.lastSite', id);
-    } catch {
-      /* not remembered - fine */
-    }
+    write('vitrine.lastSite', id);
   }
 
   // An answer asked for before a change made here (shown at once) is out of date: while downloads ran the page asked
@@ -489,9 +455,9 @@
     s.subscription_id ? t('common.detailsFor', { name: nameOf(s) }) : t('downloads.detailsForDownload', { query: named(s) || t('push.everything') });
 
   // Your own favorites on the site: they can become favorites here too (on unless unticked).
-  let ownFavs = $derived(/^fav:me$/i.test(query.trim()));
+  let ownFavs = $derived(ownFavorites(query));
   // Anyone's favorites: a subscription goes in the site's own Favorites group (no group to pick).
-  let favSearch = $derived(/^fav:\S+$|^favorited_by=/i.test(query.trim()) || /[?&]page=favorites(&|&amp;)s=view/.test(query));
+  let favSearch = $derived(favoritesSearch(query));
   let addToFavs = $state(true);
 
   async function add(e: SubmitEvent) {
@@ -677,12 +643,8 @@
   type Tab = 'queue' | 'subs' | 'history';
   let tab = $state<Tab>(loadTab());
   function loadTab(): Tab {
-    try {
-      const v = localStorage.getItem('vitrine.downloadsTab');
-      return v === 'subs' || v === 'history' ? v : 'queue';
-    } catch {
-      return 'queue';
-    }
+    const v = read('vitrine.downloadsTab');
+    return v === 'subs' || v === 'history' ? v : 'queue';
   }
   const tabOrder: Tab[] = ['queue', 'subs', 'history'];
   let tabDir = 1; // the way the panels slide: to a tab on the right, from the right
@@ -695,7 +657,7 @@
     // The panels' height glides from the old tab's to the new one's (both share a grid cell while one goes and the other
     // comes: the cell was as tall as the old one, the new one's card stretched to it - a tall empty box - then it
     // snapped to its size as the old one went, and everything below jumped; the user).
-    if (!reducedMotion())
+    if (!reduced())
       tick().then(() => {
         const to = panelsEl?.querySelector<HTMLElement>(`#panel-${v}`)?.offsetHeight;
         if (!panelsEl || !to || Math.abs(to - from) < 1) return;
@@ -704,25 +666,20 @@
           .animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: 320, easing: 'cubic-bezier(0.2, 0.9, 0.25, 1)' })
           .finished.finally(() => panelsEl && (panelsEl.style.overflow = ''));
       });
-    try {
-      localStorage.setItem('vitrine.downloadsTab', v);
-    } catch {
-      /* not remembered - fine */
-    }
+    write('vitrine.downloadsTab', v);
   }
   // The panels slide like Sort and filters' pages: the one leaving goes quickly, the new one comes in after it from
   // the side of its tab, both in one grid cell (no jump). Reduced motion: at once.
-  const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ease = (t: number) => 1 - Math.pow(1 - t, 3);
-  const panelIn = (node: Element) => glide(node, { x: reducedMotion() ? 0 : 24 * tabDir, duration: reducedMotion() ? 0 : 300, delay: reducedMotion() ? 0 : 130, easing: ease, opacity: 0 });
-  const panelOut = (node: Element) => glide(node, { x: reducedMotion() ? 0 : -16 * tabDir, duration: reducedMotion() ? 0 : 160, easing: (t) => t * t, opacity: 0 });
+  const panelIn = (node: Element) => glide(node, { x: reduced() ? 0 : 24 * tabDir, duration: reduced() ? 0 : 300, delay: reduced() ? 0 : 130, easing: ease, opacity: 0 });
+  const panelOut = (node: Element) => glide(node, { x: reduced() ? 0 : -16 * tabDir, duration: reduced() ? 0 : 160, easing: (t) => t * t, opacity: 0 });
   // A tab's count: a new number glides to its width (the tab's name, centered with it, moves smoothly too).
   function easeWidth(node: HTMLElement) {
     let w = node.offsetWidth;
     const mo = new MutationObserver(() => {
       const from = w;
       w = node.offsetWidth;
-      if (from && from !== w && !reducedMotion()) node.animate([{ width: `${from}px` }, { width: `${w}px` }], { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+      if (from && from !== w && !reduced()) node.animate([{ width: `${from}px` }, { width: `${w}px` }], { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
     });
     mo.observe(node, { childList: true, characterData: true, subtree: true });
     return { destroy: () => mo.disconnect() };
@@ -772,7 +729,7 @@
     setTab(v);
     await tick();
     const el = id ? document.getElementById(id) : document.getElementById('dl-tabs');
-    el?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    el?.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' });
   }
 
   // ---- The summary at the top: what's going on, each part a link to where it is.
@@ -835,19 +792,11 @@
   let earlierSites = $derived(bySite(finishedEarlier));
   let earlierOpen = $state(loadEarlier());
   function loadEarlier(): boolean {
-    try {
-      return localStorage.getItem('vitrine.finishedEarlier') === '1';
-    } catch {
-      return false;
-    }
+    return read('vitrine.finishedEarlier') === '1';
   }
   function toggleEarlier() {
     earlierOpen = !earlierOpen;
-    try {
-      localStorage.setItem('vitrine.finishedEarlier', earlierOpen ? '1' : '0');
-    } catch {
-      /* not remembered - fine */
-    }
+    write('vitrine.finishedEarlier', earlierOpen ? '1' : '0');
   }
 
   // Opened from a file's "Found by": bring that subscription into view, briefly highlighted.
@@ -881,7 +830,7 @@
     if (it && siteFolded('subs:' + it.site)) toggleSite('subs:' + it.site); // its site open (they start folded)
     if (it?.group_id) toggleGroup(it.group_id, true); // and its group
     tick().then(() => {
-      document.querySelector(`li[data-sub="${id}"]`)?.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      document.querySelector(`li[data-sub="${id}"]`)?.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' });
       flashSub = id;
       setTimeout(() => (flashSub = 0), 2200);
     });
@@ -939,14 +888,8 @@
   $effect(() => {
     if (tab !== 'subs') return;
     untrack(() => {
-      let seen = 0;
-      try {
-        seen = Number(localStorage.getItem(SEEN_KEY)) || 0;
-        localStorage.setItem(SEEN_KEY, String(Date.now())); // (this visit: the next one counts from here)
-      } catch {
-        /* no "new" counts then */
-      }
-      freshSince = seen;
+      freshSince = Number(read(SEEN_KEY)) || 0; // (no storage: no "new" counts then)
+      write(SEEN_KEY, String(Date.now())); // (this visit: the next one counts from here)
       looksFor = '';
     });
   });
@@ -1702,7 +1645,7 @@
       {#if pill}<span class="tab-pill" class:ready={pillReady} style:width="{pill.w}px" style:transform="translateX({pill.x}px)" aria-hidden="true"></span>{/if}
       {#each [{ id: 'queue', label: t('downloads.queue'), n: waitingCount + runningCount }, { id: 'subs', label: t('stats.subscriptions'), short: t('downloads.subsShort'), n: subs.length }, { id: 'history', label: t('downloads.history'), n: failedFileCount + finished.length }] as x (x.id)}
         <button role="tab" id="tab-{x.id}" aria-selected={tab === x.id} aria-controls="panel-{x.id}" class:on={tab === x.id} onclick={() => setTab(x.id as Tab)}
-          ><span class="tab-label">{#if x.short}<span class="long">{x.label}</span><span class="short" aria-hidden="true">{x.short}</span>{:else}{x.label}{/if}</span>{#if x.n}<span class="tab-num" transition:slide={{ axis: 'x', duration: reducedMotion() ? 0 : 220, easing: ease }}
+          ><span class="tab-label">{#if x.short}<span class="long">{x.label}</span><span class="short" aria-hidden="true">{x.short}</span>{:else}{x.label}{/if}</span>{#if x.n}<span class="tab-num" transition:slide={{ axis: 'x', duration: reduced() ? 0 : 220, easing: ease }}
               ><span class="tab-count" use:easeWidth>{x.n > 99 ? '99+' : num(x.n)}</span></span
             >{/if}</button>
       {/each}

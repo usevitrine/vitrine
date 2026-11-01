@@ -1,13 +1,13 @@
 <script lang="ts">
   import { overlayScroll } from '../lib/overlayScroll';
   import { untrack } from 'svelte';
-  import { px, settle, sizeOf, onPixels } from '../lib/motion';
   // The bell in the top bar: it rings when a notification comes, its counter says how many are unread (red with
   // an error among them). A press opens them - the newest first, the unread lit - with Clear; opening reads them.
-  import { cubicOut } from 'svelte/easing';
+  // The panel grows out of the bell; its notifications slide in one after another (lib/popover).
   import { flip } from 'svelte/animate';
   import { backClose } from '../lib/backClose';
-  import { swallowPress, leaving } from '../lib/outside';
+  import { grow, rowIn, rowOut, dismiss } from '../lib/popover';
+  import { reduced } from '../lib/motion';
   import { notices, type Notice } from '../lib/notices.svelte';
   import { router } from '../lib/router.svelte';
   import { t, num } from '../lib/i18n.svelte';
@@ -56,33 +56,14 @@
     if (notices.rings === seenRings) return;
     seenRings = notices.rings;
     if (open) return notices.markRead(); // (open: read at once)
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (reduced()) return;
     ringing = false;
     requestAnimationFrame(() => (ringing = true));
   });
 
-  // A press outside closes it (the press goes no further: nothing opens by accident underneath).
+  // A press outside or Escape closes it (the press goes no further: nothing opens by accident underneath).
   $effect(() => {
-    if (!open) return;
-    const down = (e: PointerEvent) => {
-      const el = e.target as Node;
-      if (panel?.contains(el) || button?.contains(el) || leaving(panel)) return;
-      swallowPress(e);
-      close();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) {
-        e.preventDefault();
-        close();
-        button?.focus();
-      }
-    };
-    window.addEventListener('pointerdown', down, true);
-    window.addEventListener('keydown', key);
-    return () => {
-      window.removeEventListener('pointerdown', down, true);
-      window.removeEventListener('keydown', key);
-    };
+    if (open) return dismiss(() => panel, () => button, close);
   });
 
   /** "Just now", "5 min ago", "3 h ago", "2 days ago". */
@@ -92,26 +73,6 @@
     if (s < 3600) return t('downloads.ago.min', { n: Math.round(s / 60) });
     if (s < 86400) return t('downloads.ago.h', { n: Math.round(s / 3600) });
     return t('downloads.ago.days', { n: Math.round(s / 86400) });
-  }
-
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // The panel grows out of the bell; its notifications slide in one after another.
-  function grow(node: Element, { out = false } = {}) {
-    if (reduced()) return { duration: 0 };
-    if (!out) onPixels(node);
-    return {
-      duration: out ? 200 : 240,
-      easing: cubicOut,
-      css: (k: number) => `opacity: ${k}; transform: translateY(${(1 - k) * -8}px) scale(${settle(0.94 + 0.06 * k, sizeOf(node))})`,
-    };
-  }
-  function slideIn(node: Element, { i = 0 } = {}) {
-    if (reduced()) return { duration: 0 };
-    return { delay: 60 + Math.min(i, 8) * 28, duration: 260, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${px((1 - k) * 14)})` };
-  }
-  function slideOut(node: Element) {
-    if (reduced()) return { duration: 0 };
-    return { duration: 180, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${px((1 - k) * 24)})` };
   }
 
   // Notices of the same kind (their kind of notice and tone) as one stack, like the pop-ups and the Downloads page
@@ -166,7 +127,7 @@
       {#if notices.list.length}
         <ul {@attach scrollsWhenFull} {@attach overlayScroll}>
           {#each groups as g, i (g.key)}
-            <li animate:flip={{ duration: 220 }} in:slideIn={{ i }} out:slideOut>
+            <li animate:flip={{ duration: 220 }} in:rowIn={{ i }} out:rowOut>
               {#if g.items.length === 1}
                 <div class="solo">{@render row(g.items[0])}</div>
               {:else}
@@ -179,7 +140,7 @@
         </ul>
       {:else}
         <!-- (nothing: a quiet check, no words) -->
-        <div class="empty" role="img" aria-label={t('bell.empty')} in:slideIn><Icon name="check" size={22} /></div>
+        <div class="empty" role="img" aria-label={t('bell.empty')} in:rowIn><Icon name="check" size={22} /></div>
       {/if}
     </div>
   {/if}

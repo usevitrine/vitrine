@@ -6,6 +6,7 @@
 import { api } from './api';
 import { results } from './results.svelte';
 import { settings } from './settings.svelte';
+import { readJSON, writeJSON } from './storage';
 import { trash } from './trash.svelte';
 
 const IMAGE_MS = 2000;
@@ -16,12 +17,8 @@ type View = { file: number; at: number; ms: number };
 type Shown = { file: number; video: boolean; el: () => HTMLVideoElement | undefined };
 
 function loadQueue(): View[] {
-  try {
-    const q = JSON.parse(localStorage.getItem(KEY) ?? '[]');
-    return Array.isArray(q) ? q : [];
-  } catch {
-    return [];
-  }
+  const q = readJSON<unknown>(KEY, []);
+  return Array.isArray(q) ? q : [];
 }
 
 class Views {
@@ -88,11 +85,7 @@ class Views {
   }
 
   private save() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(this.queue.slice(-500)));
-    } catch {
-      /* private browsing: they're sent now or not at all */
-    }
+    writeJSON(KEY, this.queue.slice(-500)); // (private browsing: they're sent now or not at all)
   }
 
   private async send(keepalive = false) {

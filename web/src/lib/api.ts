@@ -17,10 +17,22 @@ export function setLoggedOutHandler(fn: () => void) {
   onLoggedOut = fn;
 }
 
-async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  const init: RequestInit = { method, signal, headers: {} };
-  if (body !== undefined) {
-    (init.headers as Record<string, string>)['Content-Type'] = 'application/json';
+interface RequestOptions {
+  signal?: AbortSignal;
+  /** Sent even as the page goes (the app put away). */
+  keepalive?: boolean;
+  /** A body sent as it is (a file) instead of body as JSON; give its Content-Type in headers. */
+  raw?: BodyInit;
+  headers?: Record<string, string>;
+}
+
+async function request<T>(method: string, path: string, body?: unknown, opts: RequestOptions = {}): Promise<T> {
+  const headers: Record<string, string> = { ...opts.headers };
+  const init: RequestInit = { method, signal: opts.signal, headers };
+  if (opts.keepalive) init.keepalive = true;
+  if (opts.raw !== undefined) init.body = opts.raw;
+  else if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(body);
   }
   const resp = await fetch(path, init);
@@ -35,8 +47,8 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
   return data as T;
 }
 
-const get = <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, signal);
-const post = <T>(path: string, body: unknown) => request<T>('POST', path, body);
+const get = <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, { signal });
+const post = <T>(path: string, body: unknown, keepalive = false) => request<T>('POST', path, body, { keepalive });
 
 // ---- types
 
@@ -591,11 +603,8 @@ export const api = {
   removeClimaxes: (file: number, all: boolean) => post<{ count: number }>('/api/climax/remove', { file, all }),
   clearClimaxes: () => post<{ removed: number }>('/api/climax/clear', {}),
   /** Views the viewer gathered (lib/views); keepalive: sent even as the page goes (the app put away). */
-  addViews: async (views: { file: number; at: number; ms: number }[], keepalive = false) => {
-    const resp = await fetch('/api/views', { method: 'POST', keepalive, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ views }) });
-    if (!resp.ok) throw new ApiError(resp.statusText, resp.status);
-    return (await resp.json()) as { files: { id: number; views: number; view_ms: number; viewed_at: number }[] };
-  },
+  addViews: (views: { file: number; at: number; ms: number }[], keepalive = false) =>
+    post<{ files: { id: number; views: number; view_ms: number; viewed_at: number }[] }>('/api/views', { views }, keepalive),
   clearViews: () => post<{ removed: number }>('/api/views/clear', {}),
   undoClimax: (id: number) => post<{ file: number; count: number }>('/api/climax/undo', { id }),
   rankings: (period: string) => get<Rankings>(`/api/rankings?period=${period}&tz=${-new Date().getTimezoneOffset()}`),
@@ -622,12 +631,11 @@ export const api = {
   deleteBackup: (name: string) => post<{ ok: boolean }>(`/api/backups/${encodeURIComponent(name)}/delete`, {}),
   restoreBackup: (name: string) => post<{ ok: boolean; pending: boolean }>(`/api/backups/${encodeURIComponent(name)}/restore`, {}),
   /** Stages a backup file (a .db.gz from Download, or a plain meta.db). */
-  uploadBackup: async (file: Blob) => {
-    const resp = await fetch('/api/backups/upload', { method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream', 'X-Vitrine-Upload': '1' } });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) throw new ApiError(data.error ?? resp.statusText, resp.status);
-    return data as { ok: boolean; pending: boolean };
-  },
+  uploadBackup: (file: Blob) =>
+    request<{ ok: boolean; pending: boolean }>('POST', '/api/backups/upload', undefined, {
+      raw: file,
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Vitrine-Upload': '1' },
+    }),
   cancelRestore: () => post<{ ok: boolean }>('/api/backups/cancel-restore', {}),
   restart: () => post<{ ok: boolean }>('/api/restart', {}),
   removeDownload: (id: number) => post<{ ok: boolean }>(`/api/downloads/${id}/remove`, {}),
@@ -641,7 +649,8 @@ export const api = {
   // A tag into another namespace ("" = general), on every file; merged into a tag of that name there.
   setTagNamespace: (tag: string, namespace: string) => post<{ tag: string; files: number }>('/api/tags/namespace', { tag, namespace }),
   settings: () => get<Record<string, unknown>>('/api/settings'),
-  setSettings: (values: Record<string, unknown>) => post<Record<string, unknown>>('/api/settings', values),
+  /** keepalive: sent even as the page goes. */
+  setSettings: (values: Record<string, unknown>, keepalive = false) => post<Record<string, unknown>>('/api/settings', values, keepalive),
   sites: () => get<{ sites: SiteInfo[] }>('/api/sites'),
   /** Which sites gave each tag (most files first). */
   tagSites: (tags: string[]) =>

@@ -8,7 +8,7 @@
 
 import { siteLabel } from './sites.svelte';
 import { splitTag } from './namespaces.svelte';
-import { describe, isFavorite } from './system';
+import { describe, isFavorite, siteFilter, FAVORITE_WORDS } from './system';
 import { t } from './i18n.svelte';
 
 export interface Atom {
@@ -32,6 +32,9 @@ export function kindOf(text: string): Kind {
   if (t.includes('*')) return 'wildcard';
   return 'tag';
 }
+
+/** A filter word (system:..., sort:/order:..., limit:...), not a tag. */
+export const isFilterWord = (text: string) => ['system', 'sort', 'limit'].includes(kindOf(text));
 
 /** Whether typed text is a title search ("/words", "-/words"): its words can have spaces. */
 export function isTitleText(text: string): boolean {
@@ -85,10 +88,10 @@ export function format(chips: Chip[]): string {
 export function label(a: Atom, comics = false): string {
   const k = kindOf(a.text);
   let text = a.text;
-  const site = /^system:site(!?=)(.+)$/i.exec(text);
+  const site = siteFilter(text);
   if (site) {
-    const names = site[2].toLowerCase().split(',').filter(Boolean).map(siteLabel);
-    return t(site[1] === '!=' ? 'chipLabel.notFrom' : 'chipLabel.from', { sites: names.join(t('describe.or')) });
+    const names = site.sites.toLowerCase().split(',').filter(Boolean).map(siteLabel);
+    return t(site.not ? 'chipLabel.notFrom' : 'chipLabel.from', { sites: names.join(t('describe.or')) });
   }
   if (a.neg && text.toLowerCase() === 'system:has_audio') return t('chipLabel.noAudio');
   if (a.neg && isFavorite(text)) return t('chipLabel.notFavorite');
@@ -133,11 +136,12 @@ export function extractSort(text: string): { q: string; sort: string } {
   return { q: kept.join(' '), sort };
 }
 
+const favoriteSort = new RegExp(`^(${FAVORITE_WORDS})(?=$|_)`);
 function normalizeSort(s: string): string {
   return s
     .toLowerCase()
     .replace(/_desc$/, '')
     .replace(/^(posted|upload|source_time)(?=$|_)/, 'uploaded')
     .replace(/^import(?=$|_)/, 'imported')
-    .replace(/^(favou?rites?|fav|favou?rited)(?=$|_)/, 'favorite');
+    .replace(favoriteSort, 'favorite');
 }

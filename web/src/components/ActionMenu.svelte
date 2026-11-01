@@ -1,5 +1,4 @@
 <script lang="ts" module>
-  import { settle, sizeOf, onPixels } from '../lib/motion';
   import type { ComponentProps } from 'svelte';
   import { place } from '../lib/place';
   import type IconType from './Icon.svelte';
@@ -30,11 +29,11 @@
   // (a schedule, a group) opens them as a page of the menu, with a way back.
   import { backClose } from '../lib/backClose';
   import { tick } from 'svelte';
-  import { cubicOut } from 'svelte/easing';
   import Icon from './Icon.svelte';
   import { sheetDrag } from '../lib/sheetDrag';
-  import { sheetIn, sheetOut } from '../lib/sheet';
+  import { sheetIn, sheetOut, shade } from '../lib/sheet';
   import { Pages } from '../lib/pages.svelte';
+  import { phone } from '../lib/media';
   import { t } from '../lib/i18n.svelte';
 
   // With `current` it's a picker instead: a field showing the current choice
@@ -61,7 +60,7 @@
   let sheet = $state(false);
 
   function show() {
-    sheet = matchMedia('(max-width: 639px)').matches;
+    sheet = phone();
     page = null;
     pos = { left: 0, top: 0, bottom: null, ready: false };
     open = true;
@@ -84,39 +83,11 @@
   });
 
   // ---- pages: a page of choices slides in (lib/pages, like every menu with pages).
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const pages = new Pages();
   function go(next: MenuChoice | null) {
     pages
       .go(!!next, () => (page = next))
       .then((el) => el?.querySelector<HTMLButtonElement>('[role^=menuitem]:not(:disabled)')?.focus({ preventScroll: true }));
-  }
-
-  // ---- opening and closing: the menu drops in and fades out (as the other
-  // menus do); the sheet slides up from the bottom and back down.
-  function menuIn(node: Element) {
-    // Reopened while still fading out, the same element comes back: usable again.
-    node.removeAttribute('inert');
-    node.removeAttribute('aria-hidden');
-    const el = node as HTMLElement; // (and not where a drag left it)
-    delete el.dataset.dragged;
-    el.style.transform = '';
-    el.style.transition = '';
-    if (reduced()) return { duration: 0 };
-    if (sheet) return sheetIn(node);
-    onPixels(node);
-    return { duration: 180, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * -8}px) scale(${settle(0.98 + 0.02 * t, sizeOf(node))})` };
-  }
-  function menuOut(node: Element) {
-    node.setAttribute('inert', ''); // a closing menu can't be pressed or read while it goes
-    node.setAttribute('aria-hidden', 'true');
-    if (reduced()) return { duration: 0 };
-    if (sheet) return sheetOut(node); // from where a drag left it
-    return { duration: 180, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${(1 - t) * -8}px) scale(${settle(0.96 + 0.04 * t, sizeOf(node))})` };
-  }
-  function shade(node: HTMLElement, { out = false } = {}) {
-    if (out) node.style.pointerEvents = 'none'; // the page is usable again at once
-    return reduced() ? { duration: 0 } : { duration: out ? 160 : 180, css: (t: number) => `opacity: ${t}` };
   }
 
   function pick(item: MenuItem) {
@@ -220,8 +191,8 @@
       data-sheet={sheet ? '' : undefined}
     {@attach sheet && sheetDrag(() => close())}
     {@attach backClose(() => close())}
-      in:menuIn
-      out:menuOut
+      in:sheetIn={{ on: sheet, desk: 'drop' }}
+      out:sheetOut={{ on: sheet, desk: 'drop' }}
       style:visibility={sheet || pos.ready ? undefined : 'hidden'}
       onkeydown={keydown}>
       {#if sheet}<GrabBar stuck bleed={12} />{/if}

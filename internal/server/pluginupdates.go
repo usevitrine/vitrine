@@ -20,20 +20,13 @@ func (s *Server) RunPluginChecks(ctx context.Context) {
 	if s.dl == nil {
 		return
 	}
-	wait := 5 * time.Minute
 	var last time.Time
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(wait):
-		}
-		wait = time.Hour
+	Every(ctx, 5*time.Minute, time.Hour, func() {
 		if time.Since(last) > pluginCheckEvery && s.updateCheckOn(ctx) {
 			last = time.Now()
 			s.checkPluginUpdates(ctx)
 		}
-	}
+	})
 }
 
 // checkPluginUpdates tells the bell about each installed plugin the plugin list has a newer version of (once per

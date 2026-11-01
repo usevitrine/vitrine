@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"html"
 	"net/url"
@@ -118,9 +117,7 @@ func (g *gelbooruHTML) Search(ctx context.Context, query string, before int64) (
 		}
 		seen[id] = true
 		p := Post{ID: id, PostURL: m.Post(id), Partial: true, Rating: m.Rating("")}
-		if b, err := hex.DecodeString(mm[2]); err == nil && len(b) == 16 {
-			copy(p.MD5[:], b)
-		}
+		p.MD5 = ParseMD5(mm[2])
 		page.Posts = append(page.Posts, p)
 	}
 	// The total, roughly: the last page's offset (pagination links) plus a page.
@@ -206,9 +203,7 @@ func parsePostPage(m Manifest, id int64, text string) (*Post, error) {
 		md5From = html.UnescapeString(mm[1])
 	}
 	if mm := htmlFileMD.FindStringSubmatch(md5From); mm != nil {
-		if b, err := hex.DecodeString(mm[1]); err == nil && len(b) == 16 {
-			copy(p.MD5[:], b)
-		}
+		p.MD5 = ParseMD5(mm[1])
 	}
 
 	seen := map[string]bool{}

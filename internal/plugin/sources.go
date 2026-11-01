@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"encoding/hex"
 	"html"
 	"net/url"
 	"strings"
@@ -43,6 +44,17 @@ func Tags(list string) []string {
 	out := strings.Fields(list)
 	for i, t := range out {
 		out[i] = CleanTag(t)
+	}
+	return out
+}
+
+// ParseMD5 reads a post's md5 as a site gives it (32 hex characters, from an
+// API field or a file/thumbnail name). Anything else - empty, the wrong length,
+// not hex - gives the zero value, which means "unknown" in a Post.
+func ParseMD5(s string) [16]byte {
+	var out [16]byte
+	if b, err := hex.DecodeString(s); err == nil && len(b) == len(out) {
+		copy(out[:], b)
 	}
 	return out
 }

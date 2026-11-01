@@ -2,18 +2,16 @@
   import { overlayScroll } from '../lib/overlayScroll';
   import { untrack } from 'svelte';
   import { marquee } from '../lib/marquee';
-  import { px, settle, sizeOf, onPixels } from '../lib/motion';
   // The downloads in the top bar (the library): its counter says how many are running or waiting, and the arrow bobs
   // while one downloads. A press opens New download and the downloads going on now - running, then waiting, then
   // paused - a site's together as a stack like the Downloads page's (the user); each is a small version of the page's
   // queue card (2026-10-29, the user: the menu "kinda feels outdated now", "doesn't need to be as verbose"): its search
   // (scrolling sideways when it's long) with how far and how fast - or its state - on the right, its bar, and a quiet
   // line: "Sub" (a subscription's check) or "Initial" (a first download), its new files, the posts gone through out of
-  // its goal; one opens the Downloads page.
-  import { cubicOut } from 'svelte/easing';
+  // its goal; one opens the Downloads page. It grows out of its button like the bell's (lib/popover).
   import { flip } from 'svelte/animate';
   import { backClose } from '../lib/backClose';
-  import { swallowPress, leaving } from '../lib/outside';
+  import { grow, rowIn, rowOut, dismiss } from '../lib/popover';
   import { activeDownloads as active } from '../lib/activeDownloads.svelte';
   import { live } from '../lib/live.svelte';
   import { formatSize } from '../lib/results.svelte';
@@ -96,50 +94,10 @@
     if (open) untrack(() => (unfolded = {}));
   });
 
-
-  // A press outside closes it (the press goes no further: nothing opens by accident underneath).
+  // A press outside or Escape closes it (the press goes no further: nothing opens by accident underneath).
   $effect(() => {
-    if (!open) return;
-    const down = (e: PointerEvent) => {
-      const el = e.target as Node;
-      if (panel?.contains(el) || button?.contains(el) || leaving(panel)) return;
-      swallowPress(e);
-      close();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) {
-        e.preventDefault();
-        close();
-        button?.focus();
-      }
-    };
-    window.addEventListener('pointerdown', down, true);
-    window.addEventListener('keydown', key);
-    return () => {
-      window.removeEventListener('pointerdown', down, true);
-      window.removeEventListener('keydown', key);
-    };
+    if (open) return dismiss(() => panel, () => button, close);
   });
-
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // The panel grows out of the button (like the bell's); the downloads slide in one after another.
-  function grow(node: Element, { out = false } = {}) {
-    if (reduced()) return { duration: 0 };
-    if (!out) onPixels(node);
-    return {
-      duration: out ? 200 : 240,
-      easing: cubicOut,
-      css: (k: number) => `opacity: ${k}; transform: translateY(${(1 - k) * -8}px) scale(${settle(0.94 + 0.06 * k, sizeOf(node))})`,
-    };
-  }
-  function slideIn(node: Element, { i = 0 } = {}) {
-    if (reduced()) return { duration: 0 };
-    return { delay: 60 + Math.min(i, 8) * 28, duration: 260, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${px((1 - k) * 14)})` };
-  }
-  function slideOut(node: Element) {
-    if (reduced()) return { duration: 0 };
-    return { duration: 180, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translateX(${px((1 - k) * 24)})` };
-  }
 </script>
 
 <div class="dl-wrap">
@@ -171,7 +129,7 @@
       {#if active.list.length}
         <ul {@attach scrollsWhenFull} {@attach overlayScroll}>
           {#each groups.slice(0, SHOWN) as g, i (g.site)}
-            <li animate:flip={{ duration: 220 }} in:slideIn={{ i }} out:slideOut>
+            <li animate:flip={{ duration: 220 }} in:rowIn={{ i }} out:rowOut>
               {#if g.list.length === 1}
                 <div class="solo">{@render row(g.list[0])}</div>
               {:else}
@@ -187,7 +145,7 @@
         {/if}
       {:else}
         <!-- (nothing: a quiet check, no words - like the bell's) -->
-        <div class="empty" role="img" aria-label={t('dlMenu.empty')} in:slideIn><Icon name="check" size={22} /></div>
+        <div class="empty" role="img" aria-label={t('dlMenu.empty')} in:rowIn><Icon name="check" size={22} /></div>
       {/if}
     </div>
   {/if}

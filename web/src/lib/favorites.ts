@@ -4,8 +4,10 @@
 import { results as libraryResults, type Results } from './results.svelte';
 import { toasts } from './toast.svelte';
 import { itemName, t } from './i18n.svelte';
+import { FAVORITE_WORDS } from './system';
 
-const dependsOnFavorites = (results: Results) => results.scope === 'favorites' || /system:(favou?rite|fav)/i.test(results.query) || results.sort.startsWith('favorite');
+const favoriteFilter = new RegExp(`system:(${FAVORITE_WORDS})`, 'i'); // (anywhere: in an OR group, negated too)
+const dependsOnFavorites = (results: Results) => results.scope === 'favorites' || favoriteFilter.test(results.query) || results.sort.startsWith('favorite');
 
 /** Resolves once the list has followed (a search that depends on favorites runs again). */
 export async function setFavorite(ids: number[], on: boolean, quiet = false, results: Results = libraryResults) {

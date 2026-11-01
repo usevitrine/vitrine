@@ -5,6 +5,7 @@
   // ranking in the library (sorted by count); a creator or tag, its search.
   import { api, type Rankings, type FileInfo } from '../lib/api';
   import { reveal, moved } from '../lib/motion';
+  import { read, write } from '../lib/storage';
   import { router } from '../lib/router.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   import { splitTag, nsColor } from '../lib/namespaces.svelte';
@@ -20,11 +21,7 @@
   let files = $state<Map<number, FileInfo>>(new Map());
 
   function loadPeriod(): string {
-    try {
-      return localStorage.getItem('vitrine.rankingsPeriod') || 'week';
-    } catch {
-      return 'week';
-    }
+    return read('vitrine.rankingsPeriod') || 'week';
   }
 
   /** A comic opened on the page counted (?page= is 1-based). */
@@ -49,11 +46,7 @@
   }
   $effect(() => {
     const p = period;
-    try {
-      localStorage.setItem('vitrine.rankingsPeriod', p);
-    } catch {
-      /* not remembered */
-    }
+    write('vitrine.rankingsPeriod', p);
     load(p);
   });
 

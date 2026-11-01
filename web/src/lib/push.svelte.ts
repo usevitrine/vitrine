@@ -2,13 +2,14 @@
 // subscription and the server's list of devices.
 import { api, ApiError, type PushDevice } from './api';
 import { t, i18n } from './i18n.svelte';
+import { read, write } from './storage';
+import { standalone as isStandalone } from './viewport';
 
 export type PushSupport = 'ok' | 'needs-home-screen' | 'unsupported';
 
 const isIOS = () =>
   /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const standalone = () =>
-  matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
+const standalone = () => isStandalone;
 const isBrave = () => !!(navigator as { brave?: unknown }).brave;
 
 export function pushSupport(): PushSupport {
@@ -42,13 +43,7 @@ export function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   // Not under browser automation (Playwright's Windows WebKit freezes when a
   // service worker registers), unless a test asks for it.
-  let forced = false;
-  try {
-    forced = localStorage.getItem('vitrine.sw') === 'on';
-  } catch {
-    /* storage blocked */
-  }
-  if (navigator.webdriver && !forced) return;
+  if (navigator.webdriver && read('vitrine.sw') !== 'on') return;
   navigator.serviceWorker
     .register('/sw.js')
     .then(() => navigator.storage?.persist?.()) // ask the browser not to clear saved thumbnails under pressure
@@ -59,12 +54,8 @@ export function registerServiceWorker() {
 
 /** The language this device last told the server (its notifications'). */
 function sentLanguage(set?: string): string | null {
-  try {
-    if (set) localStorage.setItem('vitrine.pushLanguage', set);
-    return localStorage.getItem('vitrine.pushLanguage');
-  } catch {
-    return null;
-  }
+  if (set) write('vitrine.pushLanguage', set);
+  return read('vitrine.pushLanguage');
 }
 
 function keyBytes(b64: string): Uint8Array {

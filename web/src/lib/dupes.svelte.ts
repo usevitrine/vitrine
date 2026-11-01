@@ -2,6 +2,7 @@
 // and how many pairs wait, for the menu's count.
 import { api } from './api';
 import { t } from './i18n.svelte';
+import { read, write } from './storage';
 
 const level = (value: number, key: string) => ({
   value,
@@ -15,13 +16,9 @@ const level = (value: number, key: string) => ({
 export const levels = [level(0, 'same'), level(2, 'nearly'), level(6, 'very'), level(10, 'similar')];
 
 function loadLevel(): number {
-  try {
-    const raw = localStorage.getItem('vitrine.dupeLevel');
-    const v = Number(raw);
-    return raw !== null && levels.some((l) => l.value === v) ? v : 0; // (no choice yet: Same picture)
-  } catch {
-    return 0;
-  }
+  const raw = read('vitrine.dupeLevel');
+  const v = Number(raw);
+  return raw !== null && levels.some((l) => l.value === v) ? v : 0; // (no choice yet: Same picture)
 }
 
 class Dupes {
@@ -31,11 +28,7 @@ class Dupes {
 
   setLevel(v: number) {
     this.level = v;
-    try {
-      localStorage.setItem('vitrine.dupeLevel', String(v));
-    } catch {
-      /* this session only */
-    }
+    write('vitrine.dupeLevel', String(v)); // (no storage: this session only)
   }
 
   async refreshCount() {

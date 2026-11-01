@@ -6,10 +6,10 @@
   // Every step can be skipped; where it is is a shared setting (welcome), so it
   // carries on where it was left - on any device - until finished or skipped.
   import { onMount } from 'svelte';
-  import { reveal, pop, glide } from '../lib/motion';
+  import { reveal, pop, glide, reduced } from '../lib/motion';
   import { fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import { reducedMotion } from '../lib/hero';
+  import { fineMouse as hasFineMouse } from '../lib/media';
   import { newDownloadDialog } from '../lib/newDownload.svelte';
   import { api, type LibraryStats, type UpdateState } from '../lib/api';
   import { updater } from '../lib/updater.svelte';
@@ -34,7 +34,7 @@
 
   // (the blacklist's taps: common things people never want - neutral examples)
   const commonBlacklist = ['watermark', 'text_only', 'ai_generated', 'lowres', 'jpeg_artifacts'];
-  const fineMouse = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const fineMouse = hasFineMouse();
 
   type Step = 'sections' | 'storage' | 'sites' | 'look' | 'app' | 'notify' | 'rules' | 'library' | 'done';
   const steps: Step[] = ['sections', 'storage', 'sites', 'look', 'app', 'notify', 'rules', 'library', 'done'];
@@ -50,7 +50,7 @@
     settings.welcome = s;
     page?.scrollTo({ top: 0 });
   }
-  const moving = () => !reducedMotion();
+  const moving = () => !reduced();
   // (the new one waits for the old one to fade: never both at once, text over text)
   const stepIn = (node: Element) => glide(node, { x: moving() ? 28 * dir : 0, duration: moving() ? 280 : 0, delay: moving() ? 120 : 0, easing: cubicOut, opacity: 0 });
   const stepOut = (node: Element) => fade(node, { duration: moving() ? 120 : 0 });

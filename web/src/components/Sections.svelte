@@ -19,7 +19,8 @@
   import { overlayScroll } from '../lib/overlayScroll';
   import { onMount, type Snippet } from 'svelte';
   import { cubicOut } from 'svelte/easing';
-  import { onPixels } from '../lib/motion';
+  import { onPixels, reduced } from '../lib/motion';
+  import { WIDE } from '../lib/media';
   import Icon from './Icon.svelte';
   import { router, type Screen } from '../lib/router.svelte';
   import { t } from '../lib/i18n.svelte';
@@ -42,7 +43,7 @@
     children: Snippet<[string]>; // the section with that ID
   } = $props();
 
-  const mq = matchMedia('(min-width: 900px)');
+  const mq = matchMedia(WIDE);
   let wide = $state(mq.matches);
   onMount(() => {
     const change = () => (wide = mq.matches);
@@ -50,7 +51,6 @@
     return () => mq.removeEventListener('change', change);
   });
   const current = $derived(sections.some((s) => s.id === router.sub) ? router.sub : wide ? fallback : '');
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // Going to another section (or between the list and a section on phones): the one going fades where it is, quickly;
   // the new one comes in just after - from the side on phones, a few px up on wide screens - both in one grid cell, so
   // nothing below jumps. Continuous moves (in whole pixels a short one's last pixel came late). (2026-10-25: the old

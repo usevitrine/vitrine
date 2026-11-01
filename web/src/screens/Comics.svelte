@@ -7,11 +7,12 @@
   // tap opens the reader at /comics/<id>. Comics live only here - their pages are
   // never in the library's grid.
   import { onMount, tick, untrack } from 'svelte';
-  import { reveal, glide, swap, nudge, pop } from '../lib/motion';
+  import { reveal, glide, swap, nudge, pop, reduced } from '../lib/motion';
+  import { readJSON } from '../lib/storage';
   import { collections } from '../lib/collections.svelte';
   import ActionMenu from '../components/ActionMenu.svelte';
   import { cubicOut } from 'svelte/easing';
-  import { fitContain, hero, reducedMotion, type HeroPicture, type Rect } from '../lib/hero';
+  import { fitContain, hero, type HeroPicture, type Rect } from '../lib/hero';
   import { isRead, isReading } from '../lib/comics';
   import { settings } from '../lib/settings.svelte';
   import type { Comic } from '../lib/api';
@@ -174,7 +175,7 @@
     if (opening || openID !== null) return;
     // (a comic being read opens where it stopped - the cover flies, then fades into that page; else at the cover)
     const fromStart = !isReading(c);
-    if (!c.thumb || !c.cover_w || !c.cover_h || reducedMotion() || !grid?.tileRect(i, true)) return read(c.id, fromStart);
+    if (!c.thumb || !c.cover_w || !c.cover_h || reduced() || !grid?.tileRect(i, true)) return read(c.id, fromStart);
     preload = { id: c.id, p: api.comic(c.id) }; // (the reader takes it: one fetch)
     // The page it opens at (being read: where it stopped - its size and thumbnail from that fetch; not waited for
     // long - the tile stays as it is meanwhile: else the cover's shape, and it fades into the page at the end).
@@ -195,12 +196,7 @@
     const ready = new Promise<void>((done) => (readerReady = done));
     read(c.id, fromStart);
     // Where the reader puts the page: fitted to the screen, or (scrolling down) across the top at most 900 px wide.
-    let mode = 'single';
-    try {
-      mode = JSON.parse(localStorage.getItem('vitrine.readerMode') ?? '"single"');
-    } catch {
-      /* the usual */
-    }
+    const mode = readJSON<string>('vitrine.readerMode', 'single');
     const W = innerWidth;
     const H = innerHeight;
     let to: Rect = fitContain(page.w, page.h, { x: 0, y: 0, w: W, h: H });
@@ -275,7 +271,7 @@
     const id = popped ?? openID;
     details = null; // (its details go with it, as the viewer's do)
     closing = true;
-    const shot = id !== null && !reducedMotion() ? shownPage() : null;
+    const shot = id !== null && !reduced() ? shownPage() : null;
     // (mid swipe-down the reader's background has faded already: the animation goes on from there - no flash)
     const reader = document.querySelector<HTMLElement>('.reader');
     const fade = reader ? Number(getComputedStyle(reader).getPropertyValue('--fade')) || 1 : 1;

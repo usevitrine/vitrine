@@ -4,8 +4,9 @@
 // Use as {@attach backClose(close)} on the element shown while it's open: it
 // adds a history entry when it appears; Back pops it and closes it; closed any
 // other way, its entry is popped too (unless the page moved on meanwhile).
+import { touch } from './media';
+
 let next = 1;
-const touch = () => matchMedia('(pointer: coarse)').matches;
 
 export function backClose(close: () => void) {
   return (node: Element) => {

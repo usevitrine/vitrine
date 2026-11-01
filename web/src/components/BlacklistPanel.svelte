@@ -2,7 +2,7 @@
   // The download blacklist: tags whose posts are never downloaded, and a
   // clean-up for library files that already have them (an undoable delete).
   import { onMount } from 'svelte';
-  import { reveal, pop, moved } from '../lib/motion';
+  import { reveal, pop, moved, reduced } from '../lib/motion';
   import { api, type BlacklistMatches } from '../lib/api';
   import { blacklist } from '../lib/blacklist.svelte';
   import { results, formatSize } from '../lib/results.svelte';
@@ -44,7 +44,7 @@
     if (router.focus !== 'blacklist-delete' || !deleteBtn) return;
     router.focus = null;
     const el = deleteBtn;
-    el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    el.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' });
     el.focus({ preventScroll: true });
     lit = false;
     requestAnimationFrame(() => (lit = true));

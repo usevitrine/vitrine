@@ -10,6 +10,7 @@
   import { splitTag, tagColor, nsLabel } from '../lib/namespaces.svelte';
   import SubMark from './SubMark.svelte';
   import { t, num } from '../lib/i18n.svelte';
+  import { isFilterWord } from '../lib/query';
   import Icon from './Icon.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
 
@@ -209,7 +210,7 @@
   async function fetchSuggestions() {
     const { word } = currentWord();
     // (comics: "/words" is a title search - no tags to suggest)
-    if (!word || /^(system:|sort:|order:|limit:)/i.test(word) || '()~'.includes(word) || (comics && /^-?\//.test(value.trimStart()))) {
+    if (!word || isFilterWord(word) || '()~'.includes(word) || (comics && /^-?\//.test(value.trimStart()))) {
       close();
       return;
     }

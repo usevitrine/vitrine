@@ -19,6 +19,9 @@
   import { fullscreen } from '../lib/fullscreen.svelte';
   import { settings } from '../lib/settings.svelte';
   import { toasts, attempt } from '../lib/toast.svelte';
+  import { reduced } from '../lib/motion';
+  import { fineMouse, wide as wideMedia } from '../lib/media';
+  import { readJSON, writeJSON } from '../lib/storage';
   import Icon from './Icon.svelte';
   import ActionMenu from './ActionMenu.svelte';
 
@@ -60,29 +63,21 @@
   let index = $state(0); // the page shown (in a spread: its first page)
   let ended = $state(false); // past the last page: the end card
   let chrome = $state(true); // the controls over the page
-  const mouse = matchMedia('(hover: hover) and (pointer: fine)').matches;
-  const wideScreen = matchMedia('(min-width: 900px)').matches;
-  const isSheet = () => !matchMedia('(min-width: 900px)').matches;
+  const mouse = fineMouse();
+  const wideScreen = wideMedia();
+  const isSheet = () => !wideMedia();
   let mode = $state<Mode>(loadMode());
   let rtl = $state(false);
   let box = $state<HTMLElement>();
   let reader = $state<HTMLElement>();
 
   // ---- settings this device remembers: the layout for all comics, the direction per comic
+  // (declared functions: loadMode above runs before this point)
   function store<T>(key: string, fallback: T): T {
-    try {
-      const v = localStorage.getItem('vitrine.' + key);
-      return v === null ? fallback : (JSON.parse(v) as T);
-    } catch {
-      return fallback;
-    }
+    return readJSON('vitrine.' + key, fallback);
   }
   function keep(key: string, v: unknown) {
-    try {
-      localStorage.setItem('vitrine.' + key, JSON.stringify(v));
-    } catch {
-      /* not remembered */
-    }
+    writeJSON('vitrine.' + key, v);
   }
   function loadMode(): Mode {
     const m = store<string>('readerMode', 'single');
@@ -180,7 +175,7 @@
       dx = 0;
       return dir === 'next' ? next() : prev();
     }
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return dir === 'next' ? next() : prev();
+    if (reduced()) return dir === 'next' ? next() : prev();
     // A tap or a key: the next page at once (as the library's viewer); a swipe: it slides on the way the finger took it.
     if (dx === 0) return dir === 'next' ? next() : prev();
     anim = true;
@@ -258,7 +253,7 @@
   let faded = $state<Record<number, boolean>>({});
   function arrived(p: number) {
     loaded[p] = true;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) faded[p] = true; // (no fade: no transitionend)
+    if (reduced()) faded[p] = true; // (no fade: no transitionend)
   }
 
   // ---- the controls: shown at first, on a tap in the middle and when the mouse moves;

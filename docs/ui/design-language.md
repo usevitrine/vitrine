@@ -264,6 +264,15 @@ Palette: https://catppuccin.com/palette
   CSS); what differs is a prop - `stuck` (a sheet that scrolls: kept at its top, on the sheet's background), `bleed`
   (across the sheet's side padding), `after` (its gap to what follows), `z`. The sheets' own box CSS stays in each
   (their layers, padding and scrolling really differ).
+  **One way in and out (2026-11-01, a code audit)**: the dialogs (Modal, ConfirmDialog, WhatsNew) and ActionMenu come
+  and go with `lib/sheet`'s `sheetIn`/`sheetOut` (`desk: 'pop'` / `'drop'` on wider screens) and its `shade` - they
+  had their own copies, some drifted (ActionMenu's menu grew from 0.98, its backdrop faded out in 160 ms). The top
+  bar's popovers (the bell, the downloads) share `lib/popover` (`grow`, `rowIn`/`rowOut`, `dismiss`: a press outside
+  or Escape); every menu closes on a press outside with `lib/outside`'s `pressOutside`. The two details panels (the
+  viewer's, DetailsPanel) share their look (`.details-panel`, app.css) and their phone sheet (`lib/detailsSheet`:
+  the drag, closing from where it was let go). Reduced motion is `lib/motion`'s `reduced()`, the screen sizes
+  `lib/media` (`phone()` below 640 px, `wide()` from 900 px, `fineMouse()`), browser storage `lib/storage`
+  (`read`/`write`/`readJSON`/`writeJSON`: never throws).
 - **One spinner style (2026-10-19)**: every ring spinner (thumbnail being made, thumbnail on its way, the viewer's
   loading) is a faint ring with the accent (mauve) going round.
 - **Hints: few and short (2026-10-19)**: a hint only where a name alone could mislead, in a few words (the filter

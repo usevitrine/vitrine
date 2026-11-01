@@ -855,6 +855,20 @@ func TestFlareSolverrSetting(t *testing.T) {
 	if code := e.call("POST", "/api/flaresolverr", map[string]string{"url": ""}, &out); code != 200 || dl.Solver.Endpoint() != "" {
 		t.Fatalf("off: %d %v", code, out)
 	}
+	// Through the general settings too (vitrine setting flaresolverrURL ... with the server running): applied at
+	// once - before 2026-11-01 only stored until a restart.
+	if code := e.call("POST", "/api/settings", map[string]any{"flaresolverrURL": flare.URL, "pauseAfter": 7}, nil); code != 200 || dl.Solver.Endpoint() != flare.URL {
+		t.Fatalf("via settings: %d %q", code, dl.Solver.Endpoint())
+	}
+	// A downloader set later (the start) gets the stored settings the same way.
+	dl2, err := download.New(ctx, e.lib, e.db, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.h.SetDownloader(dl2)
+	if dl2.Solver.Endpoint() != flare.URL {
+		t.Fatalf("at the start: solver endpoint %q", dl2.Solver.Endpoint())
+	}
 }
 
 func TestFavicons(t *testing.T) {

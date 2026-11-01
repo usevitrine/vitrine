@@ -35,3 +35,31 @@ func TestTags(t *testing.T) {
 		t.Errorf("Tags = %q, want %q", got, want)
 	}
 }
+
+func TestParseMD5(t *testing.T) {
+	good := "00112233445566778899aabbccddeeff"
+	if got := ParseMD5(good); got[0] != 0x00 || got[1] != 0x11 || got[15] != 0xff {
+		t.Errorf("ParseMD5(%q) = %x", good, got)
+	}
+	for _, bad := range []string{"", "bad", good[:30], good + "00", good[:31], "zz" + good[2:]} {
+		if got := ParseMD5(bad); got != [16]byte{} {
+			t.Errorf("ParseMD5(%q) = %x, want zero", bad, got)
+		}
+	}
+}
+
+// Shimmie2's two md5 reads had no length check of their own (only their
+// patterns' {32}); through ParseMD5 a malformed name gives no md5 either way.
+func TestShimmieMalformedMD5(t *testing.T) {
+	m := Manifest{Site: "shimmie_test"}
+	for _, md := range []string{"0123456789abcdef0123456789abcde", "0123456789abcdef0123456789abcdef0", "0123456789abcdef0123456789abcdeg"} {
+		page := `<html><body><img alt='main image' class='shm-main-image' id='main_image' src='/_images/` + md + `/1%20-%20tagme.png'></body></html>`
+		p := parseShimmiePost(m, 1, page)
+		if p == nil || p.FileURL == "" {
+			t.Fatalf("md5 %s: no post from the page", md)
+		}
+		if p.MD5 != [16]byte{} {
+			t.Errorf("md5 %s: read as %x, want none", md, p.MD5)
+		}
+	}
+}

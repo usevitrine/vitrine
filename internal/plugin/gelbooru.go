@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -131,9 +130,7 @@ func (g *gelbooru) Search(ctx context.Context, query string, before int64) (Page
 			ID: p.ID, FileURL: p.FileURL, Tags: Tags(p.Tags), Sources: SourceLinks(p.Source),
 			Rating: m.Rating(p.Rating), Width: p.Width, Height: p.Height, PostURL: m.Post(p.ID),
 		}
-		if b, err := hex.DecodeString(p.MD5); err == nil && len(b) == 16 {
-			copy(post.MD5[:], b)
-		}
+		post.MD5 = ParseMD5(p.MD5)
 		if t, err := time.Parse(gelbooruTime, p.Created); err == nil {
 			post.Posted = t
 		}
@@ -259,9 +256,7 @@ func (g *gelbooru) Lookup(ctx context.Context, id int64) (*Post, error) {
 			Rating: m.Rating(p.Rating), Width: p.Width, Height: p.Height, PostURL: m.Post(p.ID),
 			TagTypes: map[string]string{},
 		}
-		if b, err := hex.DecodeString(p.Hash); err == nil && len(b) == 16 {
-			copy(post.MD5[:], b)
-		}
+		post.MD5 = ParseMD5(p.Hash)
 		if strings.HasPrefix(post.FileURL, "//") {
 			post.FileURL = "https:" + post.FileURL
 		}

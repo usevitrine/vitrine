@@ -42,7 +42,7 @@ func (s *Server) setFlareSolverr(w http.ResponseWriter, r *http.Request) {
 		libError(w, err)
 		return
 	}
-	s.dl.Solver.SetEndpoint(url)
+	s.applySettings(map[string]json.RawMessage{"flaresolverrURL": v})
 	out := map[string]string{"url": url}
 	if url != "" {
 		if version, err := s.dl.Solver.Ping(r.Context(), url); err != nil {

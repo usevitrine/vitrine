@@ -8,9 +8,11 @@
   // on-screen keyboard (--kb).
   import { onMount, tick } from 'svelte';
   import { reveal, swap } from '../lib/motion';
+  import { phone, touch } from '../lib/media';
+  import { read, write } from '../lib/storage';
   import { api, type SubGroup } from '../lib/api';
   import { siteLabel, tagQuery, tagsQuery, canOr, sites as siteInfo } from '../lib/sites.svelte';
-  import { searchTags, siteSearch, splitSearches, searchWords } from '../lib/siteSearch';
+  import { searchTags, siteSearch, splitSearches, searchWords, ownFavorites, favoritesSearch } from '../lib/siteSearch';
   import { parse, type Chip } from '../lib/query';
   import { tagOrigins, type SiteChoice } from '../lib/newDownload.svelte';
   import { siteOn } from '../lib/sections';
@@ -86,11 +88,7 @@
     focusFirst();
   });
   function lastSite(): string {
-    try {
-      return localStorage.getItem('vitrine.lastSite') ?? '';
-    } catch {
-      return '';
-    }
+    return read('vitrine.lastSite') ?? '';
   }
   // The search's: where its tags came from first (with how many files), then the file's own site; a new search: the
   // site used last first.
@@ -105,7 +103,7 @@
 
   // ---- moving between pages (lib/pages, like the other menus with pages)
   let panel = $state<HTMLElement>();
-  const sheet = matchMedia('(max-width: 639px)').matches;
+  const sheet = phone();
   const pages = new Pages((h) => {
     const cs = panel ? getComputedStyle(panel) : null;
     const room = cs ? parseFloat(cs.maxHeight) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 60 : Infinity;
@@ -126,7 +124,7 @@
     await tick();
     const el = panel?.querySelector<HTMLElement>('[data-autofocus]');
     // (a text box: with a mouse, ready to type; on a touch screen its keyboard waits for a tap)
-    if (el instanceof HTMLInputElement && matchMedia('(pointer: coarse)').matches) return;
+    if (el instanceof HTMLInputElement && touch()) return;
     // (not scrolled to: while the height grows the box is still short, and it scrolled the page's top out of view)
     (el ?? panel)?.focus({ preventScroll: true });
   }
@@ -171,8 +169,8 @@
   let newGroupName = $state('');
   let busy = $state(false);
   const siteGroups = $derived(groups.filter((g) => g.site === site));
-  const ownFavs = $derived(/^fav:me$/i.test(text.trim())); // (its files become favorites here too, as on the Downloads page)
-  const favSearch = $derived(/^fav:\S+$|^favorited_by=/i.test(text.trim()) || /[?&]page=favorites(&|&amp;)s=view/.test(text));
+  const ownFavs = $derived(ownFavorites(text)); // (its files become favorites here too, as on the Downloads page)
+  const favSearch = $derived(favoritesSearch(text));
   const intervalOptions = $derived(intervals.map((v) => ({ value: String(v), label: cap(every(v)) })));
   function pickGroup(v: string) {
     formGroup = v;
@@ -198,11 +196,7 @@
         for (const s of searches) await api.addDownload(site, s, maxPosts ?? 0, ownFavs, label);
         toasts.show(t('downloads.downloading', { query: label || q, site: siteLabel(site) }), { cat: 'downloadsStarted', kind: 'info' });
       }
-      try {
-        localStorage.setItem('vitrine.lastSite', site);
-      } catch {
-        /* not remembered - fine */
-      }
+      write('vitrine.lastSite', site);
       ondone?.(repeat !== '0');
       onclose();
     }, (b) => (busy = b));
@@ -333,7 +327,7 @@
                 anyOf={(tags) => (canOr(site, tags) ? tagsQuery(site, tags, true) : null)}
                 label={t('downloads.searchOnSite')}
                 placeholder={siteInfo.hints[site] ?? t('downloads.searchSite', { site: siteLabel(site) })}
-                autofocus={!matchMedia('(pointer: coarse)').matches}
+                autofocus={!touch()}
                 onenter={() => toHow()} />
               {#if split.length}<p class="hint left" transition:reveal>{t('newDl.split', { site: siteLabel(site), n: searches.length })}</p>{/if}
               {#if left.length}<p class="hint left" transition:reveal>{t('newDl.leftOut', { what: searchWords(left) })}</p>{/if}

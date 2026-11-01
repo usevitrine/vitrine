@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"html"
@@ -149,9 +148,7 @@ func (s *shimmie) Search(ctx context.Context, query string, before int64) (Page,
 		p.Width, _ = strconv.Atoi(attr(a, "data-width"))
 		p.Height, _ = strconv.Atoi(attr(a, "data-height"))
 		if md := shmThumbMD5.FindStringSubmatch(attr(img, "src")); md != nil {
-			if b, err := hex.DecodeString(md[1]); err == nil {
-				copy(p.MD5[:], b)
-			}
+			p.MD5 = ParseMD5(md[1])
 		}
 		page.Posts = append(page.Posts, p)
 	}
@@ -207,9 +204,7 @@ func parseShimmiePost(m Manifest, id int64, text string) *Post {
 		return nil
 	}
 	if mm := shmFileMD5.FindStringSubmatch(p.FileURL); mm != nil {
-		if b, err := hex.DecodeString(mm[1]); err == nil {
-			copy(p.MD5[:], b)
-		}
+		p.MD5 = ParseMD5(mm[1])
 	}
 	seen := map[string]bool{}
 	for _, mm := range shmTagName.FindAllStringSubmatch(text, -1) {

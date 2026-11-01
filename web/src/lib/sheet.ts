@@ -1,4 +1,4 @@
-import { px, settle, sizeOf, onPixels } from './motion';
+import { px, settle, sizeOf, onPixels, reduced } from './motion';
 // Phone sheets (menus along the bottom): how they come and go, the same for
 // every one. They slide up from the bottom and back down - from where a drag
 // left them (sheetDrag sets data-dragged) - while the page behind dims and
@@ -7,8 +7,6 @@ import { px, settle, sizeOf, onPixels } from './motion';
 // middle: grows in, shrinks and sinks a little as it fades - like Modal), 'drop' (a menu by what opened it: drops
 // in from a few px above), none (something around it animates it already). Their height: --sheet-max-h (app.css).
 import { cubicOut } from 'svelte/easing';
-
-const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** How far a sheet goes to be out of sight: its height and its shadow above it (0 -12px 40px) - by its height alone,
  *  the shadow was still a dark band along the bottom when it had gone, then vanished at once. */

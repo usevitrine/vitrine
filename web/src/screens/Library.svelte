@@ -2,13 +2,13 @@
   import { overlayScroll } from '../lib/overlayScroll';
   import { cubicOut } from 'svelte/easing';
   import { slide } from 'svelte/transition';
-  import { reveal, swap, pop } from '../lib/motion';
+  import { reveal, swap, pop, reduced } from '../lib/motion';
   import { live } from '../lib/live.svelte';
   import { connection } from '../lib/offline.svelte';
   import Welcome from '../components/Welcome.svelte';
   import { onMount, tick, untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
-  import { fitContain, snap, hero, rectOf, reducedMotion } from '../lib/hero';
+  import { fitContain, snap, hero, rectOf } from '../lib/hero';
   import { results } from '../lib/results.svelte';
   import { router } from '../lib/router.svelte';
   import { settings } from '../lib/settings.svelte';
@@ -53,7 +53,6 @@
   // The search bar's height: with the top bar's, the room the grid keeps at its top (both float over it).
   let headH = $state(0);
   let pad = $derived(topbar.h + headH);
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // A search started from inside the viewer (a tag tapped) waits until closing
   // the viewer has stepped back in history, so the URL isn't overwritten.
@@ -277,7 +276,7 @@
     const from = grid?.tileRect(i);
     const round = grid?.tileRadius(i) ?? 0;
     viewInfo = details;
-    if (details || !from || !f?.thumb || !f.width || reducedMotion()) {
+    if (details || !from || !f?.thumb || !f.width || reduced()) {
       viewing = i;
       return;
     }
@@ -305,7 +304,7 @@
       grid?.reveal(i);
       await tick();
       const to = grid?.tileRect(i);
-      if (from && to && f?.thumb && !reducedMotion()) await hero({ src: f.thumb, aspect: f.width / f.height, from, to, backdrop: [fade, 0], duration: 260, radius: [0, grid?.tileRadius(i) ?? 0] });
+      if (from && to && f?.thumb && !reduced()) await hero({ src: f.thumb, aspect: f.width / f.height, from, to, backdrop: [fade, 0], duration: 260, radius: [0, grid?.tileRadius(i) ?? 0] });
       if (closingId === f?.id) closingId = undefined; // (landed: the tile again)
     });
   }

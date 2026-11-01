@@ -117,6 +117,20 @@ Made while building items 1-3 of step 1 (repo skeleton, file store, metadata DB)
   `rows.Err()` - several hand-written loops skipped it) and `IN (...)` lists through `db.InList` -
   `internal/db/query.go`. In the web app an action that shows its error as a notice is `attempt(fn, busy?)`
   (`lib/toast.svelte.ts`), and phone sheets share `components/GrabBar.svelte`.
+  - **A post's md5**: every engine reads it with `plugin.ParseMD5(s) [16]byte` (`internal/plugin/sources.go`; 32
+    hex characters or the zero "unknown") - eight hand-written copies before, Shimmie2's two without the length check
+    (harmless there: their patterns already asked for 32 hex characters).
+  - **Background jobs that look now and then whether something is due** run through
+    `server.Every(ctx, first, interval, fn)` (`internal/server/every.go`; first run after `first`, then every
+    `interval` from the end of the last run, until ctx ends): daily backups, update and plugin checks, copies ahead,
+    and in `cmd_serve` the trash and the health check. Not the downloader's, thumbnails', duplicates' or preview
+    frames' loops: they wake early for new work (a channel) or wait only when a batch came back short.
+  - **Settings the running program keeps in memory** (`anonymousLogin`; the downloader's `pauseAfter`,
+    `checksFirst`, `flaresolverrURL`) go to it through `applySettings` (`internal/server/settings.go`) - from `New`
+    and `SetDownloader` at the start and from POST /api/settings and /api/flaresolverr on a change. Before, the
+    start (`cmd_serve`) and the settings handler had their own copies, and the handler never applied
+    `flaresolverrURL`: set through /api/settings (`vitrine setting flaresolverrURL ...` with the server running) it
+    was only stored until a restart.
 
 ## Local socket and the command line (2026-10-23)
 The user (to-do 100): "so you can fully interact with it and debug it through the command line - not only for you,

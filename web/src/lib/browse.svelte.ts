@@ -6,6 +6,7 @@ import { api, type BrowseGallery, type FileInfo } from './api';
 import { Results } from './results.svelte';
 import { tagQuery } from './sites.svelte';
 import { router } from './router.svelte';
+import { comparison } from './system';
 
 const SHAPE = Math.round((7 / 10) * 1024);
 
@@ -54,20 +55,21 @@ export class BrowseResults extends Results {
       const neg = w.startsWith('-') ? '-' : '';
       const body = neg ? w.slice(1) : w;
       const low = body.toLowerCase();
-      const pages = /^system:pages(<=|>=|<|>|=)(\d+)$/.exec(low);
-      const stars = /^system:stars>=([2-5])$/.exec(low);
+      const cmp = comparison(low);
+      const pages = cmp?.field === 'pages' && cmp.op !== '!=' && /^\d+$/.test(cmp.val) ? cmp : null;
+      const stars = cmp?.field === 'stars' && cmp.op === '>=' && /^[2-5]$/.test(cmp.val) ? cmp.val : null;
       if (body.startsWith('/')) out.push(neg + body.slice(1).replaceAll('_', ' '));
       else if (low.startsWith('title:')) out.push(neg + body.slice(6).replaceAll('_', ' '));
       else if (low.startsWith('category:')) out.push(low); // (the site's category filter: the server turns it into that)
       else if (pages && !neg) {
-        const n = Number(pages[2]);
-        const op = pages[1];
+        const n = Number(pages.val);
+        const op = pages.op;
         if (op === '>' || op === '>=' || op === '=') from = Math.max(from, op === '>' ? n + 1 : n);
         if (op === '<' || op === '<=' || op === '=') {
           const most = op === '<' ? n - 1 : n;
           to = to ? Math.min(to, most) : most;
         }
-      } else if (stars && !neg) out.push('rating:' + stars[1]);
+      } else if (stars && !neg) out.push('rating:' + stars);
       else if ((low === 'system:expunged' || low === 'system:torrent') && !neg) out.push('filter:' + low.slice(7));
       else if (low.startsWith('system:')) continue; // (a library filter the site can't do)
       else out.push(neg + tagQuery(this.site, body));

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { phone } from '../lib/media';
   import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
   import { reveal, moved, nudge, pop, glide, reduced } from '../lib/motion';
@@ -9,7 +10,7 @@
   // sheet along the bottom, on a wide screen a panel floating at the right (like the viewer's details). The list lives
   // on the server. (Redesigned 2026-10-31 from the user's prototypes, "B · Tiles".)
   import { backClose } from '../lib/backClose';
-  import { swallowPress, leaving } from '../lib/outside';
+  import { pressOutside } from '../lib/outside';
   import { onMount, tick } from 'svelte';
   import { fade } from 'svelte/transition';
   import { useScope } from '../lib/scope.svelte';
@@ -271,22 +272,18 @@
   });
 
   // A press outside the panel and the search bar closes it.
-  $effect(() => {
-    const down = (e: PointerEvent) => {
-      if (leaving(panel)) return; // closed already, fading out
-      const t = e.target as HTMLElement;
-      if (!panel?.contains(t) && !t.closest('.bar, .toasts')) {
-        swallowPress(e); // Undo in a toast keeps it open
-        onclose(false);
-      }
-    };
-    document.addEventListener('pointerdown', down, true);
-    return () => document.removeEventListener('pointerdown', down, true);
-  });
+  // (Undo in a toast keeps it open)
+  $effect(() =>
+    pressOutside(
+      (t) => !!(panel?.contains(t) || t.closest('.bar, .toasts')),
+      () => onclose(false),
+      () => panel,
+    ),
+  );
 
   // Phones: a sheet along the bottom (like the other menus there). Wider: a panel floating at the right, under the
   // search bar - it glides in from the right as it fades in.
-  const sheet = matchMedia('(max-width: 639px)').matches;
+  const sheet = phone();
   function portal(node: HTMLElement) {
     document.body.appendChild(node);
     if (!sheet) {

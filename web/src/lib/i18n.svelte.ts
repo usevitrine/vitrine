@@ -11,6 +11,7 @@
 // (VITRINE_LANGUAGE), else en-US. English in any variant is en-US unless
 // English (UK) is picked in Settings (2026-10-23: US English is the default).
 import { settings } from './settings.svelte';
+import { read, write } from './storage';
 
 type Text = string | Partial<Record<Intl.LDMLPluralRule, string>>;
 type Tree = { [key: string]: Text | Tree };
@@ -69,20 +70,12 @@ class I18n {
   setServerDefault(tag: string | undefined) {
     if (!tag || tag === this.serverDefault) return;
     this.serverDefault = tag;
-    try {
-      localStorage.setItem('vitrine.serverLanguage', tag);
-    } catch {
-      /* asked again next time */
-    }
+    write('vitrine.serverLanguage', tag); // (no storage: asked again next time)
   }
 }
 
 function load(): string {
-  try {
-    return localStorage.getItem('vitrine.serverLanguage') ?? MAIN;
-  } catch {
-    return MAIN;
-  }
+  return read('vitrine.serverLanguage') ?? MAIN;
 }
 
 export const i18n = new I18n();

@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { phone } from '../lib/media';
   import GrabBar from './GrabBar.svelte';
   import { overlayScroll } from '../lib/overlayScroll';
-  import { px, settle, sizeOf, onPixels } from '../lib/motion';
   // The confirmation before a destructive action (lib/confirm): what goes (a
   // red badge, or the files' pictures), a question, one line, Cancel and the
   // action. A card in the middle on wider screens, a sheet on phones. Escape or
@@ -9,7 +9,6 @@
   // action waits until it's typed.
   import { backClose } from '../lib/backClose';
   import { tick } from 'svelte';
-  import { cubicOut } from 'svelte/easing';
   import { confirmer } from '../lib/confirm.svelte';
   import { sheetIn, sheetOut, shade } from '../lib/sheet';
   import { sheetDrag } from '../lib/sheetDrag';
@@ -17,8 +16,7 @@
   import { t } from '../lib/i18n.svelte';
 
   const c = $derived(confirmer.current);
-  const sheet = matchMedia('(max-width: 639px)').matches;
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sheet = phone();
 
   let box = $state<HTMLElement>();
   let opener: HTMLElement | null = null;
@@ -56,18 +54,6 @@
       b[(i + (e.shiftKey ? b.length - 1 : 1)) % b.length]?.focus();
     }
   }
-
-  function pop(node: Element, { out = false } = {}) {
-    if (sheet) return out ? sheetOut(node) : sheetIn(node);
-    if (reduced()) return { duration: 0 };
-    if (!out) onPixels(node);
-    return {
-      duration: out ? 200 : 220,
-      easing: cubicOut,
-      // (going: it shrinks and sinks a little as it fades, as plain as coming)
-      css: (t: number) => `opacity: ${t}; transform: translateY(${px(out ? (1 - t) * 8 : 0)}) scale(${settle(0.94 + 0.06 * t, sizeOf(node))})`,
-    };
-  }
 </script>
 
 {#if c}
@@ -85,8 +71,8 @@
     aria-modal="true"
     aria-labelledby="confirm-title"
     aria-describedby={c.body ? 'confirm-body' : undefined}
-    in:pop
-    out:pop={{ out: true }}>
+    in:sheetIn={{ on: sheet, desk: 'pop' }}
+    out:sheetOut={{ on: sheet, desk: 'pop' }}>
     {#if sheet}<GrabBar bleed={20} after={10} />{/if}
     {#if c.thumbs?.length}
       <div class="thumbs" aria-hidden="true" style:--n={Math.min(3, c.thumbs.length)}>

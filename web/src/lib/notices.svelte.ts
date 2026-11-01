@@ -8,6 +8,7 @@ import { api } from './api';
 import { t } from './i18n.svelte';
 import { modeOf } from './noticeKinds';
 import { settings } from './settings.svelte';
+import { remove } from './storage';
 import type { ToastKind } from './toast.svelte';
 
 export interface Notice {
@@ -44,13 +45,7 @@ export interface ServerNotice {
 }
 
 // (the bell kept on each device before it was one for all: gone)
-for (const k of ['vitrine.notices', 'vitrine.noticesSynced', 'vitrine.noticesSeen']) {
-  try {
-    localStorage.removeItem(k);
-  } catch {
-    /* fine */
-  }
-}
+for (const k of ['vitrine.notices', 'vitrine.noticesSynced', 'vitrine.noticesSeen']) remove(k);
 
 /** A site's name for a notice (a plugin's update): lib/sites fills it in - imported from here, it made an import loop
  *  (sites -> namespaces -> toast -> notices) that stopped the app from starting. */

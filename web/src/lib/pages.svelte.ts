@@ -1,4 +1,4 @@
-import { px, onPixels } from './motion';
+import { px, onPixels, reduced } from './motion';
 // Menus with pages (a page of choices, Sort by, a tag's Namespace): moving
 // between pages looks the same in every one. A deeper page slides in from the
 // right and the old one out to the left (going back, the other way round),
@@ -9,8 +9,6 @@ import { px, onPixels } from './motion';
 // {@attach p.page} in:p.pageIn out:p.pageOut>` (base styles in app.css).
 import { tick } from 'svelte';
 import { cubicOut } from 'svelte/easing';
-
-const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export class Pages {
   nav = $state(0); // each move gets a page of its own (one on its way out is never reused)

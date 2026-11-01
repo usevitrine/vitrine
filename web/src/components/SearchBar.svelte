@@ -2,7 +2,7 @@
   // The search: typed booru-style text turns into chips; every chip can be
   // edited in place. Each change runs the search straight away.
   import { parse, format, chipText, atomText, label, kindOf, balanced, isTitleText, titleTerm, type Chip } from '../lib/query';
-  import { pop as grow, moved, settle, sizeOf, nudge, onPixels } from '../lib/motion';
+  import { pop as grow, moved, settle, sizeOf, nudge, onPixels, reduced } from '../lib/motion';
   import type { Suggestion } from '../lib/api';
   import TagInput from './TagInput.svelte';
   import { tagColor } from '../lib/namespaces.svelte';
@@ -10,7 +10,7 @@
   import Icon from './Icon.svelte';
   import SavedPanel from './SavedPanel.svelte';
   import SystemMenu from './SystemMenu.svelte';
-  import { read as readFilter, isFavorite, type Form } from '../lib/system';
+  import { read as readFilter, isFavorite, siteFilter, type Form } from '../lib/system';
   import { useScope } from '../lib/scope.svelte';
   import { settings } from '../lib/settings.svelte';
   import { onMount } from 'svelte';
@@ -94,7 +94,10 @@
   // The sites picked in the search (system:site=a,b chips): suggestions only from their files' tags.
   let sites = $derived(
     chips
-      .flatMap((c) => (c.atoms.length === 1 && !c.atoms[0].neg ? [c.atoms[0].text.match(/^system:site\s*=\s*(.+)$/i)?.[1] ?? ''] : []))
+      .flatMap((c) => {
+        const site = c.atoms.length === 1 && !c.atoms[0].neg ? siteFilter(c.atoms[0].text) : null;
+        return site && !site.not ? [site.sites] : [];
+      })
       .filter(Boolean)
       .join(','),
   );
@@ -127,7 +130,7 @@
     // fades; opened again before it has gone, it is both again.
     if (out) node.setAttribute('aria-hidden', 'true');
     else node.removeAttribute('aria-hidden');
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return { duration: 0 };
+    if (reduced()) return { duration: 0 };
     if (!out) onPixels(node);
     return {
       duration: 180,

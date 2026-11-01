@@ -153,24 +153,12 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 				notifier.Add(push.Event{Kind: e.Kind, Site: e.Site, Query: e.Query, Subscription: e.Subscription, New: e.New, Error: e.Error, Tag: e.Tag, First: e.First, Pages: e.Pages})
 			}
 		}
-		// FlareSolverr for Cloudflare challenges, if one is set up (Settings > Sites); when a site that keeps
-		// failing to answer pauses.
-		if set, err := lib.Settings(ctx); err == nil {
-			var n int
-			if json.Unmarshal(set["pauseAfter"], &n) == nil {
-				dl.SetPauseAfter(n)
-			}
-			var first bool
-			if json.Unmarshal(set["checksFirst"], &first) == nil {
-				dl.SetChecksFirst(first)
-			}
-			var u string
-			if json.Unmarshal(set["flaresolverrURL"], &u) == nil && u != "" {
-				dl.Solver.SetEndpoint(u)
-				log.Info("Cloudflare challenges go to FlareSolverr")
-			}
-		}
+		// (the stored settings the downloader keeps - FlareSolverr, when a site pauses, checks first - go to it
+		// here: the same code applies them when they change)
 		handler.SetDownloader(dl)
+		if dl.Solver.Endpoint() != "" {
+			log.Info("Cloudflare challenges go to FlareSolverr")
+		}
 		go dl.Run(ctx)
 		log.Info("downloader running", "sites", strings.Join(dl.Sites(), ", "))
 	}
@@ -195,71 +183,56 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		func(files, failed int) { log.Debug("thumbnails made", "files", files, "failed", failed) })
 
 	// The trash empties itself of files deleted more than trashDays ago (the setting; 0 / missing: never).
-	go func() {
-		for ctx.Err() == nil {
-			if set, err := lib.Settings(ctx); err == nil {
-				var days float64
-				if json.Unmarshal(set["trashDays"], &days) == nil && days > 0 {
-					if n, err := lib.Purge(ctx, time.Now().Add(-time.Duration(days*24)*time.Hour)); err != nil {
-						log.Error("emptying the trash", "err", err)
-					} else if n > 0 {
-						log.Info("trash: removed for good (deleted long enough ago)", "files", n, "days", days)
-					}
+	go server.Every(ctx, 0, time.Hour, func() {
+		if set, err := lib.Settings(ctx); err == nil {
+			var days float64
+			if json.Unmarshal(set["trashDays"], &days) == nil && days > 0 {
+				if n, err := lib.Purge(ctx, time.Now().Add(-time.Duration(days*24)*time.Hour)); err != nil {
+					log.Error("emptying the trash", "err", err)
+				} else if n > 0 {
+					log.Info("trash: removed for good (deleted long enough ago)", "files", n, "days", days)
 				}
 			}
-			select {
-			case <-time.After(time.Hour):
-			case <-ctx.Done():
-			}
 		}
-	}()
+	})
 
 	// The library's health check (library.HealthCheck): looked at hourly, from 15 minutes after the start. The
 	// database and every original weekly; a 28th of the originals (at least 10 GB) read back daily at 40 MB/s - a
 	// whole pass about every four weeks. What's found: each file in the log (warnings: kept for weeks), a notice.
-	go func() {
-		wait := 15 * time.Minute
-		for {
-			select {
-			case <-time.After(wait):
-			case <-ctx.Done():
-				return
-			}
-			wait = time.Hour
-			var total int64
-			for _, n := range lib.Index().Census(0, 0, 0).Types {
-				total += n[1]
-			}
-			missing, damaged := 0, 0
-			before, _ := lib.Health(ctx)
-			h, err := lib.HealthCheck(ctx, max(total/28, 10<<30), 40<<20, func(f library.HealthFinding) {
-				if f.Missing {
-					missing++
-					log.Warn("health check: an original is missing", "file", f.ID, "path", f.Path)
-				} else {
-					damaged++
-					log.Warn("health check: an original is damaged (no longer matches its checksum)", "file", f.ID, "path", f.Path)
-				}
-			})
-			if err != nil && ctx.Err() == nil {
-				log.Error("health check", "err", err)
-			}
-			tr := i18n.For("")
-			if missing > 0 {
-				handler.AppNotice(tr.T("health.missing", "n", missing), "error", "errors")
-			}
-			if damaged > 0 {
-				handler.AppNotice(tr.T("health.damaged", "n", damaged), "error", "errors")
-			}
-			if h.DBCheckedAt != before.DBCheckedAt && h.DBProblem != "" {
-				log.Error("health check: the database has a problem", "problem", h.DBProblem)
-				handler.AppNotice(tr.T("health.database", "problem", h.DBProblem), "error", "errors")
-			}
-			if h.LastPassAt != before.LastPassAt {
-				log.Info("health check: every original read back", "files", h.Verified, "damaged", h.DamagedCount)
-			}
+	go server.Every(ctx, 15*time.Minute, time.Hour, func() {
+		var total int64
+		for _, n := range lib.Index().Census(0, 0, 0).Types {
+			total += n[1]
 		}
-	}()
+		missing, damaged := 0, 0
+		before, _ := lib.Health(ctx)
+		h, err := lib.HealthCheck(ctx, max(total/28, 10<<30), 40<<20, func(f library.HealthFinding) {
+			if f.Missing {
+				missing++
+				log.Warn("health check: an original is missing", "file", f.ID, "path", f.Path)
+			} else {
+				damaged++
+				log.Warn("health check: an original is damaged (no longer matches its checksum)", "file", f.ID, "path", f.Path)
+			}
+		})
+		if err != nil && ctx.Err() == nil {
+			log.Error("health check", "err", err)
+		}
+		tr := i18n.For("")
+		if missing > 0 {
+			handler.AppNotice(tr.T("health.missing", "n", missing), "error", "errors")
+		}
+		if damaged > 0 {
+			handler.AppNotice(tr.T("health.damaged", "n", damaged), "error", "errors")
+		}
+		if h.DBCheckedAt != before.DBCheckedAt && h.DBProblem != "" {
+			log.Error("health check: the database has a problem", "problem", h.DBProblem)
+			handler.AppNotice(tr.T("health.database", "problem", h.DBProblem), "error", "errors")
+		}
+		if h.LastPassAt != before.LastPassAt {
+			log.Info("health check: every original read back", "files", h.Verified, "damaged", h.DamagedCount)
+		}
+	})
 
 	// Near-duplicates: every file's thumbnail hashed and compared with the
 	// library (new downloads within a minute; the existing library in batches).
