@@ -21,7 +21,8 @@ Search
 Media
 10. Thumbnails for images/video/animations; video duration/audio/codec detection; preview-frame sprite sheets.
 11. Resized renditions for huge images; transcodes/fast-start copies when a device can't play a video well.
-12. Duplicate detection (perceptual hashes) with a review screen - **done 2026-10-16** (see `docs/library/duplicates.md`); automatic handling of exact matches: later, if wanted.
+12. Duplicate detection (perceptual hashes) with a review screen - **done 2026-10-16** (see `docs/library/duplicates.md`); no automatic handling of exact matches - there are none (2026-11-01, the user: "Vitrine doesn't download exact
+    duplicates": the store is content-addressed and a post's md5 is checked before download).
 
 Web client
 13. Mobile-first PWA, equally polished on desktop (shortcuts, drag-select, side panels, **bulk tag editing** - the
