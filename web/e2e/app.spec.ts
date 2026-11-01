@@ -1711,6 +1711,24 @@ test('saved searches: a tap closes the menu smoothly first (a sheet slides away)
   await expect.poll(() => tile.evaluate((el) => getComputedStyle(el).rotate)).toBe('-1.5deg');
   await page.mouse.up();
   await expect(tile).not.toHaveClass(/lifted/);
+  // Edit, then Done: each tile shows once - never its edit layer and itself at the same time (the user: "it clones the saves").
+  await panel.getByRole('button', { name: 'Edit' }).click();
+  await expect(panel.locator('input.rename')).toHaveCount(2);
+  const twice = page.evaluate(
+    () =>
+      new Promise<number>((done) => {
+        let most = 0;
+        const t0 = performance.now();
+        const f = () => {
+          most = Math.max(most, document.querySelectorAll('ul.tiles > li:has(input.rename):has(.run)').length);
+          if (performance.now() - t0 < 600) requestAnimationFrame(f);
+          else done(most);
+        };
+        requestAnimationFrame(f);
+      }),
+  );
+  await panel.getByRole('button', { name: 'Done' }).click();
+  expect(await twice).toBe(0);
   // No groups yet: the tab is there all the same, saying what a group is.
   await panel.getByRole('tab', { name: 'Groups' }).click();
   await expect(panel.getByText('No groups yet')).toBeVisible();

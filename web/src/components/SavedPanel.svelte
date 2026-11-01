@@ -379,6 +379,8 @@
                     {@attach drags.tile(i)}
                     animate:moved
                     transition:pop>
+                    <!-- (the edit layer's buttons only pop in: a transition out held the whole edit layer on screen beside the
+                         tile's own for a moment - every tile showed twice after Done, the user: "it clones the saves") -->
                     {#if editing}
                       <div class="pics" aria-hidden="true">{@render mosaic(pics)}</div>
                       {#if saved.list.length > 1}
@@ -388,9 +390,9 @@
                           aria-label={t('saved.reorder', { name: s.name })}
                           title={t('saved.holdToMove')}
                           onkeydown={(e) => keyMove(e, i)}
-                          transition:pop><Icon name="grip" size={16} /></button>
+                          in:pop><Icon name="grip" size={16} /></button>
                       {/if}
-                      <button class="icon corner del" data-nodrag aria-label={t('saved.deleteLabel', { name: s.name })} title={t('common.delete')} onclick={() => remove(s)} transition:pop
+                      <button class="icon corner del" data-nodrag aria-label={t('saved.deleteLabel', { name: s.name })} title={t('common.delete')} onclick={() => remove(s)} in:pop
                         ><Icon name="trash" size={16} /></button>
                       <div class="foot">
                         <input
