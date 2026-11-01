@@ -1251,6 +1251,38 @@ test('subscriptions: subscribe, failed check, pause, interval, unsubscribe (offl
   await rowMenu(page, 'the download sub_b', 'Remove'); // the plain search stays until removed
 });
 
+test('tag menu: Parent tags - put the tag in a new parent, take it out and back with a tap (the menu stays open), the item shows its parent', async ({ page }) => {
+  const parent = `e2e_parent_${test.info().project.name.replace(/\W/g, '_')}`;
+  const parentsOf = () =>
+    page.evaluate(async () => (await (await fetch('/api/relations')).json()).parents as { from: string; to: string }[]);
+  await page.goto('/?q=blue_sky');
+  await page.locator('.sizer > .tile').first().click();
+  await page.getByRole('button', { name: 'Details' }).click();
+  const panel = page.locator('.viewer aside.panel');
+  const menu = page.getByRole('menu', { name: /^blue_sky/ });
+  await panel.getByRole('button', { name: 'blue_sky', exact: true }).click();
+  await menu.getByRole('menuitem', { name: /^Parent tags/ }).click();
+  await menu.getByRole('textbox', { name: 'New parent tag' }).fill(parent);
+  await menu.getByRole('button', { name: 'Put it in this new parent tag' }).click();
+  const item = menu.getByRole('menuitemcheckbox', { name: parent });
+  await expect(item).toHaveAttribute('aria-checked', 'true');
+  await expect(menu.getByRole('textbox', { name: 'New parent tag' })).toHaveValue('');
+  expect(await parentsOf()).toContainEqual({ from: 'blue_sky', to: parent });
+  // A tap takes it out, another puts it back; the menu stays.
+  await item.click();
+  await expect(item).toHaveAttribute('aria-checked', 'false');
+  expect(await parentsOf()).not.toContainEqual({ from: 'blue_sky', to: parent });
+  await item.click();
+  await expect(item).toHaveAttribute('aria-checked', 'true');
+  // Back: the item names its parent.
+  await menu.getByRole('button', { name: 'Back' }).click();
+  await expect(menu.getByRole('menuitem', { name: /^Parent tags/ })).toContainText(parent);
+  await page.keyboard.press('Escape');
+  await page.evaluate(
+    (p) => fetch('/api/relations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'parent', action: 'remove', from: 'blue_sky', to: p }) }),
+    parent,
+  );
+});
 test('tag namespaces: details grouped by namespace, each with its own color', async ({ page }) => {
   await page.goto('/');
   await page.locator('.tile').nth(12).click();
@@ -1681,13 +1713,13 @@ test('saved searches: tiles - a long name stays on one line and slides, its firs
   });
   expect(edges).toEqual(['0px', '14px', '14px', '0px']);
   // The groups: a tab, each a tile with its tags and its files; New group goes to the Tags page.
-  await panel.getByRole('tab', { name: 'Groups' }).click();
+  await panel.getByRole('tab', { name: 'Parents' }).click();
   const group = panel.getByRole('button', { name: /some.group/ });
   await expect(group).toContainText('4 tags · 12 files');
   await expect(group).toContainText('blue_sky, red, sunset, +1');
   await expect(group.locator('.new-pill')).toHaveText('2 new');
   await expect(panel.getByRole('button', { name: 'Edit' })).toHaveCount(0); // (groups are edited on the Tags page)
-  await panel.getByRole('button', { name: 'New group' }).click();
+  await panel.getByRole('button', { name: 'New parent' }).click();
   await expect(page).toHaveURL(/\/tags/);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
@@ -1730,9 +1762,9 @@ test('saved searches: a tap closes the menu smoothly first (a sheet slides away)
   await panel.getByRole('button', { name: 'Done' }).click();
   expect(await twice).toBe(0);
   // No groups yet: the tab is there all the same, saying what a group is.
-  await panel.getByRole('tab', { name: 'Groups' }).click();
-  await expect(panel.getByText('No groups yet')).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'New group' })).toBeVisible();
+  await panel.getByRole('tab', { name: 'Parents' }).click();
+  await expect(panel.getByText('No parent tags yet')).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'New parent' })).toBeVisible();
   await panel.getByRole('tab', { name: 'Saved' }).click();
   // A tap: the menu goes (still there, moving away) before the search runs.
   await panel.getByRole('button', { name: /^Short one/ }).click();
@@ -6316,7 +6348,7 @@ test('saved searches menu: NEW pills on saved searches and group (parent) tags w
   const panel = page.getByRole('dialog', { name: 'Saved searches' });
   await expect(panel.getByRole('button', { name: /Sky/ }).locator('.new-pill')).toHaveText('4 new');
   // (the groups: a tab of their own)
-  await panel.getByRole('tab', { name: 'Groups' }).click();
+  await panel.getByRole('tab', { name: 'Parents' }).click();
   const group = panel.getByRole('button', { name: /favorite artists|favorite_artists/ });
   await expect(group.locator('.new-pill')).toHaveText('4 new');
   await expect(group).toContainText('1 tag');
@@ -6328,7 +6360,7 @@ test('saved searches menu: NEW pills on saved searches and group (parent) tags w
   await expect(page.locator('.tile .new-badge')).toHaveCount(4);
   await star.click();
   await expect(panel.getByRole('button', { name: /Sky/ }).locator('.new-pill')).toHaveCount(0);
-  await panel.getByRole('tab', { name: 'Groups' }).click();
+  await panel.getByRole('tab', { name: 'Parents' }).click();
   await expect(group.locator('.new-pill')).toHaveText('4 new');
   // The group: the same, then nothing new anywhere - no dot.
   await group.click();

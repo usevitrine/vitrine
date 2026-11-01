@@ -922,7 +922,12 @@
     "blacklist": "Add to blacklist",
     "unblacklist": "Remove from blacklist",
     "onBlacklist": "On the blacklist by",
-    "subscribe": "Subscribe…"
+    "subscribe": "Subscribe…",
+    "parents": "Parent tags",
+    "nParents": "{n} parents",
+    "noParents": "No parent tags yet. Name one below to put this tag in it.",
+    "newParent": "New parent tag",
+    "addParent": "Put it in this new parent tag"
   },
   "subMark": {
     "own": "Subscribed",
@@ -2047,10 +2052,10 @@
     "holdToMove": "Press and hold a tile to move it (or the arrow keys here)",
     "close": "Close",
     "tabSaved": "Saved",
-    "tabGroups": "Groups",
-    "newGroup": "New group",
-    "groupHint": "A group is a tag that holds other tags: searching it finds all their files. Make one with New group.",
-    "noGroups": "No groups yet",
+    "tabGroups": "Parents",
+    "newGroup": "New parent",
+    "groupHint": "A parent tag holds other tags: searching it finds all their files. Make one with New parent, or from a tag's menu.",
+    "noGroups": "No parent tags yet",
     "groupFacts": "{tags} · {files}",
     "andMore": "{list}, +{n}",
     "nameOf": "Name of {name}",

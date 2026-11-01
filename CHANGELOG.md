@@ -7,7 +7,8 @@ shows this too (Settings > Help & about).
 
 ### Improved
 
-- **Saved searches, redesigned**: the menu opens from a floppy disk now (instead of the star). Each saved search is a tile with its first few pictures, its name and how many files it finds, two to a row. Press and hold a tile (or click and hold) to move it. Group tags have a tab of their own, as tiles too, in an order you choose. On a phone the menu comes up from the bottom (drag it down to close); on a computer it's a panel at the right. **Save** sits at the top.
+- **Saved searches, redesigned**: the menu opens from a floppy disk now (instead of the star). Each saved search is a tile with its first few pictures, its name and how many files it finds, two to a row. Press and hold a tile (or click and hold) to move it. Parent tags have a tab of their own, as tiles too, in an order you choose. On a phone the menu comes up from the bottom (drag it down to close); on a computer it's a panel at the right. **Save** sits at the top.
+- **Put a tag in a parent tag from its menu**: tap a tag in a file's details, then Parent tags. Tap a parent to put the tag in it or take it out, or type a new one.
 - **Long lines that slide come back quickly**: a name or search too long for its place slides slowly to its end, then comes back to its start quickly instead of at the same slow speed, and its first and last letters are never faded.
 
 - **The Downloads page opens at once on big libraries**: it no longer waits several seconds every half minute while the tag refresh numbers are counted again (they're counted in the background now, the last ones shown meanwhile). Opened again, it shows what it showed last while the latest comes, and it says "Loading…" instead of "No subscriptions yet" until the first answer arrives.

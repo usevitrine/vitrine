@@ -2,7 +2,9 @@
   import { overlayScroll } from '../lib/overlayScroll';
   // What to do with a tag tapped in the details: search with it (add, exclude,
   // a new search), start a new download for it, copy it (with or without its namespace), put it in
-  // another namespace (a page of its own), remove it from the file. A menu next to the tag, kept on screen; Escape or a tap outside closes it.
+  // another namespace (a page of its own), put it in parent tags or take it out (a page of its own: the parents with a
+  // check, a new one by name), remove it from the file. A menu next to the tag, kept on screen; Escape or a tap
+  // outside closes it.
   import { backClose } from '../lib/backClose';
   import { place } from '../lib/place';
   import { tick } from 'svelte';
@@ -15,6 +17,9 @@
   import SubMark from './SubMark.svelte';
   import { subTags } from '../lib/subTags.svelte';
   import { siteLabel } from '../lib/sites.svelte';
+  import { api, type Relation } from '../lib/api';
+  import { toasts } from '../lib/toast.svelte';
+  import { nudge } from '../lib/motion';
 
   let {
     tag,
@@ -24,6 +29,7 @@
     ondownload,
     onsubscribe,
     onnamespace,
+    parents: parenting = false,
     oncopy,
     blacklistEntry,
     onblacklist,
@@ -38,6 +44,7 @@
     ondownload: () => void; // a new download for the tag
     onsubscribe?: () => void; // ... with Subscribe picked (none: not offered)
     onnamespace?: (ns: string) => void; // into another namespace ("" = general), on every file (none: not offered)
+    parents?: boolean; // its parent tags can be picked here (the library's tags)
     oncopy: (text: string) => void;
     /** The blacklist entry it's on ("" none; undefined: not known yet - Add is offered). Its own entry can be taken
      *  off here; one of a pattern ("ai_*") is named instead (taking that off would let other tags through too). */
@@ -54,13 +61,53 @@
   const subs = $derived(subTags.of(tag));
   const subSites = $derived(subs ? [...new Set(subs.subs.map((s) => siteLabel(s.site)))].join(', ') : '');
   let menu = $state<HTMLDivElement>();
-  let nsPage = $state(false); // the Namespace page is on show
+  let page = $state<'' | 'ns' | 'parents'>(''); // the Namespace or Parent tags page on show
   // Pages move like every menu's (lib/pages).
   const pages = new Pages();
-  function showNs(on: boolean) {
+  function show(to: typeof page) {
     pages
-      .go(on, () => (nsPage = on))
-      .then((el) => el?.querySelector<HTMLButtonElement>('[role^=menuitem]')?.focus({ preventScroll: true }));
+      .go(to !== '', () => (page = to))
+      .then((el) => el?.querySelector<HTMLElement>('[role^=menuitem], input')?.focus({ preventScroll: true }));
+  }
+
+  // ---- parent tags (2026-11-01, the user: "Tap menus on tag chips should have an option to add a tag to a
+  // parent/group tag"): every parent there is, checked when this tag is one of its children; a tap puts it in or
+  // takes it out (the menu stays open); a new one by name. Asked once the menu opens (for the count on its item).
+  let relations = $state<Relation[] | null>(null);
+  let busy = $state(false);
+  let newParent = $state('');
+  // (one this tag was the only child of stays in the list once taken out - a parent is only its children - so a
+  // second tap puts it back)
+  let shown = new Set<string>();
+  const allParents = $derived.by(() => {
+    for (const r of relations ?? []) shown.add(r.to);
+    return [...shown].sort((a, b) => a.localeCompare(b));
+  });
+  const mine = $derived(new Set((relations ?? []).filter((r) => r.from === tag).map((r) => r.to)));
+  $effect(() => {
+    if (!parenting) return;
+    api.relations().then(
+      (r) => (relations = r.parents),
+      () => (relations = []),
+    );
+  });
+  async function setParent(p: string, on: boolean) {
+    p = p.trim();
+    if (!p || p === tag || busy) return false;
+    busy = true;
+    try {
+      relations = (await api.editRelation('parent', on ? 'add' : 'remove', tag, p)).parents;
+      return true;
+    } catch (err) {
+      toasts.error((err as Error).message);
+      return false;
+    } finally {
+      busy = false;
+    }
+  }
+  async function addNew(e: Event) {
+    e.preventDefault();
+    if (await setParent(newParent, true)) newParent = '';
   }
   let pos = $state({ left: 0, top: 0, ready: false });
   // Phones: an action sheet along the bottom; wider screens: a menu at the tag.
@@ -135,9 +182,37 @@
     <div class="mpages" class:animating={pages.animating} {@attach pages.box} style:height={pages.height !== null ? `${pages.height}px` : undefined}>
     {#key pages.nav}
     <div class="mpage" {@attach pages.page} in:pages.pageIn out:pages.pageOut>
-    {#if nsPage}
+    {#if page === 'parents'}
       <div class="head page">
-        <button class="back" aria-label={t('common.back')} onclick={() => showNs(false)}><Icon name="left" size={18} /></button>
+        <button class="back" aria-label={t('common.back')} onclick={() => show('')}><Icon name="left" size={18} /></button>
+        <span class="name">{t('tagMenu.parents')}</span>
+      </div>
+      <div class="group" role="group" aria-label={t('tagMenu.parents')}>
+        {#each allParents as p (p)}
+          {@const on = mine.has(p)}
+          <button role="menuitemcheckbox" aria-checked={on} class:on disabled={busy} onclick={() => setParent(p, !on)}>
+            <Icon name="stack" size={18} />
+            <span class="grow name-of">{p}</span>
+            {#if on}<span class="tick" transition:nudge><Icon name="check" size={16} /></span>{/if}
+          </button>
+        {:else}
+          <p class="note">{t('tagMenu.noParents')}</p>
+        {/each}
+      </div>
+      <form class="group new-parent" onsubmit={addNew}>
+        <input
+          bind:value={newParent}
+          placeholder={t('tagMenu.newParent')}
+          aria-label={t('tagMenu.newParent')}
+          autocapitalize="off"
+          autocomplete="off"
+          spellcheck="false" />
+        <button type="submit" class="add" disabled={busy || !newParent.trim() || newParent.trim() === tag} aria-label={t('tagMenu.addParent')} title={t('tagMenu.addParent')}
+          ><Icon name="plus" size={18} /></button>
+      </form>
+    {:else if page === 'ns'}
+      <div class="head page">
+        <button class="back" aria-label={t('common.back')} onclick={() => show('')}><Icon name="left" size={18} /></button>
         <span class="name">{t('tagMenu.namespace')}</span>
       </div>
       <div class="group" role="group" aria-label={t('tagMenu.namespace')}>
@@ -210,14 +285,24 @@
       {/if}
     </div>
 
-    {#if onnamespace}
+    {#if onnamespace || parenting}
       <div class="group">
-        <button role="menuitem" onclick={() => showNs(true)}>
-          <Icon name="folder" size={18} />
-          <span class="grow">{t('tagMenu.namespace')}</span>
-          <span class="now">{nsLabel(parts.ns)}</span>
-          <Icon name="right" size={16} />
-        </button>
+        {#if onnamespace}
+          <button role="menuitem" onclick={() => show('ns')}>
+            <Icon name="folder" size={18} />
+            <span class="grow">{t('tagMenu.namespace')}</span>
+            <span class="now">{nsLabel(parts.ns)}</span>
+            <Icon name="right" size={16} />
+          </button>
+        {/if}
+        {#if parenting}
+          <button role="menuitem" onclick={() => show('parents')}>
+            <Icon name="stack" size={18} />
+            <span class="grow">{t('tagMenu.parents')}</span>
+            {#if mine.size}<span class="now" transition:nudge>{mine.size === 1 ? [...mine][0] : t('tagMenu.nParents', { n: mine.size })}</span>{/if}
+            <Icon name="right" size={16} />
+          </button>
+        {/if}
       </div>
     {/if}
 
@@ -448,5 +533,34 @@
   }
   button.on > :global(svg) {
     color: var(--mauve);
+  }
+  .name-of {
+    overflow-wrap: anywhere;
+  }
+  .tick {
+    display: inline-flex;
+    color: var(--mauve);
+  }
+  .note {
+    margin: 0;
+    padding: 6px 12px 8px;
+    font-size: 13px;
+    color: var(--subtext);
+  }
+  .new-parent {
+    display: flex;
+    gap: 6px;
+    padding: 6px 4px 2px;
+  }
+  .new-parent input {
+    flex: 1;
+    min-width: 0;
+  }
+  .new-parent .add {
+    flex: none;
+    width: var(--control-h);
+    padding: 0;
+    justify-content: center;
+    background: var(--surface0);
   }
 </style>

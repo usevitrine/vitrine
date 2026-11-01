@@ -10,6 +10,13 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   from one; `router.downloadDraft`). Copy: the full tag, and for namespaced tags "Copy without namespace" (the text
   shown on each item; clipboard API, execCommand fallback; a toast). Remove from this file (red). Escape / tap
   outside closes only the menu; arrow keys move through it. Ctrl/Cmd-click (add) and Alt-click (exclude) stay.
+- **Parent tags from the tag menu (2026-11-01, the user: "Tap menus on tag chips should have an option to add a tag to
+  a parent/group tag")**: an item "Parent tags" beside Namespace (the parent's name on it when the tag has one, else
+  "N parents"), the library's tags only. Its page (lib/pages, like Namespace): every parent tag with a check when this
+  tag is one of its children - a tap puts it in or takes it out, the menu stays open; a parent this tag was the only
+  child of stays listed once taken out, so a second tap puts it back - and a box for a new parent by name (+).
+  `GET/POST /api/relations`, the same as Tags > Rules. The saved searches menu calls them parents too (its tab
+  "Parents", "New parent"; the user: "rename group to parent in the new menu").
 - **Tags a subscription follows (2026-10-30, the user: "wherever a tag is displayed, i want an indicator that a tag is
   present in a subscription")**: a small mauve bell after the tag (`SubMark.svelte`) - filled when a subscription's
   search is the tag alone (excluded tags beside it allowed), an outline when it's one of several, dimmed when every

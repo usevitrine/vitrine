@@ -385,6 +385,7 @@
           if (await moveToNamespace(p.tag, ns)) reload();
         }
       : undefined}
+    parents={!comics && !!save}
     oncopy={copyText}
     blacklistEntry={bl.tags === null ? undefined : bl.entryFor(p.tag)}
     onblacklist={() => (blacklisted(p.tag) ? blacklistRemove(p.tag) : blacklistAdd([p.tag]))}
