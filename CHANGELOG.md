@@ -9,6 +9,8 @@ shows this too (Settings > Help & about).
 
 - **Centered text**: small text in chips and buttons (the site kinds when adding a site, for one) sat about a pixel
   high on Windows; it's centered now.
+- **Cyrillic letters** (in tags, say) show in the app's font: its small font file was blocked by the app's own
+  security rules.
 - **Keyboard**: tabbing through the grid, the top row's ring is no longer cut off at the top; it's drawn just inside
   each tile.
 - **Downloads and notifications menus**: New and All in the heading have their words and icons on one line, with even

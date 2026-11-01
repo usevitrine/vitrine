@@ -19,6 +19,9 @@ export default defineConfig(({ mode }) => ({
     outDir: mode === 'demo' ? 'dist-demo' : '../internal/server/web/app',
     emptyOutDir: true,
     target: 'es2022',
+    // (fonts always files: a small one inlined as data: - the Cyrillic face - was refused by the server's
+    // Content-Security-Policy, font-src 'self')
+    assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
     // The bundled packages' licenses (served at /licenses with the Go side's: internal/server/licenses.go).
     license: { fileName: 'licenses.md' },
   },
