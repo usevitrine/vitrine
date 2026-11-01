@@ -84,7 +84,9 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
     chips are gone from the menu). Server: `GET /api/saved/looks?sort=<the page's default>` -> each saved search's
     pictures and each group's files, first tags and pictures (`savedLooks`, internal/server/saved.go); the Comics page's
     list has none (a quiet box with the library icon in their place).
-  - **Groups**: a tab of their own (`.segmented`, shown only when there are groups), the tiles the same - the tag in its
+  - **Groups**: a tab of their own (`.segmented`; always on the library - shown only with groups at first, and the
+    user, who had none yet, didn't find it: "You didnt implement group/parent tags?"; with none it says what a group
+    is), the tiles the same - the tag in its
     color, "N tags · N files", its first tags ("a, b, c, +N"); **New group** goes to Tags > Rules (where groups are
     made). Their order is the user's: shared setting `groupOrder` (the rest after them by name). Switching tabs moves
     like a menu's pages (lib/pages: Groups slides in from the right, the height follows).

@@ -92,8 +92,9 @@
       .sort((a, b) => at(a.tag) - at(b.tag) || a.tag.localeCompare(b.tag))
       .map((g) => ({ ...g, look: look.get(g.tag) }));
   });
-  /** The tabs show when there are groups (the Comics page has none). */
-  let tabs = $derived(!comics && groups.length > 0);
+  /** The tabs: always on the library, groups or not (hidden with none, the user didn't find them: "You didnt implement
+   *  group/parent tags?"); the Comics page has no groups. */
+  const tabs = !comics;
 
   onMount(async () => {
     saved.refreshNews();
@@ -422,6 +423,12 @@
                 <p class="muted">{query.trim() ? t('saved.noneSave') : t('saved.noneSearch')}</p>
               </div>
             {/if}
+          {:else if !groups.length}
+            <div class="empty-saved" transition:reveal>
+              <Icon name="tag" size={28} />
+              <p><strong>{t('saved.noGroups')}</strong></p>
+              <p class="muted">{t('saved.groupHint')}</p>
+            </div>
           {:else}
             <!-- Group (parent) tags: one tap away like a saved search, with their own NEW pills and their own order. -->
             <ul class="tiles" class:dragging={!!groupDrags.drag}>

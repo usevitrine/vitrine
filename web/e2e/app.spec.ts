@@ -1697,6 +1697,7 @@ test('saved searches: a tap closes the menu smoothly first (a sheet slides away)
       ? r.fulfill({ json: { saved: [{ id: 902, name: 'Short one', query: 'blue_sky', sort: '', count: 4 }, { id: 903, name: 'Other one', query: 'red', sort: '', count: 5 }] } })
       : r.continue(),
   );
+  await page.route('**/api/news*', (r) => r.fulfill({ json: { saved: [], groups: [] } }));
   await page.goto('/');
   await page.getByRole('button', { name: /^Saved searches/ }).click();
   const panel = page.getByRole('dialog', { name: 'Saved searches' });
@@ -1710,6 +1711,11 @@ test('saved searches: a tap closes the menu smoothly first (a sheet slides away)
   await expect.poll(() => tile.evaluate((el) => getComputedStyle(el).rotate)).toBe('-1.5deg');
   await page.mouse.up();
   await expect(tile).not.toHaveClass(/lifted/);
+  // No groups yet: the tab is there all the same, saying what a group is.
+  await panel.getByRole('tab', { name: 'Groups' }).click();
+  await expect(panel.getByText('No groups yet')).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'New group' })).toBeVisible();
+  await panel.getByRole('tab', { name: 'Saved' }).click();
   // A tap: the menu goes (still there, moving away) before the search runs.
   await panel.getByRole('button', { name: /^Short one/ }).click();
   const going = await page.evaluate(() => {
