@@ -305,7 +305,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		if !rawUpload { // (the backup sets its own limit: a library's database is far more than 1 MB)
+			r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		}
 	}
 
 	start := time.Now()

@@ -761,6 +761,20 @@ func TestBackupsAPI(t *testing.T) {
 	if code := upload([]byte("not a backup"), true); code != http.StatusBadRequest {
 		t.Fatalf("garbage: %d", code)
 	}
+	// More than the API's 1 MB for a request (a real library's database): read whole - refused as no backup, not as
+	// too large.
+	big, _ := http.NewRequest("POST", e.srv.URL+"/api/backups/upload", bytes.NewReader(bytes.Repeat([]byte("x"), 3<<20)))
+	big.Header.Set("Content-Type", "application/octet-stream")
+	big.Header.Set("X-Vitrine-Upload", "1")
+	if resp, err := e.c.Do(big); err != nil {
+		t.Fatal(err)
+	} else {
+		msg, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest || strings.Contains(string(msg), "too large") {
+			t.Fatalf("3 MB upload: %d %s", resp.StatusCode, msg)
+		}
+	}
 	if code := upload(gz, true); code != 200 {
 		t.Fatalf("upload: %d", code)
 	}
