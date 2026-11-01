@@ -50,11 +50,12 @@
   ]);
 
   let gen = 0;
-  async function load(more = false) {
+  /** Loads the first page, the next one (more), or after an edit as many as are shown (keep: the page stays where it was scrolled). */
+  async function load(more = false, keep = false) {
     const g = ++gen;
     loading = true;
     try {
-      const res = await api.tagList(filter, ns, site, sort, more ? tags.length : 0, PAGE);
+      const res = await api.tagList(filter, ns, site, sort, more ? tags.length : 0, keep ? Math.max(PAGE, tags.length) : PAGE);
       if (g !== gen) return;
       tags = more ? [...tags, ...res.tags] : res.tags;
       total = res.total;
@@ -96,7 +97,7 @@
       const { files } = await api.renameTag(bt.tag, to);
       toasts.show(t('tagBrowser.renamed', { from: bt.tag, to, n: files }), { cat: 'tagEdits' });
       open = null;
-      load();
+      load(false, true);
     }, (b) => (busy = b));
   }
 
@@ -107,7 +108,7 @@
       onrelations(await api.editRelation('sibling', 'add', bt.tag, to));
       toasts.show(t('tagBrowser.aliased', { from: bt.tag, to }), { cat: 'tagEdits' });
       open = null;
-      load();
+      load(false, true);
     }, (b) => (busy = b));
   }
 </script>
@@ -190,9 +191,9 @@
                   choices: {
                     heading: t('tagMenu.namespace'),
                     value: bt.namespace,
-                    options: nsChoices().map((ns) => ({ value: ns, label: nsLabel(ns) })),
+                    options: nsChoices().map((ns) => ({ value: ns, label: nsLabel(ns), dot: nsColor(ns) })),
                     pick: async (ns) => {
-                      if (ns !== bt.namespace && (await moveToNamespace(bt.tag, ns))) load();
+                      if (ns !== bt.namespace && (await moveToNamespace(bt.tag, ns))) load(false, true);
                     },
                   },
                 },
@@ -355,9 +356,12 @@
     font-weight: 500;
     color: var(--c);
   }
+  /* (the whole line lights, its dots button included) */
   @media (hover: hover) {
     .row:hover {
       filter: none;
+    }
+    .line:hover {
       background: var(--surface0);
     }
   }

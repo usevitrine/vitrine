@@ -6,7 +6,7 @@
   export interface MenuChoice {
     heading: string; // the page's title
     value: string; // the current choice (checked)
-    options: { value: string; label: string }[];
+    options: { value: string; label: string; dot?: string }[]; // dot: a color shown before the label (a namespace's)
     pick: (value: string) => void;
   }
   export interface MenuItem {
@@ -208,6 +208,7 @@
           {#each page.options as o (o.value)}
             {@const on = o.value === page.value}
             <button role="menuitemradio" aria-checked={on} class:on onclick={() => choose(page!, o.value)}>
+              {#if o.dot}<span class="dot" style:background={o.dot}></span>{/if}
               <span class="grow">{o.label}</span>
               {#if on}<Icon name="check" size={16} />{/if}
             </button>
@@ -350,6 +351,14 @@
     padding-top: 0;
     margin-top: 0;
     border-top: 0;
+  }
+  /* (a choice's color, as the tag menu's namespaces: where an item's icon would be) */
+  .dot {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    margin: 0 4px;
+    border-radius: 50%;
   }
   .sep {
     height: 1px;

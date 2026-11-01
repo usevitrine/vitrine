@@ -13,7 +13,7 @@ import (
 func (s *Server) listTags(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	total, list, err := s.lib.TagList(r.Context(), q.Get("q"), q.Get("ns"), q.Get("site"), q.Get("sort") == "name",
-		intParam(r, "offset", 0, 0, 1<<30), intParam(r, "limit", 100, 1, 1000))
+		intParam(r, "offset", 0, 0, 1<<30), intParam(r, "limit", 100, 1, 5000)) // (up to 5000: an edit reloads every row shown)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return

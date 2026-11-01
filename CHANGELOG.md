@@ -3,6 +3,15 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **Centered text**: the words in buttons, chips and rows sat a little low everywhere; they're centered now.
+- **All tags**: a row lights up whole on hover, its menu button included; the namespace picker shows each namespace's
+  color; and changing a tag's namespace, renaming or aliasing it after Show more keeps your place instead of jumping
+  back to the top.
+
 ## 1.0.15 - 2026-11-01
 
 ### Improved

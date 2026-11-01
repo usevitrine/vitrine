@@ -93,9 +93,12 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   measured: 0-6 pixels change as the panel settles, before and after); in the e2e flow every panel, dialog, menu
   and section ends on whole pixels (before: 43.5, 358.6, 106.8...).
 - **Type (2026-10-24, the user's pick of Geist / Inter / Plus Jakarta Sans / Manrope)**: Plus Jakarta Sans, the
-  variable font bundled with the app (`@fontsource-variable/plus-jakarta-sans`, imported in main.ts: woff2 files split
+  variable font bundled with the app (`@fontsource-variable/plus-jakarta-sans`; woff2 files split
   by script, only the ones a page's text needs are fetched; no outside font service - self-hosted, offline, private),
   then the system stack (system-ui, -apple-system, Segoe UI, Roboto); line height 1.4. Until then: the system stack.
+  Its faces are declared in `web/src/font.css` (not fontsource's own CSS) with `ascent-override: 97%` /
+  `descent-override: 29%` (2026-11-01, the user: text not vertically centered in buttons and chips): as shipped
+  (1.04 / 0.22) the letters sat low in every line box, lowercase about 2 px at 14 px.
   The logo's "itrine" follows it. (Playwright's WebKit on Windows draws the variable font's weights all light; Chromium
   and real Safari don't.)
 - **Icons (2026-10-24, the user: "a comprehensive icon theme that you are able to reference")**: Lucide (lucide.dev,
