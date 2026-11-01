@@ -1993,6 +1993,20 @@
     user-select: none;
     -webkit-user-select: none;
   }
+  /* The keyboard's ring inside the tile's edge, over the picture: outside it (the shared style), the scroller cut it off
+     above the top row. */
+  .tile:focus-visible {
+    outline: none;
+  }
+  .tile:focus-visible::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 2px var(--mauve);
+    pointer-events: none;
+  }
   .tile.rounded {
     border-radius: 8px;
     --r: 8px;
