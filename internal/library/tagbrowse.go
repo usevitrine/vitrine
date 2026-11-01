@@ -20,8 +20,8 @@ type BrowsedTag struct {
 }
 
 // TagList lists tags (see index.TagList) and says which come from sites.
-func (l *Library) TagList(ctx context.Context, filter, ns string, byName bool, offset, limit int) (int, []BrowsedTag, error) {
-	total, list := l.ix.TagList(filter, ns, byName, offset, limit)
+func (l *Library) TagList(ctx context.Context, filter, ns, site string, byName bool, offset, limit int) (int, []BrowsedTag, error) {
+	total, list := l.ix.TagList(filter, ns, site, byName, offset, limit)
 	out := make([]BrowsedTag, len(list))
 	if len(list) == 0 {
 		return total, out, nil
@@ -36,12 +36,12 @@ func (l *Library) TagList(ctx context.Context, filter, ns string, byName bool, o
 	if err != nil {
 		return 0, nil, fmt.Errorf("library: %w", err)
 	}
-	site := map[uint32]bool{}
+	given := map[uint32]bool{}
 	for _, id := range ids {
-		site[id] = true
+		given[id] = true
 	}
 	for i := range out {
-		out[i].FromSites = site[out[i].ID]
+		out[i].FromSites = given[out[i].ID]
 	}
 	return total, out, nil
 }

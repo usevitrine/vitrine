@@ -8,11 +8,11 @@ import (
 	"github.com/usevitrine/vitrine/internal/library"
 )
 
-// The tag browser: GET /api/tags?q=&ns=&sort=count|name&offset=&limit= ->
-// {total, tags: [{tag, namespace, count, ideal?, from_sites}]}.
+// The tag browser: GET /api/tags?q=&ns=&site=&sort=count|name&offset=&limit= ->
+// {total, tags: [{tag, namespace, count, ideal?, from_sites}]} (site: only the tags of its files, counted by them).
 func (s *Server) listTags(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	total, list, err := s.lib.TagList(r.Context(), q.Get("q"), q.Get("ns"), q.Get("sort") == "name",
+	total, list, err := s.lib.TagList(r.Context(), q.Get("q"), q.Get("ns"), q.Get("site"), q.Get("sort") == "name",
 		intParam(r, "offset", 0, 0, 1<<30), intParam(r, "limit", 100, 1, 1000))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)

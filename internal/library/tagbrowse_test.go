@@ -20,24 +20,31 @@ func TestTagListAndRename(t *testing.T) {
 	l.AddTags(ctx, ids[1:4], tags("favorit", "blue_sky"))
 	l.AddTags(ctx, ids[3:4], tags("favorite"))
 
-	total, list, err := l.TagList(ctx, "", "", false, 0, 10)
+	total, list, err := l.TagList(ctx, "", "", "", false, 0, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if total != 4 || list[0].Tag != "blue_sky" || list[0].Count != 4 || !list[0].FromSites || list[1].Tag != "favorit" || list[1].FromSites {
 		t.Fatalf("list: %d %+v", total, list)
 	}
-	if total, list, _ = l.TagList(ctx, "fav", "", true, 0, 10); total != 2 || list[0].Tag != "favorit" || list[1].Tag != "favorite" {
+	if total, list, _ = l.TagList(ctx, "fav", "", "", true, 0, 10); total != 2 || list[0].Tag != "favorit" || list[1].Tag != "favorite" {
 		t.Fatalf("filtered by name: %d %+v", total, list)
 	}
-	if total, list, _ = l.TagList(ctx, "", "creator", false, 0, 10); total != 1 || list[0].Tag != "creator:some_artist" || list[0].Namespace != "creator" {
+	if total, list, _ = l.TagList(ctx, "", "creator", "", false, 0, 10); total != 1 || list[0].Tag != "creator:some_artist" || list[0].Namespace != "creator" {
 		t.Fatalf("namespace: %d %+v", total, list)
 	}
-	if total, _, _ = l.TagList(ctx, "", index.NoNamespace, false, 0, 10); total != 3 {
+	if total, _, _ = l.TagList(ctx, "", index.NoNamespace, "", false, 0, 10); total != 3 {
 		t.Fatalf("no namespace: %d", total)
 	}
-	if total, list, _ = l.TagList(ctx, "", "", false, 3, 10); total != 4 || len(list) != 1 {
+	if total, list, _ = l.TagList(ctx, "", "", "", false, 3, 10); total != 4 || len(list) != 1 {
 		t.Fatalf("offset: %d %+v", total, list)
+	}
+	// By site: the tags of its files (ids[0], ids[1]), counted by them; a site with no files (or none such): nothing.
+	if total, list, _ = l.TagList(ctx, "", "", "safebooru", false, 0, 10); total != 3 || list[0].Tag != "blue_sky" || list[0].Count != 2 {
+		t.Fatalf("by site: %d %+v", total, list)
+	}
+	if total, _, _ = l.TagList(ctx, "", "", "nowhere", false, 0, 10); total != 0 {
+		t.Fatalf("an unknown site: %d", total)
 	}
 
 	// Fix a typo: favorit -> favorite (merges into the existing tag).
@@ -47,7 +54,7 @@ func TestTagListAndRename(t *testing.T) {
 	}
 	want(t, l, "favorite", ids[3], ids[2], ids[1])
 	want(t, l, "favorit")
-	if total, _, _ = l.TagList(ctx, "favorit", "", false, 0, 10); total != 1 {
+	if total, _, _ = l.TagList(ctx, "favorit", "", "", false, 0, 10); total != 1 {
 		t.Fatalf("the old name is still listed: %d", total)
 	}
 	// A plain rename to a new name.

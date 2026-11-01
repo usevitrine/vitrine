@@ -1,11 +1,12 @@
 <script lang="ts">
-  // All tags: filter, namespace, most used or A-Z; tap a tag to search it,
+  // All tags: filter, namespace, site (the tags of its files), most used or A-Z; tap a tag to search it,
   // rename it (your own tags) or alias it to another (a sibling - for tags from
   // sites, which a tag refresh would otherwise bring back under the old name).
   import { api, type BrowsedTag, type Relation } from '../lib/api';
   import { reveal, moved, swap, nudge } from '../lib/motion';
   import { router } from '../lib/router.svelte';
   import { toasts, attempt } from '../lib/toast.svelte';
+  import { siteLabel } from '../lib/sites.svelte';
   import { namespaces, nsChoices, moveToNamespace, nsColor, nsLabel, nsRank, splitTag } from '../lib/namespaces.svelte';
   import Dropdown from './Dropdown.svelte';
   import TagInput from './TagInput.svelte';
@@ -20,7 +21,17 @@
   const PAGE = 100;
   let filter = $state('');
   let ns = $state(''); // '' = all, '-' = no namespace
+  let site = $state(''); // '' = all sites; a site: only the tags of its files, counted by them
   let sort = $state<'count' | 'name'>('count');
+
+  // The sites the library has files from (media and comics), the most files first.
+  let siteList = $state<string[]>([]);
+  // (either can fail alone - the other's sites still show; both failing: no site picker)
+  Promise.allSettled([api.siteCounts(''), api.siteCounts('', 'comics')]).then((res) => {
+    const n: Record<string, number> = {};
+    for (const r of res) if (r.status === 'fulfilled') for (const s of r.value.sites) n[s.site] = (n[s.site] ?? 0) + s.count;
+    siteList = Object.keys(n).sort((a, b) => n[b] - n[a] || siteLabel(a).localeCompare(siteLabel(b)));
+  });
   let tags = $state<BrowsedTag[]>([]);
   let total = $state(0);
   let loading = $state(false);
@@ -43,7 +54,7 @@
     const g = ++gen;
     loading = true;
     try {
-      const res = await api.tagList(filter, ns, sort, more ? tags.length : 0, PAGE);
+      const res = await api.tagList(filter, ns, site, sort, more ? tags.length : 0, PAGE);
       if (g !== gen) return;
       tags = more ? [...tags, ...res.tags] : res.tags;
       total = res.total;
@@ -55,10 +66,11 @@
     }
   }
 
-  // Reload when the filter, namespace or order changes (typing: a moment after the last key).
+  // Reload when the filter, namespace, site or order changes (typing: a moment after the last key).
   let timer = 0;
   $effect(() => {
     void ns;
+    void site;
     void sort;
     const f = filter;
     clearTimeout(timer);
@@ -117,6 +129,16 @@
       onchange={(v) => (sort = v as 'count' | 'name')}
       label={t('tagBrowser.order')}
       align="end" />
+    {#if siteList.length > 1 || site}
+      <span class="site">
+        <Dropdown
+          value={site}
+          options={[{ value: '', label: t('tagBrowser.allSites') }, ...siteList.map((id) => ({ value: id, label: siteLabel(id) }))]}
+          onchange={(v) => (site = v)}
+          label={t('tagBrowser.site')}
+          align="end" />
+      </span>
+    {/if}
   </div>
 
   <div class="chips" role="radiogroup" aria-label={t('tagMenu.namespace')}>
@@ -213,14 +235,34 @@
       </button>
     {/if}
   {:else if !loading && !error}
-    <p class="empty" transition:reveal>{filter || ns ? t('tagBrowser.noMatch') : t('tagBrowser.none')}</p>
+    <p class="empty" transition:reveal>{filter || ns || site ? t('tagBrowser.noMatch') : t('tagBrowser.none')}</p>
   {/if}
 </section>
 
 <style>
   .controls {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
+  }
+  /* (phones: the filter on a row of its own, the order and the site under it) */
+  @media (max-width: 639px) {
+    .filter {
+      flex-basis: 100%;
+    }
+    .controls .site {
+      flex: 1;
+      min-width: 0;
+    }
+    .controls .site :global(.dropdown) {
+      width: 100%;
+    }
+  }
+  .controls .site {
+    display: grid;
+  }
+  .controls .site :global(.dropdown) {
+    width: 170px;
   }
   .filter {
     position: relative;

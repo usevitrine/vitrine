@@ -7,6 +7,8 @@ shows this too (Settings > Help & about).
 
 ### Improved
 
+- **All tags by site**: pick a site on Tags > All tags to see only the tags of its files, with how many of them have each.
+- **New dots on the saved searches' tabs**: Saved and Groups each show a dot when one of theirs has new files, not just the save button.
 - **The picture follows the details sheet** (phones): drag the details down and the picture moves and grows with your finger into the room the sheet leaves. Let go and it carries on from there as the sheet closes, or goes back up with it.
 
 ### Fixed
@@ -16,6 +18,7 @@ shows this too (Settings > Help & about).
 - **File sizes are written the same way everywhere** (one screen said "12.0 MB" where another said "12 MB").
 - **The tag menu on a computer** no longer plays two opening animations at once.
 - **A comic collection given a malformed ID** is refused instead of being treated as collection 0.
+- **An opened or hover-zoomed tile** no longer leaves a gray box behind in its place, just the page.
 - **Restoring a backup from a file** failed with "request body too large" for any backup over 1 MB. It now takes backups of any size.
 - **Menus and dialogs come and go the same way**: a few had their own slightly different animation.
 - **An expired login while saving views or uploading a backup** now brings you to the login page instead of failing quietly.

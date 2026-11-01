@@ -71,6 +71,8 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   change, Save as new, run with its order, Edit renames and deletes with Undo, NEW pills, Esc / a press outside).
   - **The button**: a floppy disk instead of the star (the user: "change the icon to open this menu from a star to the
     floppy disk icon"; Lucide's `Save`), lit mauve when the current search is saved, its dot for new files as before.
+    The panel's tabs (Saved, Groups) carry the same dot, each for its own (2026-11-01, the user: "a new dot on the
+    individual tabs ... not just on the floppy disk button"; `saved.savedNew` / `groupsNew`).
   - **Where**: a phone (< 640 px) gets a sheet along the bottom (lib/sheet + lib/sheetDrag like the other menus: grab
     bar, drag down to close, the page dimmed); wider, a panel floating at the right under the search bar, like the
     viewer's details (it glides in from the right as it fades in, out the same way). It floats over the grid - making

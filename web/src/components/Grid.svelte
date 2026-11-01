@@ -549,9 +549,18 @@
   // kept from four screens above to five below, moving with the page without the page doing anything.
   const BAND = 2048;
   let bandColor = $state('');
+  let holeColor = $state(''); // the page's own background (the first one under the grid that isn't see-through)
   $effect(() => {
     void width;
-    if (el) bandColor = getComputedStyle(el).getPropertyValue('--surface0').trim() || '#313244';
+    if (!el) return;
+    bandColor = getComputedStyle(el).getPropertyValue('--surface0').trim() || '#313244';
+    for (let n: Element | null = el; n; n = n.parentElement) {
+      const bg = getComputedStyle(n).backgroundColor;
+      if (bg && bg !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(bg)) {
+        holeColor = bg;
+        break;
+      }
+    }
   });
   const bandCache = new Map<number, string>();
   let bandKey = '';
@@ -634,6 +643,13 @@
     tileKept = kept;
     return out;
   });
+  // A tile away from its place - its file open (hideId: the picture is its tile), zoomed by hovering, or shrinking
+  // back - leaves the page there, not its box under it (bands; the user: "there shouldn't be anything, just empty space").
+  const holes = $derived(
+    tiles
+      .filter((t) => hover?.i === t.i || shrinking.some((s) => s.i === t.i) || (hideId !== undefined && results.idAt(t.i) === hideId))
+      .map((t) => t.p),
+  );
 
   // Phones: the fast scroller goes to the side the thumb scrolls on (each
   // touch on the grid decides; not while the scroller itself is held).
@@ -1735,6 +1751,11 @@
     {#each clearedView ? [] : bands as band (band.b)}
       <div class="band" aria-hidden="true" style:top="{band.b * BAND}px" style:height="{Math.max(0, Math.min(BAND, contentH - GAP - band.b * BAND))}px" style:background-image={band.url}></div>
     {/each}
+    {#if !clearedView && holeColor}
+      {#each holes as p (`${p.x} ${p.y}`)}
+        <div class="hole" aria-hidden="true" style:transform="translate({p.x}px, {p.y}px)" style:width="{p.w}px" style:height="{p.h}px" style:background={holeColor}></div>
+      {/each}
+    {/if}
     {#each tiles as tile (tile.i)}
       {@const z = hover?.i === tile.i ? hover : null}
       {@const back = z ? undefined : shrinking.find((s) => s.i === tile.i)}
@@ -2463,6 +2484,14 @@
     pointer-events: none;
     background-repeat: no-repeat;
     background-position: 0 0;
+  }
+  /* A tile's place while it's away (holes): over its box, under every tile. */
+  .hole {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -2;
+    pointer-events: none;
   }
   /* Scrubbing the hover card's video: a sideways cursor wherever the pointer goes. */
   .scrubbing,

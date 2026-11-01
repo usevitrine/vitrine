@@ -51,6 +51,11 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   Alias (= make it a sibling of another tag; the only option for tags from sites, because a tag refresh would bring
   a renamed site tag back). API: `GET /api/tags?q=&ns=&sort=count|name&offset=&limit=` (index `TagList`, `ns=-` =
   no namespace; rows say `from_sites`), `POST /api/tags/rename {from, to}`.
+  **By site (2026-11-01, the user: "you should be able to filter by site")**: a site picker beside the order (All
+  sites, then the sites the library has files from, media and comics, most files first; not shown with only one
+  site - the user, about the dev server's one site: "keep it as it was its ok"): only the tags of that site's files, each counted by those files - `&site=` (a site's name, or several
+  `a,b`), counted in the index (`siteFiles` bitmaps, as `system:site=`). A tag the user added to a site's file counts
+  too: files, not tag origins (the index doesn't keep origins - the same as the "Which site?" counts).
 - **Tags sub-pages**: the tag browser took too much room above the rules, so the Tags screen
   has two sub-pages: **All tags** (`/tags`, the browser) and **Tag rules** (`/tags/rules`: parents, siblings,
   blacklist). A two-way switch under the heading (`.segmented` in `app.css`, full width on phones) and indented

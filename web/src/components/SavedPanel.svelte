@@ -323,8 +323,13 @@
     <div class="bar-row">
       {#if tabs}
         <div class="segmented" role="tablist" aria-label={t('saved.title')} transition:nudge>
-          <button type="button" role="tab" aria-selected={tab === 'saved'} onclick={() => switchTab('saved')}>{t('saved.tabSaved')}</button>
-          <button type="button" role="tab" aria-selected={tab === 'groups'} onclick={() => switchTab('groups')}>{t('saved.tabGroups')}</button>
+          <!-- (a dot: new files in one of its searches or groups - as on the save button, which says only that some has) -->
+          <button type="button" role="tab" aria-selected={tab === 'saved'} onclick={() => switchTab('saved')}
+            aria-label={t('saved.tabSaved') + (saved.savedNew ? t('searchBar.newFiles') : '')}
+            >{t('saved.tabSaved')}{#if saved.savedNew}<span class="tab-dot" aria-hidden="true" transition:pop></span>{/if}</button>
+          <button type="button" role="tab" aria-selected={tab === 'groups'} onclick={() => switchTab('groups')}
+            aria-label={t('saved.tabGroups') + (saved.groupsNew ? t('searchBar.newFiles') : '')}
+            >{t('saved.tabGroups')}{#if saved.groupsNew}<span class="tab-dot" aria-hidden="true" transition:pop></span>{/if}</button>
         </div>
       {/if}
       <span class="grow"></span>
@@ -568,6 +573,15 @@
     min-height: 0;
     height: 30px;
     padding: 0 14px;
+  }
+  .tab-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-left: 6px;
+    vertical-align: 0.15em;
+    border-radius: 50%;
+    background: var(--mauve);
   }
   .small-btn {
     min-height: 0;

@@ -21,9 +21,15 @@ export class Saved {
   /** New files per saved search (by ID) and the group (parent) tags with theirs, since each was last opened. */
   newOf = $state<Record<number, number>>({});
   groups = $state<News['groups']>([]);
-  /** Anything new in any of them (the star button's dot). */
+  /** Anything new in a saved search, in a group (each tab's dot), in any of them (the save button's dot). */
+  get savedNew() {
+    return Object.values(this.newOf).some((n) => n > 0);
+  }
+  get groupsNew() {
+    return this.groups.some((g) => g.new > 0);
+  }
   get anyNew() {
-    return Object.values(this.newOf).some((n) => n > 0) || this.groups.some((g) => g.new > 0);
+    return this.savedNew || this.groupsNew;
   }
 
   async refreshNews() {

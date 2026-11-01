@@ -1007,6 +1007,8 @@
     "mostUsed": "Most used",
     "az": "A–Z",
     "order": "Tag order",
+    "allSites": "All sites",
+    "site": "Tags from site",
     "searchFor": "Search for {tag}",
     "rename": "Rename",
     "renameMenu": "Rename…",

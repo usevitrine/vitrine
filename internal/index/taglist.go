@@ -4,6 +4,8 @@ import (
 	"cmp"
 	"slices"
 	"strings"
+
+	"github.com/RoaringBitmap/roaring/v2"
 )
 
 // TagCount is a tag in the tag browser.
@@ -20,8 +22,10 @@ const NoNamespace = "-"
 
 // TagList lists tags with live files: those whose name contains filter (any
 // case), in namespace ns ("" = all, NoNamespace = none), most used first or
-// by name. Returns how many match and the slice [offset, offset+limit).
-func (ix *Index) TagList(filter, ns string, byName bool, offset, limit int) (int, []TagCount) {
+// by name. With site (a site's name, or several: "a,b"), only the tags of files
+// from it, counted by those files. Returns how many match and the slice
+// [offset, offset+limit).
+func (ix *Index) TagList(filter, ns, site string, byName bool, offset, limit int) (int, []TagCount) {
 	filter = strings.ToLower(strings.TrimSpace(filter))
 	ns = strings.ToLower(ns)
 	ix.mu.RLock()
@@ -34,6 +38,12 @@ func (ix *Index) TagList(filter, ns string, byName bool, offset, limit int) (int
 	default:
 		wantNS, nsOK = ix.nsByName[ns]
 		if !nsOK {
+			return 0, nil
+		}
+	}
+	var from *roaring.Bitmap
+	if site = strings.TrimSpace(site); site != "" {
+		if from = ix.sitesBitmap(site); from == nil {
 			return 0, nil
 		}
 	}
@@ -53,7 +63,12 @@ func (ix *Index) TagList(filter, ns string, byName bool, offset, limit int) (int
 		if filter != "" && !strings.Contains(e.lower, filter) && !strings.Contains(strings.ToLower(ix.tagName(id)), filter) {
 			continue
 		}
-		n := int(ix.raw[id].GetCardinality())
+		var n int
+		if from != nil {
+			n = int(ix.raw[id].AndCardinality(from))
+		} else {
+			n = int(ix.raw[id].GetCardinality())
+		}
 		if n == 0 {
 			continue
 		}

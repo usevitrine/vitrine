@@ -641,9 +641,10 @@ export const api = {
   removeDownload: (id: number) => post<{ ok: boolean }>(`/api/downloads/${id}/remove`, {}),
   clearDownloads: () => post<{ removed: number }>('/api/downloads/clear', {}),
   reorderDownloads: (site: string, ids: number[]) => post<{ ok: boolean }>('/api/downloads/reorder', { site, ids }),
-  tagList: (q: string, ns: string, sort: 'count' | 'name', offset: number, limit: number) =>
+  // site: only the tags of its files, counted by them ('' = every file).
+  tagList: (q: string, ns: string, site: string, sort: 'count' | 'name', offset: number, limit: number) =>
     get<{ total: number; tags: BrowsedTag[] }>(
-      `/api/tags?q=${encodeURIComponent(q)}&ns=${encodeURIComponent(ns)}&sort=${sort}&offset=${offset}&limit=${limit}`,
+      `/api/tags?q=${encodeURIComponent(q)}&ns=${encodeURIComponent(ns)}&site=${encodeURIComponent(site)}&sort=${sort}&offset=${offset}&limit=${limit}`,
     ),
   renameTag: (from: string, to: string) => post<{ files: number }>('/api/tags/rename', { from, to }),
   // A tag into another namespace ("" = general), on every file; merged into a tag of that name there.
