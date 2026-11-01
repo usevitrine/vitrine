@@ -73,4 +73,3 @@ func TestSavedLooks(t *testing.T) {
 		t.Fatalf("group: %+v", g)
 	}
 }
-

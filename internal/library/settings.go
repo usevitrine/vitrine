@@ -89,8 +89,8 @@ var settingCheck = map[string]func(json.RawMessage) error{
 		return nil
 	},
 	// The trash empties itself of files deleted more than this many days ago (0 / missing = never).
-	"trashDays":    numberIn(0, 3650),
-	"newMode":      oneOf("auto", "button"),
+	"trashDays": numberIn(0, 3650),
+	"newMode":   oneOf("auto", "button"),
 	// The saved searches menu's Groups tab: the group tags in the user's order (the rest after them, by name).
 	"groupOrder": func(v json.RawMessage) error {
 		var tags []string
