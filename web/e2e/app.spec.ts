@@ -1745,6 +1745,55 @@ test('saved searches: a tap closes the menu smoothly first (a sheet slides away)
   await expect(page).toHaveURL(/blue_sky/);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
+test('saved searches: the tiles\' pictures fade in as they come (even ones the browser has), no library icon before them; opened again, they come in with the menu', async ({ page }) => {
+  await page.route('**/api/saved*', (r) =>
+    r.request().method() === 'GET' ? r.fulfill({ json: { saved: [{ id: 902, name: 'Short one', query: 'blue_sky', sort: '', count: 4 }] } }) : r.continue(),
+  );
+  await page.goto('/');
+  await expect(page.locator('.sizer > .tile img.in').nth(2)).toBeAttached();
+  // Its pictures: three the grid shows (the browser has them), a moment after the menu opens.
+  const pics = await page.locator('.sizer > .tile').evaluateAll((ts) =>
+    ts.slice(0, 3).map((t) => ({ id: Number((t as HTMLElement).dataset.id), thumb: t.querySelector('img')!.getAttribute('src') })),
+  );
+  await page.route('**/api/saved/looks*', async (r) => {
+    await new Promise((d) => setTimeout(d, 500));
+    await r.fulfill({ json: { saved: { 902: { count: 4, pics } }, groups: [] } });
+  });
+  // (each picture's fade, and whether the library icon showed before the pictures)
+  const watch = () =>
+    page.evaluate(
+      () =>
+        new Promise<{ faded: number; icon: boolean; pics: number }>((done) => {
+          const faded = new Set<Element>();
+          let icon = false;
+          const t0 = performance.now();
+          const f = () => {
+            for (const i of document.querySelectorAll('.mosaic img')) if (i.getAnimations().some((a) => a.playState === 'running')) faded.add(i);
+            if (!document.querySelector('.mosaic img') && document.querySelector('.mosaic.none svg')) icon = true;
+            if (performance.now() - t0 < 1500) requestAnimationFrame(f);
+            else done({ faded: faded.size, icon, pics: document.querySelectorAll('.mosaic img').length });
+          };
+          requestAnimationFrame(f);
+        }),
+    );
+  const star = page.getByRole('button', { name: /^Saved searches/ });
+  const panel = page.getByRole('dialog', { name: 'Saved searches' });
+  let seen = watch();
+  await star.click();
+  const first = await seen;
+  expect(first.pics).toBeGreaterThan(0);
+  expect(first.faded).toBe(first.pics);
+  expect(first.icon).toBe(false);
+  await panel.getByRole('button', { name: 'Close' }).click();
+  await expect(panel).toHaveCount(0);
+  // Again: the last pictures are there at once (the menu's own animation brings them), then asked again.
+  seen = watch();
+  await star.click();
+  const again = await seen;
+  expect(again.pics).toBe(first.pics);
+  expect(again.faded).toBe(0);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
 test('fast scroller: drag the handle to jump, with a date bubble; a press beside the handle is not the scroller\'s', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 430 }); // a short window: 26 files fill several screens
   await page.goto('/');

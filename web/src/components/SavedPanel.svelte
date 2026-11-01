@@ -10,6 +10,7 @@
   import { backClose } from '../lib/backClose';
   import { swallowPress, leaving } from '../lib/outside';
   import { onMount, tick } from 'svelte';
+  import { fade } from 'svelte/transition';
   import { useScope } from '../lib/scope.svelte';
   import { settings } from '../lib/settings.svelte';
   import { toasts } from '../lib/toast.svelte';
@@ -67,16 +68,41 @@
   );
 
   // ---- each tile's pictures (the library's list only) and the groups' facts
-  let looks = $state<Record<string, SavedLook>>({});
-  let groupLooks = $state<SavedLook[]>([]);
+  // (the last ones fetched, kept for the next opening: its tiles come in with their pictures, then they're asked again)
+  let looks = $state<Record<string, SavedLook>>(lastLooks?.saved ?? {});
+  let groupLooks = $state<SavedLook[]>(lastLooks?.groups ?? []);
+  let looksKnown = $state(!!lastLooks); // (until then a tile without pictures is blank, not the library's icon)
   async function loadLooks() {
     if (comics) return;
     try {
       const l = await api.savedLooks(defaultSort);
+      lastLooks = l;
       looks = l.saved;
       groupLooks = l.groups;
     } catch {
       /* offline: tiles without pictures */
+    }
+    looksKnown = true;
+  }
+  // Pictures there as the menu opens come in with it; any that come later fade in - once decoded (faded in while
+  // still decoding, WebKit popped them at the end), even ones the browser has (the user: "the thumbnails aren't
+  // animated in").
+  let opened = false;
+  $effect(() => {
+    opened = true;
+  });
+  function fadeIn(img: HTMLImageElement) {
+    if (!opened && img.complete && img.naturalWidth) return;
+    if (reduced()) return;
+    img.style.opacity = '0';
+    const show = () => {
+      img.style.opacity = '';
+      img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
+    };
+    if (img.complete && img.naturalWidth) img.decode().then(show, show);
+    else {
+      img.addEventListener('load', () => img.decode().then(show, show), { once: true });
+      img.addEventListener('error', show, { once: true });
     }
   }
 
@@ -466,23 +492,16 @@
 {#snippet mosaic(pics: SavedLook['pics'])}
   {#if pics.length}
     <span class="mosaic n{pics.length}">{#each pics as p (p.id)}<img src={p.thumb} alt="" draggable="false" loading="lazy" {@attach fadeIn} />{/each}</span>
+  {:else if looksKnown}
+    <span class="mosaic none" in:fade={{ duration: reduced() ? 0 : 200 }}><Icon name="library" size={22} /></span>
   {:else}
-    <span class="mosaic none"><Icon name="library" size={22} /></span>
+    <span class="mosaic none"></span>
   {/if}
 {/snippet}
 
 <script module lang="ts">
-  /** A picture that has to load fades in (no pop) - one the browser has already shows at once. */
-  function fadeIn(img: HTMLImageElement) {
-    if (img.complete && img.naturalWidth) return;
-    img.style.opacity = '0';
-    const show = () => {
-      img.style.transition = 'opacity 0.25s';
-      img.style.opacity = '1';
-    };
-    img.addEventListener('load', show, { once: true });
-    img.addEventListener('error', show, { once: true });
-  }
+  import type { SavedLook as Look } from '../lib/api';
+  let lastLooks: { saved: Record<string, Look>; groups: Look[] } | null = null;
 </script>
 
 <style>

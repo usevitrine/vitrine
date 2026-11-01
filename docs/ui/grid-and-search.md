@@ -83,7 +83,10 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
     design rule's lib/marquee), its file count and a non-default order. The search itself is the tile's hover text (the
     chips are gone from the menu). Server: `GET /api/saved/looks?sort=<the page's default>` -> each saved search's
     pictures and each group's files, first tags and pictures (`savedLooks`, internal/server/saved.go); the Comics page's
-    list has none (a quiet box with the library icon in their place).
+    list has none (a quiet box with the library icon in their place). The pictures arrive a moment after the menu
+    opens: each fades in once decoded, even one the browser has (they popped in - the user: "the thumbnails aren't
+    animated in"); until they're known a tile's box stays blank (no library icon swapped for pictures). The last ones
+    are kept for the next opening - they come in with the menu - and asked again.
   - **Groups**: a tab of their own (`.segmented`; always on the library - shown only with groups at first, and the
     user, who had none yet, didn't find it: "You didnt implement group/parent tags?"; with none it says what a group
     is), the tiles the same - the tag in its
