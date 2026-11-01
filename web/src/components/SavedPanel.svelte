@@ -333,24 +333,30 @@
         </div>
       {/if}
       <span class="grow"></span>
-      {#if tab === 'saved'}
-        {#if saved.list.length}
-          <button class="quiet small-btn" aria-pressed={editing} onclick={() => (editing = !editing)} transition:nudge>{editing ? t('saved.done') : t('saved.edit')}</button>
-        {/if}
-        {#if !editing}
-          <button
-            class="small-btn add"
-            disabled={!query.trim() || !!current}
-            aria-expanded={saving}
-            title={current ? t('searchBar.savedAsTitle', { name: current.name }) : undefined}
-            onclick={() => (saving ? (saving = false) : openSave())}
-            data-autofocus={!current && query.trim() && !changedFrom ? '' : undefined}
-            transition:nudge><Icon name="plus" size={16} /> {t('common.save')}</button>
-        {/if}
-      {:else}
-        <button class="small-btn add" onclick={() => (router.go('tags', 'rules'), onclose(false))} title={t('saved.groupHint')} transition:nudge
-          ><Icon name="plus" size={16} /> {t('saved.newGroup')}</button>
-      {/if}
+      <!-- (a tab's buttons swap at once, the new ones fading in: sliding out beside the new ones, both tabs' showed for
+           a moment; their own nudges - Edit, Save - only play within the tab) -->
+      {#key tab}
+        <span class="tab-buttons" in:fade={{ duration: reduced() ? 0 : 150 }}>
+          {#if tab === 'saved'}
+            {#if saved.list.length}
+              <button class="quiet small-btn" aria-pressed={editing} onclick={() => (editing = !editing)} transition:nudge>{editing ? t('saved.done') : t('saved.edit')}</button>
+            {/if}
+            {#if !editing}
+              <button
+                class="small-btn add"
+                disabled={!query.trim() || !!current}
+                aria-expanded={saving}
+                title={current ? t('searchBar.savedAsTitle', { name: current.name }) : undefined}
+                onclick={() => (saving ? (saving = false) : openSave())}
+                data-autofocus={!current && query.trim() && !changedFrom ? '' : undefined}
+                transition:nudge><Icon name="plus" size={16} /> {t('common.save')}</button>
+            {/if}
+          {:else}
+            <button class="small-btn add" onclick={() => (router.go('tags', 'rules'), onclose(false))} title={t('saved.groupHint')}
+              ><Icon name="plus" size={16} /> {t('saved.newGroup')}</button>
+          {/if}
+        </span>
+      {/key}
     </div>
 
     {#if tab === 'saved' && !editing && query.trim()}
@@ -563,6 +569,11 @@
   }
   .grow {
     flex: 1;
+  }
+  .tab-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .bar-row .segmented {
     width: auto;

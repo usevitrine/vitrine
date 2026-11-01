@@ -9,6 +9,7 @@ shows this too (Settings > Help & about).
 
 - **Downloads and notifications menus**: New and All in the heading have their words and icons on one line, with even
   room on both sides.
+- **Saved searches**: switching between the Saved and Groups tabs no longer shows both tabs' buttons for a moment.
 - **New download**: the dialog opens at its full height instead of opening small with "Loading…" and jumping up.
 - **All tags**: a row lights up whole on hover, its menu button included; the namespace picker shows each namespace's
   color; and changing a tag's namespace, renaming or aliasing it after Show more keeps your place instead of jumping
