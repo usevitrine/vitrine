@@ -96,9 +96,12 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   variable font bundled with the app (`@fontsource-variable/plus-jakarta-sans`; woff2 files split
   by script, only the ones a page's text needs are fetched; no outside font service - self-hosted, offline, private),
   then the system stack (system-ui, -apple-system, Segoe UI, Roboto); line height 1.4. Until then: the system stack.
-  Its faces are declared in `web/src/font.css` (not fontsource's own CSS) with `ascent-override: 97%` /
-  `descent-override: 29%` (2026-11-01, the user: text not vertically centered in buttons and chips): as shipped
-  (1.04 / 0.22) the letters sat low in every line box, lowercase about 2 px at 14 px.
+  Its own metrics stay (ascent 1.04 / descent 0.22): measured in buttons of 32 and 44 px at 12-16 px text, they
+  center capitals best; an override (97% / 29%, tried 2026-11-01) lifted the text 1-2 px too high. What did make
+  words sit off next to icons: a control on a half pixel (e.g. a 32 px button in 35 px of room) - text snaps to whole
+  pixels, icons don't - so keep the room around controls even, and icons 16 px in 32 px buttons. An icon at a button's
+  end has empty margins in its drawing (a chevron: 6 px a side at 16 px); pull it in with a negative margin so the
+  button's room looks even (the Downloads menu's All).
   The logo's "itrine" follows it. (Playwright's WebKit on Windows draws the variable font's weights all light; Chromium
   and real Safari don't.)
 - **Icons (2026-10-24, the user: "a comprehensive icon theme that you are able to reference")**: Lucide (lucide.dev,

@@ -260,7 +260,8 @@
     align-items: center;
     gap: 6px;
     min-height: 44px;
-    padding: 4px 6px 4px 14px;
+    /* (3 px under: with the line, 36 px around the 32 px buttons - on whole pixels, so their words and icons line up) */
+    padding: 4px 6px 3px 14px;
     border-bottom: 1px solid var(--surface0);
   }
   h2 {

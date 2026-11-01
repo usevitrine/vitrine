@@ -123,8 +123,8 @@
     <div class="panel" bind:this={panel} role="dialog" aria-label={t('dlMenu.label')} {@attach backClose(close)} in:grow out:grow={{ out: true }}>
       <header>
         <h2>{t('dlMenu.label')}</h2>
-        <button class="quiet link new" onclick={newDownload} aria-label={t('newDl.open')}><Icon name="plus" size={15} /> {t('dlMenu.new')}</button>
-        <button class="quiet link" onclick={toDownloads}>{t('dlMenu.all')} <Icon name="right" size={15} /></button>
+        <button class="link new" onclick={newDownload} aria-label={t('newDl.open')}><Icon name="plus" size={16} /> {t('dlMenu.new')}</button>
+        <button class="quiet link" onclick={toDownloads}>{t('dlMenu.all')} <Icon name="right" size={16} /></button>
       </header>
       {#if active.list.length}
         <ul {@attach scrollsWhenFull} {@attach overlayScroll}>
@@ -266,7 +266,8 @@
     align-items: center;
     gap: 6px;
     min-height: 44px;
-    padding: 4px 6px 4px 14px;
+    /* (3 px under: with the line, 36 px around the 32 px buttons - on whole pixels, so their words and icons line up) */
+    padding: 4px 6px 3px 14px;
     border-bottom: 1px solid var(--surface0);
   }
   h2 {
@@ -284,8 +285,20 @@
     color: var(--mauve);
     gap: 2px;
   }
+  /* New stands out: a filled mauve button (the app's usual one), All stays a quiet link. */
   .link.new {
     gap: 4px;
+    padding: 0 10px;
+    color: var(--crust);
+    font-weight: 600;
+  }
+  /* (the icons' drawings sit inside empty margins - the chevron's 6 px a side, the plus's 3 px: pulled in, so the
+     button's room is even on both sides) */
+  .link:not(.new) > :global(svg) {
+    margin: 0 -5px 0 -3px;
+  }
+  .link.new > :global(svg:first-child) {
+    margin-left: -3px;
   }
   ul {
     list-style: none;

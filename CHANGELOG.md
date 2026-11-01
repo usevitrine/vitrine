@@ -7,7 +7,8 @@ shows this too (Settings > Help & about).
 
 ### Fixed
 
-- **Centered text**: the words in buttons, chips and rows sat a little low everywhere; they're centered now.
+- **Downloads and notifications menus**: New and All in the heading have their words and icons on one line, with even
+  room on both sides.
 - **All tags**: a row lights up whole on hover, its menu button included; the namespace picker shows each namespace's
   color; and changing a tag's namespace, renaming or aliasing it after Show more keeps your place instead of jumping
   back to the top.
