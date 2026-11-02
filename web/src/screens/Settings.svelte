@@ -238,9 +238,7 @@
             <div class="field">
               <span class="field-label">{t('settings.forgetDeleted.label')}</span>
               <span class="hint">{t('settings.forgetDeleted.hint')}</span>
-              <div class="clear-views">
-                <button class="quiet" onclick={forgetDeleted}><Icon name="trash" size={16} /> {t('settings.forgetDeleted.action')}</button>
-              </div>
+              <button class="quiet forget" onclick={forgetDeleted}><Icon name="trash" size={16} /> {t('settings.forgetDeleted.action')}</button>
             </div>
           </section>
           {:else if current === 'new'}
@@ -480,6 +478,9 @@
     display: flex;
     padding-left: 30px;
     margin-top: -4px;
+  }
+  .forget {
+    justify-self: start;
   }
   .install-card {
     display: grid;

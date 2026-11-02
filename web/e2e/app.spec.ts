@@ -264,6 +264,10 @@ test('settings: clearing the deleted forever list asks first', async ({ page }) 
     return r.fulfill({ json: { forgotten: 3 } });
   });
   await page.goto('/settings/library');
+  // (in line with its label: no indent)
+  const label = (await page.getByText('Deleted forever', { exact: true }).boundingBox())!;
+  const button = (await page.getByRole('button', { name: 'Clear the list' }).boundingBox())!;
+  expect(Math.abs(button.x - label.x)).toBeLessThan(1);
   await page.getByRole('button', { name: 'Clear the list' }).click();
   await expect(page.getByText('Clear the deleted forever list?')).toBeVisible();
   expect(cleared).toBe(0);
