@@ -1457,18 +1457,13 @@ test('tags a subscription follows: a bell in the details, the search bar and the
     await expect(menu.locator('.subbed')).toContainText('test-down.invalid');
     await expect(menu.getByRole('menuitem', { name: 'Subscribe…' })).toHaveCount(0);
     await page.keyboard.press('Escape');
-    // Part of one: "In a subscription", and Subscribe… starts a new one with Subscribe picked.
+    // Part of one: "In a subscription"; a new one is New download's (no Subscribe… beside it).
     await tag('bellmark_part').click();
     const partMenu = page.getByRole('menu', { name: /^bellmark_part/ });
     await expect(partMenu.locator('.subbed')).toContainText('In a subscription');
-    await partMenu.getByRole('menuitem', { name: 'Subscribe…' }).click();
-    await expect(newDl(page)).toBeVisible();
-    // (Escape again if it came while the dialog was still opening - WebKit)
-    await expect(async () => {
-      await page.keyboard.press('Escape');
-      await expect(newDl(page)).toHaveCount(0, { timeout: 1000 });
-    }).toPass();
-    if (!(await panel.isVisible())) await page.getByRole('button', { name: 'Details', exact: true }).click();
+    await expect(partMenu.getByRole('menuitem', { name: 'New download' })).toBeVisible();
+    await expect(partMenu.getByRole('menuitem', { name: 'Subscribe…' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
     // Open: the subscription on the Downloads page.
     await tag('bellmark_own').click();
     await menu.getByRole('menuitem', { name: 'Open the subscription' }).click();

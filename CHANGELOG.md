@@ -5,6 +5,10 @@ shows this too (Settings > Help & about).
 
 ## Unreleased
 
+### Improved
+
+- **A tag's menu** no longer has Subscribe… beside New download: the New download dialog does both.
+
 ### Fixed
 
 - **Centered text**: small text in chips and buttons (the site kinds when adding a site, for one) sat about a pixel

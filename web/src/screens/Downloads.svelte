@@ -1684,7 +1684,7 @@
                     <div class="row qrow" class:has-grip={grips} data-wi={e.wi >= 0 ? e.wi : undefined}>
                       {#if grips}
                         <button
-                          class="grip"
+                          class="icon grip"
                           aria-label={t('saved.reorder', { name: nameOf(e.s) })}
                           title={t('saved.dragToReorder')}
                           onpointerdown={(ev) => dragStart(ev, q.site, e.wi, e.s.id)}
@@ -2050,7 +2050,7 @@
   }
   .qrow.has-grip {
     grid-template-columns: 20px minmax(0, 1fr);
-    padding-left: 2px;
+    padding-left: 0; /* (the grip against the card's edge) */
   }
   .qrow .main {
     gap: 0;
@@ -2236,11 +2236,14 @@
     min-height: 0;
     height: auto;
     padding: 0;
-    background: none;
-    border-radius: 6px;
+    /* (its hover fills the card's edge, top to bottom: the card's rounded corners cut it) */
+    border-radius: 0;
     color: var(--overlay0);
     cursor: grab;
     touch-action: none;
+  }
+  .grip:focus-visible {
+    outline-offset: -2px; /* (inside: the card would cut it off) */
   }
   :global(.lifted) .grip {
     cursor: grabbing;

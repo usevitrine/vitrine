@@ -17,7 +17,6 @@ export interface NewDownloadRequest {
   site?: string;
   text?: string;
   label?: string; // shown instead of the search (the gallery's title)
-  subscribe?: boolean; // Subscribe picked to start with (a tag's menu: "Subscribe…")
   ondone?: (subscribed: boolean) => void;
 }
 
@@ -37,10 +36,10 @@ export function openSiteDownload(site: string, text: string, label: string, ondo
 }
 
 /** The dialog for library tags (any: an OR group - posts with any of them; a site without an OR search: one search each). */
-export function newDownload(tags: string[], { any = false, fallback, subscribe }: { any?: boolean; fallback?: string; subscribe?: boolean } = {}) {
+export function newDownload(tags: string[], { any = false, fallback }: { any?: boolean; fallback?: string } = {}) {
   if (!tags.length) return;
   const or = any && tags.length > 1;
-  newDownloadDialog.current = { query: or ? `( ${tags.join(' ~ ')} )` : tags.join(' '), fromTags: true, fallback, subscribe };
+  newDownloadDialog.current = { query: or ? `( ${tags.join(' ~ ')} )` : tags.join(' '), fromTags: true, fallback };
 }
 
 /** The sites that gave the tags, best first. */

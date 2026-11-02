@@ -29,7 +29,6 @@
     inSearch,
     onsearch,
     ondownload,
-    onsubscribe,
     onnamespace,
     parents: parenting = false,
     oncopy,
@@ -44,7 +43,6 @@
     inSearch: 'in' | 'out' | null; // whether the current search has it, excludes it, or neither
     onsearch: (how: 'add' | 'exclude' | 'drop' | 'only') => void;
     ondownload: () => void; // a new download for the tag
-    onsubscribe?: () => void; // ... with Subscribe picked (none: not offered)
     onnamespace?: (ns: string) => void; // into another namespace ("" = general), on every file (none: not offered)
     parents?: boolean; // its parent tags can be picked here (the library's tags)
     oncopy: (text: string) => void;
@@ -201,9 +199,6 @@
       {/if}
       <button role="menuitem" onclick={() => pick(() => onsearch('only'))}><Icon name="search" size={18} /> {t('tagMenu.newSearch')}</button>
       <button role="menuitem" onclick={() => pick(ondownload)}><Icon name="download" size={18} /> {t('tagMenu.newDownload')}</button>
-      {#if onsubscribe && !subs?.own}
-        <button role="menuitem" onclick={() => pick(onsubscribe)}><Icon name="bell" size={18} /> {t('tagMenu.subscribe')}</button>
-      {/if}
       {#if onblacklist}
         {#if blacklistEntry && blacklistEntry !== tag.toLowerCase() && blacklistEntry !== parts.name.toLowerCase()}
           <button role="menuitem" disabled

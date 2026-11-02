@@ -32,8 +32,8 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   three mockups, the user: just "subscribed and the sites", an open icon instead of the word): under the header a
   mauve-tinted box - the bell, "Subscribed" / "In a subscription", the sites under it - and an external-link icon
   that opens it on the Downloads page (one: scrolled to and flashed, `router.focus = 'sub:<id>'`; several: the
-  Subscriptions tab filtered to the tag, `'subs:<name>'`). A tag that isn't its own subscription gets **Subscribe…**
-  after New download: the New download dialog with Subscribe picked (`subscribe`). **Centered (2026-10-30, the user:
+  Subscriptions tab filtered to the tag, `'subs:<name>'`). A new subscription is New download's (the dialog's Once / Subscribe);
+  a separate **Subscribe…** beside it was removed on 2026-11-02 (the user: "isnt needed"). **Centered (2026-10-30, the user:
   the chip's bell "look[s] terrible" - low, its icon off-center)**: in a chip the tag's text and bell are a flex row
   (`align-items: center`, no nudge); elsewhere `vertical-align: middle`; the bell is the disc's size minus 4 px (same
   odd/even, so it lands on whole pixels - a 9 px bell in a 14 px disc was half a pixel off), `display: block`. The e2e

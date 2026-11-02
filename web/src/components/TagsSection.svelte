@@ -373,7 +373,6 @@
     inSearch={inSearch(p.tag)}
     onsearch={(how) => searchWith(p.tag, how)}
     ondownload={() => newDownload([p.tag], { fallback: siteOf(p.tag) })}
-    onsubscribe={() => newDownload([p.tag], { fallback: siteOf(p.tag), subscribe: true })}
     onnamespace={save
       ? async (ns) => {
           if (await moveToNamespace(p.tag, ns)) reload();
