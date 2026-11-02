@@ -285,6 +285,11 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
 - **Thumbnails on their way (2026-10-19)**: a tile whose thumbnail hasn't loaded shows a small spinner over its
   color preview after 0.5 s (never for a normal load); a thumbnail that failed (many asked at once after a long jump)
   is asked again up to 3 times, 1-3 s apart.
+- **Suggestions' width and coming back (2026-11-02, the user)**: TagInput's `span` (a selector) makes the list as wide
+  as an ancestor while it stays right under the box: the row of boxes on Tags > Tag rules ("the same width as the
+  contents of the card"), the library's search row (over the new-files or trash button beside the bar). Going back
+  into a box left mid-word asks for its suggestions again, only after really leaving it: a box opened with text in it
+  (a chip being edited) stays quiet.
 - **Suggestions above the keyboard (2026-10-19)**: the suggestion list's height is capped at the room between the
   box and the bottom of the visual viewport (above the on-screen keyboard and the bar iOS puts on it), kept up to
   date as the keyboard opens.

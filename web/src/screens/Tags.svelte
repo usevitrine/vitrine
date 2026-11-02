@@ -87,16 +87,16 @@
         <p class="hint">{t('tags.parents.hint')}</p>
       </div>
       <div class="form">
-        <TagInput bind:value={child} multi label={t('tags.parents.childLabel')} placeholder={t('tags.parents.childPlaceholder')} onenter={addParent} />
+        <TagInput bind:value={child} multi span=".form" label={t('tags.parents.childLabel')} placeholder={t('tags.parents.childPlaceholder')} onenter={addParent} />
         <span class="arrow" aria-hidden="true">→</span>
-        <TagInput bind:value={parent} label={t('tags.parents.parent')} placeholder={t('tags.parents.parent')} onenter={addParent} />
+        <TagInput bind:value={parent} span=".form" label={t('tags.parents.parent')} placeholder={t('tags.parents.parent')} onenter={addParent} />
         <button onclick={addParent}><Icon name="plus" size={18} /> {t('common.add')}</button>
       </div>
       {#each groups as g (g.parent)}
         <div class="group" animate:moved transition:reveal>
           <div class="gname"><span style:color={tagColor(g.parent)}>{g.parent}</span> <span class="muted">· {g.children.length}</span></div>
           <div class="add-row">
-            <TagInput bind:value={() => childDraft[g.parent] ?? "", (v) => (childDraft[g.parent] = v)} multi label={t('tags.parents.addChildTo', { tag: g.parent })} placeholder={t('tags.parents.addChildren')} onenter={(text) => addChildren(g.parent, text)} />
+            <TagInput bind:value={() => childDraft[g.parent] ?? "", (v) => (childDraft[g.parent] = v)} multi span=".add-row" label={t('tags.parents.addChildTo', { tag: g.parent })} placeholder={t('tags.parents.addChildren')} onenter={(text) => addChildren(g.parent, text)} />
             <button onclick={() => addChildren(g.parent)} disabled={!childDraft[g.parent]?.trim()}><Icon name="plus" size={18} /> {t('common.add')}</button>
           </div>
           <div class="chips">
@@ -120,9 +120,9 @@
         <p class="hint">{t('tags.siblings.hint')}</p>
       </div>
       <div class="form">
-        <TagInput bind:value={from} label={t('tags.siblings.tag')} placeholder={t('tags.siblings.tag')} onenter={addSibling} />
+        <TagInput bind:value={from} span=".form" label={t('tags.siblings.tag')} placeholder={t('tags.siblings.tag')} onenter={addSibling} />
         <span class="arrow" aria-hidden="true">→</span>
-        <TagInput bind:value={to} label={t('tags.siblings.ideal')} placeholder={t('tags.siblings.ideal')} onenter={addSibling} />
+        <TagInput bind:value={to} span=".form" label={t('tags.siblings.ideal')} placeholder={t('tags.siblings.ideal')} onenter={addSibling} />
         <button onclick={addSibling}><Icon name="plus" size={18} /> {t('common.add')}</button>
       </div>
       {#if siblings.length}

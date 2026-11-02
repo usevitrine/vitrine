@@ -3,6 +3,18 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **New download on phones**: opened from a tag's or a chip's menu, the dialog could close again as it appeared (since
+  1.0.16).
+- **Search bar**: the clear button closes the suggestions too, and clicking back into a box left mid-word brings its
+  suggestions back without having to type.
+- **Suggestions' width**: under Tags > Tag rules they're as wide as the row of boxes, and in the library they also span
+  the button beside the search bar.
+- **Phones**: the keyboard no longer covers text boxes in sheets, such as naming a saved search; every sheet sits above it.
+
 ## 1.0.16 - 2026-11-02
 
 ### Improved

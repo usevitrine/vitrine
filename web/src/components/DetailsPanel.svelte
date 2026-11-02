@@ -102,6 +102,7 @@
     .panel {
       top: auto;
       left: 0;
+      bottom: var(--kb, 0px); /* above the on-screen keyboard */
       width: auto;
       max-height: var(--sheet-max-h);
       z-index: 50;

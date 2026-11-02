@@ -311,7 +311,7 @@
     left: 0;
     right: 0;
     top: auto;
-    bottom: 0;
+    bottom: var(--kb, 0px);
     width: auto;
     min-width: 0;
     max-width: none;

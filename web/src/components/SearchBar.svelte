@@ -104,6 +104,7 @@
   let draft = $state('');
   let editing = $state<number | null>(null);
   let input = $state<HTMLInputElement>();
+  let tagInput = $state<ReturnType<typeof TagInput>>();
   let savedOpen = $state(false);
   // The filter menu: adding a filter, or editing the filter chip at `index`.
   let filterMenu = $state<{ index: number | null; form: Form | null } | null>(null);
@@ -366,6 +367,7 @@
         onclick={() => {
           draft = '';
           editing = null;
+          tagInput?.reset();
           run([]);
           input?.focus();
         }} transition:nudge><Icon name="close" size={18} /></button>
@@ -414,6 +416,7 @@
       </span>
     {/each}
     <TagInput
+      bind:this={tagInput}
       bind:value={draft}
       bind:inputEl={input}
       {comics}
@@ -428,7 +431,8 @@
       onblur={left}
       onenter={commitDraft}
       onbackspaceempty={backspaceEmpty}
-      anchor={fieldEl} />
+      anchor={fieldEl}
+      span=".search-row" />
     </div>
     </div>
     <span class="tail">

@@ -54,6 +54,11 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   library's status line. Originals are never stored. Logging out deletes what's saved. Settings > Display > "Saved
   on this device" shows the thumbnail count and space used, with Clear. E2E (Chromium, against the built app on the
   backend's port): go offline, reload, the grid and thumbnails come back with the note.
+- **Every phone sheet above the on-screen keyboard (2026-11-02, the user: "the keyboard covers the input ... anywhere
+  in bottom sheets")**: `bottom: var(--kb, 0px)` on all of them (ones that were `bottom: 0`: saved searches, the chip
+  editor, the search menu, a tag's menu, dropdowns, action menus, DetailsPanel), and `--sheet-max-h` counts only what
+  can be seen (`--view-h`). When the keyboard opens, `lib/viewport` also scrolls the box being typed in into the sheet's
+  visible part. A new sheet: use the same two.
 - **Two batches of saved thumbnails (2026-11-02, the user: Settings said nothing was saved on a device that had plenty)**:
   Chromium refuses `cache.keys()` on a store too long to list ("Operation too large"), and
   both the count in Settings and the limit used it: the count failed into "Nothing yet", every trim failed, and the

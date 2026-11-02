@@ -532,7 +532,7 @@
     z-index: 61;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--kb, 0px);
     max-height: var(--sheet-max-h);
     padding-bottom: calc(24px + var(--bottom-room));
     border-width: 1px 0 0;

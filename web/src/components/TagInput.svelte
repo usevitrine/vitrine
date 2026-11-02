@@ -27,6 +27,7 @@
     onblur,
     inputEl = $bindable<HTMLInputElement | undefined>(undefined),
     anchor,
+    span,
     above: inSheet = false,
     bare = false,
     comics,
@@ -48,6 +49,7 @@
     onblur?: () => void;
     inputEl?: HTMLInputElement;
     anchor?: HTMLElement; // the suggestions take this element's width and sit under it
+    span?: string; // the box's ancestor (a selector) the suggestions are as wide as, still right under the box
     /** In a phone sheet: the suggestions are part of it, above the box (the sheet grows up from the keyboard). */
     above?: boolean;
     bare?: boolean; // a pick inserts the tag without its namespace (a site's own search)
@@ -109,10 +111,17 @@
     const rest = host.scrollHeight - (listEl?.offsetHeight ?? 0);
     maxHeight = Math.max(96, Math.floor(max - rest - 8));
   }
+  // Not anchored, with a span: the list stays in the box's own wrapper, moved out to the span's sides.
+  let spread = $state<{ left: number; width: number } | null>(null);
   function placeList() {
     if (inSheet) return fitInSheet();
     const box = (anchor ?? inputEl)?.getBoundingClientRect();
     if (!box) return;
+    const wide = (span ? inputEl?.closest(span)?.getBoundingClientRect() : null) ?? box;
+    if (span && !anchor) {
+      const from = inputEl?.parentElement?.getBoundingClientRect().left ?? wide.left;
+      spread = { left: wide.left - from, width: wide.width };
+    }
     const vv = window.visualViewport;
     // (the visible bottom: above the keyboard - --kb, as the sheets reckon it; else the visual viewport's)
     const kb = parseFloat(document.documentElement.style.getPropertyValue('--kb'));
@@ -125,15 +134,15 @@
       const hb = host ? parseFloat(getComputedStyle(host).bottom) : NaN;
       if (host && Number.isFinite(hb)) {
         const over = host.getBoundingClientRect().bottom - box.top + 4; // (the list's bottom over the sheet's)
-        place = { left: box.left, width: box.width, bottom: hb + over, room: over + 8 };
+        place = { left: wide.left, width: wide.width, bottom: hb + over, room: over + 8 };
         maxHeight = null;
         return;
       }
-      place = { left: box.left, width: box.width, bottom: innerHeight - box.top + 4 };
+      place = { left: wide.left, width: wide.width, bottom: innerHeight - box.top + 4 };
       maxHeight = Math.min(420, above);
       return;
     }
-    if (anchor) place = { left: box.left, top: box.bottom + 4, width: box.width };
+    if (anchor) place = { left: wide.left, top: box.bottom + 4, width: wide.width };
     maxHeight = Math.max(120, Math.min(420, below));
   }
   $effect(() => {
@@ -180,6 +189,7 @@
   let timer: number | undefined;
   // Closing after a blur waits a moment, so a click on a suggestion lands first.
   let blurTimer: number | undefined;
+  let left = false; // the focus went elsewhere (not just away and back at once)
   let abort: AbortController | undefined;
   const listId = 'sugg-' + Math.random().toString(36).slice(2);
 
@@ -249,6 +259,14 @@
     open = false;
     suggestions = [];
     selected = -1;
+  }
+
+  /** The box emptied from outside (the search bar's clear button): its list goes, and any answer still on its way. */
+  export function reset() {
+    clearTimeout(timer);
+    abort?.abort();
+    marks = [];
+    close();
   }
 
   // ---- marked suggestions: they go in together (all of them, or any of them)
@@ -387,10 +405,14 @@
     onfocus={() => {
       clearTimeout(blurTimer);
       focused = true;
+      // (back in a box left mid-word: its suggestions again. Only after leaving: a box opened with text in it stays quiet.)
+      if (left) schedule();
+      left = false;
     }}
     onblur={() => {
       blurTimer = window.setTimeout(() => {
         close();
+        left = true;
         focused = false;
         marks = []; // (marks last while the box has the focus)
       }, 120);
@@ -407,10 +429,11 @@
       class:anchored={!!place}
       {@attach anchor && toBody}
       data-floating={anchor ? '' : undefined}
-      style:left={place ? `${place.left}px` : undefined}
+      style:left={place ? `${place.left}px` : spread ? `${spread.left}px` : undefined}
+      style:right={spread && !place ? 'auto' : undefined}
       style:top={place?.top !== undefined ? `${place.top}px` : undefined}
       style:bottom={place?.bottom !== undefined ? `${place.bottom}px` : undefined}
-      style:width={place ? `${place.width}px` : undefined}>
+      style:width={place ? `${place.width}px` : spread ? `${spread.width}px` : undefined}>
     <ul class="scroll" id={listId} role="listbox" {@attach overlayScroll} style:max-height={place?.room !== undefined ? `calc(var(--view-h) - ${place.room + 10}px)` : maxHeight ? `${maxHeight}px` : undefined}>
       {#each suggestions as s, i (s.tag)}
         {@const p = splitTag(s.tag)}

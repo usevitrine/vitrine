@@ -18,7 +18,7 @@
   --safe-right: env(safe-area-inset-right, 0px);
   /* Phone sheets (menus along the bottom, the details): the tallest they get;
      longer content scrolls inside. */
-  --sheet-max-h: min(70dvh, calc(100dvh - 24px - var(--safe-top)));
+  --sheet-max-h: min(70dvh, calc(var(--view-h) - 24px - var(--safe-top))); /* (--view-h: above the on-screen keyboard; every sheet's bottom is --kb) */
 
   color-scheme: dark;
 }

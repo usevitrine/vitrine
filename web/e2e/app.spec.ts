@@ -3226,6 +3226,124 @@ test('offline: the app, the last results and their thumbnails stay on the device
   });
 });
 
+test('suggestions: as wide as the row on Tag rules and the library\'s search row; back in a box left mid-word they open again', async ({ page }) => {
+  await page.route('**/api/autocomplete?*', (r) => r.fulfill({ json: { suggestions: [{ tag: 'blue_sky', count: 3 }, { tag: 'blue_hair', count: 2 }], took_ms: 0 } }));
+  const list = page.getByRole('listbox');
+  const sides = async (l: import('@playwright/test').Locator) => {
+    const b = (await l.boundingBox())!;
+    return [Math.round(b.x), Math.round(b.x + b.width)];
+  };
+  const panel = list.locator('..');
+
+  // Tag rules: both boxes of both cards, as wide as their row, right under the box.
+  await page.goto('/tags/rules');
+  const forms = page.locator('.form');
+  await expect(forms).toHaveCount(2);
+  for (const f of [0, 1]) {
+    for (const b of [0, 1]) {
+      const form = forms.nth(f);
+      const box = form.getByRole('combobox').nth(b);
+      await box.click();
+      await box.pressSequentially('blu');
+      await expect(list).toBeVisible();
+      await expect.poll(() => sides(panel)).toEqual(await sides(form));
+      const under = (await box.boundingBox())!;
+      expect(Math.abs((await panel.boundingBox())!.y - (under.y + under.height + 4))).toBeLessThan(10);
+      await box.fill('');
+      await expect(list).toHaveCount(0);
+    }
+  }
+
+  // The library: over what's beside the bar too (a stand-in: the new-files button depends on a shared setting).
+  await page.goto('/');
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  await page.locator('.search-row').evaluate((r) => {
+    const beside = document.createElement('div');
+    beside.style.cssText = 'flex: none; width: 52px';
+    r.prepend(beside);
+  });
+  const box = page.locator('.field input[role="combobox"]');
+  await box.click();
+  await box.pressSequentially('blu');
+  await expect(list).toBeVisible();
+  await expect.poll(() => sides(panel)).toEqual(await sides(page.locator('.search-row')));
+
+  // Left mid-word and back: open again, no key pressed.
+  await box.evaluate((b: HTMLInputElement) => b.blur());
+  await expect(list).toHaveCount(0);
+  await box.focus();
+  await expect(list).toBeVisible();
+  // Back in a box with nothing to complete: nothing opens.
+  await box.fill('');
+  await expect(list).toHaveCount(0);
+  await box.evaluate((b: HTMLInputElement) => b.blur());
+  await page.waitForTimeout(200);
+  await box.focus();
+  await page.waitForTimeout(400);
+  await expect(list).toHaveCount(0);
+});
+
+test('the search bar\'s clear button closes the suggestions, and an answer on its way doesn\'t open them again', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  const box = page.locator('.field input[role="combobox"]');
+  const list = page.getByRole('listbox');
+  const clear = page.getByRole('button', { name: 'Clear search' });
+  // Open.
+  await box.click();
+  await box.pressSequentially('blue');
+  await expect(list).toBeVisible();
+  await clear.click();
+  await expect(list).toHaveCount(0);
+  await expect(box).toHaveValue('');
+  await expect(box).toBeFocused();
+  // Just typed: the suggestions not here yet.
+  await box.pressSequentially('blue');
+  await clear.click();
+  await page.waitForTimeout(600);
+  await expect(list).toHaveCount(0);
+  // Typing again still suggests.
+  await box.pressSequentially('blue');
+  await expect(list).toBeVisible();
+});
+
+test('phone sheets sit above the on-screen keyboard, the box being typed in in sight', async ({ page }) => {
+  test.skip(!isPhone(page), 'phones');
+  await page.goto('/?q=blue_sky');
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  // (no keyboard under test: its height as lib/viewport sets it)
+  const keyboard = (px: number) => page.evaluate((px) => document.documentElement.style.setProperty('--kb', `${px}px`), px);
+  const above = async (sheet: import('@playwright/test').Locator, kb: number) => {
+    const height = page.viewportSize()!.height;
+    await expect.poll(async () => Math.round((await sheet.boundingBox())!.y + (await sheet.boundingBox())!.height)).toBe(height - kb);
+    expect((await sheet.boundingBox())!.y).toBeGreaterThanOrEqual(0);
+  };
+  const kb = 340;
+
+  // Naming a saved search.
+  await page.getByRole('button', { name: /^Saved searches/ }).click();
+  const saved = page.getByRole('dialog', { name: 'Saved searches' });
+  await saved.locator('.bar-row .add').click();
+  const name = saved.getByRole('textbox', { name: 'Name for the current search' });
+  await name.focus();
+  await keyboard(kb);
+  await above(saved, kb);
+  const box = (await name.boundingBox())!;
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height - kb);
+  await keyboard(0);
+  await above(saved, 0);
+  await saved.getByRole('button', { name: /^Close/ }).click();
+  await expect(saved).toHaveCount(0);
+
+  // The search menu.
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
+  const menu = page.locator('.panel.sheet');
+  await keyboard(kb);
+  await above(menu, kb);
+  await keyboard(0);
+});
+
 test('saved thumbnails: a full batch starts the next and the old store goes; a store too long to list still shows and clears', async ({ page, context }) => {
   test.skip(test.info().project.name !== 'desktop-chromium', 'service workers are tested in Chromium');
   await context.addInitScript(() => localStorage.setItem('vitrine.sw', 'on'));

@@ -230,7 +230,9 @@
   }} />
 
 <div use:portal>
-  <div class="backdrop" role="presentation" in:shade|global out:shade|global={{ out: true }} onpointerdown={onclose}></div>
+  <!-- (Back closes it: from the moment it's asked for, here - on the dialog, which waits for its sites, the entry came
+       after the menu it was opened from had started going back: that Back closed the dialog as it appeared, on phones) -->
+  <div class="backdrop" role="presentation" in:shade|global out:shade|global={{ out: true }} onpointerdown={onclose} {@attach backClose(onclose)}></div>
   <!-- (once its sites are in, or after a moment: opened at its height, not grown from "Loading…" - a centered dialog that grew moved up) -->
   {#if shown}
     <div
@@ -250,7 +252,6 @@
         }
       }}
       {@attach sheet && sheetDrag(onclose)}
-      {@attach backClose(onclose)}
       in:sheetIn|global={{ on: sheet, desk: 'pop' }}
       out:sheetOut|global={{ on: sheet, desk: 'pop' }}>
       {#if sheet}<GrabBar bleed={14} after={-6} />{/if}

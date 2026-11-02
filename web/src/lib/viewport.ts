@@ -15,14 +15,23 @@ export const standalone =
 export function trackKeyboard() {
   const vv = window.visualViewport;
   if (!vv) return;
+  let last = 0;
   const update = () => {
     const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
     document.documentElement.style.setProperty('--kb', `${Math.round(kb)}px`);
     document.documentElement.style.setProperty('--vv-top', `${Math.round(Math.max(0, vv.offsetTop))}px`);
+    if (kb > last) requestAnimationFrame(showField); // (the sheet moved up and got shorter: its field may be out of sight)
+    last = kb;
   };
   vv.addEventListener('resize', update);
   vv.addEventListener('scroll', update);
   update();
+}
+
+/** The text box being typed in, when it's in a phone sheet: scrolled into the sheet's visible part. */
+function showField() {
+  const el = document.activeElement;
+  if (el?.matches('input, textarea') && el.closest('[data-sheet], .details-panel')) el.scrollIntoView({ block: 'nearest' });
 }
 
 /** Numbers for the Display section in Settings (to diagnose iOS layout issues). */
