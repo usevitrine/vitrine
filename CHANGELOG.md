@@ -8,6 +8,7 @@ shows this too (Settings > Help & about).
 ### Improved
 
 - **Scrubbing a video's card**: the cursor stays on the card while you scrub, so it keeps playing when you let go.
+- **Thumbnails come in the same way everywhere**: one fade, all together, once their pictures are ready - after a search, a tag added, removed or edited, a saved search, or opening the app.
 
 ### Added
 

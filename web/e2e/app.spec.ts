@@ -6418,6 +6418,83 @@ test('problem report: errors in the app reach the server log; the report shows, 
   expect((await download).suggestedFilename()).toMatch(/^vitrine-report-\d{4}-\d\d-\d\d\.txt$/);
 });
 
+// The user: "multiple animations interfering", "the first line animates differently than the rest", "the same
+// animation applies to every situation". Whatever brought them: every new tile a plain fade, all starting together, and
+// no picture fading on its own over it.
+test('grid: new tiles come in the same way in every situation - one fade, all at once, the first row like the rest', async ({ page }) => {
+  test.skip(isPhone(page), 'desktop: the whole library fits on screen');
+  await page.addInitScript(() => {
+    const w = window as any;
+    w.__anims = [];
+    w.__fades = 0;
+    const orig = Element.prototype.animate;
+    Element.prototype.animate = function (this: Element, k: any, o: any) {
+      const a = orig.call(this, k, o);
+      if (this.classList.contains('tile') && !this.classList.contains('ghost')) w.__anims.push({ a, k, o });
+      return a;
+    };
+    document.addEventListener('transitionrun', (e) => {
+      if (e.propertyName === 'opacity' && (e.target as Element).matches?.('.tile .fit img') && (e.target as Element).closest('.tile')!.getAnimations().some((x) => x.id === 'enter')) w.__fades++;
+    });
+  });
+  const check = async (what: string, atLeast: number) => {
+    await expect.poll(() => page.evaluate(() => (window as any).__anims.filter((x: any) => x.a.id === 'enter').length), { message: what }).toBeGreaterThanOrEqual(atLeast);
+    await page.waitForTimeout(800);
+    const r = await page.evaluate(() => {
+      const w = window as any;
+      const enter = w.__anims.filter((x: any) => x.a.id === 'enter');
+      const starts = enter.map((x: any) => x.a.startTime as number);
+      const out = {
+        spread: Math.max(...starts) - Math.min(...starts),
+        delays: enter.filter((x: any) => x.o?.delay).length,
+        lengths: [...new Set(enter.map((x: any) => x.o.duration))],
+        scaled: enter.filter((x: any) => JSON.stringify(x.k).includes('scale') || JSON.stringify(x.k).includes('transform')).length,
+        fades: w.__fades,
+      };
+      w.__anims = [];
+      w.__fades = 0;
+      return out;
+    });
+    expect(r, what).toEqual({ spread: expect.any(Number), delays: 0, lengths: [260], scaled: 0, fades: 0 });
+    expect(r.spread, what).toBeLessThan(40);
+  };
+  await page.goto('/');
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  await check('the first results', 20);
+  await page.goto('/?q=red');
+  await expect(page.getByText(/^2 files/)).toBeVisible();
+  await check('another search, opened', 2);
+  await page.getByRole('button', { name: 'Remove red from the search' }).click();
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  await check('a chip removed', 20);
+  const box = page.getByRole('combobox', { name: 'Search' });
+  await box.fill('landscape ');
+  await expect(page.locator('.bar .chip', { hasText: 'landscape' })).toBeVisible();
+  await page.getByRole('button', { name: 'Clear' }).first().click();
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  await check('a chip added, then the search cleared', 1);
+});
+
+test('grid: pictures slow to come never hold new tiles back for more than a moment; each then fades in over its tile', async ({ page }) => {
+  test.skip(isPhone(page), 'desktop: the whole library fits on screen');
+  await page.goto('/?q=red');
+  await expect(page.getByText(/^2 files/)).toBeVisible();
+  await page.waitForTimeout(800);
+  await page.route('**/thumbs/**', async (route) => {
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.fallback();
+  });
+  await page.getByRole('button', { name: 'Remove red from the search' }).click();
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  const sinceList = Date.now();
+  await expect
+    .poll(() => page.evaluate(() => document.getAnimations().some((a) => a.id === 'enter' && a.playState === 'running')), { intervals: [20] })
+    .toBe(true);
+  expect(Date.now() - sinceList).toBeLessThan(800);
+  // And the pictures all get there.
+  await expect.poll(() => page.locator('.sizer > .tile img:not(.in)').count(), { timeout: 8000 }).toBe(0);
+});
+
 test('grid: removing a chip from the search animates too - files in both lists slide from where they were, the others fade in', async ({ page }) => {
   test.skip(isPhone(page), 'desktop: the whole library fits on screen');
   await page.goto('/?q=red');
@@ -7537,8 +7614,7 @@ test('grid: switching between Comics and the library, the tiles appear (the same
     await page.getByRole('button', { name: 'Menu' }).click();
     await page.locator('#nav-drawer').getByRole('button', { name, exact: true }).click();
   };
-  // (the app's first results just show)
-  expect(await appearing('.library')).toBe(0);
+  await page.waitForTimeout(700); // (the app's first results came in the same way)
   // Comics, opened for the first time: its tiles appear.
   await go('Comics');
   await expect(page.locator('.comics .tile').first()).toBeVisible();

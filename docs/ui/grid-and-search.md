@@ -366,19 +366,22 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   the list's length - the grid's width changed by its room and every tile moved. With a mouse the browser's scrollbar
   never shows and the fast scroller is there whenever the list scrolls; touch screens (overlaid scrollbars, no room
   taken) keep the three-screen rule and their own indicator.
-- **One motion for every change (2026-10-21, user: "inconsistent and clunky")**: every path that changes what's on
-  screen - a refresh or new search (`playFlip`), files arriving at the top (the list-change animation now, no copy of its
-  own), the first row's gaps closing (`closeGaps`: a snapshot, then the same) - goes through `animateFrom` with one set
-  of timings (`MOTION`): tiles that stay slide (340 ms, the standard ease; into another row diagonally; rows tiles
-  that change size grow or shrink from where they were); one from more than a screen and a half away leaves and appears;
-  new tiles appear (320 ms, fade + grow from 0.92) one after another in reading order (18 ms apart, at most 12 steps);
-  removed ones leave (200 ms, ease-in, fade + shrink to 0.92). A new search with nothing in common now animates the same
-  way (it used to swap at once); the first results just show (thumbnails fade in as they load). Tiles off screen get no
-  motion. **The hover card is left out** (open or shrinking back: user, it "suddenly zooms in even more then returns" -
+- **One motion for every change (2026-10-21, user: "inconsistent and clunky"; rebuilt 2026-11-02, user: "multiple
+  animations interfering", "the first line animates differently than the rest", "the same animation applies to every
+  situation")**: every path that changes what's on screen - a search, a tag added, removed or edited, a saved search, a
+  refresh, files arriving at the top, the first row's gaps closing (`closeGaps`), the app's first results, a page shown
+  again - goes through `animateFrom` or `appearAll` with one length (`MOTION.time`, 260 ms): new tiles fade in (opacity
+  only: no scaling, no stagger - a stagger capped at 12 tiles had rippled through the first row and not the rest), tiles
+  that stay slide (into another row diagonally; rows tiles that change size grow or shrink from where they were), one
+  from more than a screen and a half away leaves and appears, removed ones fade out under the tiles (late, so one coming
+  in over them shows no empty place). **All of it starts in one moment** (`openGate`): held until the new tiles'
+  pictures are in, at most `MOTION.gate` (350 ms) - their pictures come with the tile instead of fading on their own
+  over its fade. One still loading after that fades in over its color preview, as when scrolling. Tiles off screen get
+  no motion. **The hover card is left out** (open or shrinking back: user, it "suddenly zooms in even more then returns" -
   a list refresh measured it at card size against its small tile and grew it by that much more). Collections opening/closing keep their own fly (`playMorph`). Reduced motion: none.
   **Pages shown again** (user: back from Comics the thumbnails just showed): the library and Comics stay mounted while
   hidden; a grid shown again (its height back from 0) - or Comics' first results, opened later in the visit - has the
-  tiles on screen appear (`appearAll`); only the app's very first results just show.
+  tiles on screen appear (`appearAll`), the app's first results too.
 - **Rows is the default layout (2026-10-24, the user)**: a device that never picked starts on Rows (listed first
   in Settings and the first steps; a device that has used the app keeps the layout it saved). The end-to-end tests
   start on Squares (e2e/fixtures.ts) unless a test picks one - most were written for squares.

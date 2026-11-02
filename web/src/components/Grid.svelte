@@ -1,9 +1,3 @@
-<script module lang="ts">
-  // A grid has been on screen already in this visit (the app's first results just show; after that, a grid shown
-  // again or for the first time - Comics opened - has its tiles appear).
-  let anyShown = false;
-</script>
-
 <script lang="ts">
   // The thumbnail grid. Only the rows on screen (plus a margin) exist in the
   // page, so scrolling stays smooth at any size; IDs and file details load in
@@ -416,7 +410,7 @@
    *  still drawn on its way there (the picture jumped to the side, then grew). */
   function slides(): Animation[] {
     if (!el) return [];
-    return el.getAnimations({ subtree: true }).filter((a) => a.playState === 'running' && a.id !== 'card' && !(a instanceof CSSTransition) && !(a instanceof CSSAnimation) && ((a.effect as KeyframeEffect | null)?.target as Element | null)?.classList.contains('tile'));
+    return el.getAnimations({ subtree: true }).filter((a) => (a.playState === 'running' || a.playState === 'paused') && a.id !== 'card' && !(a instanceof CSSTransition) && !(a instanceof CSSAnimation) && ((a.effect as KeyframeEffect | null)?.target as Element | null)?.classList.contains('tile'));
   }
 
   /** The tile under a point on screen, if any (not the gaps). */
@@ -731,6 +725,11 @@
     seenThumbs.add(u);
     img.decode().then(
       () => {
+        // (its tile is waiting for the screen's one motion: the picture is simply there when that starts)
+        if (gate?.tiles.has(img.closest('.tile') as HTMLElement)) {
+          img.classList.add('in', 'now');
+          return;
+        }
         fading.add(img);
         fadeFrame ||= requestAnimationFrame(() => {
           fadeFrame = 0;
@@ -965,23 +964,76 @@
     }
     return ghost;
   }
-  // ---- One motion for every change of what's on screen (2026-10-21, user: "inconsistent and clunky" - each path had
-  // its own timings, fades without scaling, pops): tiles that stay slide to their new places (into another row:
-  // diagonally); one from far away leaves where it was like a removed tile and appears at its new place (no sweep
-  // across the screen); new tiles appear - a fade with a slight grow - one after another in reading order; removed ones fade
-  // with a slight shrink, a little quicker. Reduced motion: none.
+  // ---- One motion for everything that changes what's on screen (2026-11-02, the user: "multiple animations interfering
+  // with each other", "the first line animates differently than the rest"): a stagger capped at 12 tiles rippled through
+  // the first row only, and each picture ran a fade of its own on top of its tile's whenever it finished loading. Now
+  // there is one moment and one length: nothing moves until the new tiles' pictures are ready (at most MOTION.gate ms),
+  // then new tiles fade in, tiles that stay slide and removed ones fade out, all together. Opacity only, no scaling, no
+  // stagger. A picture still loading after that fades in over its color preview, as when scrolling. Reduced motion: none.
   const MOTION = {
     ease: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-    exitEase: 'cubic-bezier(0.4, 0, 1, 1)',
-    move: 340,
-    enter: 320,
-    exit: 200,
-    stagger: 18, // between new tiles, in reading order
-    maxStagger: 12,
-    scale: 0.92,
+    fade: 'ease-out',
+    time: 260,
+    gate: 350,
   };
+  /** The motion being held back until the pictures are ready. */
+  let gate: { anims: Animation[]; tiles: Set<HTMLElement>; timer: number } | null = null;
+  function hold(anims: Animation[], a: Animation) {
+    a.pause();
+    anims.push(a);
+    return a;
+  }
+  /** A tile's picture is in (or it has none to wait for). */
+  function pictureReady(t: HTMLElement) {
+    const imgs = t.querySelectorAll('.fit img:not(.zoom-media)');
+    if (imgs.length) return [...imgs].every((i) => i.classList.contains('in') || i.classList.contains('failed'));
+    const f = results.fileAt(Number(t.dataset.i));
+    return !!f && !f.thumb;
+  }
+  function openGate(anims: Animation[], tiles: HTMLElement[]) {
+    if (gate) {
+      gate.anims.push(...anims);
+      for (const t of tiles) gate.tiles.add(t);
+      return;
+    }
+    if (!tiles.length) {
+      for (const a of anims) a.play();
+      return;
+    }
+    const g = { anims, tiles: new Set(tiles), timer: 0 };
+    const go = () => {
+      if (gate !== g) return;
+      clearTimeout(g.timer);
+      gate = null;
+      for (const a of g.anims) a.play();
+    };
+    gate = g;
+    g.timer = window.setTimeout(go, MOTION.gate);
+    const check = () => {
+      if (gate !== g) return;
+      if ([...g.tiles].every(pictureReady)) go();
+      else requestAnimationFrame(check);
+    };
+    requestAnimationFrame(check);
+  }
+  /** The motion held back goes straight to its end: another change is about to be measured. */
+  function closeGate() {
+    if (!gate) return;
+    clearTimeout(gate.timer);
+    const anims = gate.anims;
+    gate = null;
+    for (const a of anims) a.finish();
+  }
+  /** A new tile's one animation (its place stays its own: only the opacity). */
+  function enter(anims: Animation[], t: HTMLElement) {
+    const a = t.animate([{ opacity: 0 }, { opacity: 1 }], { duration: MOTION.time, easing: MOTION.fade });
+    a.id = 'enter';
+    hold(anims, a);
+  }
+  const entering = (t: HTMLElement) => t.getAnimations().some((a) => a.id === 'enter');
   /** Where every tile on screen is now (by file), with a copy to fade out if it goes. */
   function snapshot(): Map<number, Snap> {
+    closeGate();
     const snap = new Map<number, Snap>();
     if (!el) return snap;
     const box = el.getBoundingClientRect();
@@ -998,14 +1050,19 @@
   /** The tiles on screen now against before: slides, appearances, departures (MOTION). keep(id): a file not on
    *  screen any more that is still in the list (scrolled out of sight: no departure). */
   function animateFrom(before: Map<number, Snap>, keep: (id: number) => boolean = () => false) {
-    // (nothing on screen before - the first results: they just show, each thumbnail fading in as it loads)
-    if (!el || reduced() || !before.size) return;
+    if (!el || reduced()) return;
     const sizer = el.querySelector<HTMLElement>('.sizer');
     if (!sizer) return;
     const sr = sizer.getBoundingClientRect();
     const box = el.getBoundingClientRect();
     const tr = (x: number, y: number) => `translate(${x}px, ${y}px)`;
-    const entering: { el: HTMLElement; c: number }[] = [];
+    const anims: Animation[] = [];
+    const newTiles: HTMLElement[] = [];
+    const comeIn = (t: HTMLElement) => {
+      if (entering(t)) return;
+      enter(anims, t);
+      newTiles.push(t);
+    };
     for (const t of sizer.querySelectorAll<HTMLElement>(':scope > .tile')) {
       if (!t.dataset.id) continue;
       const id = Number(t.dataset.id);
@@ -1016,10 +1073,10 @@
       // The hover card (open, or shrinking back) has its own motion: measured at its card size against its small tile,
       // a list change grew it by that much more, then back (user: it "suddenly zooms in even more then returns").
       if (isCard(t)) continue;
-      // (the rows kept ready off screen: nothing to see - no motion, and no place in the line of new tiles)
+      // (the rows kept ready off screen: nothing to see - no motion)
       const onScreen = sr.top + p.y + p.h > box.top && sr.top + p.y < box.bottom;
       if (!b) {
-        if (onScreen) entering.push({ el: t, c });
+        if (onScreen) comeIn(t);
         continue;
       }
       const ox = b.x - sr.left;
@@ -1028,8 +1085,8 @@
       // From far away (more than a screen and a half): it leaves and appears, rather than sweeping across the screen.
       // (Into the next row it slides, diagonally - the reshuffle reads as one.)
       if (Math.abs(oy - p.y) > box.height * 1.5) {
-        depart(sizer, b, sr);
-        entering.push({ el: t, c });
+        hold(anims, depart(sizer, b, sr));
+        comeIn(t);
         continue;
       }
       const sizeChange = Math.abs(b.w - p.w) > 0.5 || Math.abs(b.h - p.h) > 0.5;
@@ -1037,46 +1094,33 @@
         // (rows: a tile's size changes with its row - it grows or shrinks from where it was)
         t.style.transformOrigin = '0 0';
         const { frames, scales } = baked({ x: ox, y: oy, sx: b.w / p.w, sy: b.h / p.h }, { x: p.x, y: p.y, sx: 1, sy: 1 }, bezier(MOTION.ease));
-        const o: KeyframeAnimationOptions = { duration: MOTION.move, easing: 'linear' };
-        holdInside(t, scales, o);
-        t.animate(frames, o).finished.finally(() => (t.style.transformOrigin = ''));
+        const o: KeyframeAnimationOptions = { duration: MOTION.time, easing: 'linear' };
+        for (const a of holdInside(t, scales, o)) hold(anims, a);
+        hold(anims, t.animate(frames, o)).finished.finally(() => (t.style.transformOrigin = ''));
       } else {
-        t.animate([{ transform: tr(ox, oy) }, { transform: tr(p.x, p.y) }], { duration: MOTION.move, easing: MOTION.ease });
+        hold(anims, t.animate([{ transform: tr(ox, oy) }, { transform: tr(p.x, p.y) }], { duration: MOTION.time, easing: MOTION.ease }));
       }
     }
-    appear(entering);
-    for (const [id, b] of before) if (!keep(id)) depart(sizer, b, sr);
+    for (const [id, b] of before) if (!keep(id)) hold(anims, depart(sizer, b, sr));
+    openGate(anims, newTiles);
   }
-  /** New tiles appearing (MOTION): a fade with a slight grow, one after another in reading order. */
-  function appear(list: { el: HTMLElement; c: number }[]) {
-    list.sort((a, b) => a.c - b.c);
-    list.forEach((a, k) => {
-      const p = place(a.c);
-      const at = `translate(${p.x}px, ${p.y}px)`;
-      a.el.animate(
-        [
-          { opacity: 0, transform: `${at} scale(${MOTION.scale})` },
-          { opacity: 1, transform: `${at} scale(1)` },
-        ],
-        { duration: MOTION.enter, delay: Math.min(k, MOTION.maxStagger) * MOTION.stagger, easing: MOTION.ease, fill: 'backwards' },
-      );
-    });
-  }
-  /** Every tile on screen appears (a grid shown again - back from Comics or the library - or Comics' first results). */
+  /** Every tile on screen comes in (a grid shown again or for the first time, and its first results). */
   function appearAll() {
     if (!el || reduced()) return;
     const box = el.getBoundingClientRect();
-    const list: { el: HTMLElement; c: number }[] = [];
+    const anims: Animation[] = [];
+    const list: HTMLElement[] = [];
     for (const t of el.querySelectorAll<HTMLElement>('.sizer > .tile')) {
       const r = t.getBoundingClientRect();
-      if (r.bottom > box.top && r.top < box.bottom && t.dataset.c) list.push({ el: t, c: Number(t.dataset.c) });
+      if (r.bottom <= box.top || r.top >= box.bottom || !t.dataset.c || isCard(t) || entering(t)) continue;
+      enter(anims, t);
+      list.push(t);
     }
-    appear(list);
+    openGate(anims, list);
   }
   // Another page's list (stale: the library on the way to its trash, or opened from another screen with the library's
-  // list still in the store): never shown here. What was on screen fades out where it is - all of it at once, a
-  // slight shrink about the middle of the view - and only then do this page's tiles appear one after another; if they
-  // come sooner, they wait hidden (2026-10-28, the user's recording: copies of the library's tiles leaving came back
+  // list still in the store): never shown here. What was on screen fades out where it is, all of it at once, and only
+  // then do this page's tiles come in; if they come sooner, they wait hidden (2026-10-28, the user's recording: copies of the library's tiles leaving came back
   // a moment later at full strength, moved down by the trash's header, over the trash's own tiles appearing).
   let leaving: Animation | null = null;
   $effect.pre(() => {
@@ -1085,27 +1129,22 @@
       const sizer = el?.querySelector<HTMLElement>('.sizer');
       if (s && !cleared) {
         cleared = true;
+        closeGate();
         if (!sizer || reduced() || !tiles.length) {
           clearedView = true;
           return;
         }
-        sizer.style.transformOrigin = `50% ${el!.scrollTop + el!.clientHeight / 2}px`;
-        leaving = sizer.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.97)' }], {
-          duration: 180,
-          easing: MOTION.exitEase,
-          fill: 'forwards',
-        });
+        leaving = sizer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: MOTION.time, easing: MOTION.fade, fill: 'forwards' });
         leaving.finished.then(() => cleared && (clearedView = true), () => {});
       } else if (!s && cleared) {
         cleared = false;
-        firstShown = anyShown = true; // (the appearing below is this list's: not again as a first showing)
+        firstShown = true; // (the appearing below is this list's: not again as a first showing)
         wasHidden = false;
         clearedView = true; // (this page's tiles hidden until the old ones have gone)
         const show = () => {
           if (cleared) return; // (stale again meanwhile)
           leaving?.cancel();
           leaving = null;
-          if (sizer) sizer.style.transformOrigin = '';
           clearedView = false;
           tick().then(appearAll);
         };
@@ -1126,8 +1165,7 @@
       if (!ready) return;
       if (!firstShown) {
         firstShown = true;
-        if (anyShown) tick().then(appearAll); // (a grid opened later in the visit: Comics' first time)
-        anyShown = true;
+        tick().then(appearAll);
       } else if (wasHidden) {
         wasHidden = false;
         tick().then(appearAll);
@@ -1135,7 +1173,8 @@
     });
   });
   const isCard = (t: HTMLElement) => t.classList.contains('zoomed') || t.classList.contains('shrinking');
-  /** A tile leaving: its copy fades out where it was, shrinking a little. */
+  /** A tile leaving: its copy fades out where it was - under the tiles, and late, so one coming in over it never shows
+   *  the empty place between the two. */
   function depart(sizer: HTMLElement, g: Snap, sr: DOMRect) {
     const ghost = g.ghost;
     ghost.classList.add('ghost');
@@ -1146,9 +1185,12 @@
     ghost.tabIndex = -1;
     sizer.appendChild(ghost);
     const at = `translate(${g.x - sr.left}px, ${g.y - sr.top}px)`;
-    ghost
-      .animate([{ opacity: 1, transform: `${at} scale(1)` }, { opacity: 0, transform: `${at} scale(${MOTION.scale})` }], { duration: MOTION.exit, easing: MOTION.exitEase, fill: 'forwards' })
-      .finished.finally(() => ghost.remove());
+    const a = ghost.animate(
+      [{ opacity: 1, transform: at }, { opacity: 1, transform: at, offset: 0.4 }, { opacity: 0, transform: at }],
+      { duration: MOTION.time, easing: 'linear', fill: 'forwards' },
+    );
+    a.finished.finally(() => ghost.remove());
+    return a;
   }
 
   function playFlip() {
@@ -2073,7 +2115,7 @@
     display: block;
     opacity: 0;
     transition:
-      opacity 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 0.26s ease-out,
       transform 0.15s;
   }
   img:global(.in) {
