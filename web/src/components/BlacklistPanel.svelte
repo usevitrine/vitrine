@@ -143,26 +143,31 @@
 
   {#if matches && tags.length}
     <div class="matches" class:clean={matches.total === 0} transition:reveal>
-      {#if matches.total === 0}
-        <p class="small" transition:reveal><Icon name="check" size={16} /> {t('blacklist.clean')}</p>
-      {:else}
-        <div class="summary" transition:reveal>
-          <p>
-            <Rich text={t('blacklist.matches', { n: matches.total })} />
-            <span class="muted">· {formatSize(matches.size)}</span>
-          </p>
-          <p class="hint">
-            {matches.tags
-              .filter((c) => c.files > 0)
-              .map((c) => `${c.tag} ${num(c.files)}`)
-              .join(' · ')}
-          </p>
-        </div>
-        <div class="actions">
-          <button class="quiet" onclick={show}>{t('blacklist.show')}</button>
-          <button class="quiet danger" class:lit bind:this={deleteBtn} onanimationend={() => (lit = false)} disabled={busy} onclick={purge}>{t('blacklist.delete')}</button>
-        </div>
-      {/if}
+      <!-- (the two states in one place: one fades and closes as the other opens, the box's height and color following) -->
+      <div class="state">
+        {#if matches.total === 0}
+          <p class="small all-clean" transition:reveal={{ quick: true }}><Icon name="check" size={16} /> {t('blacklist.clean')}</p>
+        {:else}
+          <div class="found" transition:reveal={{ quick: true }}>
+            <div class="summary">
+              <p>
+                <Rich text={t('blacklist.matches', { n: matches.total })} />
+                <span class="muted">· {formatSize(matches.size)}</span>
+              </p>
+              <p class="hint">
+                {matches.tags
+                  .filter((c) => c.files > 0)
+                  .map((c) => `${c.tag} ${num(c.files)}`)
+                  .join(' · ')}
+              </p>
+            </div>
+            <div class="actions">
+              <button class="quiet" onclick={show}>{t('blacklist.show')}</button>
+              <button class="quiet danger" class:lit bind:this={deleteBtn} onanimationend={() => (lit = false)} disabled={busy} onclick={purge}>{t('blacklist.delete')}</button>
+            </div>
+          </div>
+        {/if}
+      </div>
     </div>
   {/if}
 </section>
@@ -225,22 +230,41 @@
     color: var(--red);
   }
   .matches {
-    display: grid;
-    gap: 12px;
     padding: 14px;
     border-radius: 10px;
     background: color-mix(in srgb, var(--red) 7%, var(--crust));
     border: 1px solid color-mix(in srgb, var(--red) 22%, transparent);
+    transition:
+      background-color 0.22s ease-out,
+      border-color 0.22s ease-out;
   }
   .matches.clean {
     background: color-mix(in srgb, var(--green) 6%, var(--crust));
     border-color: color-mix(in srgb, var(--green) 20%, transparent);
-    color: var(--green);
   }
-  .matches.clean p {
+  @media (prefers-reduced-motion: reduce) {
+    .matches {
+      transition: none;
+    }
+  }
+  /* (only its own line is green: the text leaving kept its color, but turned green at once as it went) */
+  .state {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+  .state > * {
+    grid-area: 1 / 1;
+  }
+  .all-clean {
     display: flex;
     align-items: center;
     gap: 8px;
+    color: var(--green);
+  }
+  .found {
+    display: grid;
+    gap: 12px;
   }
   .summary {
     display: grid;

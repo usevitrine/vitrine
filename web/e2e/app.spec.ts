@@ -1006,6 +1006,46 @@ test('blacklist: add tags, see matching files, show them, delete and undo', asyn
   await expect(panel.locator('.pill')).toHaveCount(0);
 });
 
+// The user: the notice changing from red to green "looks weird" - the buttons vanished and its color snapped at once.
+test('blacklist: the notice goes from red to green smoothly - its height and color follow, the buttons fade with the text', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', 'counts frames: headless WebKit drops the first ones here');
+  let deleted = false;
+  await page.route('**/api/blacklist', (r) => r.fulfill({ json: { tags: ['red'] } }));
+  await page.route('**/api/blacklist/matches', (r) =>
+    r.fulfill({ json: deleted ? { total: 0, size: 0, tags: [] } : { total: 2, size: 1000, tags: [{ tag: 'red', files: 2 }] } }),
+  );
+  await page.route('**/api/blacklist/delete', (r) => {
+    deleted = true;
+    r.fulfill({ json: { deleted: 2, ids: [101, 102] } });
+  });
+  await page.goto('/tags/rules');
+  const box = page.locator('.blacklist .matches');
+  await page.getByRole('button', { name: 'Delete them…' }).click();
+  await page.waitForTimeout(400);
+  const start = await box.evaluate((el) => {
+    const w = window as any;
+    w.__frames = [];
+    const m = el as HTMLElement;
+    const watch = () => {
+      const a = m.querySelector('.actions') as HTMLElement | null;
+      w.__frames.push({ h: m.getBoundingClientRect().height, bg: getComputedStyle(m).backgroundColor, actions: a ? Number(getComputedStyle(a.closest('.found')!).opacity) : -1 });
+      requestAnimationFrame(watch);
+    };
+    watch();
+    return m.getBoundingClientRect().height;
+  });
+  await confirmIn(page, 'Delete 2');
+  await expect(page.getByText('No files in the library have these tags.')).toBeVisible();
+  await page.waitForTimeout(500);
+  const frames = await page.evaluate(() => (window as any).__frames as { h: number; bg: string; actions: number }[]);
+  const end = frames[frames.length - 1].h;
+  expect(end).toBeLessThan(start - 20);
+  const between = frames.filter((f) => f.h < start - 0.5 && f.h > end + 0.5);
+  expect(between.length).toBeGreaterThan(2); // (the height moves through steps)
+  expect(new Set(frames.map((f) => f.bg)).size).toBeGreaterThan(3); // (the color goes through steps)
+  expect(frames.some((f) => f.actions > 0.05 && f.actions < 0.95)).toBe(true); // (the buttons fade, never just gone)
+});
+
 test('consistent controls: the download form lines up, sort is an icon button', async ({ page }) => {
   await page.goto('/downloads');
   const controls = page.locator('form.add input, form.add .dropdown > button, form.add .picker, form.add .go');

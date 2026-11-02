@@ -8,6 +8,7 @@ shows this too (Settings > Help & about).
 ### Improved
 
 - **Scrubbing a video's card**: the cursor stays on the card while you scrub, so it keeps playing when you let go.
+- **The blacklist's notice**: going from red to green after a clean-up, its color, height and text now change smoothly together.
 - **Thumbnails come in the same way everywhere**: one fade, all together, once their pictures are ready - after a search, a tag added, removed or edited, a saved search, or opening the app.
 
 ### Added

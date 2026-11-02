@@ -481,6 +481,9 @@
     border: none;
   }
   @media (hover: hover) {
+    .home {
+      padding: 0 11px; /* (room around the logo in its hover background) */
+    }
     .menu-button:hover,
     .home:hover {
       background: var(--surface0);

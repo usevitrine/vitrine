@@ -79,7 +79,9 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
 - **Tag rules boxes (2026-10-19)**: each parent's "add children" box sits under its name, above its children, with an
   Add button (`.add-row` in app.css; it used to trail the children and move as they grew); the blacklist's box has
   an Add button too. (The box binds through a getter/setter: binding a not-yet-set record entry to a `$bindable`
-  with a fallback throws `props_invalid_value` and the parents list never rendered.)
+  with a fallback throws `props_invalid_value` and the parents list never rendered.) The blacklist's notice going from
+  red to green and back (2026-11-02, user: it "looks weird"): both states share one grid cell, each fading and closing
+  or opening with the buttons inside it, the box's height and color following; only the all-clear line is green.
 - **Several tags at once (2026-10-20)**: the details' Tags header has a "Pick several tags" button (two checks; with two
   tags or more). Picking: a tap on a tag picks it (filled with its namespace's color) instead of opening its menu, and
   a bar under the tags (a header like the panels': "N picked" in bold, × to stop picking, a line under it) offers two rows of equal buttons in three columns, each under a small heading: SEARCH - All
