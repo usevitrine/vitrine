@@ -22,9 +22,12 @@ The comics library (galleries, comic tags, read state, custom titles, cover crop
   or a slide that selects.
 - **A collection unstacks (2026-11-02, user: "an unstacking effect", "fast", the tilt "looks janky")**: its comics start
   as the pile its tile stands for (first on top), held until the pictures are in, then dealt out one after another to
-  their places in about 0.3 s, no tilt, no boxes or color behind them on the way (`unstacking`). Closing stacks them back,
-  the collection's own tile fading in over the pile. (`playMorph`; with a mouse the clicked tile is a hover card: the pile
-  starts from its home place.) The bar with its name is as tall as the search bar: the grid doesn't shift.
+  their places in about 0.3 s, no tilt, no boxes or color behind them on the way (`unstacking`). The collection's own tile
+  stays in front both ways: opening, its edges (`.deck`) slide behind it, then it fades as the first comic leaves from under it
+  (kept until the last had gone, it lingered); closing, it's there from the start, the comics go in under it and its edges slide out. (`playMorph`; with a mouse
+  the clicked tile is a hover card: the pile starts from where the card is drawn, and no card shrinks back under it.) The
+  edges are held through a hover like the marks (`insides`: stretched with the card they stepped). The bar with its name
+  is as tall as the search bar: the grid doesn't shift.
 - **Browse's first results, quicker (2026-11-02, the user: "is there a way to speed up the browse page")**: measured on
   e-hentai: the list page 250 ms, the API 280 ms, and a search took about 2 s - the wait for the site's 1 request a second
   between them, then up to 1.2 s for its covers. A page count or tags cost nothing apart: one API answer holds a gallery's

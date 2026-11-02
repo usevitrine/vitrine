@@ -8435,7 +8435,7 @@ test('comics: a collection clicked with a mouse unstacks; going back, its tile f
     w.__tiles = [];
     const orig = Element.prototype.animate;
     Element.prototype.animate = function (this: Element, k: any, o: any) {
-      if (this.classList.contains('tile')) w.__tiles.push({ id: (this as HTMLElement).dataset.id ?? 'ghost', turns: JSON.stringify(k).includes('scale'), tilts: JSON.stringify(k).includes('rotate'), fades: k?.[0]?.opacity === 0, delay: o?.delay ?? 0 });
+      if (this.classList.contains('tile')) w.__tiles.push({ id: (this as HTMLElement).dataset.id ?? 'ghost', turns: JSON.stringify(k).includes('scale'), tilts: JSON.stringify(k).includes('rotate'), fades: k?.[0]?.opacity === 0, leaves: k?.[0]?.opacity === 1 && k?.[k.length - 1]?.opacity === 0, delay: o?.delay ?? 0 });
       return orig.call(this, k, o);
     };
   });
@@ -8468,16 +8468,44 @@ test('comics: a collection clicked with a mouse unstacks; going back, its tile f
     .toBe(2);
   const dealt = await page.evaluate(() => (window as any).__tiles.filter((x: any) => x.turns) as { id: string; delay: number }[]);
   expect(dealt[1].delay).toBeGreaterThan(dealt[0].delay); // (one after another)
+  // The collection's tile goes as they start, not after them.
+  const leaving = await page.evaluate(() => (window as any).__tiles.filter((x: any) => x.leaves) as { delay: number }[]);
+  expect(leaving.length).toBeGreaterThan(0);
+  for (const l of leaving) expect(l.delay).toBeLessThan(100);
   expect(await page.evaluate(() => (window as any).__tiles.filter((x: any) => x.turns && x.tilts).length)).toBe(0);
   await page.waitForTimeout(600);
   // The bar with its name is as tall as the search bar: the page doesn't shift.
   expect(await page.locator('.comics header').evaluate((el) => (el as HTMLElement).offsetHeight)).toBe(barBefore);
-  // Back: they go in; the collection's tile fades in, after they've started, and the pile goes once it has.
+  // Back: they go in under the collection's tile, in front all along; its edges slide out once they're in.
   await page.mouse.move(2, 2);
   await page.evaluate(() => ((window as any).__tiles = []));
+  const order = page.evaluate(
+    () =>
+      new Promise<{ behind: number; front: number; edges: number }>((done) => {
+        const out = { behind: 0, front: 0, edges: 0 };
+        const start = performance.now();
+        const look = () => {
+          const tile = [...document.querySelectorAll<HTMLElement>('.comics .sizer > .tile:not(.ghost)')].find((t) => t.textContent?.includes('A series'));
+          const ghosts = document.querySelectorAll<HTMLElement>('.sizer > .ghost');
+          if (tile && ghosts.length) {
+            for (const g of ghosts) {
+              if (Number(getComputedStyle(tile).zIndex) > Number(getComputedStyle(g).zIndex)) out.front++;
+              else out.behind++;
+            }
+          }
+          if (tile?.querySelector('.deck > span')?.getAnimations().length) out.edges++;
+          if (performance.now() - start < 900) requestAnimationFrame(look);
+          else done(out);
+        };
+        look();
+      }),
+  );
   await page.getByRole('button', { name: 'Back to all comics' }).click();
   await expect(page.locator('.comics .tile', { hasText: 'A series' })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => (window as any).__tiles.some((x: any) => x.fades && x.delay > 100))).toBe(true);
+  const seen = await order;
+  expect(seen.behind).toBe(0);
+  expect(seen.front).toBeGreaterThan(0);
+  expect(seen.edges).toBeGreaterThan(0);
   await expect(page.locator('.sizer > .ghost')).toHaveCount(0, { timeout: 3000 });
 });
 

@@ -155,7 +155,7 @@
   let afterScroll = false; // a move came while scrolling: the card waits for the stillness
   function hoverAfterScroll() {
     afterScroll = false;
-    if (noHover || press || selection.active || menu) return;
+    if (noHover || unstacking || press || selection.active || menu) return;
     const wait = SCROLL_QUIET - (performance.now() - scrolledAt);
     if (wait > 0) {
       afterScroll = true;
@@ -344,6 +344,9 @@
     // (the foot whole - its gradient too, which drawn shorter with the card grew back as it landed; wider than the
     // card while it's drawn smaller, it's clipped by the face)
     if (foot) at(foot, 0, h);
+    // (a collection's edges too, about its top left: stretched with the card they stepped - the user: "pixel shift")
+    const deck = t.querySelector<HTMLElement>(':scope > .face > .deck');
+    if (deck) at(deck, 0, 0);
     return { fit: t.querySelector<HTMLElement>(':scope > .face > .fit'), parts };
   }
 
@@ -408,6 +411,7 @@
     const { fit, parts } = insides(t);
     const foot = t.querySelector<HTMLElement>(':scope > .face > .comic-foot');
     const title = foot?.querySelector<HTMLElement>('.comic-title');
+    const deck = t.querySelector<HTMLElement>(':scope > .face > .deck');
     for (const { el, origin } of parts) el.style.transformOrigin = origin;
     // By the translate and scale properties (the tile's own transform - its place - is left alone): they come before
     // it, so the scale scales its translate(base) too - the translate takes that back.
@@ -428,12 +432,17 @@
         foot.style.right = 'auto';
         foot.style.width = `${r.w + 2}px`;
       }
+      if (deck) {
+        deck.style.right = 'auto';
+        deck.style.width = `${r.w}px`;
+      }
     };
     const clear = () => {
       t.style.translate = t.style.scale = '';
       if (fit) fit.style.scale = '';
       for (const { el } of parts) el.style.scale = el.style.transformOrigin = '';
       if (foot) foot.style.right = foot.style.width = '';
+      if (deck) deck.style.right = deck.style.width = '';
     };
     // (kept at the end until the layout follows - a shrink's card is laid out as the tile only then)
     const outer = new Steps(m.ms, frame, clear);
@@ -994,6 +1003,12 @@
       skipFlip = false;
       if (skip || cleared || !el || !size || reduced()) return;
       flip = snapshot();
+      if (morphing && hover) {
+        // (its copy takes over from the card: no card shrinking back under the comics)
+        snapBack = true;
+        leaveGrid();
+        requestAnimationFrame(() => requestAnimationFrame(() => (snapBack = false)));
+      }
       tick().then(playFlip);
     });
   });
@@ -1086,16 +1101,17 @@
       const id = Number(t.dataset.id);
       if (!t.dataset.id || Number.isNaN(id)) continue;
       if (isCard(t)) {
-        // (the hover card has its own motion - but a collection clicked is one, with a mouse: its pile starts from its
-        // tile's place, not from the card; its comics never came out of it, the user: "it doesnt unstack")
+        // (the hover card has its own motion - but a collection clicked is one, with a mouse: the pile starts from the
+        // card, where it's drawn - from its tile's place it jumped, the user: "the hover zoom thing looks weird")
         if (id !== morphing?.id) continue;
-        const home = place(Number(t.dataset.c));
-        const sr = el.querySelector('.sizer')!.getBoundingClientRect();
+        const rc = t.getBoundingClientRect();
         const ghost = still(t.cloneNode(true) as HTMLElement);
         ghost.querySelectorAll('.zoom-media, .preview, .preview-line').forEach((n) => n.remove());
         ghost.classList.remove('zoomed', 'shrinking');
-        Object.assign(ghost.style, { width: home.w + 'px', height: home.h + 'px', margin: '0' });
-        snap.set(id, { x: sr.left + home.x, y: sr.top + home.y, w: home.w, h: home.h, ghost });
+        for (const n of [ghost, ...ghost.querySelectorAll<HTMLElement>('.fit, .comic-foot, .deck, .comic-status')]) n.style.translate = n.style.scale = n.style.right = n.style.width = '';
+        Object.assign(ghost.style, { width: rc.width + 'px', height: rc.height + 'px', margin: '0', borderRadius: '10px' });
+        ghost.style.setProperty('--r', '10px');
+        snap.set(id, { x: rc.left, y: rc.top, w: rc.width, h: rc.height, ghost });
         continue;
       }
       const rc = t.getBoundingClientRect();
@@ -1300,7 +1316,8 @@
     ease: string,
   ): boolean {
     const anims: Animation[] = [];
-    const PILE_FADE = 110; // (the pile and its tile's picture, into each other)
+    const COVER_FADE = 110; // (the collection's own tile, coming or going)
+    const DECK = 110; // (the edges above it, sliding behind it or out)
     const settled = (list: Animation[]) => {
       unstacking = true;
       Promise.allSettled(list.map((a) => a.finished)).then(() => (unstacking = false));
@@ -1328,12 +1345,14 @@
       const ox = from.x - sr.left;
       const oy = from.y - sr.top;
       for (const [id, g] of before) if (id !== morph.id) fadeOut(g);
-      // Its tile - the covers side by side - fades into the pile under it, which then deals out.
+      // Its tile - the covers side by side - is in front: its edges slide behind it, then it fades as the first comic
+      // leaves from under it (kept until the last had gone, it lingered - the user).
       const list = [...now].sort((p, q) => p[1].c - q[1].c);
       const tile = ghostOf(from);
       tile.style.zIndex = String(list.length + 2);
       const at = tr(ox, oy);
-      hold(anims, tile.animate([{ opacity: 1, transform: at }, { opacity: 0, transform: at }], { duration: PILE_FADE, easing: 'ease-in-out', fill: 'forwards' })).finished.finally(() => tile.remove());
+      for (const edge of tile.querySelectorAll('.deck > span')) hold(anims, edge.animate([{ translate: '0 0' }, { translate: '0 9px' }], { duration: DECK, easing: 'ease-in', fill: 'forwards' }));
+      hold(anims, tile.animate([{ opacity: 1, transform: at }, { opacity: 0, transform: at }], { duration: COVER_FADE, delay: DECK * 0.6, easing: 'ease-out', fill: 'both' })).finished.finally(() => tile.remove());
       list.forEach(([, a], n) => {
         const [x, y] = xy(a.c);
         const w = a.el.offsetWidth || 1;
@@ -1341,7 +1360,7 @@
         a.el.style.transformOrigin = '0 0';
         a.el.style.zIndex = String(list.length - n + 1); // (the first on top of the pile)
         const { frames, scales } = baked({ x: ox, y: oy, sx: from.w / w, sy: from.h / h }, { x, y, sx: 1, sy: 1 }, bezier(ease));
-        const o: KeyframeAnimationOptions = { duration: 240, delay: PILE_FADE * 0.6 + Math.min(n, 10) * 16, easing: 'linear', fill: 'backwards' };
+        const o: KeyframeAnimationOptions = { duration: 240, delay: DECK * 0.6 + Math.min(n, 10) * 16, easing: 'linear', fill: 'backwards' };
         for (const part of holdInside(a.el, scales, o)) hold(anims, part);
         hold(anims, a.el.animate(frames, o)).finished.finally(() => {
           a.el.style.transformOrigin = '';
@@ -1359,25 +1378,23 @@
     const th = into.el.offsetHeight;
     // The last ones first, so the first lands on top.
     const going = [...before].sort((p, q) => q[1].y - p[1].y || q[1].x - p[1].x);
-    const ghosts: HTMLElement[] = [];
     going.forEach(([, g], n) => {
       const ghost = ghostOf(g);
       ghost.style.zIndex = String(n + 2);
       const { frames, scales } = baked({ x: g.x - sr.left, y: g.y - sr.top, sx: 1, sy: 1 }, { x: tx, y: ty, sx: tw / g.w, sy: th / g.h }, bezier(ease));
       const o: KeyframeAnimationOptions = { duration: 220, delay: Math.min(n, 10) * 12, easing: 'linear', fill: 'both' };
       for (const part of holdInside(ghost, scales, o)) hold(anims, part);
-      hold(anims, ghost.animate(frames, o));
-      ghosts.push(ghost);
+      hold(anims, ghost.animate(frames, o)).finished.finally(() => ghost.remove());
     });
-    // Once they're in, the pile becomes its tile: the covers side by side fade in over it (the top comic's picture swapped
-    // for them at once, the user: "abruptly switches"); the pile goes only when they've covered it. The others come back.
+    // The collection's tile is in front from the start (the user: "should always be in front"), the comics going in
+    // under it; once they're in, its edges slide out from behind it. The others come back.
     const last = Math.min(going.length - 1, 10) * 12 + 220;
     const tileAt = tr(tx, ty);
     into.el.style.zIndex = String(going.length + 3);
-    hold(anims, into.el.animate([{ opacity: 0, transform: tileAt }, { opacity: 1, transform: tileAt }], { duration: PILE_FADE, delay: Math.max(0, last - 60), easing: 'ease-in-out', fill: 'backwards' })).finished.finally(() => {
-      into.el.style.zIndex = '';
-      for (const g of ghosts) g.remove();
-    });
+    hold(anims, into.el.animate([{ opacity: 0, transform: tileAt }, { opacity: 1, transform: tileAt }], { duration: COVER_FADE, easing: 'ease-out', fill: 'backwards' }));
+    for (const edge of into.el.querySelectorAll('.deck > span')) hold(anims, edge.animate([{ translate: '0 9px' }, { translate: '0 0' }], { duration: DECK, delay: Math.max(0, last - 40), easing: 'ease-out', fill: 'backwards' }));
+    const lifted = into.el;
+    Promise.allSettled(anims.map((a) => a.finished)).then(() => (lifted.style.zIndex = ''));
     const others: HTMLElement[] = [into.el];
     for (const [id, a] of now) {
       if (id === morph.id) continue;
@@ -2605,6 +2622,7 @@
     right: 0;
     height: 9px;
     background: var(--base);
+    overflow: hidden; /* (its edges slide behind the cover: playMorph) */
   }
   .deck > span {
     position: absolute;
