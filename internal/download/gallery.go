@@ -69,7 +69,17 @@ func (d *Downloader) handleGallery(ctx context.Context, st *Site, p plugin.Post,
 		prog.gallery = true
 		prog.pages.Store(int64(g.Pages))
 		prog.done.Store(int64(len(have)))
+		prog.comic.Store(id)
+		d.showGallery(prog)
+		// A download of its link, with no name given: its title (the queue's and the bell's words; the comic's own link
+		// can't say it when this is a newer version).
+		if prog.search != 0 {
+			if _, err := d.db.W.ExecContext(ctx, "UPDATE searches SET label = ? WHERE id = ? AND label IS NULL AND query LIKE 'http%'", g.Title, prog.search); err != nil {
+				d.log.Warn("naming a gallery's download", "search", prog.search, "err", err)
+			}
+		}
 	}
+	d.Changed() // (the comic is there now: the Comics page shows it from the start, not once the gallery is done)
 	// (a newer version: every page checked by its key - pages can be added in the middle, or changed)
 	added, _, err := d.galleryPages(ctx, st, ge, id, p.ID, g, have, newVersion, prog)
 	if added > 0 && prog != nil && prog.search != 0 {
@@ -84,10 +94,36 @@ func (d *Downloader) handleGallery(ctx context.Context, st *Site, p plugin.Post,
 			return Failed, 0, err
 		}
 	}
+	if len(g.SiteTags) == 0 && len(p.Tags) == 0 {
+		d.rereadTags(ctx, st, p)
+	}
 	if added > 0 {
 		return Downloaded, 0, nil
 	}
 	return Already, 0, nil
+}
+
+// rereadTags reads a gallery from its site once more when its post came with no tags at all (2026-11-02, the user: a
+// comic had none until its tags were refreshed by hand): its comic takes what the site says now. Failing changes nothing.
+func (d *Downloader) rereadTags(ctx context.Context, st *Site, p plugin.Post) {
+	m := st.Client.Manifest()
+	d.log.Warn("a gallery came with no tags: reading it again", "site", m.ID, "post", p.ID)
+	page, err := st.Engine.Search(ctx, p.PostURL, 0)
+	if err != nil {
+		d.log.Warn("reading a gallery's tags again", "site", m.ID, "post", p.ID, "err", err)
+		return
+	}
+	for _, again := range page.Posts {
+		if again.Gallery == nil || again.Gallery.Key != p.Gallery.Key {
+			continue
+		}
+		info := galleryInfo(st, again)
+		info.URL = "" // (kept: a download sees a newer version by its link)
+		if _, _, err := d.lib.AddComic(ctx, info); err != nil {
+			d.log.Warn("keeping a gallery's tags", "site", m.ID, "post", p.ID, "err", err)
+		}
+		return
+	}
 }
 
 // galleryInfo is what a gallery post says about its comic.
@@ -206,6 +242,13 @@ func (d *Downloader) galleryPages(ctx context.Context, st *Site, ge plugin.Galle
 		mu.Unlock()
 		stop()
 	}
+	// A page stored: counted, and open pages hear (its cover and count).
+	stored := func() {
+		if prog != nil {
+			prog.done.Add(1)
+		}
+		d.Changed()
+	}
 	var wg sync.WaitGroup
 	for range max(1, m.Limits.Connections) {
 		wg.Add(1)
@@ -229,9 +272,7 @@ func (d *Downloader) galleryPages(ctx context.Context, st *Site, ge plugin.Galle
 					added++
 					mu.Unlock()
 				}
-				if prog != nil {
-					prog.done.Add(1)
-				}
+				stored()
 			}
 		}()
 	}
@@ -278,9 +319,7 @@ func (d *Downloader) galleryPages(ctx context.Context, st *Site, ge plugin.Galle
 				mu.Lock()
 				added++
 				mu.Unlock()
-				if prog != nil {
-					prog.done.Add(1)
-				}
+				stored()
 				return nil
 			}
 		}

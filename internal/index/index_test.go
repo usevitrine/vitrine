@@ -569,3 +569,15 @@ func TestPostedKeyDayOnly(t *testing.T) {
 		t.Fatal("a moment or an unknown time changed")
 	}
 }
+
+// A comic with no cover yet is drawn in a cover's shape, not a square; a file without a size stays square.
+func TestShapesUnknown(t *testing.T) {
+	ix := New()
+	if s := ix.Shapes([]uint32{1}); s[0] != 1024 {
+		t.Fatalf("a file: %d", s[0])
+	}
+	ix.comic = &comicColumns{}
+	if s := ix.Shapes([]uint32{1}); s[0] != 717 {
+		t.Fatalf("a comic: %d", s[0])
+	}
+}

@@ -120,7 +120,7 @@ export function toPlainSignIn() {
 }
 
 /** Which index a search runs on: '' the library, 'comics' the Comics page. */
-export type Scope = '' | 'comics' | 'trash' | 'comics_trash';
+export type Scope = '' | 'comics' | 'trash' | 'comics_trash' | 'browse';
 const sc = (scope: Scope) => (scope ? '&scope=' + scope : '');
 
 export interface SearchResult {

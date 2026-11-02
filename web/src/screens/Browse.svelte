@@ -3,7 +3,7 @@
   // grid - the same tiles, hover zoom, rows and motion as the other pages (lib/browse: the site's galleries dressed as
   // comics, marked when the library has them or their download waits, page after page as the end comes near). A tile
   // opens its details in the app's details panel (GalleryPanel: like a comic's), with Download in the panel's header.
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { reveal, pop, glide, swap } from '../lib/motion';
   import { read, write } from '../lib/storage';
   import { fade } from 'svelte/transition';
@@ -14,6 +14,7 @@
   import type { BrowseResults } from '../lib/browse.svelte';
   import { siteLabel, sites as siteInfo } from '../lib/sites.svelte';
   import { router } from '../lib/router.svelte';
+  import { live } from '../lib/live.svelte';
   import { settings } from '../lib/settings.svelte';
   import { topbar } from '../lib/topbar.svelte';
   import { t, num } from '../lib/i18n.svelte';
@@ -39,11 +40,29 @@
   function lastSite(): string {
     return read('vitrine.browseSite') ?? '';
   }
+  // Where it was: in the address (a reload) and remembered on this device (the app opened again, on another page) -
+  // the user: it "resets every time you go to it". (Coming back within a visit the page has stayed as it was.)
+  function remember() {
+    if (router.screen !== 'browse') return;
+    router.setParams({ q: query, sort: results.sort, site: sites.length > 1 ? results.site : undefined });
+    write('vitrine.browseLast', JSON.stringify({ q: query, sort: results.sort }));
+  }
+  function lastSearch(): { q: string; sort: string } | null {
+    try {
+      return JSON.parse(read('vitrine.browseLast') ?? 'null');
+    } catch {
+      return null;
+    }
+  }
+  $effect(() => {
+    if (router.screen === 'browse' && results.searches > 0) untrack(remember);
+  });
   function pickSite(id: string) {
     results.site = id;
     selection.ids.clear();
     write('vitrine.browseSite', id);
     results.search(query);
+    remember();
   }
   function search(q: string) {
     if (q.trim()) results.sort = ''; // (the site's own lists can't be searched: a search is its newest first)
@@ -51,6 +70,24 @@
     open = null;
     selection.ids.clear(); // (another search: other galleries - picking goes on)
     results.search(q);
+    remember();
+  }
+  // A saved search: its site and order ("site:order") with its search. (A list of the site's has no search.)
+  function runSaved(q: string, saved: string) {
+    const at = saved.indexOf(':');
+    const site = saved.slice(0, at);
+    const order = saved.slice(at + 1);
+    if (site && sites.includes(site) && site !== results.site) {
+      results.site = site;
+      write('vitrine.browseSite', site);
+    }
+    if (order && order !== 'newest') {
+      query = '';
+      pickSort(order);
+    } else {
+      results.sort = '';
+      search(q);
+    }
   }
   // Its default order (Settings > Library > Browse): the list set there when this site has it, else its newest - what
   // the filter button counts as not the default (it showed the dot on opening in the list set).
@@ -62,6 +99,7 @@
     open = null;
     selection.ids.clear();
     results.search(query);
+    remember();
   }
 
   onMount(() => () => selection.clear()); // (leaving Browse: nothing stays picked)
@@ -78,14 +116,16 @@
     }
     loaded = true;
     if (!sites.length) return;
-    results.site = sites.includes(lastSite()) ? lastSite() : sites[0];
+    const fromURL = router.screen === 'browse' ? { q: router.param('q'), sort: router.param('sort'), site: router.param('site') } : { q: '', sort: '', site: '' };
+    results.site = sites.includes(fromURL.site) ? fromURL.site : sites.includes(lastSite()) ? lastSite() : sites[0];
     if (results.searches === 0) {
       await settings.whenSynced();
-      // Its default search and order (Settings > Library): one of the site's own lists if it has the one set (no
-      // search then), else the search, newest first.
-      const list = settings.browseSort;
+      // Where it was; or its default search and order (Settings > Library): one of the site's own lists if it has the
+      // one set (no search then), else the search, newest first.
+      const last = fromURL.q || fromURL.sort ? fromURL : lastSearch();
+      const list = last ? last.sort : settings.browseSort;
       if (list && list !== 'newest' && (sorts[results.site] ?? []).includes(list)) pickSort(list);
-      else search(settings.browseSearch);
+      else search(last ? last.q : settings.browseSearch);
     }
   });
 
@@ -95,6 +135,58 @@
     namespaces.addComics(res.suggestions.map((s) => (s.tag.includes(':') ? s.tag.slice(0, s.tag.indexOf(':')) : '')));
     return res;
   }
+
+  // ---- Downloads ending (2026-11-02, the user: its icon "never changes once its finished"): as the queue changes,
+  // galleries marked as coming that no download is working on any more are asked after - the site's list says whether
+  // the library has them now.
+  let checking = false;
+  let again = false;
+  async function checkComing() {
+    if (checking) {
+      again = true;
+      return;
+    }
+    const coming = [...results.galleries.values()].filter((g) => g.queued && !g.comic);
+    if (!coming.length) return;
+    checking = true;
+    try {
+      const { searches } = await api.activeDownloads();
+      const working = new Set(searches.filter((s) => s.state === 'running' || s.state === 'queued' || s.state === 'paused').map((s) => s.query));
+      const failed = new Set(searches.filter((s) => s.state === 'failed').map((s) => s.query));
+      for (const g of coming) {
+        if (working.has(g.url)) continue;
+        if (failed.has(g.url)) {
+          results.settled(g.id);
+          continue;
+        }
+        const now = (await api.browse(results.site, g.url, 0, '')).galleries[0];
+        if (now?.queued) continue;
+        results.settled(g.id, now?.comic);
+        if (open?.id === g.id) open = { ...g };
+      }
+    } catch {
+      /* the next change */
+    } finally {
+      checking = false;
+      if (again) {
+        again = false;
+        checkComing();
+      }
+    }
+  }
+  $effect(() => {
+    let soon = 0;
+    const off = live.onDownloads(() => {
+      soon ||= window.setTimeout(() => {
+        soon = 0;
+        checkComing();
+      }, 1000);
+    });
+    return () => {
+      off();
+      clearTimeout(soon);
+    };
+  });
 
   // ---- a gallery's details
   let open = $state<BrowseGallery | null>(null);
@@ -117,10 +209,6 @@
     {#if results.busy}<span class="spinner small" aria-hidden="true"></span> {t('library.searching')}
     {:else if !results.error && results.searches}{results.comics === 1 ? t('browse.one') : t('browse.found', { n: num(results.comics) })}{/if}
   </span>
-  {#if results.total > 0 && !selection.active}
-    <!-- Several galleries at once: Select, then tap them (with a mouse: Ctrl/Shift-click works without it). -->
-    <button class="icon" aria-label={t('common.select')} title={t('browse.selectHint')} onclick={() => (selection.picking = true)} in:fade={{ duration: 150 }}><Icon name="checks" /></button>
-  {/if}
 {/snippet}
 
 <!-- The details panel's header: Download (or Read: in the library already). -->
@@ -151,6 +239,7 @@
           browseSites={sites}
           site={results.site}
           onsite={pickSite}
+          onsaved={runSaved}
           placeholder={siteInfo.hints[results.site] ?? t('browse.searchOn', { site: siteLabel(results.site) })} onsearch={search} />
       </div>
     {/if}
@@ -167,7 +256,15 @@
     {:else if results.total === 0 && (results.busy || results.loadingMore)}
       <div class="first-load" role="status" aria-label={t('library.searching')} in:swap><span class="spinner"></span></div>
     {:else}
-      <Grid {pad} inset={topbar.h + headH} onopen={details} />
+      <Grid
+        {pad}
+        inset={topbar.h + headH}
+        onopen={details}
+        ondownload={(i) => {
+          const id = results.idAt(i);
+          const g = id === undefined ? undefined : results.galleries.get(id);
+          if (g) download(g);
+        }} />
     {/if}
     {#if results.loadingMore && results.total > 0}
       <!-- The site's next page on its way. -->

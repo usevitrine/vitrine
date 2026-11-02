@@ -8,16 +8,24 @@ shows this too (Settings > Help & about).
 ### Improved
 
 - **Scrubbing a video's card**: the cursor stays on the card while you scrub, so it keeps playing when you let go.
+- **Opening a collection**: its comics unstack from its tile, one after another; closing stacks them back.
 - **The blacklist's notice**: going from red to green after a clean-up, its color, height and text now change smoothly together.
 - **Thumbnails come in the same way everywhere**: one fade, all together, once their pictures are ready - after a search, a tag added, removed or edited, a saved search, or opening the app.
 
 ### Added
 
 - **Clear the deleted forever list** (Settings, in the Trash section): files you deleted forever can be downloaded again when a later download finds them.
+- **Browse**: saved searches, selecting as on the other pages, and a right-click menu with Download. It keeps your search and place when you come back, reload or reopen the app. Galleries you already have are grey, and a download's mark updates when it ends.
+- **Drag comics into a collection**: hold a comic a moment with the mouse, then drop it on a collection.
+- **Rename a comic** from its right-click menu.
 - **Backups made before an update say so**: "Before the 1.2.3 update" in Settings > Backups, and in the file's name.
 
 ### Fixed
 
+- **Comics and Browse details panels**: a click outside closes them, instead of opening what's under the cursor.
+- **A comic's hover card**: its title's soft edge no longer jumps as the card shrinks back.
+- **A finished gallery in the bell**: it's named by its title, not its link.
+- **Comics downloading**: a comic now appears on the Comics page as soon as its download starts, in a cover's shape, with an animated mark and its pages counting up; finished, the mark turns into a tick and goes. An empty Comics or Media page also takes in its first downloads without a reload.
 - **A tag added to the search showing the old files**: when new downloads came in at that moment, the search could be canceled, leaving the tag in the search bar and the previous files under it until you pressed Enter.
 - **Stats' parents count**: it counted every tag under a parent; now it counts the parents. "Deleted forever" no longer includes files still in the trash.
 

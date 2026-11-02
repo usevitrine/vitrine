@@ -12,7 +12,8 @@ export interface FileProgress {
   post: number;
   read: number;
   total: number; // -1 if the site didn't say
-  pages?: number; // a gallery: its pages
+  comic?: number; // a gallery: its comic
+  pages?: number; // ... its pages
   done?: number; // ... and how many are stored
   site?: string; // a retried failed post (search 0): its site
   key?: string; // ... and "site/post"

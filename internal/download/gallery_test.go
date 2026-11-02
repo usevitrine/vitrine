@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/usevitrine/vitrine/internal/db"
 	"github.com/usevitrine/vitrine/internal/library"
@@ -30,7 +31,9 @@ type fakeGalleries struct {
 	srv        *httptest.Server
 	newest     int64 // the newest gallery the list shows (300, then 301)
 	limitAfter int
-	pictures   int // picture pages served
+	pictures   int           // picture pages served
+	hold       chan struct{} // set: picture pages wait until it's closed
+	tagless    int           // this many of the API's answers come with no tags
 }
 
 // pictures lists a gallery's pages: each one's picture number.
@@ -54,6 +57,9 @@ func newGalleryEnv(t *testing.T) (*env, *fakeGalleries) {
 	f := &fakeGalleries{newest: 300}
 	f.srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		base := "https://" + r.Host
+		if strings.HasPrefix(r.URL.Path, "/s/") && f.hold != nil {
+			<-f.hold
+		}
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		switch {
@@ -79,9 +85,14 @@ func newGalleryEnv(t *testing.T) (*env, *fakeGalleries) {
 				if gid == 400 {
 					first = "400"
 				}
+				tags := []string{"artist:some artist", "female:glasses", "male:glasses"}
+				if f.tagless > 0 {
+					f.tagless--
+					tags = nil
+				}
 				out = append(out, map[string]any{"gid": gid, "token": "aaaaaaaaaa", "title": "Some comic", "category": "Manga",
 					"posted": "1700000000", "filecount": strconv.Itoa(f.pages(gid)), "first_gid": first,
-					"tags": []string{"artist:some artist", "female:glasses", "male:glasses"}})
+					"tags": tags})
 			}
 			json.NewEncoder(w).Encode(map[string]any{"gmetadata": out})
 		case strings.HasPrefix(r.URL.Path, "/g/"):
@@ -134,6 +145,87 @@ func newGalleryEnv(t *testing.T) (*env, *fakeGalleries) {
 	h := *f.srv.Client()
 	dl.Site("galleries").Client.SetHTTPClient(&h)
 	return &env{lib: lib, db: d, dl: dl}, f
+}
+
+// A comic is there from the start of its gallery's download: listed, open pages told, its progress known - before
+// the first picture has come - and told again with each page stored.
+func TestGalleryShownFromTheStart(t *testing.T) {
+	e, f := newGalleryEnv(t)
+	ctx := context.Background()
+	f.hold = make(chan struct{})
+	changes, stop := e.dl.Watch()
+	defer stop()
+	if _, err := e.dl.Add(ctx, "galleries", "some artist", 0); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		e.dl.RunQueue(ctx, "galleries")
+		close(done)
+	}()
+	var p FileProgress
+	for start := time.Now(); p.Comic == 0; time.Sleep(5 * time.Millisecond) {
+		if time.Since(start) > 10*time.Second {
+			t.Fatal("never listed as downloading")
+		}
+		if list := e.dl.Progress(); len(list) > 0 {
+			p = list[0]
+		}
+	}
+	if p.Pages != 5 || p.Done != 0 {
+		t.Fatalf("progress at the start: %+v", p)
+	}
+	list, _, err := e.lib.Comics(ctx, library.ComicQuery{})
+	if err != nil || len(list) != 1 || list[0].ID != p.Comic || list[0].Have != 0 {
+		t.Fatalf("the comic at the start: %+v, %v", list, err)
+	}
+	select {
+	case <-changes:
+	default:
+		t.Fatal("open pages weren't told")
+	}
+	close(f.hold)
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("the download never ended")
+	}
+	if left := e.dl.Progress(); len(left) != 0 {
+		t.Fatalf("still listed: %+v", left)
+	}
+}
+
+// The bell's words for a gallery's link: its title.
+func TestGalleryEventSaysItsTitle(t *testing.T) {
+	e, f := newGalleryEnv(t)
+	ctx := context.Background()
+	var got []Event
+	e.dl.OnEvent = func(ev Event) { got = append(got, ev) }
+	if _, err := e.dl.Add(ctx, "galleries", f.srv.URL+"/g/300/aaaaaaaaaa/", 0); err != nil {
+		t.Fatal(err)
+	}
+	e.dl.RunQueue(ctx, "galleries")
+	if len(got) != 1 || got[0].Kind != EventDone || got[0].Query != "Some comic" {
+		t.Fatalf("events: %+v", got)
+	}
+}
+
+// A gallery that came with no tags is read once more when its pages are in.
+func TestGalleryNoTagsReadAgain(t *testing.T) {
+	e, f := newGalleryEnv(t)
+	ctx := context.Background()
+	f.tagless = 1
+	if _, err := e.dl.Add(ctx, "galleries", "some artist", 0); err != nil {
+		t.Fatal(err)
+	}
+	e.dl.RunQueue(ctx, "galleries")
+	list, _, err := e.lib.Comics(ctx, library.ComicQuery{})
+	if err != nil || len(list) != 1 {
+		t.Fatalf("comics: %+v, %v", list, err)
+	}
+	if !strings.Contains(strings.Join(list[0].Tags, " "), "female:glasses") {
+		t.Fatalf("tags: %v", list[0].Tags)
+	}
 }
 
 func TestGalleryDownload(t *testing.T) {

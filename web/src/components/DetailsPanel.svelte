@@ -39,6 +39,19 @@
     onclose();
   }
 
+  // A press outside closes it and does nothing else, as the viewer's details (the user: it opened the comic under the
+  // cursor). Not a press in what it opened itself or above it: a menu, a dialog, a notice with its Undo.
+  function pressedOff(e: PointerEvent) {
+    const on = e.target as Element | null;
+    if (closing || e.button !== 0 || !on || on.closest('[data-details-panel], [role=menu], [role=dialog], [role=alertdialog], [role=listbox], [role=status], .toast, .toasts')) return;
+    if (document.querySelector('[role=menu], [role=alertdialog], [role=dialog][aria-modal="true"]')) return;
+    e.stopPropagation();
+    window.addEventListener('click', swallow, { capture: true, once: true });
+    window.setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 600);
+    close();
+  }
+  const swallow = (c: Event) => c.stopPropagation();
+
   const isSheet = () => !wide();
   const ds = new DetailsSheet(isSheet, close);
   function slide(node: Element, { out = false } = {}) {
@@ -52,6 +65,7 @@
 
 <!-- Escape closes it - not while a dialog of its content is open (escapeOff), nor a question: those close first. -->
 <svelte:window
+  onpointerdowncapture={pressedOff}
   onkeydown={(e) => {
     if (e.key !== 'Escape' || e.defaultPrevented || closing || escapeOff || document.querySelector('[role=alertdialog]')) return;
     e.preventDefault(); // (handled: the reader under it stays)

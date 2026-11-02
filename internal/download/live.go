@@ -44,6 +44,7 @@ type fileProgress struct {
 	total  atomic.Int64 // -1 = unknown
 	// A gallery (a comic): its pages, how many are stored; read counts all its pictures.
 	gallery     bool
+	comic       atomic.Int64
 	pages, done atomic.Int64
 }
 
@@ -55,7 +56,8 @@ type FileProgress struct {
 	Key      string `json:"key,omitempty"`  // ... and "site/post" (a Mastodon ID is too big for a JavaScript number)
 	Read     int64  `json:"read"`
 	Total    int64  `json:"total"` // -1 if the site didn't say
-	// A gallery: how many of its pages are stored.
+	// A gallery: its comic, and how many of its pages are stored.
+	Comic int64 `json:"comic,omitempty"`
 	Pages int64 `json:"pages,omitempty"`
 	Done  int64 `json:"done,omitempty"`
 }
@@ -95,7 +97,7 @@ func (d *Downloader) Progress() []FileProgress {
 	out := make([]FileProgress, 0, len(d.live.files))
 	for f := range d.live.files {
 		out = append(out, FileProgress{SearchID: f.search, PostID: f.post, Site: f.site, Key: retryKey(f), Read: f.read.Load(), Total: f.total.Load(),
-			Pages: f.pages.Load(), Done: f.done.Load()})
+			Comic: f.comic.Load(), Pages: f.pages.Load(), Done: f.done.Load()})
 	}
 	d.live.mu.Unlock()
 	slices.SortFunc(out, func(a, b FileProgress) int {
@@ -119,6 +121,16 @@ func (d *Downloader) trackPost(ctx context.Context, search, post int64) (context
 		delete(d.live.files, f)
 		d.live.mu.Unlock()
 	}
+}
+
+// showGallery lists a gallery as downloading from the start: its comic shows it before the first picture is on its way.
+func (d *Downloader) showGallery(f *fileProgress) {
+	d.live.mu.Lock()
+	if d.live.files == nil {
+		d.live.files = map[*fileProgress]struct{}{}
+	}
+	d.live.files[f] = struct{}{}
+	d.live.mu.Unlock()
 }
 
 // countBody starts counting a file's bytes (if the post is tracked).

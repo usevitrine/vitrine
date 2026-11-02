@@ -36,6 +36,7 @@ type Client struct {
 
 	mu         sync.Mutex
 	next       time.Time // earliest time for the next API request
+	apiNext    time.Time // ... for a foreground POST to the API (its own turn: see PostJSON)
 	foreground int       // foreground requests waiting for a turn (they go first: see Foreground)
 	normal     int       // other requests waiting, but not idle ones (those go last: see Idle)
 	// tooMany is how long all requests wait after a 429 without Retry-After.
@@ -236,7 +237,14 @@ func (c *Client) PostJSON(ctx context.Context, u *url.URL, body []byte) ([]byte,
 	if !c.m.allows(u.Hostname()) || u.Scheme != "https" {
 		return nil, fmt.Errorf("%s: %s is not one of the plugin's domains", c.m.Site, u.Hostname())
 	}
-	if err := c.waitTurn(ctx); err != nil {
+	// Someone looking at the screen: the API has a turn of its own, at the same rate, apart from the site's pages. A
+	// search's list and its details then come one straight after the other (2026-11-02, measured: 250 ms + 280 ms, with
+	// up to a second's wait between them and a search taking about 2 s).
+	wait := c.waitTurn
+	if fg, _ := ctx.Value(foregroundKey{}).(bool); fg {
+		wait = c.waitAPITurn
+	}
+	if err := wait(ctx); err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
@@ -330,6 +338,29 @@ type idleKey struct{}
 // the same.
 func Idle(ctx context.Context) context.Context {
 	return context.WithValue(ctx, idleKey{}, true)
+}
+
+// waitAPITurn blocks until a foreground POST to the site's API may go (see PostJSON).
+func (c *Client) waitAPITurn(ctx context.Context) error {
+	interval := time.Duration(float64(time.Second) / c.m.Limits.RequestsPerSec)
+	for {
+		c.mu.Lock()
+		now := time.Now()
+		if !now.Before(c.apiNext) {
+			c.apiNext = now.Add(interval)
+			c.mu.Unlock()
+			return nil
+		}
+		wait := c.apiNext.Sub(now)
+		c.mu.Unlock()
+		t := time.NewTimer(wait)
+		select {
+		case <-t.C:
+		case <-ctx.Done():
+			t.Stop()
+			return ctx.Err()
+		}
+	}
 }
 
 // waitTurn blocks until the rate limit allows another API request: the next turn goes to a foreground request

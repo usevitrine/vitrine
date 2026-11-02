@@ -77,6 +77,8 @@ export class Results {
    *  on the way to its trash - is never shown on this one (the grid's stale). */
   shown = $state<Scope | ''>('');
   private snapshotAt = 0;
+  /** Comics > Browse: galleries whose download has just ended (their tiles' tick, a moment). */
+  justDone = $state(new Set<number>());
   /** Bumped whenever more IDs or file details arrive (cheap re-render signal). */
   version = $state(0);
 

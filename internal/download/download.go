@@ -1044,6 +1044,12 @@ func (d *Downloader) emit(s Search, e Event) {
 		e.Site = st.Client.Manifest().Site
 	}
 	e.Query = strings.TrimSpace(s.Query)
+	// A gallery's link: said by its title (2026-11-02, the user: the bell showed the link). Read now: it has one by the end.
+	if strings.HasPrefix(e.Query, "http") {
+		if now, err := d.Get(context.Background(), s.ID); err == nil && now.Label != "" {
+			e.Query = now.Label
+		}
+	}
 	e.Subscription = s.SubscriptionID != 0
 	d.OnEvent(e)
 }

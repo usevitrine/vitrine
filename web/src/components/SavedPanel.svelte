@@ -14,6 +14,7 @@
   import { onMount, tick } from 'svelte';
   import { fade } from 'svelte/transition';
   import { useScope } from '../lib/scope.svelte';
+  import { siteLabel } from '../lib/sites.svelte';
   import { settings } from '../lib/settings.svelte';
   import { toasts, attempt } from '../lib/toast.svelte';
   import { label, parse } from '../lib/query';
@@ -47,7 +48,8 @@
   } = $props();
 
   const { saved, kind } = useScope();
-  const comics = kind === 'comics';
+  const browse = kind === 'browse';
+  const comics = kind === 'comics' || browse;
   let editing = $state(false);
   let saving = $state(false); // the name box for the current search is open
   let name = $state('');
@@ -134,6 +136,12 @@
 
   const sortLabel = (s: string) =>
     s && s !== defaultSort ? (sortOptions(comics).find((o) => o.value === s)?.label ?? s) : '';
+  /** Browse: what a saved search says under its name - its site, and its list if it isn't the site's newest. */
+  function browseFacts(s: string) {
+    const at = s.indexOf(':');
+    const order = s.slice(at + 1);
+    return siteLabel(s.slice(0, at)) + (order && order !== 'newest' ? ' · ' + t(`browse.sort.${order}`) : '');
+  }
 
   async function openSave() {
     saving = true;
@@ -400,7 +408,7 @@
                     <!-- (the edit layer's buttons only pop in: a transition out held the whole edit layer on screen beside the
                          tile's own for a moment - every tile showed twice after Done, the user: "it clones the saves") -->
                     {#if editing}
-                      <div class="pics" aria-hidden="true">{@render mosaic(pics)}</div>
+                      {#if !browse}<div class="pics" aria-hidden="true">{@render mosaic(pics)}</div>{/if}
                       {#if saved.list.length > 1}
                         <button
                           class="icon corner grip"
@@ -424,12 +432,13 @@
                       </div>
                     {:else}
                       <button class="run" onclick={() => run(s)} title={s.query || t('push.everything')} data-autofocus={i === 0 && (current || !query.trim()) ? '' : undefined}>
-                        <span class="pics" aria-hidden="true">{@render mosaic(pics)}</span>
+                        <!-- (Browse: a site's search, no pictures of its own to show - the user) -->
+                        {#if !browse}<span class="pics" aria-hidden="true">{@render mosaic(pics)}</span>{/if}
                         {#if saved.newOf[s.id]}<span class="new-pill" title={t('saved.newTitle')} transition:pop>{t('library.new', { n: saved.newOf[s.id] })}</span>{/if}
                         <span class="foot">
                           <span class="name marquee sliding" {@attach marquee}><span>{s.name}</span></span>
                           <span class="facts"
-                            >{t('common.filesShort', { n: s.count, x: short(s.count) })}{#if sl}<span class="sortl"> · {sl}</span>{/if}</span>
+                            >{#if browse}{browseFacts(s.sort)}{:else}{t('common.filesShort', { n: s.count, x: short(s.count) })}{#if sl}<span class="sortl"> · {sl}</span>{/if}{/if}</span>
                         </span>
                       </button>
                     {/if}

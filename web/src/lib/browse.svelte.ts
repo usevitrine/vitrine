@@ -8,21 +8,7 @@ import { tagQuery } from './sites.svelte';
 import { router } from './router.svelte';
 import { comparison } from './system';
 
-const SHAPE = Math.round((7 / 10) * 1024);
-
-/** Pictures loaded (into the browser's cache: they're sent as unchanging, so the tiles then show them at once), or
- *  the time up - whichever first; called off with the search (its requests too: a newer search's covers don't wait
- *  behind them). */
-function preload(urls: string[], ms: number, signal: AbortSignal): Promise<void> {
-  const all = Promise.all(
-    urls.filter(Boolean).map((u) =>
-      fetch(u, { signal })
-        .then((r) => r.blob())
-        .catch(() => {}),
-    ),
-  );
-  return Promise.race([all.then(() => {}), new Promise<void>((r) => setTimeout(r, ms))]);
-} // (covers: about 7 wide to 10 tall - the site doesn't say each one's)
+const SHAPE = Math.round((7 / 10) * 1024); // (covers: about 7 wide to 10 tall - the site doesn't say each one's)
 
 export class BrowseResults extends Results {
   /** The site browsed (a plugin ID). */
@@ -100,10 +86,7 @@ export class BrowseResults extends Results {
     try {
       const res = await api.browse(this.site, this.siteQuery(q), 0, this.sort, abort.signal);
       if (my !== this.run) return;
-      // The first screenful's covers before the list shows (at most a moment): they come in together, not cover by
-      // cover.
-      await preload(res.galleries.slice(0, 24).map((g) => this.image(g.cover)), 1200, abort.signal);
-      if (my !== this.run) return;
+      // (the list at once - it waited up to 1.2 s here for its covers: the grid holds them a moment itself, openGate)
       this.take(res.galleries);
       this.next = res.next;
       this.comics = res.total >= 0 ? res.total : this.order.length;
@@ -200,6 +183,25 @@ export class BrowseResults extends Results {
     g.queued = true;
     this.items.set(id, { ...f, comic: { ...f.comic, mark: g.comic ? 'have' : 'queued' } });
     this.version++;
+  }
+
+  /** A gallery's download has ended: in the library now (comic: its ID - a tick a moment, then the usual mark), or not
+   *  (failed, removed: as if never asked for). */
+  settled(id: number, comic?: number) {
+    const g = this.galleries.get(id);
+    const f = this.items.get(id);
+    if (!g || !f?.comic) return;
+    g.queued = false;
+    g.comic = comic;
+    this.items.set(id, { ...f, comic: { ...f.comic, mark: comic ? 'have' : undefined } });
+    this.version++;
+    if (!comic) return;
+    this.justDone = new Set(this.justDone).add(id);
+    window.setTimeout(() => {
+      const next = new Set(this.justDone);
+      next.delete(id);
+      this.justDone = next;
+    }, 1500);
   }
 
   override refresh() {

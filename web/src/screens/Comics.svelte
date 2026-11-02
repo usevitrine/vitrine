@@ -412,7 +412,7 @@
   let merging = false;
   let lastTake = 0;
   let waiting = $state(false); // new comics waiting for a quiet moment
-  const quiet = () => openID === null && !heroing && details === null && cropping === null && !selection.active && !!grid?.quiet();
+  const quiet = () => openID === null && !heroing && details === null && cropping === null && !selection.active && (!grid || grid.quiet()); // (no grid: an empty page, nothing to disturb)
   $effect(() => {
     if (!waiting) return;
     const t = setInterval(() => {
@@ -452,7 +452,8 @@
   }
   $effect(() => {
     let soon = 0;
-    // A gallery coming in says so with every page: taken in a moment after, at most every 5 s.
+    // A gallery coming in says so as it starts and with every page: taken in a moment after, at most every 5 s (its
+  // count on the tile follows live.files by itself).
     const off = live.onDownloads(() => {
       if (soon) return;
       soon = window.setTimeout(() => {
@@ -464,6 +465,19 @@
       off();
       clearTimeout(soon);
     };
+  });
+
+  // A comic downloading that the list doesn't have yet: taken in now, not after the wait above (the user: "it doesnt
+  // appear immediately"). Once each: one the search leaves out is never in the list.
+  const askedFor = new Set<number>();
+  $effect(() => {
+    const unknown = live.files.filter((f) => f.comic && !askedFor.has(f.comic));
+    if (!unknown.length) return;
+    untrack(() => {
+      const missing = unknown.filter((f) => results.indexOf(f.comic!) < 0);
+      for (const f of unknown) askedFor.add(f.comic!);
+      if (missing.length) takeChanges();
+    });
   });
 
   // Back here from another screen: its URL again (the page stays mounted).
@@ -639,11 +653,13 @@
   :global(.bar-sliding) .comics header {
     transition: top 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
+  /* As tall as the search bar it stands for: the grid under them stays put (the user: "the page shifts"). */
   .coll-head {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin: -2px 0 6px -6px;
+    height: calc(max(var(--control-h), 36px) + 2px);
+    margin-left: -6px;
   }
   .coll-icon {
     display: grid;

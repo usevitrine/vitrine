@@ -45,7 +45,8 @@ func cleanSaved(name, query string) (string, string, error) {
 }
 
 // SavedSearches lists the saved searches in the user's order, each with how
-// many files it finds now. scope: "" the library's, "comics" the Comics page's.
+// many files it finds now. scope: "" the library's, "comics" the Comics page's, "browse" Comics > Browse's (a site's
+// search: nothing here counts what it finds).
 func (l *Library) SavedSearches(ctx context.Context, scope string) ([]SavedSearch, error) {
 	ix := l.ix
 	if scope == "comics" {
@@ -66,7 +67,7 @@ func (l *Library) SavedSearches(ctx context.Context, scope string) ([]SavedSearc
 		if err := rows.Scan(&s.ID, &s.Name, &s.Query, &s.Sort); err != nil {
 			return nil, fmt.Errorf("library: %w", err)
 		}
-		if q, err := search.Parse(s.Query); err == nil {
+		if q, err := search.Parse(s.Query); err == nil && scope != "browse" {
 			s.Count = ix.Count(q, now)
 		}
 		out = append(out, s)
@@ -76,7 +77,7 @@ func (l *Library) SavedSearches(ctx context.Context, scope string) ([]SavedSearc
 
 // SaveSearch adds a saved search at the end of its scope's list (see SavedSearches).
 func (l *Library) SaveSearch(ctx context.Context, name, query, sort, scope string) (int64, error) {
-	if scope != "" && scope != "comics" {
+	if scope != "" && scope != "comics" && scope != "browse" {
 		return 0, fmt.Errorf("library: %w: scope %q", ErrInvalid, scope)
 	}
 	name, query, err := cleanSaved(name, query)

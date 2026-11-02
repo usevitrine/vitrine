@@ -771,8 +771,8 @@ test('desktop: a trackpad - a swipe right after another (its glide still arrivin
 /** Simulated touch on the grid (Playwright's touchscreen can only tap). */
 async function touchGrid(page: Page, steps: { type: 'down' | 'move' | 'up'; tile: number; wait?: number }[]) {
   for (const s of steps) {
-    const box = (await page.locator(`.tile[data-i="${s.tile}"]`).boundingBox())!;
-    await page.locator('.scroller').evaluate(
+    const box = (await page.locator(`.tile[data-i="${s.tile}"]:visible`).boundingBox())!;
+    await page.locator('.scroller:visible').evaluate(
       (el, { type, x, y }) => {
         const target = document.elementFromPoint(x, y) ?? el;
         target.dispatchEvent(
@@ -7662,11 +7662,11 @@ test('grid: switching between Comics and the library, the tiles appear (the same
   // Comics, opened for the first time: its tiles appear.
   await go('Comics');
   await expect(page.locator('.comics .tile').first()).toBeVisible();
-  await expect.poll(() => appearing('.comics')).toBeGreaterThan(0);
+  await expect.poll(() => appearing('.comics'), { intervals: [20] }).toBeGreaterThan(0);
   // Back to the library: its tiles appear again.
   await page.waitForTimeout(700);
   await go('Media');
-  await expect.poll(() => appearing('.library')).toBeGreaterThan(0);
+  await expect.poll(() => appearing('.library'), { intervals: [20] }).toBeGreaterThan(0);
 });
 
 test('hover zoom: a video opened from its playing card carries on in the viewer from where the card was; the card\'s copy is let go of at once', async ({ page }) => {
@@ -8156,6 +8156,331 @@ test('comics: Browse - a new search calls off the one on its way (its request en
   await expect(page.locator('.browse .tile', { hasText: 'Slow result' })).toHaveCount(0); // and never shown
 });
 
+// The user: a comic downloading "isnt in the all comics page until refresh. it should be there from the beginning with a
+// downloading indicator and how many pages". (An empty page never took it in at all: no grid, never "quiet".)
+test('comics: a comic downloading comes onto the page without a reload, marked as downloading, its pages counting up', async ({ page }) => {
+  const comic = { id: 7, title: 'Some comic', pages: 10, have: 0, created_at: 1, updated_at: 1, read_page: 0, tags: [] };
+  let started = false;
+  await page.route('**/api/search?*scope=comics*', (r) => {
+    const n = started ? 1 : 0;
+    r.fulfill({ json: { result: 'r' + n, total: n, comics: n, ids: n ? [7] : [], took_ms: 1, now: 1, unknown: [], seed: 0, shapes: '' } });
+  });
+  await page.route('**/api/comics/info?*', (r) => r.fulfill({ json: { comics: [comic] } }));
+  let opened = 0;
+  await page.route('**/api/events', (r) => {
+    opened++;
+    const progress = (done: number) => `event: progress\ndata: ${JSON.stringify([{ search: 1, post: 1, read: 0, total: -1, comic: 7, pages: 10, done }])}\n\n`;
+    const body = opened === 1 ? 'retry: 300\n\n' : opened === 2 ? `retry: 300\n\n${progress(0)}event: downloads\ndata: {}\n\n` : `retry: 300\n\n${progress(3)}`;
+    if (opened === 2) started = true;
+    return r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body });
+  });
+  await page.goto('/comics');
+  const tile = page.locator('.comics .tile');
+  // Nothing yet; then the stream says it has begun: there, with no reload.
+  await expect(tile).toHaveCount(1, { timeout: 15000 });
+  await expect(tile.getByRole('img', { name: 'Downloading' })).toBeVisible({ timeout: 15000 });
+  await expect(tile.locator('.comic-chip')).toHaveText(/^\d+\/10$/);
+  await expect(tile.locator('.comic-chip')).toHaveText('3/10', { timeout: 15000 });
+});
+
+// The user: Browse "resets every time you go to it", "needs saved searches", "a right click menu ... where i can download".
+test('comics: Browse - its search and place stay, saved searches keep their site, a tile\'s menu downloads', async ({ page }) => {
+  test.skip(isPhone(page), 'right-click');
+  const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://g.test/g/${id}/abcdef0123/`, title: `Gallery ${id}`, category: 'Manga', pages: 10, tags: [], cover: '' });
+  let asked = 0;
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
+  await page.route('**/api/browse?*', (r) => {
+    asked++;
+    return r.fulfill({ json: { galleries: Array.from({ length: 80 }, (_, i) => gallery(i + 1)), total: 80, next: 0 } });
+  });
+  let list: { id: number; name: string; query: string; sort: string; count: number }[] = [];
+  await page.route('**/api/saved?*scope=browse*', async (r) => {
+    if (r.request().method() === 'POST') {
+      const b = r.request().postDataJSON();
+      list = [...list, { id: 1, name: b.name, query: b.query, sort: b.sort, count: 0 }];
+      return r.fulfill({ json: { id: 1, saved: list } });
+    }
+    return r.fulfill({ json: { saved: list } });
+  });
+  await page.goto('/browse');
+  await page.locator('.browse .bar input').fill('blue_sky ');
+  await expect(page).toHaveURL(/q=blue_sky/);
+  const scroller = page.locator('#browse-scroller');
+  await expect(page.locator('.browse .tile').first()).toBeVisible();
+  await scroller.evaluate((el) => (el.scrollTop = 600));
+  await page.waitForTimeout(200);
+  // Away and back: the same search (not asked again), the same place.
+  const before = asked;
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await page.locator('#nav-drawer').getByRole('button', { name: 'Media', exact: true }).click();
+  await expect(page.locator('.browse')).toBeHidden();
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await unfold(page, 'comics');
+  await page.locator('#nav-drawer').getByRole('button', { name: 'Browse' }).click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/browse'); // (it was /browse/browse)
+  await expect(page).toHaveURL(/q=blue_sky/);
+  await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(500);
+  expect(asked).toBe(before);
+  // A reload: the search again.
+  await page.reload();
+  await expect(page.locator('.browse .chip', { hasText: 'blue_sky' })).toBeVisible();
+  // Saved, with its site.
+  await page.locator('.browse .icon.star').click();
+  await page.locator('.small-btn.add').first().click();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => list.length).toBe(1);
+  expect(list[0]).toMatchObject({ query: 'blue_sky', sort: 'gallery-site:newest' });
+  await page.keyboard.press('Escape');
+  // A tile's menu: Download, the usual dialog.
+  await page.locator('.browse .tile').first().click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Download' }).click();
+  await expect(page.locator('[role="dialog"][aria-modal="true"]')).toBeVisible();
+});
+
+// The user: the icon "never changes once its finished downloading"; those already downloaded "should be greyed out".
+test('comics: Browse - a download ending turns its mark into a tick and the tile grey; one failing goes back', async ({ page }) => {
+  const gallery = (id: number, extra = {}) => ({ id, token: 'abcdef0123', url: `https://g.test/g/${id}/abcdef0123/`, title: `Gallery ${id}`, category: 'Manga', pages: 10, tags: [], cover: '', ...extra });
+  let ended = false;
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
+  await page.route('**/api/browse?*', (r) => {
+    const q = new URL(r.request().url()).searchParams.get('q') ?? '';
+    if (q.includes('/g/1/')) return r.fulfill({ json: { galleries: [gallery(1, { comic: 77 })], total: 1, next: 0 } });
+    return r.fulfill({ json: { galleries: [gallery(1, { queued: true }), gallery(2, { queued: true }), gallery(3, { comic: 5 }), gallery(4)], total: 4, next: 0 } });
+  });
+  await page.route('**/api/downloads?active=1', (r) =>
+    r.fulfill({
+      json: {
+        searches: ended
+          ? [{ id: 2, site: 'gallery-site', query: gallery(2).url, state: 'failed' }]
+          : [{ id: 1, site: 'gallery-site', query: gallery(1).url, state: 'running' }, { id: 2, site: 'gallery-site', query: gallery(2).url, state: 'running' }],
+        sites_paused: {},
+      },
+    }),
+  );
+  await page.route('**/api/events', (r) => r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: 'retry: 300\n\nevent: downloads\ndata: {}\n\n' }));
+  await page.goto('/browse');
+  const tile = (name: string) => page.locator('.browse .tile', { hasText: name }).first();
+  await expect(tile('Gallery 1').getByRole('img', { name: 'Downloading' })).toBeVisible();
+  // One the library has: grey from the start; one it doesn't: not. (A veil: no filter on the picture, which flickered.)
+  await expect(tile('Gallery 3').locator('.had-veil')).toHaveCount(1);
+  await expect(tile('Gallery 4').locator('.had-veil')).toHaveCount(0);
+  expect(await tile('Gallery 3').locator('.fit').evaluate((el) => getComputedStyle(el).filter)).toBe('none');
+  expect(await tile('Gallery 3').locator('.had-veil').evaluate((el) => getComputedStyle(el).transitionProperty)).toBe('opacity');
+  ended = true;
+  await expect(tile('Gallery 1').getByRole('img', { name: 'Downloaded' })).toBeVisible({ timeout: 10000 });
+  await expect(tile('Gallery 1').getByRole('img', { name: 'In library' })).toBeVisible({ timeout: 10000 });
+  await expect(tile('Gallery 1').locator('.had-veil')).toHaveCount(1);
+  await expect(tile('Gallery 2').locator('.comic-status')).toHaveCount(0);
+});
+
+// The user: "when i click off of it, it closes instead of opening the comic under the cursor", as on the media page.
+test('details panels on Comics and Browse: a click off closes them and does nothing else', async ({ page }) => {
+  test.skip(isPhone(page), 'a column beside the grid');
+  const gallery = (id: number) => ({ id, token: 'abcdef0123', url: `https://g.test/g/${id}/abcdef0123/`, title: `Gallery ${id}`, category: 'Manga', pages: 10, tags: [], cover: '' });
+  await page.route('**/api/browse/sites', (r) => r.fulfill({ json: { sites: ['gallery-site'], sorts: { 'gallery-site': [] } } }));
+  await page.route('**/api/browse?*', (r) => r.fulfill({ json: { galleries: [1, 2, 3, 4].map(gallery), total: 4, next: 0 } }));
+  await page.goto('/browse');
+  const cards = page.locator('.browse .tile');
+  await expect(cards).toHaveCount(4);
+  const panel = page.getByRole('complementary', { name: 'Details' });
+  await cards.nth(0).click();
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText('Gallery 1');
+  await page.waitForTimeout(350);
+  await cards.nth(1).click();
+  await expect(panel).toHaveCount(0); // (not Gallery 2's)
+  await page.waitForTimeout(300);
+  // And the next click is a click again.
+  await cards.nth(1).click();
+  await expect(panel).toContainText('Gallery 2');
+  // Inside it: it stays.
+  await panel.getByRole('heading', { name: 'Details' }).click();
+  await expect(panel).toBeVisible();
+});
+
+// The user: right-click rename; "click and hold ... the same tilted effect with a border"; "animate into a tick".
+test('comics: a menu renames; held, a comic drops on a collection; a finished download turns into a tick and goes', async ({ page }) => {
+  test.skip(isPhone(page), 'a mouse');
+  const comic = (id: number, title: string, extra = {}) => ({ id, title, pages: 10, have: 10, created_at: 1, updated_at: 1, read_page: 0, tags: [], cover_w: 700, cover_h: 1000, ...extra });
+  const stack = 2 ** 31 + 5;
+  let have = 3;
+  let seven = 'Comic 7';
+  const info = (id: number) =>
+    id === stack ? comic(stack, 'A series', { stack: { id: 5, name: 'A series', count: 2, read: 0, cover: 8 } }) : comic(id, id === 7 ? seven : 'Comic ' + id, { have: id === 9 ? have : 10 });
+  await page.route('**/api/search?*scope=comics*', (r) => r.fulfill({ json: { result: 'r', total: 3, comics: 3, ids: [7, stack, 9], took_ms: 1, now: 1, unknown: [], seed: 0, shapes: '' } }));
+  await page.route('**/api/comics/info?*', (r) => {
+    const ids = new URL(r.request().url()).searchParams.get('ids')!.split(',').map(Number);
+    return r.fulfill({ json: { comics: ids.map(info) } });
+  });
+  await page.route('**/api/comics/collections', (r) => r.fulfill({ json: { collections: [{ id: 5, name: 'A series', count: 2, read: 0, cover: 8 }] } }));
+  const put: unknown[] = [];
+  await page.route('**/api/comics/do/collection', (r) => {
+    put.push(r.request().postDataJSON());
+    return r.fulfill({ json: { changed: 1 } });
+  });
+  const titled: unknown[] = [];
+  await page.route(/\/api\/comics\/7(\?|$)/, (r) => {
+    titled.push(r.request().postDataJSON());
+    seven = 'A better name';
+    return r.fulfill({ json: { ok: true } });
+  });
+  let opened = 0;
+  await page.route('**/api/events', (r) => {
+    opened++;
+    const running = `event: progress\ndata: ${JSON.stringify([{ search: 1, post: 1, read: 0, total: -1, comic: 9, pages: 10, done: 3 }])}\n\n`;
+    if (opened >= 3) have = 10;
+    return r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: 'retry: 400\n\n' + (opened < 3 ? running : 'event: progress\ndata: []\n\n') });
+  });
+  await page.goto('/comics');
+  const tile = (name: string) => page.locator('.comics .tile', { hasText: name }).first();
+  await expect(tile('Comic 7')).toBeVisible();
+  // The mark while it comes, then a tick, then nothing.
+  await expect(tile('Comic 9').getByRole('img', { name: 'Downloading' })).toBeVisible({ timeout: 10000 });
+  expect(await tile('Comic 9').getByRole('img', { name: 'Downloading' }).evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)'); // (its round background)
+  await expect(tile('Comic 9').getByRole('img', { name: 'Downloaded' })).toBeVisible({ timeout: 10000 });
+  await expect(tile('Comic 9').getByRole('img', { name: 'Downloaded' })).toHaveCount(0, { timeout: 5000 });
+  // Right-click: Rename.
+  await tile('Comic 7').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Rename' }).click();
+  const title = page.getByRole('textbox', { name: /title/i });
+  await title.fill('A better name');
+  await title.press('Enter');
+  await expect.poll(() => titled).toEqual([{ title: 'A better name' }]);
+  await expect(tile('A better name')).toBeVisible();
+  await page.mouse.move(2, 2); // (no card open)
+  await page.waitForTimeout(300);
+  // Through a hover card and back: the title's width follows the card as it's drawn, no jump as it lands.
+  const before = await tile('A better name').evaluate((el) => (el.querySelector('.comic-foot') as HTMLElement).getBoundingClientRect().width);
+  const widths = page.evaluate(
+    () =>
+      new Promise<number[]>((done) => {
+        const out: number[] = [];
+        const start = performance.now();
+        const look = () => {
+          const f = document.querySelector<HTMLElement>('.tile.zoomed .comic-foot, .tile.shrinking .comic-foot');
+          if (f) out.push(f.getBoundingClientRect().width);
+          if (performance.now() - start < 1500) requestAnimationFrame(look);
+          else done(out);
+        };
+        look();
+      }),
+  );
+  const near = (await tile('A better name').boundingBox())!;
+  await page.mouse.move(near.x + near.width / 2 - 4, near.y + near.height / 2);
+  await page.mouse.move(near.x + near.width / 2, near.y + near.height / 2);
+  await page.waitForTimeout(600);
+  await page.mouse.move(2, 2);
+  const seen = await widths;
+  expect(seen.length).toBeGreaterThan(5);
+  const last = seen[seen.length - 1];
+  expect(Math.abs(last - before)).toBeLessThan(6); // (shrunk back to the tile's width with the card, not at the end)
+  await page.waitForTimeout(300);
+  const t = (await tile('A better name').boundingBox())!;
+  const k = (await tile('A series').boundingBox())!;
+  // Moved at once: selecting, as ever - not picked up.
+  await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(t.x + t.width / 2 + 30, t.y + t.height / 2);
+  await page.waitForTimeout(400);
+  await expect(page.locator('.lift-ghost')).toHaveCount(0);
+  await page.mouse.up();
+  await expect(page.getByRole('toolbar')).toBeVisible();
+  await page.getByRole('button', { name: 'Clear selection' }).click();
+  await expect(page.getByRole('toolbar')).toHaveCount(0);
+  // Let go where it started: never two of it at once - the tile itself back only as its copy has gone.
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(300);
+  await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(450);
+  await expect(page.locator('.lift-ghost')).toHaveCount(1);
+  const both = page.evaluate(
+    () =>
+      new Promise<number>((done) => {
+        let seen = 0;
+        const look = () => {
+          const ghost = document.querySelector('.lift-ghost');
+          if (!ghost) return done(seen);
+          const home = document.querySelector<HTMLElement>('.tile[aria-label="A better name"]');
+          if (home && !document.querySelector('.tile.lift-source') && getComputedStyle(home).visibility !== 'hidden') seen++;
+          requestAnimationFrame(look);
+        };
+        look();
+      }),
+  );
+  await page.mouse.up();
+  expect(await both).toBe(0);
+  // Held: picked up, tilted; over the collection it lights; let go, it goes in.
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(300);
+  await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(450);
+  await expect(page.locator('.lift-ghost')).toHaveCount(1);
+  await page.mouse.move(k.x + k.width / 2, k.y + k.height / 2, { steps: 4 });
+  await expect(page.locator('.tile.drop-target')).toHaveCount(1);
+  await page.mouse.up();
+  await expect.poll(() => put).toEqual([{ ids: [7], collection: 5 }]);
+  await expect(page.locator('.lift-ghost')).toHaveCount(0);
+});
+
+// The user: "it doesnt unstack when clicking on a collection" (with a mouse its tile is a hover card, which the motion
+// left out), and going back "abruptly switches" from the top comic's picture to the collection's.
+test('comics: a collection clicked with a mouse unstacks; going back, its tile fades in over the pile', async ({ page }) => {
+  test.skip(isPhone(page), 'a mouse');
+  const comic = (id: number, title: string, extra = {}) => ({ id, title, pages: 10, have: 10, created_at: 1, updated_at: 1, read_page: 0, tags: [], cover_w: 700, cover_h: 1000, ...extra });
+  const stack = 2 ** 31 + 5;
+  await page.addInitScript(() => {
+    const w = window as any;
+    w.__tiles = [];
+    const orig = Element.prototype.animate;
+    Element.prototype.animate = function (this: Element, k: any, o: any) {
+      if (this.classList.contains('tile')) w.__tiles.push({ id: (this as HTMLElement).dataset.id ?? 'ghost', turns: JSON.stringify(k).includes('scale'), tilts: JSON.stringify(k).includes('rotate'), fades: k?.[0]?.opacity === 0, delay: o?.delay ?? 0 });
+      return orig.call(this, k, o);
+    };
+  });
+  await page.route('**/api/search?*scope=comics*', (r) => {
+    const inside = new URL(r.request().url()).searchParams.get('collection') === '5';
+    const ids = inside ? [7, 8] : [stack, 9];
+    r.fulfill({ json: { result: inside ? 'in' : 'out', total: 2, comics: 2, ids, took_ms: 1, now: 1, unknown: [], seed: 0, shapes: '' } });
+  });
+  await page.route('**/api/comics/info?*', (r) => {
+    const ids = new URL(r.request().url()).searchParams.get('ids')!.split(',').map(Number);
+    r.fulfill({ json: { comics: ids.map((id) => (id === stack ? comic(stack, 'A series', { stack: { id: 5, name: 'A series', count: 2, read: 0, cover: 7 } }) : comic(id, 'Comic ' + id))) } });
+  });
+  await page.route('**/api/comics/collections', (r) => r.fulfill({ json: { collections: [{ id: 5, name: 'A series', count: 2, read: 0, cover: 7 }] } }));
+  await page.goto('/comics');
+  const series = page.locator('.comics .tile', { hasText: 'A series' }).first();
+  await expect(series).toBeVisible();
+  await page.waitForTimeout(600);
+  const barBefore = await page.locator('.comics header').evaluate((el) => (el as HTMLElement).offsetHeight);
+  const b = (await series.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2 - 4, b.y + b.height / 2);
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await expect(page.locator('.tile.zoomed')).toHaveCount(1); // (its hover card)
+  await page.waitForTimeout(400);
+  await page.evaluate(() => ((window as any).__tiles = []));
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.locator('.comics .tile', { hasText: 'Comic 8' })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__tiles.filter((x: any) => x.turns && (x.id === '7' || x.id === '8')).length))
+    .toBe(2);
+  const dealt = await page.evaluate(() => (window as any).__tiles.filter((x: any) => x.turns) as { id: string; delay: number }[]);
+  expect(dealt[1].delay).toBeGreaterThan(dealt[0].delay); // (one after another)
+  expect(await page.evaluate(() => (window as any).__tiles.filter((x: any) => x.turns && x.tilts).length)).toBe(0);
+  await page.waitForTimeout(600);
+  // The bar with its name is as tall as the search bar: the page doesn't shift.
+  expect(await page.locator('.comics header').evaluate((el) => (el as HTMLElement).offsetHeight)).toBe(barBefore);
+  // Back: they go in; the collection's tile fades in, after they've started, and the pile goes once it has.
+  await page.mouse.move(2, 2);
+  await page.evaluate(() => ((window as any).__tiles = []));
+  await page.getByRole('button', { name: 'Back to all comics' }).click();
+  await expect(page.locator('.comics .tile', { hasText: 'A series' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).__tiles.some((x: any) => x.fades && x.delay > 100))).toBe(true);
+  await expect(page.locator('.sizer > .ghost')).toHaveCount(0, { timeout: 3000 });
+});
+
 test('comics: a comic card keeps its title, chips and mark as they are while it grows and shrinks (held, not scaled with it)', async ({ page }) => {
   test.skip(isPhone(page), 'a hover: a mouse');
   const ids = (await page.request.get('/api/search?q=system:type%3Dimage&limit=1').then((r) => r.json())).ids as number[];
@@ -8398,7 +8723,7 @@ test('comics: Browse - a gallery site\'s galleries as covers (marked when in the
   const drawer = page.locator('#nav-drawer');
   if (!(await drawer.getByRole('button', { name: 'Browse' }).isVisible())) await drawer.locator('.tab-row', { hasText: 'Comics' }).getByRole('button', { name: 'Unfold' }).click();
   await drawer.getByRole('button', { name: 'Browse' }).click();
-  await expect(page).toHaveURL(/\/browse$/);
+  await expect(page).toHaveURL(/\/browse(\?site=[^&]*)?$/);
   // The library's own search bar and grid (the same tiles), the count in the top bar.
   await expect(page.locator('.browse').getByRole('combobox', { name: 'Search' })).toBeVisible();
   const cards = page.locator('.browse .tile');
@@ -9134,11 +9459,12 @@ test('browse: several galleries selected (Select, or Ctrl-click) and downloaded 
   await page.goto('/browse');
   const cards = page.locator('.browse .tile');
   await expect(cards).toHaveCount(4);
-  // Select (in the top bar): taps select instead of opening; the bar counts them.
-  await page.getByRole('button', { name: 'Select', exact: true }).click();
+  // As on the other pages: Select in a tile's menu (long-press, right-click); then taps select instead of opening; the bar counts them.
+  if (isPhone(page)) await touchGrid(page, [{ type: 'down', tile: 1, wait: 600 }, { type: 'up', tile: 1 }]);
+  else await cards.nth(1).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Select' }).click();
   await cards.nth(0).click({ force: true }); // (in the library already: dimmed, not picked)
   await expect(cards.nth(0)).toHaveAttribute('aria-disabled', 'true');
-  await cards.nth(1).click();
   await cards.nth(2).click();
   await expect(page.getByRole('complementary', { name: 'Details' })).toHaveCount(0);
   const bar = page.getByRole('toolbar', { name: /selected/i });

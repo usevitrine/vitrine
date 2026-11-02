@@ -676,8 +676,12 @@ func (ix *Index) Shapes(ids []uint32) []uint16 {
 	ix.mu.RLock()
 	defer ix.mu.RUnlock()
 	out := make([]uint16, len(ids))
+	unknown := uint16(1024)
+	if ix.comic != nil {
+		unknown = 717 // (a comic with no cover yet - downloading: a cover's usual shape, 7 wide to 10 tall)
+	}
 	for i, id := range ids {
-		out[i] = 1024
+		out[i] = unknown
 		if int(id) < len(ix.width) && ix.width[id] > 0 && ix.height[id] > 0 {
 			r := float64(ix.width[id]) / float64(ix.height[id]) * 1024
 			out[i] = uint16(min(max(r, 16), 65535))

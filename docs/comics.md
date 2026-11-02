@@ -6,6 +6,43 @@ The comics library (galleries, comic tags, read state, custom titles, cover crop
 - **A comic** (a gallery: doujinshi, manga, an artist's CG set) = `comics` row (title, alt title, site + gallery key,
   URL, category, page count, cover, posted/created/updated, reading place) + `comic_pages` (comic, 0-based page, file, the page's key on its site - downloader/engines.md)
   + `comic_tags` (like file_tags: one row per origin, 0 = the user). Migration 0026.
+- **A comic downloading shows from the start (2026-11-02, the user: it "isnt in the all comics page until refresh")**:
+  its row is made as its gallery's download starts, and open pages hear then and with each page stored
+  (`Downloader.Changed`; before, only when the whole gallery was done). The stream's progress names the comic
+  (`FileProgress.Comic`, listed before the first picture: `showGallery`), so its tile has the peach download mark and
+  its count (`3/10`) live; a comic the list doesn't have is taken in at once, otherwise list and cover follow at most
+  every 5 s. A download still waiting in the queue has no comic yet (its gallery hasn't been read). The mark's arrow keeps
+  falling into its tray; ended whole, it turns into a tick drawn in green for 1.5 s, then goes (user: "animate into a
+  tick"). With no cover yet the tile has a cover's shape, 7:10 (`Index.Shapes`), not a square.
+- **A comic's menu has Rename** (the details' dialog; user, 2026-11-02).
+- **Hold a comic to drag it into a collection (2026-11-02, user: "click and hold ... the same tilted effect with a
+  border")**: with a mouse, still for 300 ms (moved sooner: the drag that selects, as ever), a copy of the tile follows the
+  pointer, tilted, mauve outline, its place faint; the collection under it lights; let go there and it goes in (with the
+  rest of the selection if it's one of them); anywhere else or Escape, it goes back. Touch screens keep long-press: menu,
+  or a slide that selects.
+- **A collection unstacks (2026-11-02, user: "an unstacking effect", "fast", the tilt "looks janky")**: its comics start
+  as the pile its tile stands for (first on top), held until the pictures are in, then dealt out one after another to
+  their places in about 0.3 s, no tilt, no boxes or color behind them on the way (`unstacking`). Closing stacks them back,
+  the collection's own tile fading in over the pile. (`playMorph`; with a mouse the clicked tile is a hover card: the pile
+  starts from its home place.) The bar with its name is as tall as the search bar: the grid doesn't shift.
+- **Browse's first results, quicker (2026-11-02, the user: "is there a way to speed up the browse page")**: measured on
+  e-hentai: the list page 250 ms, the API 280 ms, and a search took about 2 s - the wait for the site's 1 request a second
+  between them, then up to 1.2 s for its covers. A page count or tags cost nothing apart: one API answer holds a gallery's
+  title, cover, pages and tags. So a foreground POST has a turn of its own (`waitAPITurn`: same rate, apart from the
+  pages) and the list no longer waits for its covers. About 0.5 s now, without the site's other limits changing.
+- **Details panels close on a click off (2026-11-02, the user: as on the media page)**: a press outside the panel closes it
+  and does nothing else (`pressedOff` in DetailsPanel; not on menus, dialogs or notices).
+- **A gallery with no tags is read again (2026-11-02, user: a comic had none until refreshed by hand; not reproduced)**:
+  a post with none, once its pages are in, is read from the site once more (`rereadTags`, a warning in the log says so);
+  an open details panel reads its tags again when the download ends.
+- **Browse keeps its place (2026-11-02, user: it "resets every time you go to it")**: the grid puts a hidden page's scroll
+  back when shown (any page); its search, order and site are in the address and remembered on the device
+  (`vitrine.browseLast`), over the default search. **It selects as the other pages do** (long-press, drag, Ctrl/Shift;
+  no Select button); a tile's menu: Details, Download, Select. **Saved searches of its own** (scope `browse`; the site
+  and order kept together in `sort`, "site:order"; nothing counted, no pictures). **Galleries the library has are grey**
+  (a veil, `.had-veil`, fading away on their hover card; a filter on the picture flickered in motion). **A download ending**: as the queue changes, galleries marked as coming that no download works
+  on are asked after (`checkComing`): in the library now, a tick a moment, then the usual mark and grey; failed or gone,
+  no mark.
 - **Comics live only on the Comics page**: a page's file is stored like any file (dedupe, thumbnails, renditions) but
   carries `FlagComicOnly` (files.flags 1<<6) and is **never in the search index** (index load skips it; it's never
   AddFile'd), so it never shows in the library's grid, searches, counts, stats, duplicates or "new" pill. The same
@@ -182,17 +219,14 @@ The comics library (galleries, comic tags, read state, custom titles, cover crop
   search bar and grid (the user: "it doesn't look like the other libraries" - the first version was a page of its
   own). `lib/browse` (`BrowseResults`, a `Results` of its own in the `browse` scope) dresses each gallery as a comic
   (cover, title, pages; `comic.mark` have/queued -> the round corner badge read comics use: a green check "In
-  library", a peach download "Downloading"). No drag-select, long-press or right-click menu: a press that moves a
-  little, or a slow tap, still opens the gallery (they started a hidden drag-select / long press - "some comics
-  aren't clickable"). **Several at once** (2026-10-23, the user: "multi select for comic browse for bulk downloads"):
-  a Select button (checks icon) beside the count in the top bar puts the grid in picking mode (`Selection.picking`:
-  a tap selects with nothing selected yet; ✕ in the bar ends it), and with a mouse Ctrl/Shift-click selects without
-  it. Galleries the library has or whose download waits are dimmed and can't be picked (Select all leaves them out).
+  library", a peach download "Downloading"). (Until 2026-11-02 no drag-select, long-press or right-click menu, and a
+  Select button: the "Browse keeps its place" entry above has what replaced them.) **Several at once** (2026-10-23, the user: "multi select for comic browse for bulk downloads"):
+  selecting as on the other pages. Galleries the library has or whose download waits are dimmed and can't be picked (Select all leaves them out).
   The selection bar has Select all and **Download**: each gallery its own one-time download (`addDownload`, named by
   its title), marked "Downloading" at once; a toast counts them (and any left out). Another search, site or order
   clears the picks (picking goes on); leaving Browse ends it. The top bar: the gallery count, or a spinner (the site: the filter menu's From row only - the user: "why is the dropdown still in the header"; remembered).
 - **Search bar** (2026-10-22, the user: filter and sort, "/" searches, the site's own tags): the library's bar with
-  its filter menu (`SystemMenu` in a browse mode) - no saved searches. `siteQuery` turns the chips into the site's
+  its filter menu (`SystemMenu` in a browse mode). `siteQuery` turns the chips into the site's
   syntax: tags via `tagQuery`, "/title words" (and `title:`) as plain words, and the menu's filters, written as the
   library writes filters (so they get its chip labels and editing) - `category:x`, `language:x` (the site's
   categories and common languages, not the library's), `system:pages>N` (-> `pages:from-to`), `system:stars>=N`

@@ -9,6 +9,22 @@ import (
 	"github.com/usevitrine/vitrine/internal/search"
 )
 
+// Comics > Browse's saved searches: a list of their own, nothing counted (a site's search, not the library's).
+func TestSavedBrowseScope(t *testing.T) {
+	l := newTest(t)
+	ctx := context.Background()
+	if _, err := l.SaveSearch(ctx, "a site's", "blue_sky", "gallery-site:newest", "browse"); err != nil {
+		t.Fatal(err)
+	}
+	list, err := l.SavedSearches(ctx, "browse")
+	if err != nil || len(list) != 1 || list[0].Sort != "gallery-site:newest" || list[0].Count != 0 {
+		t.Fatalf("browse's: %+v, %v", list, err)
+	}
+	if other, _ := l.SavedSearches(ctx, "comics"); len(other) != 0 {
+		t.Fatalf("in the comics' list: %+v", other)
+	}
+}
+
 func TestForgetDeleted(t *testing.T) {
 	l := newTest(t)
 	ctx := context.Background()

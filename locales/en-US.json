@@ -2400,6 +2400,7 @@
     },
     "progress": "Progress",
     "rename": "Rename",
+    "downloaded": "Downloaded",
     "renamed": "Renamed {what}",
     "titleBack": "The site's title again",
     "inProgress": "Reading",
@@ -2608,7 +2609,6 @@
     },
     "sortHint": "Clears the search",
     "siteLabel": "Site: {site}",
-    "selectHint": "Select galleries to download several at once",
     "selected": "Selected galleries",
     "downloadingMany": {
       "one": "Downloading {n} gallery from {site}.",

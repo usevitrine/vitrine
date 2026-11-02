@@ -62,7 +62,10 @@
   const pageDefault = $derived(plain && sortable ? sort : (defaultSort ?? settings.defaultSort));
   const { saved, kind } = useScope();
   const comics = kind === 'comics' || kind === 'browse'; // (the Comics page and Browse: suggestions from the comics' tags)
-  const browse = kind === 'browse'; // (a site's search: its own filters and orders, no saved searches)
+  const browse = kind === 'browse'; // (a site's search: its own filters and orders)
+  // A saved search on Browse keeps its site too ("site:order", in its order's place; no order counts as the default).
+  const savedSort = $derived(browse ? `${site}:${sort}` : sort);
+  const savedDefault = $derived(browse ? '' : pageDefault);
 
   let chips = $state<Chip[]>([]);
   // Each chip's key, kept across changes: the same text keeps its chip; a changed one in the same place (an edit)
@@ -120,7 +123,7 @@
   }
   let starBtn = $state<HTMLButtonElement>();
   // The saved searches button (a floppy disk) is lit when the current search (and order) is a saved one.
-  let current = $derived(saved.list.length ? saved.find(format(chips), sort, pageDefault) : undefined);
+  let current = $derived(saved.list.length ? saved.find(format(chips), savedSort, savedDefault) : undefined);
   onMount(() => {
     if (!saved.loaded) saved.load();
   });
@@ -448,7 +451,7 @@
           savedOpen = false;
           filterMenu = filterMenu && filterMenu.index === null ? null : { index: null, form: null };
         }}><Icon name="filter" size={19} />{#if !plain && sort !== pageDefault}<span class="dot" transition:grow></span>{/if}</button>
-      {#if !plain && !browse}
+      {#if !plain}
       <button
         bind:this={starBtn}
         class="icon star"
@@ -473,8 +476,8 @@
     <!-- (it comes and goes itself: a sheet on a phone, a panel at the right on a wider screen) -->
     <SavedPanel
       query={format(chips)}
-      {sort}
-      defaultSort={pageDefault}
+      sort={savedSort}
+      defaultSort={savedDefault}
       onrun={(q, s, key) => onsaved(q, s, key)}
       onclose={(refocus) => {
         savedOpen = false;

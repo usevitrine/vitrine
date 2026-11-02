@@ -10,13 +10,16 @@
   // its tile (muted), unless turned off in Settings.
   import { tick, untrack, type ComponentProps } from 'svelte';
   import { pop, reduced } from '../lib/motion';
+  import { fade } from 'svelte/transition';
   import { fineMouse, touch } from '../lib/media';
   import { measure as measureMarquee } from '../lib/marquee';
   import { cubicBezier } from '../lib/hero';
   import { on } from 'svelte/events';
-  import type { FileInfo } from '../lib/api';
+  import { api, type FileInfo } from '../lib/api';
   import { placeholderURL, formatDuration, previewURL } from '../lib/results.svelte';
   import { useScope } from '../lib/scope.svelte';
+  import { live } from '../lib/live.svelte';
+  import RenameDialog from './RenameDialog.svelte';
   import { pagesText, progress, isRead, isReading, cropStyle, markComicsRead } from '../lib/comics';
   import { collections } from '../lib/collections.svelte';
   import { toasts, attempt } from '../lib/toast.svelte';
@@ -42,6 +45,7 @@
     noHover = false,
     hideId,
     stale = false,
+    ondownload,
   }: {
     onopen: (index: number, details?: boolean) => void;
     pad?: number;
@@ -50,12 +54,42 @@
     noHover?: boolean; // (an open/close animation is playing over the grid: no cards meanwhile)
     hideId?: number; // (the file whose open/close animation is playing: that picture is its tile - not shown twice)
     stale?: boolean; // (the list is another page's - the library on the way to its trash: see cleared)
+    ondownload?: (index: number) => void; // (Browse: a gallery's menu item)
   } = $props();
   // The library's files, or (on the Comics page) comics - always in masonry, each cover in its own shape.
   const { results, selection, kind } = useScope();
-  const browsing = kind === 'browse'; // (a gallery site's search: drawn like Comics; a tile only opens its preview)
+  const browsing = kind === 'browse'; // (a gallery site's search: drawn like Comics; a tile opens its details)
   const comics = kind === 'comics' || browsing;
   const scrollerId = browsing ? 'browse-scroller' : comics ? 'comics-scroller' : 'grid-scroller';
+  // The Comics page: the comics downloading now, each with its pages so far (the stream: twice a second while one runs).
+  const downloading = $derived(kind === 'comics' ? new Map(live.files.filter((f) => f.comic).map((f) => [f.comic!, f])) : null);
+  // One that has ended, whole: its mark turns into a tick a moment, then goes. (Stopped or failed part way: none. The
+  // stream's last word can be a page or two short, so the comic itself is asked.)
+  let finishing = $state(new Set<number>());
+  let wasComing: number[] = [];
+  $effect(() => {
+    const now = downloading;
+    if (!now) return;
+    untrack(() => {
+      for (const id of wasComing) {
+        if (now.has(id)) continue;
+        api.comicInfo([id]).then(
+          ({ comics }) => {
+            const c = comics[0];
+            if (!c || c.have < c.pages) return;
+            finishing = new Set(finishing).add(id);
+            window.setTimeout(() => {
+              const next = new Set(finishing);
+              next.delete(id);
+              finishing = next;
+            }, 1500);
+          },
+          () => {},
+        );
+      }
+      wasComing = [...now.keys()];
+    });
+  });
   let isMasonry = $derived(comics || settings.gridLayout === 'masonry');
 
   let el = $state<HTMLDivElement>();
@@ -372,6 +406,8 @@
     land(t);
     if (reduced()) return done?.();
     const { fit, parts } = insides(t);
+    const foot = t.querySelector<HTMLElement>(':scope > .face > .comic-foot');
+    const title = foot?.querySelector<HTMLElement>('.comic-title');
     for (const { el, origin } of parts) el.style.transformOrigin = origin;
     // By the translate and scale properties (the tile's own transform - its place - is left alone): they come before
     // it, so the scale scales its translate(base) too - the translate takes that back.
@@ -386,11 +422,18 @@
         fit.style.scale = `${s / sx} ${s / sy}`;
       }
       for (const { el } of parts) el.style.scale = `${1 / sx} ${1 / sy}`;
+      // (a comic's foot as wide as the card is drawn: laid out as the card, its title's soft edge stayed out of view
+      // past the tile's side and came back at once as it landed - the user: "the gradient ... jumps back")
+      if (foot) {
+        foot.style.right = 'auto';
+        foot.style.width = `${r.w + 2}px`;
+      }
     };
     const clear = () => {
       t.style.translate = t.style.scale = '';
       if (fit) fit.style.scale = '';
       for (const { el } of parts) el.style.scale = el.style.transformOrigin = '';
+      if (foot) foot.style.right = foot.style.width = '';
     };
     // (kept at the end until the layout follows - a shrink's card is laid out as the tile only then)
     const outer = new Steps(m.ms, frame, clear);
@@ -399,6 +442,7 @@
       () => {
         if (flights.get(t)?.outer !== outer) return;
         if (done) done();
+        if (title) measureMarquee(title); // (does its title still not fit, at this width?)
         tick().then(() => flights.get(t)?.outer === outer && land(t));
       },
       () => {},
@@ -976,6 +1020,7 @@
     time: 260,
     gate: 350,
   };
+  let unstacking = $state(false); // (a collection opening or closing)
   /** The motion being held back until the pictures are ready. */
   let gate: { anims: Animation[]; tiles: Set<HTMLElement>; timer: number } | null = null;
   function hold(anims: Animation[], a: Animation) {
@@ -1040,7 +1085,19 @@
     for (const t of el.querySelectorAll<HTMLElement>('.sizer > .tile')) {
       const id = Number(t.dataset.id);
       if (!t.dataset.id || Number.isNaN(id)) continue;
-      if (isCard(t)) continue; // (the hover card has its own motion)
+      if (isCard(t)) {
+        // (the hover card has its own motion - but a collection clicked is one, with a mouse: its pile starts from its
+        // tile's place, not from the card; its comics never came out of it, the user: "it doesnt unstack")
+        if (id !== morphing?.id) continue;
+        const home = place(Number(t.dataset.c));
+        const sr = el.querySelector('.sizer')!.getBoundingClientRect();
+        const ghost = still(t.cloneNode(true) as HTMLElement);
+        ghost.querySelectorAll('.zoom-media, .preview, .preview-line').forEach((n) => n.remove());
+        ghost.classList.remove('zoomed', 'shrinking');
+        Object.assign(ghost.style, { width: home.w + 'px', height: home.h + 'px', margin: '0' });
+        snap.set(id, { x: sr.left + home.x, y: sr.top + home.y, w: home.w, h: home.h, ghost });
+        continue;
+      }
       const rc = t.getBoundingClientRect();
       if (rc.bottom < box.top || rc.top > box.bottom) continue; // (the rows kept ready off screen)
       snap.set(id, { x: rc.left, y: rc.top, w: rc.width, h: rc.height, ghost: still(t.cloneNode(true) as HTMLElement) });
@@ -1134,7 +1191,7 @@
           clearedView = true;
           return;
         }
-        leaving = sizer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: MOTION.time, easing: MOTION.fade, fill: 'forwards' });
+        leaving = sizer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: MOTION.fade, fill: 'forwards' }); // (a little quicker: nothing comes in until it's gone)
         leaving.finished.then(() => cleared && (clearedView = true), () => {});
       } else if (!s && cleared) {
         cleared = false;
@@ -1153,7 +1210,9 @@
       }
     });
   });
-  // Shown again (the other page was on screen: this one hidden, no size), or shown with its first results.
+  // Shown again (the other page was on screen: this one hidden, no size), or shown with its first results. Where it
+  // was scrolled comes back with it: a hidden element forgets (the user: Browse "resets every time you go to it").
+  let keptTop = 0;
   $effect(() => {
     const h = height;
     const ready = results.total > 0 && tiles.length > 0;
@@ -1168,6 +1227,10 @@
         tick().then(appearAll);
       } else if (wasHidden) {
         wasHidden = false;
+        if (el && keptTop) {
+          el.scrollTop = keptTop;
+          scrollTop = el.scrollTop;
+        }
         tick().then(appearAll);
       }
     });
@@ -1221,8 +1284,11 @@
     animateFrom(before, (id) => sameSearch && results.indexOf(id) >= 0);
   }
 
-  /** A collection opening: its comics fly out of its tile to their places (the rest fades away); closing: they fly
-   *  back into it, the other tiles fading in. False when its tile isn't on screen (the usual animation then). */
+  /** A collection opening unstacks (2026-11-02, the user: "it should have an unstacking effect", quick, no tilt): its
+   *  comics start as the pile its tile stands for - the first on top - and are dealt out one after another to their
+   *  places, the other tiles fading away. Closing stacks them back the same way, the other tiles coming back. Held until
+   *  the pictures are in, as every change (openGate); no empty boxes under them meanwhile (unstacking). False when its
+   *  tile isn't on screen (the usual animation then). */
   function playMorph(
     morph: NonNullable<typeof results.morph>,
     before: Map<number, Snap>,
@@ -1233,6 +1299,12 @@
     tr: (x: number, y: number) => string,
     ease: string,
   ): boolean {
+    const anims: Animation[] = [];
+    const PILE_FADE = 110; // (the pile and its tile's picture, into each other)
+    const settled = (list: Animation[]) => {
+      unstacking = true;
+      Promise.allSettled(list.map((a) => a.finished)).then(() => (unstacking = false));
+    };
     const ghostOf = (g: Snap) => {
       const ghost = g.ghost;
       ghost.classList.add('ghost');
@@ -1245,33 +1317,39 @@
       sizer.appendChild(ghost);
       return ghost;
     };
-    const fadeOut = (g: Snap, delay = 0) =>
-      ghostOf(g)
-        .animate([{ opacity: 1, transform: `${tr(g.x - sr.left, g.y - sr.top)} scale(1)` }, { opacity: 0, transform: `${tr(g.x - sr.left, g.y - sr.top)} scale(0.9)` }], { duration: 220, delay, easing: 'ease-in', fill: 'forwards' })
-        .finished.finally(() => g.ghost.remove());
+    const fadeOut = (g: Snap) => {
+      const at = tr(g.x - sr.left, g.y - sr.top);
+      const a = hold(anims, ghostOf(g).animate([{ opacity: 1, transform: at }, { opacity: 0, transform: at }], { duration: MOTION.time, easing: MOTION.fade, fill: 'forwards' }));
+      a.finished.finally(() => g.ghost.remove());
+    };
     if (morph.kind === 'open') {
       const from = before.get(morph.id);
       if (!from) return false;
       const ox = from.x - sr.left;
       const oy = from.y - sr.top;
       for (const [id, g] of before) if (id !== morph.id) fadeOut(g);
-      // Its tile gives way as they come out of it.
+      // Its tile - the covers side by side - fades into the pile under it, which then deals out.
+      const list = [...now].sort((p, q) => p[1].c - q[1].c);
       const tile = ghostOf(from);
-      tile.style.zIndex = '1';
-      tile
-        .animate([{ opacity: 1, transform: `${tr(ox, oy)} scale(1)` }, { opacity: 0, transform: `${tr(ox, oy)} scale(1.04)` }], { duration: 260, easing: 'ease-out', fill: 'forwards' })
-        .finished.finally(() => tile.remove());
-      let n = 0;
-      for (const [, a] of [...now].sort((p, q) => p[1].c - q[1].c)) {
+      tile.style.zIndex = String(list.length + 2);
+      const at = tr(ox, oy);
+      hold(anims, tile.animate([{ opacity: 1, transform: at }, { opacity: 0, transform: at }], { duration: PILE_FADE, easing: 'ease-in-out', fill: 'forwards' })).finished.finally(() => tile.remove());
+      list.forEach(([, a], n) => {
         const [x, y] = xy(a.c);
         const w = a.el.offsetWidth || 1;
         const h = a.el.offsetHeight || 1;
         a.el.style.transformOrigin = '0 0';
-        const { frames, scales } = baked({ x: ox, y: oy, sx: from.w / w, sy: from.h / h }, { x, y, sx: 1, sy: 1 }, bezier(ease), (e) => ({ opacity: 0.4 + 0.6 * e }));
-        const o: KeyframeAnimationOptions = { duration: 460, delay: Math.min(n++, 12) * 28, easing: 'linear', fill: 'backwards' };
-        holdInside(a.el, scales, o);
-        a.el.animate(frames, o).finished.finally(() => (a.el.style.transformOrigin = ''));
-      }
+        a.el.style.zIndex = String(list.length - n + 1); // (the first on top of the pile)
+        const { frames, scales } = baked({ x: ox, y: oy, sx: from.w / w, sy: from.h / h }, { x, y, sx: 1, sy: 1 }, bezier(ease));
+        const o: KeyframeAnimationOptions = { duration: 240, delay: PILE_FADE * 0.6 + Math.min(n, 10) * 16, easing: 'linear', fill: 'backwards' };
+        for (const part of holdInside(a.el, scales, o)) hold(anims, part);
+        hold(anims, a.el.animate(frames, o)).finished.finally(() => {
+          a.el.style.transformOrigin = '';
+          a.el.style.zIndex = '';
+        });
+      });
+      settled(anims);
+      openGate(anims, list.map(([, a]) => a.el));
       return true;
     }
     const into = now.get(morph.id);
@@ -1279,27 +1357,35 @@
     const [tx, ty] = xy(into.c);
     const tw = into.el.offsetWidth;
     const th = into.el.offsetHeight;
-    let n = 0;
-    for (const [, g] of [...before].sort((p, q) => p[1].y - q[1].y || p[1].x - q[1].x)) {
+    // The last ones first, so the first lands on top.
+    const going = [...before].sort((p, q) => q[1].y - p[1].y || q[1].x - p[1].x);
+    const ghosts: HTMLElement[] = [];
+    going.forEach(([, g], n) => {
       const ghost = ghostOf(g);
-      ghost.style.zIndex = '1';
-      const { frames, scales } = baked({ x: g.x - sr.left, y: g.y - sr.top, sx: 1, sy: 1 }, { x: tx, y: ty, sx: tw / g.w, sy: th / g.h }, bezier(ease), (e) => ({ opacity: 1 - e }));
-      const o: KeyframeAnimationOptions = { duration: 420, delay: Math.min(n++, 12) * 22, easing: 'linear', fill: 'both' };
-      holdInside(ghost, scales, o);
-      ghost.animate(frames, o).finished.finally(() => ghost.remove());
-    }
-    // Its tile takes them in (a small bump); the others come back.
-    into.el.animate([{ transform: `${tr(tx, ty)} scale(0.94)`, opacity: 0.5 }, { transform: `${tr(tx, ty)} scale(1.03)`, opacity: 1, offset: 0.7 }, { transform: `${tr(tx, ty)} scale(1)` }], {
-      duration: 520,
-      delay: 120,
-      easing: 'ease-out',
-      fill: 'backwards',
+      ghost.style.zIndex = String(n + 2);
+      const { frames, scales } = baked({ x: g.x - sr.left, y: g.y - sr.top, sx: 1, sy: 1 }, { x: tx, y: ty, sx: tw / g.w, sy: th / g.h }, bezier(ease));
+      const o: KeyframeAnimationOptions = { duration: 220, delay: Math.min(n, 10) * 12, easing: 'linear', fill: 'both' };
+      for (const part of holdInside(ghost, scales, o)) hold(anims, part);
+      hold(anims, ghost.animate(frames, o));
+      ghosts.push(ghost);
     });
+    // Once they're in, the pile becomes its tile: the covers side by side fade in over it (the top comic's picture swapped
+    // for them at once, the user: "abruptly switches"); the pile goes only when they've covered it. The others come back.
+    const last = Math.min(going.length - 1, 10) * 12 + 220;
+    const tileAt = tr(tx, ty);
+    into.el.style.zIndex = String(going.length + 3);
+    hold(anims, into.el.animate([{ opacity: 0, transform: tileAt }, { opacity: 1, transform: tileAt }], { duration: PILE_FADE, delay: Math.max(0, last - 60), easing: 'ease-in-out', fill: 'backwards' })).finished.finally(() => {
+      into.el.style.zIndex = '';
+      for (const g of ghosts) g.remove();
+    });
+    const others: HTMLElement[] = [into.el];
     for (const [id, a] of now) {
       if (id === morph.id) continue;
-      const [x, y] = xy(a.c);
-      a.el.animate([{ opacity: 0, transform: `${tr(x, y)} scale(0.94)` }, { opacity: 1, transform: `${tr(x, y)} scale(1)` }], { duration: 360, delay: 160, easing: ease, fill: 'backwards' });
+      enter(anims, a.el);
+      others.push(a.el);
     }
+    settled(anims);
+    openGate(anims, others);
     return true;
   }
 
@@ -1413,15 +1499,118 @@
     };
     lastPoint = { x: e.clientX, y: e.clientY };
     clearTimeout(longTimer);
-    if (press.touch && !browsing) {
-      // (Browse: no menu - a slow tap is a tap, not a long press that did nothing)
+    if (press.touch) {
       longTimer = window.setTimeout(() => {
         if (!press) return;
         press.long = true;
         navigator.vibrate?.(10);
       }, 450);
     }
+    // With a mouse, held still a moment: picked up, to drop on a collection (moved at once: selecting, as ever).
+    clearTimeout(holdTimer);
+    if (!press.touch && kind === 'comics' && !results.collection && results.scope !== 'trash' && collections.list.length && results.file(press.fid)?.comic && !results.file(press.fid)?.comic?.stack) {
+      holdTimer = window.setTimeout(startLift, HOLD_MS);
+    }
   }
+
+  // ---- A comic picked up (2026-11-02, the user: "click and hold ... the same tilted effect with a border"): a copy of
+  // its tile follows the pointer, tilted, its place left faint; let go on a collection's tile it goes in (with the rest
+  // of the selection, if it's one of them); anywhere else, or Escape, it goes back.
+  const HOLD_MS = 300;
+  let holdTimer = 0;
+  let lift = $state<{ id: number; ids: number[]; over: number | null } | null>(null);
+  let landing = $state<number | null>(null); // (going back: its copy on the way, the tile itself not there until it lands - both showed)
+  let liftGhost: HTMLElement | null = null;
+  let liftFrom = { x: 0, y: 0 };
+  function startLift() {
+    const p = press;
+    if (!p || p.dragging || !el || p.fid === undefined) return;
+    const tile = el.querySelector<HTMLElement>(`.sizer > .tile[data-id="${p.fid}"]`);
+    const sizer = el.querySelector<HTMLElement>('.sizer');
+    if (!tile || !sizer) return;
+    leaveGrid();
+    const home = place(p.i + lead);
+    const sr = sizer.getBoundingClientRect();
+    const ghost = still(tile.cloneNode(true) as HTMLElement);
+    ghost.querySelectorAll('.zoom-media, .preview, .preview-line').forEach((n) => n.remove());
+    ghost.classList.remove('zoomed', 'shrinking');
+    ghost.classList.add('lift-ghost');
+    ghost.removeAttribute('data-i');
+    ghost.removeAttribute('data-id');
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.tabIndex = -1;
+    Object.assign(ghost.style, { left: sr.left + home.x + 'px', top: sr.top + home.y + 'px', width: home.w + 'px', height: home.h + 'px', margin: '0', transform: 'none', visibility: 'visible' });
+    document.body.appendChild(ghost);
+    if (!reduced()) ghost.animate([{ rotate: '0deg', scale: '1' }, { rotate: '-2deg', scale: '1.04' }], { duration: 150, easing: MOTION.ease, fill: 'forwards' });
+    liftGhost = ghost;
+    liftFrom = { x: p.x, y: p.y };
+    const ids = selection.has(p.fid) ? selection.list().filter((id) => !results.file(id)?.comic?.stack) : [p.fid];
+    lift = { id: p.fid, ids, over: null };
+    moveLift(lastPoint.x, lastPoint.y);
+    try {
+      el.setPointerCapture(p.id);
+    } catch {
+      /* fine */
+    }
+    autoScroll();
+  }
+  function moveLift(x: number, y: number) {
+    if (!lift || !liftGhost) return;
+    liftGhost.style.translate = `${x - liftFrom.x}px ${y - liftFrom.y}px`;
+    const under = document.elementFromPoint(x, y)?.closest<HTMLElement>('.sizer > .tile[data-i]');
+    lift.over = under ? (results.fileAt(Number(under.dataset.i))?.comic?.stack?.id ?? null) : null;
+  }
+  /** Let go: into the collection under it (it shrinks into its tile), else back to its place. */
+  function endLift(drop: boolean) {
+    const l = lift;
+    const ghost = liftGhost;
+    lift = null;
+    liftGhost = null;
+    if (!l || !ghost) return;
+    const into = drop ? l.over : null;
+    const to = el?.querySelector<HTMLElement>(into !== null ? `.sizer > .tile[data-id="${results.idAt(tileOfStack(into))}"]` : `.sizer > .tile[data-id="${l.id}"]`)?.getBoundingClientRect();
+    const box = ghost.getBoundingClientRect();
+    ghost.getAnimations().forEach((a) => a.cancel());
+    const end = () => {
+      ghost.remove();
+      if (landing === l.id) landing = null;
+    };
+    if (to && !reduced()) {
+      if (into === null) landing = l.id;
+      const left = parseFloat(ghost.style.left);
+      const top = parseFloat(ghost.style.top);
+      const shrink = into !== null ? 0.35 : 1;
+      const at = (x: number, y: number) => `${x}px ${y}px`;
+      ghost
+        .animate(
+          [
+            { translate: ghost.style.translate, scale: '1.04', rotate: '-2deg', opacity: 1 },
+            { translate: at(to.left + to.width / 2 - left - box.width / 2 + (box.width - parseFloat(ghost.style.width)) / 2, to.top + to.height / 2 - top - parseFloat(ghost.style.height) / 2), scale: String(shrink), rotate: '0deg', opacity: into !== null ? 0 : 1 },
+          ],
+          { duration: MOTION.time, easing: MOTION.ease, fill: 'forwards' },
+        )
+        .finished.finally(end);
+    } else end();
+    if (into !== null) {
+      collections.add(l.ids, into).then((ok) => {
+        if (ok && l.ids.length > 1) selection.clear();
+      });
+    }
+  }
+  /** Where a collection's tile is in the list (-1: not loaded). */
+  function tileOfStack(k: number) {
+    for (const t of tiles) if (t.f?.comic?.stack?.id === k) return t.i;
+    return -1;
+  }
+  $effect(() => {
+    if (!lift) return;
+    return on(window, 'keydown', (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      press = null;
+      endLift(false);
+    });
+  });
 
   // What can't be picked (dimmed while selecting): a collection's tile (comics go into a collection, never a collection
   // into another - the user: "I'm able to add collections to other collections"), and on Browse a gallery the library
@@ -1457,11 +1646,17 @@
   function move(e: PointerEvent) {
     if (!press || e.pointerId !== press.id) return;
     lastPoint = { x: e.clientX, y: e.clientY };
+    if (lift) {
+      moveLift(e.clientX, e.clientY);
+      autoScroll();
+      return;
+    }
     if (press.scrub) {
       scrubTo(e);
       return;
     }
     const d = Math.hypot(e.clientX - press.x, e.clientY - press.y);
+    if (d > 8) clearTimeout(holdTimer);
     // Pressed on the hover card's video: moved sideways, it scrubs (never a drag to select).
     const video = !press.touch && hover?.i === press.i ? cardVideo() : null;
     if (video && !press.dragging) {
@@ -1493,7 +1688,7 @@
         }
         return;
       }
-      if (d > 8 && !browsing) startDrag(); // (Browse: nothing to select - a click that moved a little still opens)
+      if (d > 8) startDrag();
       return;
     }
     const i = indexAt(e.clientX, e.clientY);
@@ -1570,10 +1765,10 @@
   // While dragging near the top or bottom edge, scroll and keep selecting.
   let scrollRaf = 0;
   function autoScroll() {
-    if (scrollRaf || !el || !press?.dragging) return;
+    if (scrollRaf || !el || !(press?.dragging || lift)) return;
     const step = () => {
       scrollRaf = 0;
-      if (!el || !press?.dragging) return;
+      if (!el || !(press?.dragging || lift)) return;
       const r = el.getBoundingClientRect();
       const edge = 60;
       let v = 0;
@@ -1582,6 +1777,11 @@
       else if (lastPoint.y > r.bottom - edge) v = ((lastPoint.y - (r.bottom - edge)) / edge) * 18;
       if (!v) return;
       el.scrollTop += v;
+      if (lift) {
+        moveLift(lastPoint.x, lastPoint.y);
+        scrollRaf = requestAnimationFrame(step);
+        return;
+      }
       const i = indexAt(lastPoint.x, lastPoint.y);
       if (i !== dragTo) {
         dragTo = i;
@@ -1596,8 +1796,13 @@
     handledAt = performance.now();
     if (!press || e.pointerId !== press.id) return;
     clearTimeout(longTimer);
+    clearTimeout(holdTimer);
     const p = press;
     press = null;
+    if (lift) {
+      endLift(e.type !== 'pointercancel');
+      return;
+    }
     if (p.scrub) {
       // (let go: it plays on from there if it was playing - and the viewer doesn't open; the card held a frame longer:
       // WebKit sends the grid a leave as it lets the pointer go, which closed the card and opened it again from the start)
@@ -1636,7 +1841,7 @@
       return;
     }
     if (p.long) {
-      if (!browsing) menu = { i: p.i, fid: p.fid, x: p.x, y: p.y };
+      menu = { i: p.i, fid: p.fid, x: p.x, y: p.y };
       return;
     }
     if (e.type === 'pointercancel') return;
@@ -1653,10 +1858,9 @@
     }
     const id = results.idAt(i);
     if (id === undefined) return;
-    // (Browse too: Ctrl/Shift-click, or after its Select button - no drag or long press there)
     const picking = selection.active || e.ctrlKey || e.metaKey || (e.shiftKey && selection.anchor !== null);
     if (picking && unpickable(results.file(id))) return;
-    if (e.shiftKey && selection.anchor !== null && (selection.active || !browsing)) {
+    if (e.shiftKey && selection.anchor !== null) {
       selection.add((await results.idsInRange(selection.anchor, i)).filter((x) => !unpickable(results.file(x))));
       selection.anchor = i;
     } else if (e.ctrlKey || e.metaKey || selection.active) {
@@ -1671,7 +1875,7 @@
     const i = tileIndex(e);
     if (i === null) return;
     e.preventDefault();
-    if (press?.touch || browsing) return; // touch long-press opens the menu itself (Android also sends this)
+    if (press?.touch) return; // touch long-press opens the menu itself (Android also sends this)
     menu = { i, fid: results.idAt(i), x: e.clientX, y: e.clientY };
     leaveGrid();
   }
@@ -1694,6 +1898,7 @@
     const c = results.file(id)?.comic;
     if (!comics || !c || id === undefined) return [];
     const items: NonNullable<ComponentProps<typeof FileMenu>['extra']> = [];
+    if (results.scope !== 'trash') items.push({ label: t('comics.rename'), icon: 'pencil', run: () => (renaming = c) });
     if (c.pages > 1) {
       const read = isRead(c);
       const unread = !read && !isReading(c);
@@ -1720,6 +1925,39 @@
           { label: t('collections.newItem'), on: false, run: () => collections.add([id], 'new') },
         ],
       });
+    return items;
+  }
+  // Renaming a comic from its menu (the same dialog as its details'): the tile follows at once.
+  let renaming = $state<NonNullable<FileInfo['comic']> | null>(null);
+  async function rename(c: NonNullable<FileInfo['comic']>, value: string) {
+    renaming = null;
+    const original = c.site_title ?? c.title;
+    const title = value || original;
+    if (title === c.title && !!value === !!c.site_title) return;
+    await attempt(async () => {
+      await api.updateComic(c.id, { title: value });
+      results.patch(c.id, { comic: { ...c, title, site_title: value && value !== original ? original : undefined } });
+      toasts.show(value ? t('comics.renamed', { what: itemName(c.id, true) }) : t('comics.titleBack'), {
+        cat: 'comicEdits',
+        action: {
+          label: t('common.undo'),
+          run: async () => {
+            await api.updateComic(c.id, { title: c.site_title ? c.title : '' });
+            results.patch(c.id, { comic: c });
+          },
+        },
+      });
+    });
+  }
+  /** A gallery on Browse: its menu (details, download, select). */
+  function galleryItems(i: number, id: number | undefined): ComponentProps<typeof FileMenu>['extra'] {
+    const c = results.file(id)?.comic;
+    if (!c || id === undefined) return [];
+    const items: NonNullable<ComponentProps<typeof FileMenu>['extra']> = [];
+    if (!c.mark) {
+      if (ondownload) items.push({ label: t('backups.download'), icon: 'download', run: () => ondownload(i) });
+      items.push({ label: selection.has(id) ? t('common.deselect') : t('common.select'), icon: 'checks', run: () => selection.toggle(id, i) });
+    }
     return items;
   }
   /** A collection's tile: its own menu (open it, rename it, take it apart, delete it with its comics). */
@@ -1771,6 +2009,17 @@
   }
 </script>
 
+<!-- A comic downloading: the arrow keeps falling into its tray; done, the two give way to a tick drawn in green. -->
+{#snippet downloadMark(done: boolean)}
+  <span class="comic-status downloading" class:done role="img" aria-label={done ? t('comics.downloaded') : t('browse.queued')} title={done ? t('comics.downloaded') : t('browse.queued')} transition:pop>
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <g class="arrow"><path d="M12 3v11" /><path d="M7.5 9.5 12 14l4.5-4.5" /></g>
+      <path class="tray" d="M5 20h14" />
+      <path class="tick" pathLength="1" d="M5 12.5l4.5 4.5L19 7" />
+    </svg>
+  </span>
+{/snippet}
+
 <div class="wrap">
 <div
   class="scroller grid-scroller"
@@ -1780,6 +2029,7 @@
   style:padding-top="{pad}px"
   style:padding-bottom="calc({GAP}px + var(--bottom-room))"
   class:selecting={selection.active}
+  class:unstacking
   class:scrubbing
   class:cleared={clearedView}
   bind:this={el}
@@ -1788,6 +2038,7 @@
   role="presentation"
   onscroll={() => {
     scrollTop = el!.scrollTop;
+    if (el!.clientHeight > 0 && !wasHidden) keptTop = scrollTop; // (not the browser's own 0 as it's hidden or shown again)
     trackSpeed();
     scrolledAt = performance.now();
     const waiting = afterScroll;
@@ -1840,6 +2091,9 @@
         class:zoomed={!!z}
         class:landed={landedId !== undefined && results.idAt(tile.i) === landedId}
         class:shrinking={!!back}
+        class:lift-source={lift?.id === results.idAt(tile.i)}
+        class:lift-home={landing !== null && landing === results.idAt(tile.i)}
+        class:drop-target={lift !== null && lift.over !== null && lift.over === tile.f?.comic?.stack?.id}
         class:snap={snapBack}
         data-i={tile.i}
         data-c={tile.c}
@@ -1932,11 +2186,16 @@
         {#if z && opened === z && tile.f && !tile.f.comic?.stack && tile.f.mime.startsWith('video/') && settings.hoverPreview}
           <span class="preview-line" style:--p={hoverProgress}></span>
         {/if}
+        {#if browsing && tile.f?.comic?.mark === 'have'}<span class="had-veil" aria-hidden="true" transition:fade={{ duration: reduced() ? 0 : 200 }}></span>{/if}
         {#if tile.f?.comic}
           {@const c = tile.f.comic}
+          {@const coming = c.stack ? undefined : downloading?.get(c.id)}
+          {@const done = !coming && !c.stack && (finishing.has(c.id) || results.justDone.has(c.id))}
           <!-- A comic: read (a book with a check) or being read (a book turning) in a corner; its title and
                pages over the cover's foot; how far it's read along the bottom edge. Nothing here to press. -->
-          {#if c.stack}
+          {#if coming || done}
+            {@render downloadMark(done)}
+          {:else if c.stack}
             <!-- A collection: the edges of two more covers above its own (a deck); read to the end when all of it is. -->
             <span class="deck" aria-hidden="true"><span></span><span></span></span>
             {#if c.stack.count > 0 && c.stack.read >= c.stack.count}<span class="comic-status read" role="img" aria-label={t('comics.finished')} title={t('comics.finished')}><Icon name="bookcheck" size={13} /></span>{/if}
@@ -1944,7 +2203,7 @@
             <!-- (Comics > Browse: in the library already, or its download waits or runs) -->
             <span class="comic-status read" role="img" aria-label={t('browse.have')} title={t('browse.have')}><Icon name="check" size={13} /></span>
           {:else if c.mark === 'queued'}
-            <span class="comic-status queued" role="img" aria-label={t('browse.queued')} title={t('browse.queued')}><Icon name="download" size={13} /></span>
+            {@render downloadMark(false)}
           {:else if isRead(c)}
             <span class="comic-status read" role="img" aria-label={t('comics.finished')} title={t('comics.finished')}><Icon name="bookcheck" size={13} /></span>
           {:else if isReading(c)}
@@ -1955,6 +2214,8 @@
             <span class="comic-meta">
               {#if c.stack}
                 <span class="comic-chip" title={t('collections.readOf', { read: num(c.stack.read), n: num(c.stack.count) })}><Icon name="stack" size={12} />{t('collections.count', { n: c.stack.count })}</span>
+              {:else if coming}
+                <span class="comic-chip" title={pagesText(c)}><Icon name="pages" size={12} />{num(coming.done ?? 0)}/{num(Math.max(coming.pages ?? 0, c.pages))}</span>
               {:else}
                 <span class="comic-chip" title={pagesText(c)}><Icon name="pages" size={12} />{c.have < c.pages ? `${num(c.have)}/${num(c.pages)}` : num(c.pages)}</span>
               {/if}
@@ -2000,16 +2261,20 @@
     favorite={!!results.file(id)?.favorite}
     onselect={() => id !== undefined && selection.toggle(id, mi)}
     onfavorite={() => id !== undefined && setFavorite([id], !results.file(id)?.favorite, false, results)}
-    viewLabel={results.file(id)?.comic?.stack ? t('fileMenu.open') : comics ? t('comics.read') : undefined}
+    viewLabel={browsing ? t('fileMenu.details') : results.file(id)?.comic?.stack ? t('fileMenu.open') : comics ? t('comics.read') : undefined}
     viewIcon={results.file(id)?.comic?.stack ? 'stack' : undefined}
-    basic={!!results.file(id)?.comic?.stack}
-    extra={results.file(id)?.comic?.stack ? stackItems(id) : comicItems(mi, id)}
+    basic={browsing || !!results.file(id)?.comic?.stack}
+    extra={browsing ? galleryItems(mi, id) : results.file(id)?.comic?.stack ? stackItems(id) : comicItems(mi, id)}
     onview={() => mi >= 0 && onopen(mi)}
     ondetails={() => mi >= 0 && onopen(mi, true)}
     ondelete={() => mi >= 0 && deleteOne(mi)}
     trashed={results.scope === 'trash'}
     onrestore={() => id !== undefined && restoreFiles(results, [id])}
     onclose={() => (menu = null)} />
+{/if}
+{#if renaming}
+  {@const c = renaming}
+  <RenameDialog title={c.title} original={c.site_title} onsave={(v) => rename(c, v)} onclose={() => (renaming = null)} />
 {/if}
 
 <style>
@@ -2557,6 +2822,111 @@
   .tile.selected .check {
     background: var(--mauve);
     border-color: var(--mauve);
+  }
+  /* A comic downloading (see downloadMark). */
+  .comic-status.downloading {
+    background: var(--peach);
+    transition:
+      background-color 0.25s,
+      color 0.25s;
+  }
+  .downloading .arrow {
+    animation: arrow-falls 1.1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes arrow-falls {
+    0% {
+      translate: 0 -7px;
+      opacity: 0;
+    }
+    25%,
+    70% {
+      opacity: 1;
+    }
+    100% {
+      translate: 0 3px;
+      opacity: 0;
+    }
+  }
+  .downloading .tick {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) 0.08s;
+  }
+  .downloading .tray {
+    transition: opacity 0.15s;
+  }
+  .comic-status.downloading.done {
+    background: var(--green);
+    color: var(--crust);
+  }
+  .downloading.done .arrow {
+    animation: none;
+    opacity: 0;
+  }
+  .downloading.done .tray {
+    opacity: 0;
+  }
+  .downloading.done .tick {
+    stroke-dashoffset: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .downloading .arrow {
+      animation: none;
+    }
+    .downloading .tick {
+      transition: none;
+    }
+  }
+  /* Browse: a gallery the library has - a grey veil over its picture (its hover card: the veil fades, the real colors
+     to look at). A layer's opacity, not a filter on the picture: that was drawn again as the tile moved, and flickered. */
+  .had-veil {
+    position: absolute;
+    inset: 0;
+    background: rgb(40 40 52 / 0.72);
+    pointer-events: none;
+    transition: opacity 0.2s ease-out;
+  }
+  .tile.zoomed .had-veil {
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .had-veil {
+      transition: none;
+    }
+  }
+  /* A comic picked up: its place left faint, a copy following the pointer; the collection under it lit. */
+  .tile.lift-source {
+    opacity: 0.3;
+  }
+  .tile.lift-home {
+    visibility: hidden;
+  }
+  /* (inside its edge: a tile clips what's outside it - contain - the border was cut off) */
+  .tile.drop-target::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 3px var(--mauve);
+    pointer-events: none;
+  }
+  :global(.lift-ghost) {
+    position: fixed !important;
+    z-index: 60;
+    pointer-events: none;
+    contain: none !important;
+    overflow: visible !important;
+    outline: 2px solid var(--mauve);
+    box-shadow: 0 18px 36px rgb(0 0 0 / 0.55);
+  }
+  /* A collection unstacking: only the comics - no empty boxes where they're going, no color behind them on the way. */
+  .unstacking .band,
+  .unstacking .hole {
+    visibility: hidden;
+  }
+  .unstacking :global(.sizer > .tile) {
+    background: none !important;
   }
   /* Another page's tiles (stale): hidden while they leave as ghosts and this page's list comes. */
   .cleared :global(.sizer > .tile:not(.ghost)) {

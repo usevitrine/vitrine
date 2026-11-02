@@ -5,6 +5,8 @@
   // Tags section as a file's: a tap opens a tag's menu, pick several, edit,
   // read them again from the site). The page gives it the panel's frame.
   import { api, type Comic, type FileTag } from '../lib/api';
+  import { live } from '../lib/live.svelte';
+  import { untrack } from 'svelte';
   import { nudge } from '../lib/motion';
   import { siteLabel } from '../lib/sites.svelte';
   import { toasts, attempt } from '../lib/toast.svelte';
@@ -116,6 +118,14 @@
       }
       load(comic.id);
     }
+  });
+
+  // Its download ended while this is open: its tags again (it can have read them once more: handleGallery).
+  let wasComing = false;
+  $effect(() => {
+    const coming = live.files.some((f) => f.comic === comic.id);
+    if (wasComing && !coming) untrack(() => load(comic.id));
+    wasComing = coming;
   });
 
   // Tags read from the site again.

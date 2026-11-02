@@ -20,8 +20,8 @@ const libraryScope: Scope = { kind: 'library', results, selection, saved };
 /** The Comics page's set (one for the app: its search stays when you come back). */
 export const comicsScope: Scope = { kind: 'comics', results: new Results('comics'), selection: new Selection(), saved: new Saved('comics') };
 
-/** Comics > Browse's set: a gallery site's search, drawn like Comics (no selection, saved searches or filters). */
-export const browseScope: Scope = { kind: 'browse', results: new BrowseResults(), selection: new Selection(), saved: new Saved('comics') };
+/** Comics > Browse's set: a gallery site's search, drawn like Comics, with saved searches of its own. */
+export const browseScope: Scope = { kind: 'browse', results: new BrowseResults(), selection: new Selection(), saved: new Saved('browse') };
 
 const key = Symbol('scope');
 

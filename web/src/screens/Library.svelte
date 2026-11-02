@@ -185,7 +185,7 @@
   // the moment between the check and the new list.)
   let merging = false;
   let waiting = $state(false); // arrivals waiting for a quiet moment
-  const quiet = () => viewing === null && !heroing && !selection.active && !!grid?.quiet();
+  const quiet = () => viewing === null && !heroing && !selection.active && (!grid || grid.quiet()); // (no grid: an empty page, nothing to disturb)
   async function takeArrivalsWhenQuiet() {
     if (!quiet()) {
       waiting = true;
