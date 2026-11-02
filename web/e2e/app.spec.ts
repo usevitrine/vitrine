@@ -3209,7 +3209,7 @@ test('offline: the app, the last results and their thumbnails stay on the device
   await page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, { timeout: 15000 });
   await page.reload(); // now through the service worker
   await expect(page.locator('.tile img.in').first()).toBeVisible();
-  const saved = () => page.evaluate(async () => (await (await caches.open('vitrine-thumbs-v1')).keys()).length);
+  const saved = () => page.evaluate(async () => (await (await caches.open('vitrine-thumbs-b1')).keys()).length);
   await expect.poll(saved).toBeGreaterThan(5);
 
   await context.setOffline(true);
@@ -3226,6 +3226,47 @@ test('offline: the app, the last results and their thumbnails stay on the device
   await expect(page.getByText(/\d+ thumbnails/)).toBeVisible();
   await page.locator('.saved').getByRole('button', { name: 'Clear' }).click();
   await expect(page.locator('.saved')).toContainText('Nothing yet');
+  await page.evaluate(async () => {
+    for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+  });
+});
+
+test('saved thumbnails: a full batch starts the next and the old store goes; a store too long to list still shows and clears', async ({ page, context }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', 'service workers are tested in Chromium');
+  await context.addInitScript(() => localStorage.setItem('vitrine.sw', 'on'));
+  await page.goto('/');
+  await page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, { timeout: 15000 });
+  const seed = (state: object) =>
+    page.evaluate(async (state) => {
+      navigator.serviceWorker.controller!.postMessage({ type: 'clear-thumbs' }); // (it forgets what it has saved)
+      await new Promise((r) => setTimeout(r, 2000));
+      await (await caches.open('vitrine-thumbs-v1')).put('/old', new Response('old'));
+      await (await caches.open('vitrine-thumbs-state')).put('/state', new Response(JSON.stringify(state)));
+    }, state);
+  const state = () => page.evaluate(async () => (await (await caches.open('vitrine-thumbs-state')).match('/state'))!.json());
+  const stores = () => page.evaluate(async () => (await caches.keys()).filter((k) => k.startsWith('vitrine-thumbs-')).sort());
+
+  // One short of full: the next thumbnail fills the batch.
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  await seed({ batch: 5, count: 7499, older: 100 });
+  // (an address the worker hasn't seen: those it has saved since it started, it skips)
+  await page.evaluate(async () => {
+    await fetch(document.querySelector<HTMLImageElement>('.tile img.in')!.src + '&unseen=1');
+  });
+  await expect.poll(async () => (await state()).batch).toBe(6);
+  expect((await state()).older).toBe(7500);
+  expect(await stores()).toEqual(['vitrine-thumbs-b5', 'vitrine-thumbs-b6', 'vitrine-thumbs-state']);
+
+  // The old store, too long for the browser to list (Chromium: "Operation too large").
+  await seed({ batch: 1, count: 0, older: 0 });
+  await context.addInitScript(() => {
+    Cache.prototype.keys = () => Promise.reject(new DOMException('Operation too large', 'AbortError'));
+  });
+  await page.goto('/settings/device');
+  await expect(page.locator('.saved')).toContainText('Many thumbnails');
+  await page.locator('.saved').getByRole('button', { name: 'Clear' }).click();
+  await expect(page.locator('.saved')).toContainText('Nothing yet');
+  expect(await stores()).not.toContain('vitrine-thumbs-v1');
   await page.evaluate(async () => {
     for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
   });

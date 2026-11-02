@@ -1,6 +1,6 @@
 // Vitrine's service worker:
 // - keeps thumbnails (and scrub-bar frames) on the device, so a grid seen before
-//   fills in even with no connection (the newest ~15,000 kept). Fetched first -
+//   fills in even with no connection (the newest 7,500-15,000 kept). Fetched first -
 //   the browser's own cache answers a thumbnail seen before at once - and the
 //   saved copy used only when that fails: the saved copies' store does one thing
 //   at a time, so looking each one up there first made a screenful wait in line
@@ -13,13 +13,18 @@
 // - shows push notifications and opens the app when one is tapped.
 // Originals (/files/) are never stored: they're big and stream from the server.
 
-const THUMBS = 'vitrine-thumbs-v1';
+// Thumbnails go in two batches: vitrine-thumbs-b<n>, the running count in vitrine-thumbs-state. A full batch starts
+// the next and deletes the one before it, so the limit needs no list of what's saved - a browser refuses that list
+// when it's too long ("Operation too large", Chromium), which left the old trim failing and the store growing.
+// vitrine-thumbs-v1 (the store before batches) counts as the older one until then.
+const THUMBS_PREFIX = 'vitrine-thumbs-';
+const THUMB_STATE = 'vitrine-thumbs-state';
 const API = 'vitrine-api-v1';
 const SHELL = 'vitrine-shell-v2'; // (v2: the new icons - icons are kept for good, so a new name)
 const MAX_SHELL = 80;
 // The app's own files outside /assets/ (icons, the web app manifest).
 const SHELL_FILES = /^\/(icon[^/]*\.(png|svg)|manifest\.webmanifest)$/;
-const MAX_THUMBS = 15000;
+const THUMB_BATCH = 7500; // (so 7,500-15,000 kept)
 const MAX_API = 400;
 // API reads worth keeping for offline use (GET only; never logins or changes).
 const API_READS = /^\/api\/(session|search|results\/|files(\?|$)|files\/\d+\/tags|settings|sites|namespaces|saved|search\/sites)/;
@@ -29,7 +34,7 @@ self.addEventListener('activate', (e) =>
   e.waitUntil(
     (async () => {
       for (const k of await caches.keys()) {
-        if (k.startsWith('vitrine-') && k !== THUMBS && k !== API && k !== SHELL) await caches.delete(k);
+        if (k.startsWith('vitrine-') && !k.startsWith(THUMBS_PREFIX) && k !== API && k !== SHELL) await caches.delete(k);
       }
       await self.clients.claim();
     })(),
@@ -142,21 +147,57 @@ async function thumb(req, e) {
     if (resp.ok && resp.status === 200 && !kept.has(req.url)) e.waitUntil(save(req, resp.clone()));
     return resp;
   } catch (err) {
-    const hit = await (await caches.open(THUMBS)).match(req);
-    if (hit) return hit;
+    for (const name of (await thumbStores()).reverse()) {
+      const hit = await (await caches.open(name)).match(req);
+      if (hit) return hit;
+    }
     throw err;
   }
 }
 
-// Keeps a thumbnail for offline use (once), now and then dropping the oldest. Saved in batches, a moment later:
-// a fast scroll through a big library fetched hundreds, and looking each one up in the store (one thing at a time)
-// and saving it there at once kept the worker busy while the screen waited for its thumbnails. The ones saved since
-// the worker started are known here (kept) and skipped; put() replaces one saved before that.
+// The stores holding thumbnails, oldest first (the store before batches, then the batches).
+async function thumbStores() {
+  const number = (k) => (k.startsWith(`${THUMBS_PREFIX}b`) ? Number(k.slice(THUMBS_PREFIX.length + 1)) : 0);
+  return (await caches.keys())
+    .filter((k) => k.startsWith(THUMBS_PREFIX) && k !== THUMB_STATE)
+    .sort((a, b) => number(a) - number(b));
+}
+
+// Which batch is being filled and how many it and the one before it hold.
+async function readThumbState() {
+  try {
+    const hit = await (await caches.open(THUMB_STATE)).match('/state');
+    if (hit) return await hit.json();
+  } catch {
+    /* (nothing readable: starts over) */
+  }
+  return { batch: 1, count: 0, older: 0 };
+}
+
+async function writeThumbState(state) {
+  await (await caches.open(THUMB_STATE)).put('/state', new Response(JSON.stringify(state)));
+}
+
+const batchName = (n) => `${THUMBS_PREFIX}b${n}`;
+
+// A batch is full: the next one starts, and all but the full one go.
+async function nextBatch(state) {
+  const full = batchName(state.batch);
+  for (const k of await thumbStores()) {
+    if (k !== full) await caches.delete(k);
+  }
+  return { batch: state.batch + 1, count: 0, older: state.count };
+}
+
+// Keeps a thumbnail for offline use (once). Saved in groups, a moment later: a fast scroll through a big library
+// fetched hundreds, and looking each one up in the store (one thing at a time) and saving it there at once kept the
+// worker busy while the screen waited for its thumbnails. The ones saved since the worker started are known here
+// (kept) and skipped; one already in the batch isn't saved or counted twice.
 const kept = new Set();
 let saving = [];
-let waiting = []; // (each fetch's waitUntil: done once its batch is saved)
+let waiting = []; // (each fetch's waitUntil: done once its group is saved)
 let savingTimer = 0;
-let thumbPuts = 0;
+let flushing = Promise.resolve(); // (one group at a time: each reads and writes the count)
 function save(req, resp) {
   kept.add(req.url);
   if (kept.size > 20000) kept.clear(); // (a long session: start over - a few saved twice)
@@ -167,27 +208,33 @@ function save(req, resp) {
   else savingTimer = setTimeout(flushSaves, 1500);
   return p;
 }
-async function flushSaves() {
-  const batch = saving;
+function flushSaves() {
+  const group = saving;
   const done = waiting;
   saving = [];
   waiting = [];
+  flushing = flushing.then(() => saveGroup(group)).catch(() => {}).then(() => done.forEach((d) => d()));
+  return flushing;
+}
+async function saveGroup(group) {
+  let state = await readThumbState();
+  let cache = await caches.open(batchName(state.batch));
   try {
-    const cache = await caches.open(THUMBS);
-    for (const [q, p] of batch) {
+    for (const [q, p] of group) {
       try {
+        if (await cache.match(q)) continue;
         await cache.put(q, p);
+        state.count++;
+        if (state.count >= THUMB_BATCH) {
+          state = await nextBatch(state);
+          cache = await caches.open(batchName(state.batch));
+        }
       } catch {
-        /* (full: trimmed below) */
+        /* (no room: this one isn't kept) */
       }
     }
-    thumbPuts += batch.length;
-    if (thumbPuts >= 200) {
-      thumbPuts = 0;
-      await trim(THUMBS, MAX_THUMBS);
-    }
   } finally {
-    done.forEach((d) => d());
+    await writeThumbState(state);
   }
 }
 
@@ -226,7 +273,7 @@ async function networkFirst(req, e) {
 }
 
 // trim drops the oldest entries over the limit (keys come back oldest first),
-// all at once rather than one after another.
+// all at once rather than one after another. (Only for the small stores: see the thumbnails' batches.)
 async function trim(name, max) {
   const cache = await caches.open(name);
   const keys = await cache.keys();
@@ -237,11 +284,20 @@ self.addEventListener('message', (e) => {
   const d = e.data || {};
   if (d.type === 'logout') {
     // Logged out: nothing of the library stays on the device.
-    e.waitUntil(Promise.all([caches.delete(THUMBS), caches.delete(API), caches.delete(SHELL)]));
+    e.waitUntil(Promise.all([clearThumbs(), caches.delete(API), caches.delete(SHELL)]));
   } else if (d.type === 'clear-thumbs') {
-    e.waitUntil(caches.delete(THUMBS));
+    e.waitUntil(clearThumbs());
   }
 });
+
+async function clearThumbs() {
+  kept.clear(); // (seen again, they're saved again)
+  saving = [];
+  await flushing; // (a group being saved would write its count back after this)
+  for (const k of await caches.keys()) {
+    if (k.startsWith(THUMBS_PREFIX)) await caches.delete(k);
+  }
+}
 
 self.addEventListener('push', (e) => {
   let d = {};

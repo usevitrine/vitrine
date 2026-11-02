@@ -3,7 +3,9 @@ import { t } from './i18n.svelte';
 // the last API answers (used when the server can't be reached). The app shows
 // when it's working from those, and Settings can show and clear them.
 
-const THUMBS = 'vitrine-thumbs-v1';
+const THUMBS_PREFIX = 'vitrine-thumbs-'; // (public/sw.js: two batches, the count kept beside them)
+const THUMB_STATE = 'vitrine-thumbs-state';
+const OLD_THUMBS = 'vitrine-thumbs-v1'; // (the store before batches: gone when the first batch fills)
 const API = 'vitrine-api-v1';
 
 class Connection {
@@ -15,13 +17,23 @@ export const connection = new Connection();
 
 export const canSave = () => typeof caches !== 'undefined' && 'serviceWorker' in navigator;
 
-/** How many thumbnails are kept, and the space this site uses on the device. */
-export async function savedStats(): Promise<{ thumbs: number; bytes: number } | null> {
+/** How many thumbnails are kept (many: more in the old store than the browser will list), and the space this site
+ *  uses on the device. */
+export async function savedStats(): Promise<{ thumbs: number; many: boolean; bytes: number } | null> {
   if (!canSave()) return null;
   try {
-    const keys = await (await caches.open(THUMBS)).keys();
+    const state = await (await (await caches.open(THUMB_STATE)).match('/state'))?.json();
+    let thumbs = (state?.count ?? 0) + (state?.older ?? 0);
+    let many = false;
+    if (await caches.has(OLD_THUMBS)) {
+      try {
+        thumbs += (await (await caches.open(OLD_THUMBS)).keys()).length;
+      } catch {
+        many = true; // (a browser refuses a list that's too long)
+      }
+    }
     const est = navigator.storage?.estimate ? await navigator.storage.estimate() : {};
-    return { thumbs: keys.length, bytes: est.usage ?? 0 };
+    return { thumbs, many, bytes: est.usage ?? 0 };
   } catch {
     return null;
   }
@@ -30,8 +42,11 @@ export async function savedStats(): Promise<{ thumbs: number; bytes: number } | 
 /** Removes the saved thumbnails (and with all: the saved API answers too). */
 export async function clearSaved(all = false) {
   if (typeof caches === 'undefined') return;
+  navigator.serviceWorker?.controller?.postMessage({ type: 'clear-thumbs' }); // (it forgets which it has saved)
   try {
-    await caches.delete(THUMBS);
+    for (const k of await caches.keys()) {
+      if (k.startsWith(THUMBS_PREFIX)) await caches.delete(k);
+    }
     if (all) await caches.delete(API);
   } catch {
     /* nothing saved, or storage blocked */

@@ -9,6 +9,8 @@ shows this too (Settings > Help & about).
 
 - **Centered text**: small text in chips and buttons (the site kinds when adding a site, for one) sat about a pixel
   high on Windows; it's centered now.
+- **Saved thumbnails**: with many saved, Settings > This device said "Nothing yet", Clear was greyed out, and the limit
+  on how many are kept had stopped working. The count, Clear and the limit (7,500-15,000 now) all work at any size.
 - **Cyrillic letters** (in tags, say) show in the app's font: its small font file was blocked by the app's own
   security rules.
 - **Keyboard**: tabbing through the grid, the top row's ring is no longer cut off at the top; it's drawn just inside

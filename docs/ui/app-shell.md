@@ -46,7 +46,7 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
 - **Offline thumbnails (built 2026-10-15)**: the service worker (`public/sw.js`) is now registered on every device
   (not under browser automation - `navigator.webdriver` - unless `localStorage['vitrine.sw'] = 'on'`, because
   Playwright's Windows WebKit freezes on registration) and asks for persistent storage. It keeps **thumbnails and
-  scrub frames** cache first (`vitrine-thumbs-v1`, trimmed to the newest ~15,000; their URLs never change), the
+  scrub frames** (see "Two batches" below; their URLs never change), the
   **app** (the page network first with the saved copy as fallback, `/assets/` and icons cache first;
   `vitrine-shell-v1`) and the **last answers of library API reads** (`/api/session`, search, results, files, tags,
   settings, sites, namespaces, saved; network first, `vitrine-api-v1`, ~400 kept) - used only when the server
@@ -54,6 +54,14 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   library's status line. Originals are never stored. Logging out deletes what's saved. Settings > Display > "Saved
   on this device" shows the thumbnail count and space used, with Clear. E2E (Chromium, against the built app on the
   backend's port): go offline, reload, the grid and thumbnails come back with the note.
+- **Two batches of saved thumbnails (2026-11-02, the user: Settings said nothing was saved on a device that had plenty)**:
+  Chromium refuses `cache.keys()` on a store too long to list ("Operation too large"), and
+  both the count in Settings and the limit used it: the count failed into "Nothing yet", every trim failed, and the
+  store kept growing. Now `vitrine-thumbs-b<n>` (7,500 each) with the running count in `vitrine-thumbs-state`: a full
+  batch starts the next and deletes the one before it, so 7,500-15,000 are kept and nothing has to be listed.
+  `vitrine-thumbs-v1` (the store before) is still read offline and goes at the first rollover; Settings counts it when
+  it can and says "Many thumbnails" when it can't. Settings says "Counting…" while it counts, and "Couldn't count
+  them" (Clear still works) when it fails.
 - **First run (2026-10-15)**: the empty library (no search) shows a welcome (`components/Welcome.svelte`): "Download from
   a site" (Start a download: opens Downloads with the search box focused, via `router.focus = 'new-download'`), "Add
   more sites" (lists the installed sites; Open Sites scrolls Settings to the Sites card, `data-card="sites"`), "Bring

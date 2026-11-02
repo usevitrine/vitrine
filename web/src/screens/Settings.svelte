@@ -103,11 +103,13 @@
   }
 
   // Saved on this device (thumbnails kept by the service worker).
-  let saved = $state<{ thumbs: number; bytes: number } | null>(null);
+  // (undefined: still counting - thousands take a while; null: couldn't be read)
+  let saved = $state<{ thumbs: number; many: boolean; bytes: number } | null | undefined>(undefined);
   let helper = $state<Awaited<ReturnType<typeof helperState>> | null>(null);
   const loadSaved = async () => {
+    saved = undefined;
+    helperState().then((h) => (helper = h)); // (not after the count: it would wait for it)
     saved = await savedStats();
-    helper = await helperState();
   };
   async function clearThumbs() {
     await clearSaved();
@@ -386,7 +388,7 @@
                 <div class="field">
                   <span class="field-label">{t('settings.device.saved')}</span>
                   <span class="hint">
-                    {#if saved?.thumbs}{t('settings.device.thumbs', { n: saved.thumbs })}{saved.bytes ? ` · ${t('settings.device.inAll', { size: formatSize(saved.bytes) })}` : ''}{:else}{t('settings.device.nothing')}{/if}.
+                    {#if saved === undefined}{t('settings.device.counting')}{:else if saved === null}{t('settings.device.unreadable')}.{:else if saved.thumbs || saved.many}{saved.many ? t('settings.device.manyThumbs') : t('settings.device.thumbs', { n: saved.thumbs })}{saved.bytes ? ` · ${t('settings.device.inAll', { size: formatSize(saved.bytes) })}` : ''}.{:else}{t('settings.device.nothing')}.{/if}
                     {t('settings.device.offline')}
                   </span>
                   {#if helper && helper.state !== 'running'}
@@ -399,7 +401,7 @@
                     </span>
                   {/if}
                 </div>
-                <button class="quiet" onclick={clearThumbs} disabled={!saved?.thumbs}>{t('settings.device.clear')}</button>
+                <button class="quiet" onclick={clearThumbs} disabled={saved === undefined || (saved !== null && !saved.thumbs && !saved.many)}>{t('settings.device.clear')}</button>
               </div>
             {/if}
             <details>
