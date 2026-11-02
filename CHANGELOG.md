@@ -3,10 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
-## Unreleased
+## 1.0.16 - 2026-11-02
 
 ### Improved
 
+- **Downloads menu**: New stands out as a filled purple button.
+- **Downloads**: the queue's grabber sits against the card's edge, its highlight following the card's corners.
 - **A tag's menu** no longer has Subscribe… beside New download: the New download dialog does both.
 
 ### Fixed
