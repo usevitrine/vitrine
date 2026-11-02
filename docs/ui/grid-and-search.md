@@ -161,6 +161,13 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   later places); the card stays wherever the pointer goes (`scrubbing` holds hoverTile/leaveGrid off, a frame past
   the release); an ew-resize cursor. Let go on the card: it plays on from there (if it was playing), no viewer; let
   go off it: the card goes with the mouse, as ever. A click that doesn't move still opens the viewer.
+  **The cursor stays on the card (2026-11-02, the user: "the cursor gets trapped inside the thumbnail so when i let go
+  it doesnt stop playing")**: a page can't confine a visible cursor, so pointer lock: hidden while scrubbing, the place
+  moved by `movementX`, the cursor back on the card when let go. The browser may show its own "Esc to show your cursor"
+  note. Refused (or Esc pressed): the cursor stays free and everything works as above. As the lock starts Chrome moves
+  the pointer to the middle of the window and reports that as one leap, just before it reports the lock (logged from a
+  real mouse: 121 to 1281; the user: "it immediately jumps to the end"): between asking and the answer, a move of over
+  30 px isn't counted (`lockPending`), nor one of over 200 px at any time.
 - **Filter menu (built 2026-10-15; like hydrus-web's system predicate menu, but
   only what Vitrine has)**: a filter button in the search bar (left of the star) opens a list grouped When (Imported,
   Uploaded, Modified) / File (Type, Length, File size, Width, Height, Has audio, No audio) / Other (Number of tags,

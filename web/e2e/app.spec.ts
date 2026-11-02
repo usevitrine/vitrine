@@ -9622,6 +9622,82 @@ test("library: pressing on the hover card's video and moving sideways scrubs it 
   await expect(page.locator('.grid-scroller.scrubbing')).toHaveCount(0);
 });
 
+test("library: scrubbing a hover card's video locks the cursor to it, let go it's unlocked and the card plays on, however far the hand went", async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', 'pointer lock: Chromium');
+  await page.goto('/');
+  const tile = page.locator('.tile[aria-label$="1280×720"]').first(); // the landscape video
+  await expect(tile).toBeVisible();
+  await tile.hover();
+  const card = page.locator('.tile.zoomed');
+  await expect(card.locator('.zoom-media')).toHaveClass(/\bready\b/);
+  const video = card.locator('video');
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.duration || 0)).toBeGreaterThan(1);
+  const cb = (await card.boundingBox())!;
+  const y = cb.y + cb.height / 2;
+  const locked = () => page.evaluate(() => document.pointerLockElement?.className ?? '');
+  await page.mouse.move(cb.x + cb.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(cb.x + cb.width / 2 + 40, y, { steps: 4 });
+  await expect.poll(locked).toContain('grid-scroller');
+  // A leap no hand could make, under the lock: the place stays. A real move counts.
+  const place = () => card.locator('.preview-line').evaluate((e) => Number(getComputedStyle(e).getPropertyValue('--p')));
+  const moved = (by: number) =>
+    page.evaluate((by) => document.querySelector('.grid-scroller')!.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 1, pointerType: 'mouse', movementX: by })), by);
+  const before = await place();
+  await moved(5000);
+  expect(await place()).toBeCloseTo(before, 2);
+  await moved(60);
+  await expect.poll(place).toBeGreaterThan(before);
+  // A long way off the card, and let go (a real cursor would have stayed on it).
+  await page.mouse.move(cb.x + cb.width + 300, y + 300, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(locked).toBe('');
+  await expect(page.locator('.grid-scroller.scrubbing')).toHaveCount(0);
+  await expect(card).toHaveCount(1);
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused)).toBe(true);
+  await expect(page.locator('.viewer')).toHaveCount(0);
+  // A quick one: let go before the lock arrives - the cursor isn't left hidden.
+  await page.mouse.move(cb.x + cb.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(cb.x + cb.width / 2 + 10, y);
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  expect(await locked()).toBe('');
+});
+
+test("library: as the cursor's lock starts, Chrome's leap to the middle of the window doesn't move the video (it went to its end)", async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', 'pointer lock: Chromium');
+  // The moment between asking for the lock and having it, held open: as a real mouse's log showed it, the pointer
+  // reported at the window's middle before the lock is.
+  await page.addInitScript(() => {
+    Element.prototype.requestPointerLock = () => Promise.resolve();
+  });
+  await page.goto('/');
+  const tile = page.locator('.tile[aria-label$="1280×720"]').first();
+  await expect(tile).toBeVisible();
+  await tile.hover();
+  const card = page.locator('.tile.zoomed');
+  await expect(card.locator('.zoom-media')).toHaveClass(/\bready\b/);
+  const video = card.locator('video');
+  await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.duration || 0)).toBeGreaterThan(1);
+  const cb = (await card.boundingBox())!;
+  const y = cb.y + cb.height / 2;
+  await video.evaluate((v: HTMLVideoElement) => (v.currentTime = v.duration / 4));
+  await page.mouse.move(cb.x + 40, y);
+  await page.mouse.down();
+  await page.mouse.move(cb.x + 50, y, { steps: 2 }); // (scrubbing: the lock asked for)
+  await expect(page.locator('.grid-scroller.scrubbing')).toHaveCount(1);
+  const place = () => card.locator('.preview-line').evaluate((e) => Number(getComputedStyle(e).getPropertyValue('--p')));
+  const before = await place();
+  expect(before).toBeLessThan(0.5);
+  await page.mouse.move(cb.x + 50 + 200, y); // the leap (no more than a free pointer may move; a hand doesn't, in this moment)
+  expect(await place()).toBeCloseTo(before, 2);
+  // Small moves in that moment still count: a hand's, in the rare case the lock never comes.
+  await page.mouse.move(cb.x + 50 + 210, y);
+  await expect.poll(place).toBeGreaterThan(before);
+  await page.mouse.up();
+});
+
 test('first steps: Check for updates on the step line (Up to date when none); a newer Vitrine is offered at the top - Update runs the updater and setup starts over on the new version; a big disk in TB', async ({ page }, info) => {
   let current = 'v1.0.1';
   let latest = 'v1.0.1';

@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Improved
+
+- **Scrubbing a video's card**: the cursor stays on the card while you scrub, so it keeps playing when you let go.
+
 ## 1.0.17 - 2026-11-02
 
 ### Fixed

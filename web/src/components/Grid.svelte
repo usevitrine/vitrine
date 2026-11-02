@@ -1338,8 +1338,8 @@
     touch: boolean;
     long: boolean; // held still long enough (touch)
     dragging: boolean;
-    // scrubbing the hover card's video (see scrubTo): from where it was (at) when the pointer was at x
-    scrub?: { video: HTMLVideoElement; resume: boolean; at: number; x: number; f: number };
+    // scrubbing the hover card's video (see scrubTo): the place (f), and where the pointer last was (x)
+    scrub?: { video: HTMLVideoElement; resume: boolean; x: number; f: number };
   };
   let press: Press | null = null;
   let longTimer: number | undefined;
@@ -1416,7 +1416,7 @@
     if (!press || e.pointerId !== press.id) return;
     lastPoint = { x: e.clientX, y: e.clientY };
     if (press.scrub) {
-      scrubTo(e.clientX);
+      scrubTo(e);
       return;
     }
     const d = Math.hypot(e.clientX - press.x, e.clientY - press.y);
@@ -1425,17 +1425,20 @@
     if (video && !press.dragging) {
       if (Math.abs(e.clientX - press.x) > 4 && video.duration > 0) {
         const at = held ?? video.currentTime / video.duration;
-        press.scrub = { video, resume: !video.paused, at, x: press.x, f: at };
+        press.scrub = { video, resume: !video.paused, x: press.x, f: at };
         seekPending = null;
         video.addEventListener('seeked', scrubSeeked);
         video.pause();
         scrubbing = true;
         try {
           el?.setPointerCapture(press.id);
+          // The cursor kept on the card (hidden until let go): see scrubTo. (Refused: it just stays free.)
+          lockPending = true;
+          Promise.resolve(el?.requestPointerLock()).catch(() => {});
         } catch {
           /* fine */
         }
-        scrubTo(e.clientX);
+        scrubTo(e);
       }
       return;
     }
@@ -1464,6 +1467,9 @@
   // the video was, by how far the pointer goes (2026-10-31, the user: "it should start from its current position in
   // the video, not where my mouse is"); pushed past an end, it moves back from that end at once. A click that doesn't
   // move still opens the viewer; the card stays while scrubbing, wherever the pointer goes.
+  // The cursor can't leave the card while scrubbing (2026-11-02, the user: "the cursor gets trapped inside the thumbnail
+  // so when i let go it doesnt stop playing"): pointer lock - hidden, only its movement reported, back where it was on
+  // the card when let go. Where the browser refuses the lock, the cursor stays free and letting go off the card closes it.
   // The line shows where the hand is, not where the video's seeks have got to: their time updates, lagging behind,
   // pulled it back and forth while scrubbing fast (the user), and after letting go the exact place is held until the
   // video is there (held).
@@ -1471,18 +1477,35 @@
   const cardVideo = () => el?.querySelector<HTMLVideoElement>('.tile.zoomed video.zoom-media') ?? null;
   let seekPending: number | null = null;
   let held: number | null = null; // let go: the place shown until the video gets there
-  function scrubTo(clientX: number) {
+  const MAX_MOVE = 200; // px in one pointer event
+  let lockPending = false; // the cursor's lock asked for, not there (or refused) yet
+  // A lock granted after letting go (a quick scrub): given straight back - the cursor would stay hidden until Esc.
+  $effect(() => {
+    const answered = () => {
+      lockPending = false;
+      if (document.pointerLockElement === el && !press?.scrub) document.exitPointerLock();
+    };
+    document.addEventListener('pointerlockchange', answered);
+    document.addEventListener('pointerlockerror', answered);
+    return () => {
+      document.removeEventListener('pointerlockchange', answered);
+      document.removeEventListener('pointerlockerror', answered);
+    };
+  });
+  function scrubTo(e: PointerEvent) {
     const s = press?.scrub;
     if (!s) return;
     const card = s.video.closest<HTMLElement>('.tile');
     if (!card) return;
     const r = card.getBoundingClientRect();
-    let f = s.at + (clientX - s.x) / r.width;
-    if (f < 0 || f > 1) {
-      f = Math.min(1, Math.max(0, f));
-      s.at = f;
-      s.x = clientX;
-    }
+    // (locked: the pointer's position stands still, only its movement is told)
+    const moved = document.pointerLockElement ? e.movementX : e.clientX - s.x;
+    s.x = e.clientX;
+    // As the lock starts, Chrome moves the pointer to the middle of the window - one event, reported as a leap just
+    // before the lock is: it sent the video to its end whenever the card was far from the middle (seen in a log of a
+    // real mouse: 121 to 1281). Any leap in that moment isn't the hand; nor one no hand could make in one event.
+    const by = Math.abs(moved) > (lockPending ? 30 : MAX_MOVE) ? 0 : moved;
+    const f = Math.min(1, Math.max(0, s.f + by / r.width)); // (pushed past an end: back from that end at once)
     s.f = f;
     hoverProgress = f;
     // One seek at a time, only the latest place kept (a seek on top of another queues up and lags behind the hand):
@@ -1536,7 +1559,13 @@
     if (p.scrub) {
       // (let go: it plays on from there if it was playing - and the viewer doesn't open; the card held a frame longer:
       // WebKit sends the grid a leave as it lets the pointer go, which closed the card and opened it again from the start)
-      requestAnimationFrame(() => (scrubbing = false));
+      const free = () => requestAnimationFrame(() => (scrubbing = false));
+      if (document.pointerLockElement) {
+        // (the cursor back, on the card - and the card held until it is: that leave comes once the lock has gone)
+        document.addEventListener('pointerlockchange', free, { once: true });
+        setTimeout(free, 500); // (never stuck)
+        document.exitPointerLock();
+      } else free();
       const v = p.scrub.video;
       v.removeEventListener('seeked', scrubSeeked);
       seekPending = null;
@@ -1849,6 +1878,8 @@
               ontimeupdate={(e) => {
                 if (press?.scrub || held !== null) return; // (the hand's place, not the seeks')
                 const v = e.currentTarget;
+                // (WebKit, playing on after a seek: one stray update at 0 - the line flashed back to the start)
+                if (v.currentTime < 0.01 && hoverProgress > 0.05) return;
                 hoverProgress = v.duration ? v.currentTime / v.duration : 0;
               }}></video>
           {:else}
