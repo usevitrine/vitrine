@@ -5,13 +5,6 @@ shows this too (Settings > Help & about).
 
 ## Unreleased
 
-### Improved
-
-- **Scrubbing a video's card**: the cursor stays on the card while you scrub, so it keeps playing when you let go.
-- **Opening a collection**: its comics unstack from its tile, one after another; closing stacks them back.
-- **The blacklist's notice**: going from red to green after a clean-up, its color, height and text now change smoothly together.
-- **Thumbnails come in the same way everywhere**: one fade, all together, once their pictures are ready - after a search, a tag added, removed or edited, a saved search, or opening the app.
-
 ### Added
 
 - **Clear the deleted forever list** (Settings, in the Trash section): files you deleted forever can be downloaded again when a later download finds them.
@@ -19,6 +12,14 @@ shows this too (Settings > Help & about).
 - **Drag comics into a collection**: hold a comic a moment with the mouse, then drop it on a collection.
 - **Rename a comic** from its right-click menu.
 - **Backups made before an update say so**: "Before the 1.2.3 update" in Settings > Backups, and in the file's name.
+
+### Improved
+
+- **Browse searches are quicker**: about half the time or better, as the list no longer waits between its requests or for its covers.
+- **Scrubbing a video's card**: the cursor stays on the card while you scrub, so it keeps playing when you let go.
+- **Opening a collection**: its comics unstack from its tile, one after another; closing stacks them back.
+- **The blacklist's notice**: going from red to green after a clean-up, its color, height and text now change smoothly together.
+- **Thumbnails come in the same way everywhere**: one fade, all together, once their pictures are ready - after a search, a tag added, removed or edited, a saved search, or opening the app.
 
 ### Fixed
 
@@ -28,6 +29,7 @@ shows this too (Settings > Help & about).
 - **Comics downloading**: a comic now appears on the Comics page as soon as its download starts, in a cover's shape, with an animated mark and its pages counting up; finished, the mark turns into a tick and goes. An empty Comics or Media page also takes in its first downloads without a reload.
 - **A tag added to the search showing the old files**: when new downloads came in at that moment, the search could be canceled, leaving the tag in the search bar and the previous files under it until you pressed Enter.
 - **Stats' parents count**: it counted every tag under a parent; now it counts the parents. "Deleted forever" no longer includes files still in the trash.
+- **Scrubbing in Safari**: the video's progress line no longer flashes back to the start after you let go.
 
 ## 1.0.17 - 2026-11-02
 
