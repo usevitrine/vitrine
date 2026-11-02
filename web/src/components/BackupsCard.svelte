@@ -179,7 +179,7 @@
           <div class="row">
             <span class="what">
               <span class="q">{when(b.created_at)}{#if i === 0}<span class="newest" transition:pop>{t('backups.newest')}</span>{/if}</span>
-              <span class="sub">{formatSize(b.size)}</span>
+              <span class="sub">{#if b.before}{b.before === 'update' ? t('backups.beforeAnUpdate') : t('backups.beforeUpdate', { version: b.before })} · {/if}{formatSize(b.size)}</span>
             </span>
             <ActionMenu
               label={t('backups.more', { when: when(b.created_at) })}

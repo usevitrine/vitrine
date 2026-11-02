@@ -41,6 +41,39 @@ func probe(t *testing.T, path string) string {
 	return v
 }
 
+func TestCreateBeforeAnUpdate(t *testing.T) {
+	dir := t.TempDir()
+	m := New(newLibrary(t, dir, `"first"`), filepath.Join(dir, "backups"))
+	clock := time.Date(2026, 10, 16, 3, 0, 0, 0, time.Local)
+	m.now = func() time.Time { clock = clock.Add(time.Minute); return clock }
+	ctx := context.Background()
+	plain, err := m.Create(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	known, err := m.CreateBefore(ctx, 0, "v1.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unknown, err := m.CreateBefore(ctx, 0, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(known.Name, "-pre-1.2.3.db.gz") || known.Before != "1.2.3" {
+		t.Fatalf("named %+v", known)
+	}
+	list, err := m.List()
+	if err != nil || len(list) != 3 {
+		t.Fatalf("listed %v, %v", list, err)
+	}
+	if list[0].Before != AnUpdate || list[1].Before != "1.2.3" || list[2].Before != "" || list[2].Name != plain.Name || list[0].Name != unknown.Name {
+		t.Fatalf("listed %+v", list)
+	}
+	if err := m.StageBackup(known.Name); err != nil {
+		t.Fatalf("restoring it: %v", err)
+	}
+}
+
 func TestCreateListKeepRestore(t *testing.T) {
 	dir := t.TempDir()
 	path := newLibrary(t, dir, `"first"`)

@@ -29,6 +29,17 @@ func (s *Server) trashInfo(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"files": st.Trash.Files, "bytes": st.Trash.Bytes, "comics": comics, "comic_bytes": comicBytes, "days": days})
 }
 
+// forgetDeleted: POST /api/trash/forget -> {forgotten}: the files deleted forever may be downloaded again.
+func (s *Server) forgetDeleted(w http.ResponseWriter, r *http.Request) {
+	n, err := s.lib.ForgetDeleted(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	s.log.Info("cleared the deleted forever list", "files", n)
+	writeJSON(w, http.StatusOK, map[string]int{"forgotten": n})
+}
+
 // purgeTrash: POST /api/trash/purge {ids} -> {purged}: those deleted files removed for good (their originals too).
 func (s *Server) purgeTrash(w http.ResponseWriter, r *http.Request) {
 	var req struct {

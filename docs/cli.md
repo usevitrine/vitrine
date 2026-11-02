@@ -150,7 +150,7 @@ For these, flags come first (a search's `-cloud` is a search word): `vitrine sea
 | `vitrine import-comic <folder or zip>` | Add a comic to the Comics page |
 | `vitrine download -max 20 <site> <search>` | Download a search without the server (Ctrl+C and run again to carry on) |
 | `vitrine process` | Make missing thumbnails (and read videos' length, size, audio) |
-| `vitrine backup` / `vitrine restore <file>` | Back up the library database (safe while it runs) / restore one (in place at the next start) |
+| `vitrine backup` / `vitrine restore <file>` | Back up the library database (safe while it runs; `-before 1.2.3` marks it as made before that update) / restore one (in place at the next start) |
 | `vitrine config` | The settings in effect: where the library lives, which tools were found |
 | `vitrine version` | The version |
 

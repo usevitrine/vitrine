@@ -37,7 +37,11 @@ Files, tags (one tag set, origins, namespaces), parents and siblings, delete/und
   index (`index.LoadTrash`: the deleted files and their tags; its "modified" is when each was deleted, the page's
   order "Deleted", last first; built again after writes, small - only the deleted files' tag links are read). A
   tile's menu, the selection bar and the viewer offer **Restore** (`POST /api/undelete`) and **Delete forever**
-  (`POST /api/trash/purge {ids}`, asked first - focus on Cancel); **Empty trash** (`POST /api/trash/empty`; a red icon
+  (`POST /api/trash/purge {ids}`, asked first - focus on Cancel); Settings > Library > **Deleted forever: Clear the list**
+  (`POST /api/trash/forget`, asked first; 2026-11-02, the user: so they "could potentially get redownloaded") removes the
+  records of files gone for good - not the trash's - and forgets their posts in `seen_posts`, so a later search that
+  meets them downloads them; a subscription only reads back to where it stopped, so older posts need a new download
+  of the search. **Empty trash** (`POST /api/trash/empty`; a red icon
   button left of the search bar, the user's choice) asks for a typed word ("delete": ConfirmDialog's `typed`). A line
   under the search bar: how many files, their size, how long they're kept. Deleted files' originals still open
   (`FileBySHA` finds them) until removed. Settings > Library > "Empty the trash": never (the default - nothing goes by

@@ -114,7 +114,9 @@ fast storage (SSD), **search index** in RAM.
   the index snapshot are regenerable. A consistent backup command is a feature.
 - **Backups as built (2026-10-16, `internal/backup`)**: `VACUUM INTO` from a connection of its own (a WAL snapshot:
   downloads keep writing), gzipped (BestSpeed) to `backup_dir` (default `<data_dir>/backups`) as
-  `vitrine-YYYYMMDD-HHMMSS.db.gz`; daily when the newest is 23.5 h old (checked hourly, first 5 min after start;
+  `vitrine-YYYYMMDD-HHMMSS.db.gz` (before an update, 2026-11-02, the user: "labelled as such": `...-pre-1.2.3.db.gz`,
+  the version updated to - `-pre-update` when not known; `vitrine backup -before 1.2.3`; "Before the 1.2.3 update" in
+  Settings > Backups); daily when the newest is 23.5 h old (checked hourly, first 5 min after start;
   setting `backupAuto`, default on), keeping the newest `backupKeep` (default 7). **Each backup is read back
   (2026-10-28)**: unpacked from the file on disk beside it and checked as a restore would (`verify` -> `Check`), before
   older ones are pruned - one that can't be restored is an error (and the daily one's a notice, category errors) and

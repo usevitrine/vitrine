@@ -147,6 +147,7 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.handle("GET /api/trash", s.trashInfo)
 	s.handle("POST /api/trash/purge", s.purgeTrash)
 	s.handle("POST /api/trash/empty", s.emptyTrash)
+	s.handle("POST /api/trash/forget", s.forgetDeleted)
 	s.handle("POST /api/trash/purge-comics", s.purgeComicsTrash)
 	s.handle("POST /api/trash/empty-comics", s.emptyComicsTrash)
 	s.handle("GET /api/autocomplete", s.autocomplete)

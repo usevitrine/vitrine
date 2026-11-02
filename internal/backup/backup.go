@@ -4,7 +4,8 @@
 //
 // A backup is a consistent snapshot (SQLite's VACUUM INTO, which reads one
 // moment of the database while Vitrine keeps running), gzipped, in the backup
-// folder: vitrine-YYYYMMDD-HHMMSS.db.gz. thumbs.db, previews and resized
+// folder: vitrine-YYYYMMDD-HHMMSS.db.gz (one made before an update:
+// vitrine-YYYYMMDD-HHMMSS-pre-1.2.3.db.gz). thumbs.db, previews and resized
 // copies are left out (they're made again from the originals), and so are
 // site credentials (secrets.toml).
 //
@@ -36,10 +37,15 @@ import (
 type Info struct {
 	Name      string `json:"name"`
 	Size      int64  `json:"size"`
-	CreatedAt int64  `json:"created_at"` // Unix ms
+	CreatedAt int64  `json:"created_at"`       // Unix ms
+	Before    string `json:"before,omitempty"` // made before an update: to this version (AnUpdate: not known)
 }
 
-var nameRe = regexp.MustCompile(`^vitrine-(\d{8}-\d{6})\.db\.gz$`)
+// AnUpdate is Info.Before for a backup before an update to a version not known.
+const AnUpdate = "update"
+
+var nameRe = regexp.MustCompile(`^vitrine-(\d{8}-\d{6})(?:-pre-([0-9A-Za-z.+-]+))?\.db\.gz$`)
+var versionRe = regexp.MustCompile(`^[0-9A-Za-z.+-]+$`)
 
 // ErrBadName means a backup name that isn't one of ours (no paths).
 var ErrBadName = errors.New("backup: no such backup")
@@ -63,16 +69,33 @@ func (m *Manager) Dir() string { return m.dir }
 // Create makes a backup now and then keeps only the newest keep backups
 // (keep <= 0: all).
 func (m *Manager) Create(ctx context.Context, keep int) (Info, error) {
+	return m.create(ctx, keep, "")
+}
+
+// CreateBefore is Create for a backup before an update to version ("v1.2.3" or "1.2.3"; "": not known), which its name says.
+func (m *Manager) CreateBefore(ctx context.Context, keep int, version string) (Info, error) {
+	version = strings.TrimPrefix(version, "v")
+	if !versionRe.MatchString(version) {
+		version = AnUpdate
+	}
+	return m.create(ctx, keep, version)
+}
+
+func (m *Manager) create(ctx context.Context, keep int, before string) (Info, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := os.MkdirAll(m.dir, 0o755); err != nil {
 		return Info{}, fmt.Errorf("backup: %w", err)
 	}
+	suffix := ".db.gz"
+	if before != "" {
+		suffix = "-pre-" + before + suffix
+	}
 	t := m.now()
-	name := "vitrine-" + t.Format("20060102-150405") + ".db.gz"
+	name := "vitrine-" + t.Format("20060102-150405") + suffix
 	for i := 1; fileExists(filepath.Join(m.dir, name)); i++ { // two in one second
 		t = t.Add(time.Second)
-		name = "vitrine-" + t.Format("20060102-150405") + ".db.gz"
+		name = "vitrine-" + t.Format("20060102-150405") + suffix
 	}
 	snap := filepath.Join(m.dir, ".snapshot-"+name+".db")
 	defer os.Remove(snap)
@@ -104,14 +127,14 @@ func (m *Manager) Create(ctx context.Context, keep int) (Info, error) {
 	// Read back as a restore would read it (unpacked from the file on disk, checked): a backup that can't be
 	// restored is found the day it's made, not the day it's needed - and never pushes good ones out (no pruning).
 	if err := verify(final); err != nil {
-		return Info{Name: name, Size: st.Size(), CreatedAt: t.UnixMilli()}, fmt.Errorf("backup %s made, but it can't be restored: %w", name, err)
+		return Info{Name: name, Size: st.Size(), CreatedAt: t.UnixMilli(), Before: before}, fmt.Errorf("backup %s made, but it can't be restored: %w", name, err)
 	}
 	if keep > 0 {
 		if err := m.prune(keep); err != nil {
 			return Info{}, err
 		}
 	}
-	return Info{Name: name, Size: st.Size(), CreatedAt: t.UnixMilli()}, nil
+	return Info{Name: name, Size: st.Size(), CreatedAt: t.UnixMilli(), Before: before}, nil
 }
 
 // List returns the backups, newest first.
@@ -137,7 +160,7 @@ func (m *Manager) List() ([]Info, error) {
 		if err != nil {
 			continue
 		}
-		out = append(out, Info{Name: e.Name(), Size: fi.Size(), CreatedAt: t.UnixMilli()})
+		out = append(out, Info{Name: e.Name(), Size: fi.Size(), CreatedAt: t.UnixMilli(), Before: mt[2]})
 	}
 	slices.SortFunc(out, func(a, b Info) int { return strings.Compare(b.Name, a.Name) })
 	return out, nil

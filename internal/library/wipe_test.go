@@ -9,6 +9,54 @@ import (
 	"github.com/usevitrine/vitrine/internal/search"
 )
 
+func TestForgetDeleted(t *testing.T) {
+	l := newTest(t)
+	ctx := context.Background()
+	ids := importN(t, l, 3)
+	gone, trashed, live := ids[0], ids[1], ids[2]
+	goneMD5, trashedMD5 := md5Of(t, l, gone), md5Of(t, l, trashed)
+	if err := l.Delete(ctx, []uint32{gone, trashed}, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := l.PurgeFiles(ctx, []uint32{gone}); err != nil {
+		t.Fatal(err)
+	}
+	site, err := l.Site(ctx, "blue_site")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []struct {
+		post, outcome int
+		file          any
+	}{{1, 1, nil}, {2, 3, nil}, {3, 2, nil}, {4, 1, live}, {5, 4, nil}, {6, 6, nil}} {
+		if _, err := l.db.W.Exec("INSERT INTO seen_posts (site_id, post_id, file_id, outcome, seen_at) VALUES (?, ?, ?, ?, 1)", site, p.post, p.file, p.outcome); err != nil {
+			t.Fatal(err)
+		}
+	}
+	st, err := l.Stats(ctx, 0, 0)
+	if err != nil || st.Removed != 1 {
+		t.Fatalf("deleted forever: %d, %v (the trash's isn't yet)", st.Removed, err)
+	}
+	n, err := l.ForgetDeleted(ctx)
+	if err != nil || n != 1 {
+		t.Fatalf("forgot %d, %v", n, err)
+	}
+	if m, _ := l.FindMD5(ctx, goneMD5); m.Deleted {
+		t.Fatal("a file gone for good still counts as deleted")
+	}
+	if m, _ := l.FindMD5(ctx, trashedMD5); !m.Deleted {
+		t.Fatal("a file in the trash lost its record")
+	}
+	// The live file's post, the failed one and the blacklisted one stay.
+	var left int
+	l.db.R.QueryRow("SELECT count(*) FROM seen_posts WHERE post_id IN (4, 5, 6)").Scan(&left)
+	var all int
+	l.db.R.QueryRow("SELECT count(*) FROM seen_posts").Scan(&all)
+	if left != 3 || all != 3 {
+		t.Fatalf("posts left: %d of them, %d in all", left, all)
+	}
+}
+
 func TestWipeSite(t *testing.T) {
 	l := newTest(t)
 	ctx := context.Background()

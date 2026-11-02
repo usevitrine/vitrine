@@ -9,6 +9,16 @@ shows this too (Settings > Help & about).
 
 - **Scrubbing a video's card**: the cursor stays on the card while you scrub, so it keeps playing when you let go.
 
+### Added
+
+- **Clear the deleted forever list** (Settings, in the Trash section): files you deleted forever can be downloaded again when a later download finds them.
+- **Backups made before an update say so**: "Before the 1.2.3 update" in Settings > Backups, and in the file's name.
+
+### Fixed
+
+- **A tag added to the search showing the old files**: when new downloads came in at that moment, the search could be canceled, leaving the tag in the search bar and the previous files under it until you pressed Enter.
+- **Stats' parents count**: it counted every tag under a parent; now it counts the parents. "Deleted forever" no longer includes files still in the trash.
+
 ## 1.0.17 - 2026-11-02
 
 ### Fixed

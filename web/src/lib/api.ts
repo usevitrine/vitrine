@@ -274,6 +274,7 @@ export interface BackupInfo {
   name: string;
   size: number;
   created_at: number;
+  before?: string; // made before an update: to this version ('update': not known)
 }
 
 export interface Suggestion {
@@ -549,6 +550,7 @@ export const api = {
   purgeTrash: (ids: number[]) => post<{ purged: number }>('/api/trash/purge', { ids }),
   /** limit: only that many (the last deleted first) and how many are left - the page empties it in turns. */
   emptyTrash: (limit = 0) => post<{ purged: number; left?: number }>('/api/trash/empty', limit ? { limit } : {}),
+  forgetDeleted: () => post<{ forgotten: number }>('/api/trash/forget', {}),
   purgeComicsTrash: (ids: number[]) => post<{ purged: number }>('/api/trash/purge-comics', { ids }),
   emptyComicsTrash: () => post<{ purged: number }>('/api/trash/empty-comics', {}),
   /** A favorites subscription's files no longer in the site's favorites, and what to do with them. */

@@ -117,9 +117,9 @@ func (l *Library) Stats(ctx context.Context, days int, tzOffset int64) (Stats, e
 		}
 	}
 	one(&st.Trash.Files, &st.Trash.Bytes)(`SELECT count(*), coalesce(sum(size), 0) FROM files WHERE deleted_at IS NOT NULL`)
-	one(&st.Removed)(`SELECT count(*) FROM tombstones`)
+	one(&st.Removed)(`SELECT count(*) FROM tombstones WHERE sha256 NOT IN (SELECT sha256 FROM files)`) // (not the trash's: those can come back)
 	one(&st.UserLinks)(`SELECT count(*) FROM file_tags WHERE origin = 0`)
-	one(&st.Parents)(`SELECT count(*) FROM tag_parents`)
+	one(&st.Parents)(`SELECT count(DISTINCT parent_id) FROM tag_parents`)
 	one(&st.Siblings)(`SELECT count(*) FROM tag_siblings`)
 	one(&st.Subs.Total, &st.Subs.Paused, &st.Subs.Failing)(`SELECT count(*), coalesce(sum(paused != 0), 0),
 		coalesce(sum(paused = 0 AND error IS NOT NULL AND error != ''), 0) FROM subscriptions`)

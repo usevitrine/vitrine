@@ -22,6 +22,7 @@ func cmdBackup(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	}
 	load := configFlags(fset)
 	keep := fset.Int("keep", 0, "keep only the newest N backups (0 = keep all)")
+	before := fset.String("before", "", "marks it as made before updating to this version (e.g. 1.2.3)")
 	if err := fset.Parse(args); err != nil {
 		return err
 	}
@@ -33,7 +34,13 @@ func cmdBackup(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	if _, err := os.Stat(dbPath); err != nil {
 		return fmt.Errorf("no library at %s", c.DataDir)
 	}
-	b, err := backup.New(dbPath, c.BackupDir).Create(ctx, *keep)
+	m := backup.New(dbPath, c.BackupDir)
+	var b backup.Info
+	if *before != "" {
+		b, err = m.CreateBefore(ctx, *keep, *before)
+	} else {
+		b, err = m.Create(ctx, *keep)
+	}
 	if err != nil {
 		return err
 	}

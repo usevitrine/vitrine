@@ -199,6 +199,9 @@ func TestUpdateStart(t *testing.T) {
 	if e.call("GET", "/api/backups", nil, &list); len(list.Backups) < 2 {
 		t.Fatalf("a backup before each update: %d", len(list.Backups))
 	}
+	if list.Backups[0].Before != backup.AnUpdate { // (ReleasesURL off: the version isn't known)
+		t.Fatalf("not marked as before an update: %+v", list.Backups[0])
+	}
 }
 
 // Installed with the Windows installer: Update downloads the release's installer, checks its SHA-256 against

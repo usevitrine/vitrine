@@ -382,7 +382,10 @@ func (s *Server) runUpdate(cfg UpdateConfig) {
 	backupName := ""
 	if s.backups != nil {
 		_, keep := s.BackupSettings(ctx)
-		b, err := s.backups.m.Create(ctx, keep)
+		u.mu.Lock()
+		to := u.latest
+		u.mu.Unlock()
+		b, err := s.backups.m.CreateBefore(ctx, keep, to)
 		if err != nil {
 			fail(fmt.Errorf("the backup before updating failed, so nothing was updated: %w", err))
 			return

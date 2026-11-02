@@ -256,6 +256,10 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   where the open file and the **first tile on screen** (`grid.firstOnScreen()`) are in the new list (`find=<ids>`,
   up to 8, answered as `found: {id: index}`): the viewer goes to its file's new index, and the grid adds as many rows
   above as the anchor moved (files arriving below the screen move nothing on it). Comics the same.
+- **A search on its way is never replaced by the one on screen (2026-11-02, user: a tag added to the search showed its
+  chip over the old files until Enter)**: `query` and `sort` follow only when a list comes, so `merge` and `refresh` ran
+  the old search and canceled the new one - with files waiting in the viewer, the moment it closed. Both now use the
+  search last asked for, and `merge` does nothing while a search runs (that search brings the arrivals along).
 - **Arrivals only at a quiet moment (2026-10-28)**, the user: "theres still some situations where clicking on a
   thumbnail while files are being added results in the wrong file opening" -> asked for options, chose "take them in
   only when nothing can go wrong" (over fixing each spot, or a "N new files" pill again). Arriving files go in only

@@ -82,6 +82,26 @@ func (l *Library) Delete(ctx context.Context, files []uint32, reason string) err
 	})
 }
 
+// ForgetDeleted clears the deletion records of files gone for good (those in the trash keep theirs: they can still come
+// back), and returns how many: a later search that meets those files downloads them again. Their posts are forgotten
+// too - seen_posts' outcome 3 (deleted before), and 1 or 2 (downloaded, already had) whose file is gone - or the search
+// would pass them as seen before it ever asked about the file.
+func (l *Library) ForgetDeleted(ctx context.Context) (int, error) {
+	var n int64
+	err := l.write(ctx, func(tx *sql.Tx) (func() error, error) {
+		res, err := tx.ExecContext(ctx, "DELETE FROM tombstones WHERE sha256 NOT IN (SELECT sha256 FROM files)")
+		if err != nil {
+			return nil, err
+		}
+		if n, err = res.RowsAffected(); err != nil {
+			return nil, err
+		}
+		_, err = tx.ExecContext(ctx, "DELETE FROM seen_posts WHERE outcome = 3 OR (outcome IN (1, 2) AND file_id IS NULL)")
+		return nil, err
+	})
+	return int(n), err
+}
+
 func nullString(s string) any {
 	if s == "" {
 		return nil

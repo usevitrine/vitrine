@@ -87,9 +87,13 @@ export class Results {
   private pendingFiles = new Set<number>();
   private gen = 0; // search generation: replies for older searches are dropped
   private abort?: AbortController;
+  /** The search last asked for (query and sort follow only when its list comes): running it again means this one -
+   *  the one on screen would cancel a search still on its way. */
+  private asked = { q: '', sort: '' };
 
   async search(q: string, sort = this.sort, hook?: SearchHook) {
     const gen = ++this.gen;
+    this.asked = { q, sort };
     this.abort?.abort();
     this.abort = new AbortController();
     this.busy = true;
@@ -197,9 +201,13 @@ export class Results {
 
   /** Re-runs the current search (e.g. after a delete), keeping positions where possible. */
   refresh() {
-    // Random: the same shuffle again (its seed), not a new one.
-    const sort = this.sort === 'random' && this.seed ? `random_${this.seed}` : this.sort;
-    return this.search(this.query, sort);
+    return this.search(this.asked.q, this.sortAgain());
+  }
+
+  /** Random: the same shuffle again (its seed), not a new one. */
+  private sortAgain() {
+    const { sort } = this.asked;
+    return sort === 'random' && this.seed && !this.busy ? `random_${this.seed}` : sort;
   }
 
   /** A new list's slices covering the positions on screen (beyond the first, which comes with it). */
@@ -224,6 +232,7 @@ export class Results {
    * anchor (rows for the grid to add above) and where the open file is now (-1: gone).
    */
   async merge(keep: number | null = null, onShift: (shift: number, kept: number) => void = () => {}, anchor: number | null = null): Promise<number> {
+    if (this.busy) return 0; // (a search on its way brings them along)
     const first = this.idAt(0);
     const before = this.total;
     const anchorAt = anchor ?? 0;
@@ -231,8 +240,7 @@ export class Results {
     const keepId = keep !== null ? this.idAt(keep) : undefined;
     let shift = 0;
     let kept = keep ?? -1;
-    const sort = this.sort === 'random' && this.seed ? `random_${this.seed}` : this.sort;
-    await this.search(this.query, sort, {
+    await this.search(this.asked.q, this.sortAgain(), {
       find: [anchorId, keepId].filter((x): x is number => x !== undefined),
       // Before the new list is shown: how far the anchor moved, and the IDs around where the open file is now - so
       // the viewer never shows a blank or another file for a moment.

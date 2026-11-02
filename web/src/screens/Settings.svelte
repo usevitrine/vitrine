@@ -50,6 +50,16 @@
     });
   }
 
+  // The files deleted forever: may be downloaded again (asks first).
+  async function forgetDeleted() {
+    const ok = await confirmAction({ title: t('settings.forgetDeleted.title'), body: t('settings.forgetDeleted.body'), action: t('settings.forgetDeleted.action'), icon: 'trash' });
+    if (!ok) return;
+    await attempt(async () => {
+      const { forgotten } = await api.forgetDeleted();
+      toasts.show(t('settings.forgetDeleted.done', { n: forgotten }), { cat: 'tagEdits', kind: 'removed' });
+    });
+  }
+
   // Shown to diagnose layout problems on phones (e.g. iOS home-screen app gaps).
   let display = $state(displayInfo());
 
@@ -224,6 +234,13 @@
                 title={t('settings.trashDays.label')}
                 current={settings.trashDays ? t('settings.trashDays.after', { n: settings.trashDays }) : t('settings.trashDays.never')}
                 items={[0, 7, 30, 90, 365].map((n) => ({ label: n ? t('settings.trashDays.after', { n }) : t('settings.trashDays.never'), on: n === settings.trashDays, run: () => (settings.trashDays = n) }))} />
+            </div>
+            <div class="field">
+              <span class="field-label">{t('settings.forgetDeleted.label')}</span>
+              <span class="hint">{t('settings.forgetDeleted.hint')}</span>
+              <div class="clear-views">
+                <button class="quiet" onclick={forgetDeleted}><Icon name="trash" size={16} /> {t('settings.forgetDeleted.action')}</button>
+              </div>
             </div>
           </section>
           {:else if current === 'new'}

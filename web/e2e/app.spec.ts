@@ -257,6 +257,20 @@ test('view counts: a file shown 2 s is a view with its time (one passed quickly 
   await confirmIn(page, 'Clear all views');
   await expect(page.getByText('Cleared 7 views')).toBeVisible();
 });
+test('settings: clearing the deleted forever list asks first', async ({ page }) => {
+  let cleared = 0;
+  await page.route('**/api/trash/forget', (r) => {
+    cleared++;
+    return r.fulfill({ json: { forgotten: 3 } });
+  });
+  await page.goto('/settings/library');
+  await page.getByRole('button', { name: 'Clear the list' }).click();
+  await expect(page.getByText('Clear the deleted forever list?')).toBeVisible();
+  expect(cleared).toBe(0);
+  await confirmIn(page, 'Clear the list');
+  await expect(page.getByText('3 files can be downloaded again')).toBeVisible();
+  expect(cleared).toBe(1);
+});
 test('viewer: open, swipe to the next file, swipe down to close', async ({ page }) => {
   await page.goto('/');
   await page.locator('.tile').nth(0).click();
@@ -4990,6 +5004,31 @@ test('a tag added to the search from the details: the search line shows its end 
   await expect
     .poll(() => chips.evaluate((el) => Math.round(el.scrollWidth - el.clientWidth - el.scrollLeft)))
     .toBeLessThanOrEqual(1);
+});
+
+// Files arrived while the viewer was open, and go in once the grid is quiet - just as a tag from the details is being
+// searched: that took the search it was still waiting for with it, the chip there and the old files under it.
+test('a tag added to the search while files are waiting to come in: its search still runs to the end', async ({ page }) => {
+  const arrive = await arriveTwo(page);
+  await page.goto('/');
+  await expect(page.getByText(/^26 files/)).toBeVisible();
+  const want = await page.evaluate(() => fetch('/api/search?limit=1&q=landscape').then((r) => r.json()));
+  expect(want.total).toBeLessThan(26);
+  await page.locator(`.tile[data-id="${want.ids[0]}"]`).click();
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  const panel = page.getByRole('complementary', { name: 'Details' });
+  await arrive(false); // (the viewer is open: they wait)
+  await page.route('**/api/search?*landscape*', async (route) => {
+    await new Promise((r) => setTimeout(r, 1500)); // a search that takes a moment
+    await route.fallback();
+  });
+  await panel.getByRole('button', { name: 'landscape', exact: true }).click();
+  await page.getByRole('menu').getByRole('menuitem', { name: 'Add to search' }).click();
+  await expect(page).toHaveURL(/landscape/);
+  await expect(page.locator('.bar .chip', { hasText: 'landscape' })).toBeVisible();
+  await expect(page.getByText(new RegExp(`^${want.total} files?`))).toBeVisible({ timeout: 5000 });
+  await page.waitForTimeout(1000);
+  await expect(page.getByText(new RegExp(`^${want.total} files?`))).toBeVisible();
 });
 
 test('grid: a thumbnail still on its way shows a spinner after a moment; one that failed is asked again', async ({ page }) => {
