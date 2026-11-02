@@ -259,7 +259,10 @@ waits before the server comes back up and fades the site back into view". `inter
   `page`, and `changelog`: that release's CHANGELOG.md, read from `changelog_url` - default the repository's on GitHub
   at the tag, raw.githubusercontent.com; a failure there still offers the update), and the bell gets a notice, once per version (kind `release`, the notice kind "A new Vitrine release",
   leading to Settings > Updates). Development builds (`dev`, the dev server's `test-...`) are never behind.
-  `POST /api/update/check` is "Check now".
+  `POST /api/update/check` is "Check now" - always offered, also with a release on offer (2026-11-02, the user) - and
+  Update asks it again first (`updater.newest`, Settings and First steps: an even newer release is the one its question
+  names, and the installer's and the backup's; Docker's image was the newest anyway, under the older one's name; GitHub
+  out of reach: it goes ahead with the one known).
 - **The Update button** (only with `watchtower_url` + `watchtower_token`: Watchtower's HTTP API, the
   `nickfedor/watchtower` fork - containrrr's is archived - with `WATCHTOWER_HTTP_API_ENDPOINTS=update` and that
   token; with only the update endpoint it never polls on its own): `POST /api/update` answers at once and runs in

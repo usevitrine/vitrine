@@ -10037,6 +10037,37 @@ test('the blacklist clean-up: deleted files leave the library behind it at once 
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+// The user: "a check for update button even if theres a new release", and Update "should first check if theres an even
+// newer version than the one presented".
+test('updates: Check now stays with a release on offer, and Update asks again first - the even newer one is what it offers', async ({ page }) => {
+  let latest = 'v9.9.8';
+  let checks = 0;
+  const state = () => ({ current: 'v1.0.1', latest, page: '', newer: true, checked_at: Date.now(), error: '', check: true, can_update: true, updating: '', update_error: '', changelog: '' });
+  await page.route('**/api/update', (r) => r.fulfill({ json: state() }));
+  await page.route('**/api/update/check', (r) => {
+    checks++;
+    return r.fulfill({ json: state() });
+  });
+  await page.goto('/settings/updates');
+  await expect(page.getByRole('button', { name: 'Update to v9.9.8' })).toBeVisible();
+  // Check now, with one on offer already.
+  await page.getByRole('button', { name: 'Check now' }).click();
+  await expect.poll(() => checks).toBe(1);
+  // Out since then: the button still says the last one known; pressed, it asks, and the question names the new one.
+  latest = 'v9.9.9';
+  await page.getByRole('button', { name: 'Update to v9.9.8' }).click();
+  const q = page.getByRole('alertdialog');
+  await expect(q).toContainText('Update to v9.9.9?');
+  expect(checks).toBe(2);
+  await q.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('button', { name: 'Update to v9.9.9' })).toBeVisible();
+  // GitHub out of reach: the update is still offered.
+  await page.unroute('**/api/update/check');
+  await page.route('**/api/update/check', (r) => r.fulfill({ status: 502, json: { error: 'no' } }));
+  await page.getByRole('button', { name: 'Update to v9.9.9' }).click();
+  await expect(page.getByRole('alertdialog')).toContainText('Update to v9.9.9?');
+});
+
 test('updates: a newer release in Settings > Updates with the changes in it, Update runs the full-screen updater through its steps and fades back in on the new version; a failure says why and closes', async ({ page }) => {
   let current = 'v1.0.1';
   let step = '';

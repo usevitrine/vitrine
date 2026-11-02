@@ -55,6 +55,18 @@ class Updater {
     this.progress = Math.max(this.progress, lo + (hi - lo) * 0.95 * ease);
   };
 
+  /** Asks GitHub again before an update (2026-11-02, the user: a newer one may be out than the one on the button - Docker
+   *  would have got it under the older one's name, the installer the older one): the state to go on with - a release
+   *  newer than this program if the answer has one, else as it was (GitHub out of reach: the update still goes ahead). */
+  async newest(info: UpdateState): Promise<UpdateState> {
+    try {
+      const now = await api.checkForUpdate();
+      return now.newer ? now : info;
+    } catch {
+      return info;
+    }
+  }
+
   async start(info: UpdateState) {
     const run = ++this.run;
     this.active = true;

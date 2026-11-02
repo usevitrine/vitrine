@@ -37,8 +37,12 @@
 
   async function update() {
     if (!info) return;
-    if (!(await confirmAction({ title: t('updates.confirmTitle', { version: info.latest }), body: t('updates.confirmBody'), action: t('updates.update'), icon: 'download' }))) return;
-    updater.start(info); // (full screen: lib/updater)
+    checking = true;
+    const now = await updater.newest(info);
+    info = now;
+    checking = false;
+    if (!(await confirmAction({ title: t('updates.confirmTitle', { version: now.latest }), body: t('updates.confirmBody'), action: t('updates.update'), icon: 'download' }))) return;
+    updater.start(now); // (full screen: lib/updater)
   }
 </script>
 
@@ -48,9 +52,11 @@
       <div class="status newer" in:swap>
         <span class="badge"><Icon name="download" size={15} /> {t('updates.available', { version: info.latest })}</span>
         {#if info.page}<a href={info.page} target="_blank" rel="noopener noreferrer">{t('updates.whatsNew')} <Icon name="external" size={14} /></a>{/if}
+        <button class="link" onclick={checkNow} disabled={checking}>{checking ? t('updates.checking') : t('updates.checkNow')}</button>
       </div>
+      {#if info.error}<p class="status error-text" in:swap>{t('updates.checkFailed', { error: info.error })}</p>{/if}
       {#if info.can_update}
-        <button class="primary go" onclick={update} in:swap><Icon name="download" size={18} /> {t('updates.updateTo', { version: info.latest })}</button>
+        <button class="primary go" onclick={update} disabled={checking} in:swap><Icon name="download" size={18} /> {t('updates.updateTo', { version: info.latest })}</button>
       {:else}
         <p class="hint" in:swap>{t('updates.howTo')}</p>
       {/if}

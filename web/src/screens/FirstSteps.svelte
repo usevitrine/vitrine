@@ -83,10 +83,12 @@
   }
   async function updateNow() {
     if (!update) return;
-    if (!(await confirmAction({ title: t('updates.confirmTitle', { version: update.latest }), body: t('setup.update.confirm'), action: t('updates.update'), icon: 'download' }))) return;
+    const now = await updater.newest(update);
+    info = now;
+    if (!(await confirmAction({ title: t('updates.confirmTitle', { version: now.latest }), body: t('setup.update.confirm'), action: t('updates.update'), icon: 'download' }))) return;
     dir = -1;
     settings.welcome = 'sections';
-    updater.start(update);
+    updater.start(now);
   }
 
   // ---- storage
