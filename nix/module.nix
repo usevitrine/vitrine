@@ -36,7 +36,7 @@ let
   cli = pkgs.writeShellScriptBin "vitrine" ''
     ${lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg v}") env)}
     if [ "$(${pkgs.coreutils}/bin/id -u)" = 0 ] && [ ${cfg.user} != root ]; then
-      exec ${pkgs.util-linux}/bin/runuser -u ${cfg.user} -- ${lib.getExe cfg.package} "$@"
+      exec ${pkgs.util-linux}/bin/runuser -u ${cfg.user} -G render -G video -- ${lib.getExe cfg.package} "$@"
     fi
     exec ${lib.getExe cfg.package} "$@"
   '';
