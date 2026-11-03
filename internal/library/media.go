@@ -135,19 +135,24 @@ func (l *Library) pendingMedia(ctx context.Context, retryFailed bool, limit int)
 const videoShapesPause = 25 * time.Millisecond
 
 // RunVideoShapes goes through the library's videos until done or ctx ends; done says how many changed.
-func (l *Library) RunVideoShapes(ctx context.Context, done func(read, changed int)) {
+func (l *Library) RunVideoShapes(ctx context.Context, done func(read, changed int)) error {
 	read, changed := 0, 0
 	for ctx.Err() == nil {
 		n, c, more, err := l.videoShapes(ctx, 100)
 		read += n
 		changed += c
-		if err != nil || !more {
-			if err == nil && done != nil && read > 0 {
+		l.stepRepair(ctx, "video_shapes", int64(n), int64(c))
+		if err != nil {
+			return err
+		}
+		if !more {
+			if done != nil && read > 0 {
 				done(read, changed)
 			}
-			return
+			return nil
 		}
 	}
+	return ctx.Err()
 }
 
 // videoShapes reads the next videos (at most limit); more: there may be others.

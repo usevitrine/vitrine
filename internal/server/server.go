@@ -157,6 +157,8 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.handle("GET /api/namespaces", s.namespaces)
 	s.handle("GET /api/downloads", s.listDownloads)
 	s.handle("GET /api/events", s.events)
+	s.handle("GET /api/repairs", s.listRepairs)
+	s.handle("POST /api/repairs/{id}/{action}", s.repairAction)
 	s.handle("GET /api/notices", s.listNotices)
 	s.handle("POST /api/notices", s.addNotice)
 	s.handle("POST /api/notices/read", s.markNotices(false))

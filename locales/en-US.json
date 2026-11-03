@@ -2473,6 +2473,41 @@
     "showAll": "Show all {n} ({what})",
     "showLess": "Show less"
   },
+  "repairs": {
+    "label": "Fixes from updates",
+    "run": "Run the fix",
+    "skip": "Skip",
+    "tryAgain": "Try again",
+    "ok": "OK",
+    "progress": "{done} of {total}",
+    "noticeOffered": "An update brought a fix you can run: {name}",
+    "noticeDone": "Fix finished: {name}",
+    "noticeFailed": "Fix failed: {name}",
+    "videoShapes": {
+      "name": "Video shapes and thumbnails",
+      "what": "A video with non-square pixels could get a squashed thumbnail: a vertical one looked like widescreen. This reads each video once, in the background, and makes a new thumbnail and preview frames for any that had the wrong shape. Your files don't change and nothing is downloaded. On a big library it can take hours.",
+      "count": {
+        "one": "{n} video to read",
+        "other": "{n} videos to read"
+      },
+      "done": {
+        "one": "Read {n} video, {changed} corrected",
+        "other": "Read {n} videos, {changed} corrected"
+      }
+    },
+    "generalTags": {
+      "name": "Tags in the wrong namespace",
+      "what": "A general tag could get stuck under a namespace like character: after a site called it that once. This puts back every tag that all your sites now call general. Tags you moved yourself stay where you put them, and your files and their modified times don't change.",
+      "count": {
+        "one": "{n} tag to put back",
+        "other": "{n} tags to put back"
+      },
+      "done": {
+        "one": "Put back {n} tag",
+        "other": "Put back {n} tags"
+      }
+    }
+  },
   "bell": {
     "label": "Notifications",
     "labelUnread": {
@@ -2578,7 +2613,8 @@
       "update": "A new version is ready",
       "errors": "Errors",
       "release": "A new Vitrine release",
-      "plugin": "A site's plugin has an update"
+      "plugin": "A site's plugin has an update",
+      "repair": "A fix from an update to run, and how it ended"
     },
     "withUndo": "With Undo",
     "withReload": "With Reload"

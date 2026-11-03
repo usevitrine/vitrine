@@ -18,6 +18,8 @@
   import { sites } from './lib/sites.svelte';
   import Toasts from './components/Toasts.svelte';
   import Bell from './components/Bell.svelte';
+  import RepairsMenu from './components/RepairsMenu.svelte';
+  import { repairs } from './lib/repairs.svelte';
   import DownloadsMenu from './components/DownloadsMenu.svelte';
   import { DEMO } from './lib/demo';
   import { notices } from './lib/notices.svelte';
@@ -159,6 +161,7 @@
     }
     live.start();
     notices.catchUp(); // (what the downloader did while no page was open)
+    repairs.load();
     namespaces.load();
     sites.load();
     // Settings read before on this device: start with them, refresh in the background.
@@ -281,6 +284,7 @@
       {#if router.screen === 'browse' && topbar.browse}{@render topbar.browse()}{/if}
       <!-- (on every page - the user; it was the library's only) -->
       {#if !DEMO}
+        <RepairsMenu />
         <DownloadsMenu query={router.screen === 'library' ? topbar.query : ''} />
         <Bell />
       {/if}

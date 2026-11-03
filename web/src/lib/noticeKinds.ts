@@ -43,6 +43,7 @@ export const noticeKinds: NoticeKind[] = [
   { id: 'update', group: 'app', mode: 'bell', undo: true },
   { id: 'release', group: 'app', mode: 'bell' }, // a newer Vitrine is out (the server's daily check)
   { id: 'plugin', group: 'app', mode: 'bell' }, // a newer version of an installed plugin (the server's daily check)
+  { id: 'repair', group: 'app', mode: 'bell' }, // a fix an update offers, and how it ended
   { id: 'errors', group: 'app', mode: 'screen' },
 ];
 

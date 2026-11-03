@@ -42,6 +42,27 @@ Push notifications (Web Push), the toasts and their kinds, the bell and its noti
   (all already in the library, or nothing matched) isn't either - no push, no bell notice (`finishCheck`, `TestEvents`).
   One-off downloads still say when they finish, 0 new files included.
 
+## Fixes from updates (2026-11-03)
+The user: "users are notified about fixes included in an update and they can track progress in a new button in the
+header. The new button disappears when the user acknowledges that it has completed successfully" - "like the thumbnail
+fix and tag fix" - "they should be given the option to run the fix or skip it with an explanation of what the fix does".
+- **A fix** is a one-time pass over what's already in a library (`library/repairs.go`: `AddRepair(id, find, run)`; the
+  video shapes and stuck tags are the first two). At each start `StartRepairs` asks each new one how much it has to do:
+  nothing means it never shows (a new library, or one with nothing wrong). States, kept in meta `repair:<id>` and the same
+  for every device: **offered** -> **running** -> **done** -> acknowledged; **skipped** (not offered again); **failed**
+  (Try again or Skip). A fix never starts by itself: the one exception is a pass that had already begun before fixes
+  were offered (the find says how far), which carries on. One running when the server stopped carries on 5 min after
+  the start, without asking again.
+- **The wrench** (`components/RepairsMenu.svelte`, before Downloads and the bell in the top bar): there only while
+  `GET /api/repairs` lists something. A ring shows how far the running ones are, a dot that one waits for an answer (red:
+  one failed), a green check when all have finished. Its panel: each fix's name and, while it's a choice, what it does
+  (words in `locales/` under `repairs`, one explanation per fix: a new fix adds its words and `lib/repairWords.ts`).
+  `POST /api/repairs/{id}/run|skip|ack`; a refused one (409) means another device got there first. Open pages follow by
+  the stream's `repairs` event. Only a finished fix can be acknowledged, so the button can't be dismissed mid-way.
+- **The bell** gets a notice (kind `repair`, Settings > Notifications, bell by default) when one is offered and when it
+  ends. Not sent as a push: nothing here needs the user right away.
+- A new fix: add its pass (resumable, its own meta key, calling `stepRepair`), register it in `cmd_serve.go`, add its words.
+
 ## Notices kept over restarts (2026-10-21)
 - The bell's notices (the downloader's events) are kept in meta.db (`notices`, migration 0032; the last 100,
   `library.AddNotice` / `Notices`), loaded when the server starts and numbered on from the last. Their boot (the

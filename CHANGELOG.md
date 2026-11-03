@@ -3,6 +3,16 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Added
+
+- **Fixes from updates are yours to run**: when an update brings a fix for what's already in your library, a wrench appears in the top bar and the bell tells you. It explains what the fix does, with Run the fix and Skip. While it runs, the wrench shows how far it's got, and it goes away once you've said OK to the result. A library with nothing to fix never sees it.
+
+### Fixed
+
+- **Downloads queue**: a card moving to the top of a stack no longer shows extra space on its right for a moment.
+
 ## 1.0.20 - 2026-11-03
 
 ### Fixed

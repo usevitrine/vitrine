@@ -10287,3 +10287,105 @@ test('first steps: Check for updates on the step line (Up to date when none); a 
     await page.evaluate(() => fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ welcome: 'finished' }) }));
   }
 });
+
+// The user: a fix from an update is offered with what it does, to run or skip; its progress shows in the top bar, and
+// the button goes once the finished fix is acknowledged. (The server's side: TestRepairs; here its answers are set.)
+test('fixes from updates: offered with an explanation, run or skipped, followed, acknowledged', async ({ page }) => {
+  const fix = (id: string, state: string, done = 0) => ({ id, state, done, total: 10, changed: 2, offered_at: 1 });
+  let list = [fix('video_shapes', 'offered'), fix('general_tags', 'offered')];
+  await page.route('**/api/repairs', (r) => r.fulfill({ json: { repairs: list } }));
+  const asked: string[] = [];
+  await page.route('**/api/repairs/*/*', (r) => {
+    const [id, action] = new URL(r.request().url()).pathname.split('/').slice(-2);
+    asked.push(`${id} ${action}`);
+    if (action === 'skip') list = list.filter((x) => x.id !== id);
+    if (action === 'run') list = list.map((x) => (x.id === id ? fix(id, 'running', 4) : x));
+    if (action === 'ack') list = list.filter((x) => x.id !== id);
+    return r.fulfill({ json: { repairs: list } });
+  });
+  await login(page);
+  await page.goto('/');
+  const button = page.getByRole('button', { name: 'Fixes from updates' });
+  await button.click();
+  const panel = page.getByRole('dialog', { name: 'Fixes from updates' });
+  await expect(panel.getByText('non-square pixels')).toBeVisible();
+  await expect(panel.getByText('Tags you moved yourself')).toBeVisible();
+
+  const tags = panel.getByRole('listitem').filter({ hasText: 'Tags in the wrong namespace' });
+  await tags.getByRole('button', { name: 'Skip' }).click();
+  await expect(tags).toHaveCount(0);
+
+  const video = panel.getByRole('listitem').filter({ hasText: 'Video shapes' });
+  await video.getByRole('button', { name: 'Run the fix' }).click();
+  await expect(video.getByRole('progressbar')).toBeVisible();
+  await expect(video.getByText('4 of 10')).toBeVisible();
+  await expect(video.getByRole('button')).toHaveCount(0); // (no way to dismiss it mid-way)
+  expect(asked).toEqual(['general_tags skip', 'video_shapes run']);
+
+  // It finishes (the live stream's news, here a reload): only OK is left, and OK takes the button away.
+  list = [fix('video_shapes', 'done', 10)];
+  await page.reload();
+  await button.click();
+  await expect(panel.getByText('Read 10 videos, 2 corrected')).toBeVisible();
+  await panel.getByRole('button', { name: 'OK' }).click();
+  await expect(button).toHaveCount(0);
+  await expect(panel).toHaveCount(0);
+});
+
+// The user: when a subscription moved to the top of a stack, "excess padding on the right that disappears immediately
+// after appearing": a card coming from behind is scaled down, and its content's width was held at that scaled size.
+test('downloads: a card taking the top of a folded stack keeps its full width as it comes', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', 'one run is enough: the server-side queue is shared');
+  await login(page);
+  let swap = false;
+  await page.route('**/api/downloads', async (r) => {
+    if (r.request().method() !== 'GET') return r.continue();
+    const j = await (await r.fetch()).json();
+    const mine = j.searches.filter((s: any) => s.query?.startsWith('stacktop_'));
+    if (swap && mine.length >= 2) {
+      const [a, b] = mine;
+      const [ai, bi] = [j.searches.indexOf(a), j.searches.indexOf(b)];
+      [a.state, b.state] = [b.state, a.state];
+      [j.searches[ai], j.searches[bi]] = [b, a];
+    }
+    await r.fulfill({ json: j });
+  });
+  await page.goto('/downloads');
+  const add = (query: string) =>
+    page.evaluate(
+      async (query) =>
+        (await (await fetch('/api/downloads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: 'test-slow', query, max_posts: 0 }) })).json()).id as number,
+      query,
+    );
+  const ids = [await add('stacktop_a'), await add('stacktop_b'), await add('stacktop_c')];
+  try {
+    await page.locator('.stack .item', { hasText: 'stacktop_b' }).waitFor({ state: 'attached' });
+    await page.waitForTimeout(800);
+    // Every frame: the difference between each card's room and its content's layout width (transforms don't count).
+    const worst = page.evaluate(
+      () =>
+        new Promise<number>((done) => {
+          let most = 0;
+          const end = performance.now() + 4000;
+          const look = () => {
+            for (const it of document.querySelectorAll<HTMLElement>('.stack .item')) {
+              if (!it.textContent?.includes('stacktop_')) continue;
+              const head = it.querySelector<HTMLElement>('.qhead');
+              if (head) most = Math.max(most, Math.abs(it.clientWidth - head.offsetWidth));
+            }
+            if (performance.now() < end) requestAnimationFrame(look);
+            else done(most);
+          };
+          look();
+        }),
+    );
+    swap = true;
+    ids.push(await add('stacktop_d')); // (the page reads the queue again)
+    expect(await worst).toBeLessThanOrEqual(1);
+  } finally {
+    await page.unroute('**/api/downloads');
+    await page.evaluate(async (ids) => {
+      for (const id of ids) await fetch(`/api/downloads/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    }, ids);
+  }
+});

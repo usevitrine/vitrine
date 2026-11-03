@@ -76,7 +76,7 @@ Request URLs to sites with API keys carry the key - never log or print them unfi
   said after. Now a tag the site calls general is the plain one: the namespaced tag comes back to plain if this site alone
   has a say and the user didn't put it there (`ns_overrides`), else a plain one is made. The takeover above likewise
   only happens when no other site has a say, so each site's files keep what that site says (a plain name still finds
-  both in a search). `Library.RunGeneralTags` puts existing tags right, once at start-up (meta `general_tags`): a
+  both in a search). `Library.RunGeneralTags` puts existing tags right, a fix the user runs (see ui/notifications.md, "Fixes from updates"; meta `general_tags`): a
   namespaced tag every site with a say calls general goes back to plain, merged a batch of files at a time; modified
   times stay. A site's own wrong type stays as the site says it: the user moves the tag, and it stays moved. The
   plugins' namespaces are created at start-up. **Older files**:

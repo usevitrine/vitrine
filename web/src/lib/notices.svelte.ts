@@ -7,6 +7,7 @@
 import { api } from './api';
 import { t } from './i18n.svelte';
 import { modeOf } from './noticeKinds';
+import { repairName } from './repairWords';
 import { settings } from './settings.svelte';
 import { remove } from './storage';
 import type { ToastKind } from './toast.svelte';
@@ -30,7 +31,7 @@ export interface Notice {
 export interface ServerNotice {
   id: number;
   at: number;
-  kind: 'new' | 'failed' | 'done' | 'blacklisted' | 'paused' | 'back' | 'app' | 'release' | 'plugin';
+  kind: 'new' | 'failed' | 'done' | 'blacklisted' | 'paused' | 'back' | 'app' | 'release' | 'plugin' | 'repair';
   site?: string;
   query?: string;
   subscription?: boolean;
@@ -74,6 +75,12 @@ function word(n: ServerNotice): { text: string; kind: ToastKind } {
       return { text: `${t('push.blacklisted', { n: 1 })}: ${t('push.blacklistedBody', { tags: n.tag ?? '' })}`, kind: 'removed' };
     case 'release':
       return { text: t('updates.notice', { version: n.query ?? '' }), kind: 'info' };
+    case 'repair': { // (query: the fix; first: it's on offer; error: it failed)
+      const name = repairName(n.query ?? '');
+      if (n.first) return { text: t('repairs.noticeOffered', { name }), kind: 'info' };
+      if (n.error) return { text: t('repairs.noticeFailed', { name }), kind: 'error' };
+      return { text: t('repairs.noticeDone', { name }), kind: 'done' };
+    }
     case 'plugin': // (site: the plugin's ID, query: the new version)
       return { text: t('sites.updateNotice', { site: noticeSites.label(n.site ?? ''), version: n.query ?? '' }), kind: 'info' };
   }
@@ -102,7 +109,7 @@ class Notices {
     // Where a tap takes you: a release to Settings > Updates, a plugin's update to Settings > Sites (it shows what
     // changed); library files that got a blacklisted tag to Tags > Rules, its Delete them button brought into view
     // (the user); the rest to Downloads.
-    const to = e.kind === 'app' ? undefined : e.kind === 'release' || e.kind === 'plugin' ? 'settings' : e.kind === 'blacklisted' ? 'tags' : 'downloads';
+    const to = e.kind === 'app' || e.kind === 'repair' ? undefined : e.kind === 'release' || e.kind === 'plugin' ? 'settings' : e.kind === 'blacklisted' ? 'tags' : 'downloads';
     const sub = e.kind === 'release' ? 'updates' : e.kind === 'plugin' ? 'sites' : e.kind === 'blacklisted' ? 'rules' : undefined;
     const focus = e.kind === 'blacklisted' ? 'blacklist-delete' : undefined;
     return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to, sub, focus };

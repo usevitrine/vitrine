@@ -1,4 +1,6 @@
 import { notices } from './notices.svelte';
+import { repairs } from './repairs.svelte';
+import type { Repair } from './api';
 // Live updates from the server (GET /api/events, Server-Sent Events): the
 // download queue changed, and the files downloading right now. A dropped
 // stream is opened again (the browser gives up by itself after an error answer
@@ -64,6 +66,7 @@ class Live {
     es.onopen = () => {
       this.connected = true;
       notices.catchUp(); // (one that came just before the stream opened)
+      repairs.load();
       if (this.retries > 0) this.emit(); // back after a drop: catch up
       this.retries = 0;
     };
@@ -94,6 +97,13 @@ class Live {
       try {
         const { boot, notices: list } = JSON.parse((e as MessageEvent).data);
         notices.fromServer(boot, list);
+      } catch {
+        /* ignore a bad message */
+      }
+    });
+    es.addEventListener('repairs', (e) => {
+      try {
+        repairs.list = JSON.parse((e as MessageEvent).data) as Repair[];
       } catch {
         /* ignore a bad message */
       }

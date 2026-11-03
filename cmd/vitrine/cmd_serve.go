@@ -161,13 +161,7 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		}
 		go dl.Run(ctx)
 		log.Info("downloader running", "sites", strings.Join(dl.Sites(), ", "))
-		// Tags stuck in a namespace no site calls them: back to plain, once (see the function).
-		go func() {
-			err := lib.RunGeneralTags(ctx, dl.GeneralType, func(moved, kept int) { log.Info("tags back to general", "moved", moved, "kept", kept) })
-			if err != nil && ctx.Err() == nil {
-				log.Warn("putting tags back to general failed", "err", err)
-			}
-		}()
+		lib.AddGeneralTagsRepair(dl.GeneralType)
 	}
 	srv := &http.Server{
 		Handler:           handler,
@@ -189,12 +183,20 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		func(id uint32, err error) { log.Warn("thumbnail failed", "file", id, "err", err) },
 		func(files, failed int) { log.Debug("thumbnails made", "files", files, "failed", failed) })
 
-	// Videos from before their pixels' shape counted: read once more, slowly, after the start's work (see the function).
+	// Fixes an update brings for what's in the library: offered in the top bar (library/repairs.go).
+	lib.AddVideoShapesRepair()
+	lib.OnRepair = func(r library.Repair) {
+		handler.RepairNotice(r)
+		switch r.State {
+		case library.RepairDone:
+			log.Info("a fix finished", "fix", r.ID, "done", r.Done, "changed", r.Changed)
+		case library.RepairFailed:
+			log.Warn("a fix failed", "fix", r.ID, "err", r.Error)
+		}
+	}
 	go func() {
-		select {
-		case <-time.After(5 * time.Minute):
-			lib.RunVideoShapes(ctx, func(read, changed int) { log.Info("videos' shapes checked", "videos", read, "changed", changed) })
-		case <-ctx.Done():
+		if err := lib.StartRepairs(ctx); err != nil && ctx.Err() == nil {
+			log.Warn("looking for fixes to offer", "err", err)
 		}
 	}()
 

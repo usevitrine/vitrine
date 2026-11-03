@@ -154,7 +154,9 @@ function gapAway(node: Element, axis: 'x' | 'y', ms: number): (t: number) => str
       // (and no wider than it was: as a flex column its widest content - a strip that scrolls sideways - would
       // make it grow past its place for the moment, and what's in it overflowed and shifted - the user)
       parent.style.minWidth = '0';
-      parent.style.maxWidth = parent.getBoundingClientRect().width + 'px';
+      // (its width in the layout, not as drawn: inside something scaled - a stack's card coming from behind - the drawn
+      // width held its content 52 px short until this ended, the user: "excess padding on the right")
+      parent.style.maxWidth = ps.width;
       parent.style.display = ps.display.startsWith('inline') ? 'inline-flex' : 'flex';
       parent.style.flexDirection = 'column';
     }

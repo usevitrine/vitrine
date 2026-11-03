@@ -46,6 +46,10 @@ type Library struct {
 
 	mediaWake chan struct{} // new files to probe and thumbnail (see RunMedia)
 
+	rep repairs // fixes an update offers (repairs.go)
+	// OnRepair, if set, hears when a fix is offered or ends (the bell). Set before StartRepairs.
+	OnRepair func(Repair)
+
 	// The comics index (see ComicIndex): built again after writes.
 	writes  atomic.Int64 // bumped by every write
 	comicMu sync.Mutex

@@ -52,6 +52,18 @@ const post = <T>(path: string, body: unknown, keepalive = false) => request<T>('
 
 // ---- types
 
+/** A fix an update offers (library/repairs.go). */
+export interface Repair {
+  id: string;
+  state: 'offered' | 'running' | 'done' | 'failed';
+  done: number;
+  total: number;
+  changed: number;
+  error?: string;
+  offered_at: number;
+  finished_at?: number;
+}
+
 export interface PluginInfo {
   id: string;
   name: string;
@@ -583,6 +595,8 @@ export const api = {
   /** Posts whose file couldn't be brought in (newest first), and one tried again now. */
   /** The downloader's recent events for the bell (see notices.svelte.ts). */
   notices: () => get<{ boot: string; notices: import('./notices.svelte').ServerNotice[]; read?: number; forgets?: number }>('/api/notices'),
+  repairs: () => get<{ repairs: Repair[] }>('/api/repairs'),
+  repairAction: (id: string, action: 'run' | 'skip' | 'ack') => post<{ repairs: Repair[] }>(`/api/repairs/${encodeURIComponent(id)}/${action}`, {}),
   addNotice: (text: string, tone: string, category: string) => post<{ id: number }>('/api/notices', { text, tone, category }),
   markNotices: (upTo: number, clear: boolean) => post<{ read: number; cleared: number }>(clear ? '/api/notices/clear' : '/api/notices/read', { up_to: upTo }),
   browseSites: () => get<{ sites: string[]; sorts: Record<string, string[]> }>('/api/browse/sites'),

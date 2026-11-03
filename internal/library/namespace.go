@@ -151,11 +151,42 @@ func (l *Library) SetNamespace(ctx context.Context, from tag.Tag, ns string) (ta
 	return to, files, nil
 }
 
-// ---- Tags stuck in a namespace no site calls them (before a site's "general" counted: lookupTags). One pass, once
-// (meta general_tags): a namespaced tag every site with a say calls general goes back to plain - not one the user put
-// there. Modified times stay: a namespace move isn't an edit of a file's tags.
+// ---- Tags stuck in a namespace no site calls them (before a site's "general" counted: lookupTags). A fix the user runs
+// once (repairs.go; meta general_tags: done): a namespaced tag every site with a say calls general goes back to plain -
+// not one the user put there. Modified times stay: a namespace move isn't an edit of a file's tags.
 
 const generalTagsBatch = 500 // files merged at a time: other writes go between (a tag can be on most of a library)
+
+// generalTags finds those tags: ID to name.
+func (l *Library) generalTags(ctx context.Context, general func(site uint32, typ string) bool) (map[uint32]string, error) {
+	rows, err := l.db.R.QueryContext(ctx, `SELECT t.id, t.name, s.id, tt.type FROM tags t CROSS JOIN sites s
+		JOIN tag_types tt ON tt.site_id = s.id AND tt.name = t.name
+		WHERE t.namespace_id != 0 AND tt.type != ''
+			AND NOT EXISTS (SELECT 1 FROM ns_overrides x WHERE x.name = t.name AND x.to_ns = t.namespace_id)`)
+	if err != nil {
+		return nil, fmt.Errorf("library: %w", err)
+	}
+	defer rows.Close()
+	names, other := map[uint32]string{}, map[uint32]bool{}
+	for rows.Next() {
+		var id, site uint32
+		var name, typ string
+		if err := rows.Scan(&id, &name, &site, &typ); err != nil {
+			return nil, fmt.Errorf("library: %w", err)
+		}
+		names[id] = name
+		if !general(site, typ) {
+			other[id] = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("library: %w", err)
+	}
+	for id := range other {
+		delete(names, id)
+	}
+	return names, nil
+}
 
 // RunGeneralTags does the pass; general says whether a site's tag type is a general one. done: how many went back,
 // and how many couldn't (parents or siblings, with a plain tag there too: the user's to sort out).
@@ -165,42 +196,22 @@ func (l *Library) RunGeneralTags(ctx context.Context, general func(site uint32, 
 	if err == nil || !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
-	rows, err := l.db.R.QueryContext(ctx, `SELECT t.id, t.name, s.id, tt.type FROM tags t CROSS JOIN sites s
-		JOIN tag_types tt ON tt.site_id = s.id AND tt.name = t.name
-		WHERE t.namespace_id != 0 AND tt.type != ''
-			AND NOT EXISTS (SELECT 1 FROM ns_overrides x WHERE x.name = t.name AND x.to_ns = t.namespace_id)`)
+	names, err := l.generalTags(ctx, general)
 	if err != nil {
-		return fmt.Errorf("library: %w", err)
+		return err
 	}
-	names, other := map[uint32]string{}, map[uint32]bool{}
-	for rows.Next() {
-		var id, site uint32
-		var name, typ string
-		if err := rows.Scan(&id, &name, &site, &typ); err != nil {
-			rows.Close()
-			return fmt.Errorf("library: %w", err)
-		}
-		names[id] = name
-		if !general(site, typ) {
-			other[id] = true
-		}
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("library: %w", err)
-	}
+	l.repairLeft(ctx, "general_tags", int64(len(names)))
 	moved, kept := 0, 0
 	for id, name := range names {
-		if other[id] {
-			continue
-		}
 		switch err := l.backToPlain(ctx, id, name); {
 		case errors.Is(err, ErrHasRelations):
 			kept++
+			l.stepRepair(ctx, "general_tags", 1, 0)
 		case err != nil:
 			return err
 		default:
 			moved++
+			l.stepRepair(ctx, "general_tags", 1, 1)
 		}
 	}
 	l.mu.Lock()

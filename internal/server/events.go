@@ -13,6 +13,7 @@ import (
 //                       second while any are (and one empty list when they stop)
 //   event: speed      - each running search's download speed, bytes a second over the last 10 s: {"<search>": n}
 //                       (with progress)
+//   event: repairs    - the fixes on offer or running changed: [{id, state, done, total, ...}] (see repairs.go)
 //   event: notice     - the downloader's new events for the bell: [{id, at, kind, ...}] (see notices.go)
 //   event: notices-state - how far the bell's notices are read and cleared changed (on another device), or some
 //                          were dropped (forgets went up: a wiped site's): {read, cleared, forgets}
@@ -43,6 +44,10 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	pending, wasActive, quiet := false, false, 0
 	lastNotice := s.notices.last() // (the page read the earlier ones itself)
 	_, _, lastMarks := s.notices.state()
+	var lastRepairs int64
+	if s.lib != nil {
+		_, lastRepairs = s.lib.Repairs()
+	}
 	for {
 		select {
 		case <-r.Context().Done():
@@ -68,6 +73,14 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			b, _ := json.Marshal(map[string]int64{"read": read, "cleared": cleared, "forgets": s.notices.forgot()})
 			fmt.Fprintf(w, "event: notices-state\ndata: %s\n\n", b)
 			wrote = true
+		}
+		if s.lib != nil {
+			if list, v := s.lib.Repairs(); v != lastRepairs {
+				lastRepairs = v
+				b, _ := json.Marshal(list)
+				fmt.Fprintf(w, "event: repairs\ndata: %s\n\n", b)
+				wrote = true
+			}
 		}
 		if s.dl != nil {
 			p := s.dl.Progress()
