@@ -45,6 +45,7 @@ type fakeBooru struct {
 	n         int64                   // newest post
 	types     bool                    // the JSON API answers with tag types (else it fails)
 	extra     string                  // appended to every post's tags (" retagged": the site edited them)
+	stalls    int                     // the API's next requests never answer
 	down      bool                    // the API answers 503 (the site is down: it gets paused)
 	broken    bool                    // the API answers, but with something unreadable (a real failure, not the connection)
 	flaky     map[int64]int           // files that answer 503 this many more times
@@ -162,6 +163,10 @@ func newFakeBooru(t *testing.T, n int) *fakeBooru {
 		}
 		fb.mu.Lock()
 		hang := fb.hangOn != "" && strings.Contains(r.URL.Query().Get("tags"), fb.hangOn)
+		if fb.stalls > 0 {
+			fb.stalls--
+			hang = true
+		}
 		fb.mu.Unlock()
 		if hang {
 			<-r.Context().Done() // a site that never answers

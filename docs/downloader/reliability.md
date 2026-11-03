@@ -58,13 +58,16 @@ two requests go out together (one round trip).
 
 ## A site that stops answering pauses by itself (2026-10-21)
 - `plugin.Client` counts each site's **connection failures in a row** (no answer, a 5xx, a Cloudflare block it can't
-  pass; any other answer - a 404 too - resets the count; canceled requests don't count). After `pauseAfter` of them
+  pass; any other answer - a 404 too - resets the count; canceled requests don't count - an API request out of its minute
+  does (2026-11-03: its own deadline read as "canceled here", so a stalling API neither counted nor got its page asked
+  again: the check failed on the first stall)). After `pauseAfter` of them
   (setting, Settings > Sites "When a site stops answering": 3 / 5 (default) / 10 / 20 / never = 0; also
   `vitrine setting pauseAfter <n>`) the site is **paused** (`breaker.go`): its requests fail at once with
   `plugin.ErrPaused` for 2 min, then one request tries again (the others still wait); a failed try pauses it longer
   (5, 10, 20, 30 min, then hourly), an answer ends the pause. Try now (Downloads) ends the wait.
 - The downloader treats a paused site as **waiting, not failing**: a search page that got no answer is asked again a
-  few times first (3 s, 6 s, ...: a briefly unwell site carries on, a down one pauses on the way); a search or a
+  few times first (3 s, 6 s, ...: a briefly unwell site carries on, a down one pauses on the way; a page out of time is
+  asked again even if a file meanwhile reset the count); a search or a
   subscription check on a paused site stays running where it was (resumed once it answers), a post whose file failed
   because of it isn't recorded as failed, the site's worker sleeps until the next try, background work (tag types,
   tag refresh) waits until its next try is due (then the next lookup or refresh is that try). **Tag refreshes still

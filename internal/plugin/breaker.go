@@ -124,7 +124,8 @@ func (b *breaker) release() {
 
 // connectionFailure says whether a request's outcome counts against the site (nil: it answered).
 func connectionFailure(ctx context.Context, resp *http.Response, err error) (failure error, counts bool) {
-	if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+	// (A request out of time is the site not answering: it has its own deadline, so that's ctx ending too.)
+	if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
 		return nil, false // (stopped here, not by the site)
 	}
 	if err != nil {

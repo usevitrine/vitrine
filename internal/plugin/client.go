@@ -59,13 +59,15 @@ type Client struct {
 	rate   float64
 	brk    breaker // pauses the site when it keeps failing to answer (breaker.go)
 	tune   *tuner  // files at once found by measuring (tune.go); nil: the plugin's number, fixed
+	// apiTimeout: how long an API request may take (tests: shorter).
+	apiTimeout time.Duration
 }
 
 // NewClient returns a client for a plugin with the user's credentials for
 // it (may be nil).
 func NewClient(m Manifest, creds map[string]string) *Client {
 	c := &Client{
-		m: m, creds: creds,
+		m: m, creds: creds, apiTimeout: time.Minute,
 		brk: breaker{now: time.Now, after: PauseAfter},
 		http: &http.Client{
 			Transport: newTransport(),
@@ -452,7 +454,7 @@ func (c *Client) apiHeader(ctx context.Context, u *url.URL) ([]byte, http.Header
 	if err := c.waitTurn(ctx); err != nil {
 		return nil, nil, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, c.apiTimeout)
 	defer cancel()
 	resp, err := c.getWith(ctx, u, "", true)
 	if err != nil {
@@ -1050,6 +1052,9 @@ func (c *Client) SetSolver(s *Solver) { c.solver = s }
 
 // SetHTTPClient replaces the HTTP client (tests use it for fake sites).
 func (c *Client) SetHTTPClient(h *http.Client) { c.http = h }
+
+// SetAPITimeout sets how long an API request may take (tests use a short one).
+func (c *Client) SetAPITimeout(d time.Duration) { c.apiTimeout = d }
 
 // SetTooManyWait sets how long requests wait after a 429 without Retry-After
 // (tests use a short one).

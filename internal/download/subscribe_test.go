@@ -517,6 +517,48 @@ func TestCheckDepth(t *testing.T) {
 	}
 }
 
+// A request that runs out of time is the site not answering: the page is asked again and the check carries on; if it
+// never answers, the site pauses (the check waits) instead of the check failing.
+func TestAPIStallsAreAskedAgain(t *testing.T) {
+	e := newEnv(t, 5)
+	ctx := context.Background()
+	c := e.dl.Site("fake").Client
+	c.SetAPITimeout(50 * time.Millisecond)
+	e.fb.mu.Lock()
+	e.fb.stalls = 2
+	e.fb.mu.Unlock()
+	s, err := e.dl.Add(ctx, "fake", "common", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.dl.RunQueue(ctx, "fake")
+	got, err := e.dl.Get(ctx, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.State != StateDone || got.Downloaded == 0 {
+		t.Fatalf("after two stalls: %s, %d downloaded, error %q", got.State, got.Downloaded, got.Error)
+	}
+	if !c.Paused().Until.IsZero() || c.Failing() != 0 {
+		t.Fatalf("paused %+v, failing %d", c.Paused(), c.Failing())
+	}
+
+	e.fb.mu.Lock()
+	e.fb.stalls = 1000
+	e.fb.mu.Unlock()
+	s, err = e.dl.Add(ctx, "fake", "common again", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.dl.RunQueue(ctx, "fake")
+	if c.Paused().Until.IsZero() {
+		t.Fatal("a site that never answers wasn't paused")
+	}
+	if got, _ := e.dl.Get(ctx, s); got.State == StateFailed {
+		t.Fatalf("failed: %q", got.Error)
+	}
+}
+
 // A site's pause is kept over a restart: a new downloader (the same library) starts with the site still paused, its
 // next try as it was; it answering again clears what was kept.
 func TestSitePauseKeptOverRestart(t *testing.T) {

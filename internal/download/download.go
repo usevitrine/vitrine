@@ -621,7 +621,9 @@ func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
 		page, err := fetch(s.LowID)
 		// No answer (or a 5xx, a Cloudflare block): asked again a few times, a little later each time - a site
 		// that's only briefly unwell carries on; one that's down gets paused on the way (and the search waits).
-		for try := 1; err != nil && try < st.Client.PauseAfter() && ctx.Err() == nil && !stop() && !pausedBy(st, err) && st.Client.Failing() > 0; try++ {
+		// (Out of time counts even when a file meanwhile reset the site's failures: its API can stall while files come.)
+		for try := 1; err != nil && try < st.Client.PauseAfter() && ctx.Err() == nil && !stop() && !pausedBy(st, err) &&
+			(st.Client.Failing() > 0 || errors.Is(err, context.DeadlineExceeded)); try++ {
 			select {
 			case <-time.After(time.Duration(try) * d.pageRetryWait):
 			case <-ctx.Done():

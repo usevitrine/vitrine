@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **A site that stalls**: a request that got no answer for a minute failed the whole subscription check or search straight away. The page is now asked again a few times, and a site that really has stopped answering pauses by itself instead.
+
 ## 1.0.19 - 2026-11-03
 
 ### Fixed
