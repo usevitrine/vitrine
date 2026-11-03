@@ -18,7 +18,9 @@ README. Decided 2026-11-03 (the user: "i wouldnt want it to be docker based, i'd
 ## The module (`nix/module.nix`)
 - `services.vitrine`: `dataDir`, `filesDir`, `listen`, `openFirewall`, `hwaccel`, `settings` (TOML), `environmentFile`.
   A system user, `Restart=always` (Settings > Backups' Restart now counts on it), the sandboxing options, and `render` +
-  `video` groups for the GPU. An Intel or AMD driver goes in `hardware.graphics.extraPackages`.
+  `video` groups for the GPU. Intel's driver goes in `hardware.graphics.extraPackages`; AMD's comes with Mesa (its
+  `radeonsi_drv_video`); Nvidia's is `services.xserver.videoDrivers = [ "nvidia" ]`, and ffmpeg finds its libraries through
+  its RUNPATH (`/run/opengl-driver/lib`). Only Intel has been run on real hardware; the other two were checked against nixpkgs.
 - The `vitrine` command it installs knows the library and, run as root, runs as the service's user, so nothing in the
   library ends up root's.
 

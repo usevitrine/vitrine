@@ -153,7 +153,8 @@ in
       example = "off";
       description = ''
         The graphics hardware videos are decoded with: `auto`, `off`, `vaapi`, `vaapi:/dev/dri/renderD129` or `cuda`.
-        Intel and AMD also need their driver in `hardware.graphics.extraPackages`, e.g. `intel-media-driver`.
+        Intel also needs its driver in `hardware.graphics.extraPackages` (`intel-media-driver`; `intel-vaapi-driver` before
+        2014). AMD's comes with Mesa. Nvidia needs `services.xserver.videoDrivers = [ "nvidia" ]` and `hardware.nvidia.open`.
       '';
     };
 

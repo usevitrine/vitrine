@@ -86,7 +86,13 @@ Vitrine runs natively, with no containers: the repository is a flake with a pack
             filesDir = "/mnt/bulk/vitrine"; # the originals: can be a big, slow disk
             openFirewall = true;
           };
-          hardware.graphics.extraPackages = [ pkgs.intel-media-driver ]; # for an Intel GPU
+
+          # Decoding videos on the GPU (optional). Intel (pkgs.intel-vaapi-driver for chips before 2014):
+          hardware.graphics.extraPackages = [ pkgs.intel-media-driver ];
+          # AMD: nothing to add, Mesa has it. Nvidia, with its proprietary driver:
+          # nixpkgs.config.allowUnfree = true;
+          # services.xserver.videoDrivers = [ "nvidia" ];
+          # hardware.nvidia.open = true; # false for cards older than the GTX 16 series
         })
       ];
     };
