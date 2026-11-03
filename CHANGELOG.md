@@ -3,6 +3,14 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## 1.0.23 - 2026-11-03
+
+### Fixed
+
+- **Search bar**: picking a saved search shows the end of the search, and the space after what you type no longer grows as you type.
+- **Very big libraries**: going past the top or bottom of the grid no longer makes it shake.
+- **Videos with non-square pixels**: thumbnails and preview frames the fix had remade now show up; browsers kept showing the old ones. Thumbnails are downloaded again once as you scroll.
+
 ## 1.0.22 - 2026-11-03
 
 ### Improved
