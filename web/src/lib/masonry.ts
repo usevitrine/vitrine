@@ -8,12 +8,12 @@
 
 export interface Layout {
   x: Float32Array;
-  y: Float32Array;
+  y: Float64Array; // (down a long list: more than 32 bits keep exactly)
   w: Float32Array;
   h: Float32Array;
   /** Where each row starts (file positions; one more at the end: the total), its top and its height. */
   rowStart: Int32Array;
-  rowY: Float32Array;
+  rowY: Float64Array;
   rowH: Float32Array;
   height: number;
   gap: number;
@@ -26,7 +26,7 @@ const MAX_H = 2.0; // a very tall one: at most
 export function layOut(shapes: Uint16Array | null, total: number, cols: number, colW: number, gap: number): Layout {
   const width = cols * colW + (cols - 1) * gap;
   const x = new Float32Array(total);
-  const y = new Float32Array(total);
+  const y = new Float64Array(total);
   const w = new Float32Array(total);
   const h = new Float32Array(total);
   const aspect = (i: number) => {
@@ -71,7 +71,7 @@ export function layOut(shapes: Uint16Array | null, total: number, cols: number, 
     w,
     h,
     rowStart: Int32Array.from(starts),
-    rowY: Float32Array.from(tops),
+    rowY: Float64Array.from(tops),
     rowH: Float32Array.from(heights),
     height: Math.max(0, top - gap),
     gap,

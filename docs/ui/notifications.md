@@ -52,7 +52,9 @@ fix and tag fix" - "they should be given the option to run the fix or skip it wi
   for every device: **offered** -> **running** -> **done** -> acknowledged; **skipped** (not offered again); **failed**
   (Try again or Skip). A fix never starts by itself: the one exception is a pass that had already begun before fixes
   were offered (the find says how far), which carries on. One running when the server stopped carries on 5 min after
-  the start, without asking again.
+  the start, without asking again; meanwhile it's marked `waiting` and its card counts down, from the server's `resume_in` in seconds (a device's clock may differ) (2026-11-03, the user, whose
+  progress sat still after a restart: "if it waits a while before starting it should indicate that"). Progress reaches
+  pages as the pass saves it: the video pass every 100 videos.
 - **The wrench** (`components/RepairsMenu.svelte`, before Downloads and the bell in the top bar): there only while
   `GET /api/repairs` lists something. A ring shows how far the running ones are, a dot that one waits for an answer (red:
   one failed), a green check when all have finished. Its panel: each fix's name and, while it's a choice, what it does

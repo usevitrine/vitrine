@@ -5,6 +5,12 @@ import { api, type Repair } from './api';
 
 class Repairs {
   list = $state<Repair[]>([]);
+  /** When the list came (a waiting one's resume_in counts from then). */
+  at = $state(0);
+  set(list: Repair[]) {
+    this.list = list;
+    this.at = Date.now();
+  }
   /** How far the running ones are, 0..1 (none running: null). */
   progress = $derived.by(() => {
     const on = this.list.filter((r) => r.state === 'running');
@@ -15,7 +21,7 @@ class Repairs {
 
   async load() {
     try {
-      this.list = (await api.repairs()).repairs;
+      this.set((await api.repairs()).repairs);
     } catch {
       /* the next live one */
     }
@@ -24,7 +30,7 @@ class Repairs {
   /** Run, skip or acknowledge (the answer is the list as it is now; a refused one: another device got there first). */
   async act(id: string, action: 'run' | 'skip' | 'ack') {
     try {
-      this.list = (await api.repairAction(id, action)).repairs;
+      this.set((await api.repairAction(id, action)).repairs);
     } catch {
       await this.load();
     }

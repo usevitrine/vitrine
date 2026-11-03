@@ -41,7 +41,10 @@ type Repair struct {
 	Total      int64  `json:"total"`
 	Changed    int64  `json:"changed"`
 	Error      string `json:"error,omitempty"`
-	OfferedAt  int64  `json:"offered_at"` // Unix ms
+	Waiting    bool   `json:"waiting,omitempty"`   // running, but holding off for the start's own work (repairResumeAfter)
+	ResumeAt   int64  `json:"resume_at,omitempty"` // ... until then (Unix ms)
+	ResumeIn   int64  `json:"resume_in,omitempty"` // ... seconds from now, for pages (their clocks may differ)
+	OfferedAt  int64  `json:"offered_at"`          // Unix ms
 	FinishedAt int64  `json:"finished_at,omitempty"`
 	Acked      bool   `json:"acked,omitempty"`
 }
@@ -87,6 +90,11 @@ func (l *Library) StartRepairs(ctx context.Context) error {
 		l.rep.mu.Unlock()
 		if r != nil {
 			if r.State == RepairRunning {
+				c := *r
+				c.Waiting, c.ResumeAt = true, l.now().Add(l.rep.wait).UnixMilli()
+				if err := l.putRepair(ctx, &c); err != nil {
+					return err
+				}
 				go l.runRepair(ctx, d, l.rep.wait)
 			}
 			continue
@@ -100,7 +108,7 @@ func (l *Library) StartRepairs(ctx context.Context) error {
 		case total == 0:
 			n.State, n.Acked = repairNone, true
 		case done > 0:
-			n.State = RepairRunning
+			n.State, n.Waiting, n.ResumeAt = RepairRunning, true, l.now().Add(l.rep.wait).UnixMilli()
 		default:
 			n.State = RepairOffered
 		}
@@ -179,7 +187,11 @@ func (l *Library) Repairs() (out []Repair, version int64) {
 	out = []Repair{}
 	for _, r := range l.rep.list {
 		if !r.Acked && r.State != RepairSkipped && r.State != repairNone {
-			out = append(out, *r)
+			c := *r
+			if c.Waiting {
+				c.ResumeIn = max(0, (c.ResumeAt-l.now().UnixMilli()+999)/1000)
+			}
+			out = append(out, c)
 		}
 	}
 	slices.SortFunc(out, func(a, b Repair) int {
@@ -257,6 +269,10 @@ func (l *Library) runRepair(ctx context.Context, d repairDef, wait time.Duration
 		case <-time.After(wait):
 		case <-ctx.Done():
 			return
+		}
+		if r, _, err := l.repairNow(d.id, RepairRunning); err == nil {
+			r.Waiting, r.ResumeAt = false, 0
+			l.putRepair(ctx, r)
 		}
 	}
 	err := d.run(ctx)

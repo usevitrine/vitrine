@@ -13,18 +13,21 @@ add to your home screen.
 ## What it does
 
 - **Library**: pictures and videos (JPEG, PNG, GIF, WebP, AVIF, MP4, MOV, WebM, MKV), each stored once, with the
-  tags and links of every site it came from. Favorites, a trash with undo, duplicate detection with a side-by-side
-  review, statistics.
+  tags and links of every site it came from. Favorites, view counts, an optional Rankings page of your top creators,
+  characters and series, a trash with undo, duplicate detection with a side-by-side review, statistics.
 - **Search**: booru-style - `tag -excluded ( a ~ b ) *wild* system:imported<5d system:type=video sort:size` - as
   editable chips, with autocomplete, tag parents and siblings, saved searches and many filters and orders. Searches
   take milliseconds even at a million files.
 - **Downloader**: download a search once or subscribe to it; subscriptions check on their own and only bring what's
   new. Resumes exactly where it stopped, never downloads a file twice, respects each site's limits, blacklist and
-  file rules, tag refresh of what you have. Sites come as plugins from a separate repository.
+  file rules, tag refresh of what you have. A site that stops answering pauses by itself and carries on when it's
+  back. Sites come as plugins from a separate repository.
 - **Comics**: galleries (e.g. from e-hentai) become comics with their own reader, collections, reading progress -
-  and a Browse page to look through a gallery site before downloading.
+  and a Browse page with saved searches to look through a gallery site before downloading.
 - **Web app**: one app for phone and desktop, installable (PWA), with its own video player, a viewer that swipes
-  through results, bulk tag editing, push notifications, light on data.
+  through results, bulk tag editing, push notifications, light on data. One account, with a password or passkeys.
+- **Updates**: told when a new version is out and installed from the app, with a backup first. A fix for what's
+  already in your library is explained first, yours to run or skip, and you follow it from the top bar.
 - **Command line**: `vitrine status`, `queue`, `subs`, `logs` and more talk to the running server.
 
 ## Screenshots

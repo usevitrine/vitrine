@@ -2480,6 +2480,8 @@
     "tryAgain": "Try again",
     "ok": "OK",
     "progress": "{done} of {total}",
+    "waiting": "Vitrine just restarted: this carries on in {time}, once it has finished starting up.",
+    "waitingNow": "Carrying on any moment now.",
     "noticeOffered": "An update brought a fix you can run: {name}",
     "noticeDone": "Fix finished: {name}",
     "noticeFailed": "Fix failed: {name}",

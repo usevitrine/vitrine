@@ -5840,6 +5840,28 @@ test('suggestions: a long list scrolls under the app\'s floating scrollbar (not 
   if (process.env.SHOTS) await page.screenshot({ path: process.env.SHOTS + '/sugg-scroll.png', clip: { x: 0, y: 0, width: 1280, height: 420 } });
 });
 
+// The user: tags added with the marks should bring the end of the line into view (a strip that scrolls sideways).
+test('suggestions: the strip of marked tags follows its end as tags are marked', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto('/');
+  const box = page.getByRole('combobox', { name: 'Search' });
+  // (more tags than fit: here their answers are set)
+  await page.route('**/api/autocomplete*', (r) =>
+    r.fulfill({ json: { took_ms: 1, suggestions: Array.from({ length: 8 }, (_, i) => ({ tag: `a_rather_long_marked_tag_${i}`, count: 8 - i })) } }),
+  );
+  await box.fill('rather');
+  const options = page.getByRole('option');
+  await expect(options.first()).toBeVisible();
+  for (let i = 0; i < 6; i++) {
+    await options.getByRole('checkbox').nth(i).click();
+    await expect(page.locator('.mtag')).toHaveCount(i + 1);
+    await expect
+      .poll(() => page.locator('.mark-tags').evaluate((el) => el.scrollWidth - el.clientWidth - el.scrollLeft))
+      .toBeLessThanOrEqual(1);
+  }
+  expect(await page.locator('.mark-tags').evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+});
+
 test('suggestions: a tag already in the search isn\'t one; marked ones go in together - all of them, or any of them (keys: arrows, Space, Enter)', async ({ page }) => {
   await page.goto('/?q=blue_sky');
   const box = page.getByRole('combobox', { name: 'Search' });
@@ -10319,8 +10341,27 @@ test('fixes from updates: offered with an explanation, run or skipped, followed,
   await video.getByRole('button', { name: 'Run the fix' }).click();
   await expect(video.getByRole('progressbar')).toBeVisible();
   await expect(video.getByText('4 of 10')).toBeVisible();
+  // (close together: the user saw "so much white space" with the app's .card gap on top of the margins)
+  await expect(video.getByText('non-square pixels')).toHaveCount(0); // (its explanation has slid away)
+  await expect
+    .poll(() =>
+      video.evaluate((el) => {
+        const [title, bar, count] = ['h3', '[role=progressbar]', '.count'].map((q) => el.querySelector(q)!.getBoundingClientRect());
+        return Math.round(bar.top - title.bottom) <= 12 && Math.round(count.top - bar.bottom) <= 8;
+      }),
+    )
+    .toBe(true);
   await expect(video.getByRole('button')).toHaveCount(0); // (no way to dismiss it mid-way)
   expect(asked).toEqual(['general_tags skip', 'video_shapes run']);
+
+  // Just after a restart it holds off for a few minutes, and says so.
+  list = [{ ...fix('video_shapes', 'running', 4), waiting: true, resume_in: 222 } as any];
+  await page.reload();
+  await button.click();
+  const wait = video.locator('.waits');
+  await expect(wait).toHaveText(/carries on in 3:[34]\d/);
+  const before = await wait.textContent();
+  await expect.poll(() => wait.textContent()).not.toBe(before); // (it counts)
 
   // It finishes (the live stream's news, here a reload): only OK is left, and OK takes the button away.
   list = [fix('video_shapes', 'done', 10)];
@@ -10388,4 +10429,74 @@ test('downloads: a card taking the top of a folded stack keeps its full width as
       for (const id of ids) await fetch(`/api/downloads/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     }, ids);
   }
+});
+
+// The user, at 1.15M files: "I can't scroll past 2024" - the list was taller than a browser can make an element, and the
+// rest couldn't be reached. (The list's size is set here: far more files than the test library.)
+test("the grid: a list taller than a browser's tallest element can be scrolled to its end, and jumped around in", async ({ page }) => {
+  const total = 3_000_000;
+  await login(page);
+  await page.route('**/api/search?*', async (r) => {
+    const j = await (await r.fetch()).json();
+    await r.fulfill({ json: { ...j, total, comics: total } });
+  });
+  await page.route('**/api/results/*', async (r) => {
+    const u = new URL(r.request().url());
+    const offset = Number(u.searchParams.get('offset'));
+    const limit = Number(u.searchParams.get('limit'));
+    const ids = Array.from({ length: Math.min(limit, total - offset) }, (_, i) => 5_000_000 + offset + i);
+    await r.fulfill({ json: { total, offset, ids } });
+  });
+  await page.goto('/');
+  const look = () =>
+    page.evaluate(() => {
+      const sizer = document.querySelector('.sizer') as HTMLElement | null;
+      if (!sizer) return { height: 0, top: 0, shown: 0, last: -1 };
+      const el = sizer.parentElement!;
+      const box = el.getBoundingClientRect();
+      const shown = [...sizer.querySelectorAll<HTMLElement>(':scope > .tile[data-i]')].filter((t) => {
+        const r = t.getBoundingClientRect();
+        return r.bottom > box.top && r.top < box.bottom;
+      });
+      return { height: el.scrollHeight, top: el.scrollTop, shown: shown.length, last: Math.max(-1, ...shown.map((t) => Number(t.dataset.i))) };
+    });
+  await expect.poll(async () => (await look()).shown).toBeGreaterThan(0);
+  expect((await look()).height).toBeLessThan(17_000_000);
+  // Scrolling on and on reaches the very end.
+  await expect
+    .poll(
+      async () => {
+        await page.evaluate(() => {
+          const el = document.querySelector('.sizer')!.parentElement!;
+          el.scrollTop = el.scrollHeight;
+        });
+        return (await look()).last;
+      },
+      { timeout: 30_000, intervals: [120] },
+    )
+    .toBe(total - 1);
+  // Back up by hand from there: the same place, nothing jumps.
+  const before = await look();
+  await page.evaluate(() => (document.querySelector('.sizer')!.parentElement!.scrollTop -= 1000));
+  await expect.poll(async () => (await look()).last).toBeLessThan(before.last);
+  expect(before.last - (await look()).last).toBeLessThan(200);
+  // The fast scroller goes anywhere: the middle, then the very top - tiles of that place on screen.
+  test.skip(test.info().project.name === 'iphone', 'a mouse drag');
+  const thumb = page.getByRole('scrollbar', { name: 'Fast scroll' });
+  const b = (await thumb.boundingBox())!;
+  const height = page.viewportSize()!.height;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2, height / 2, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(async () => (await look()).last, { timeout: 10_000 }).toBeGreaterThan(total * 0.3);
+  expect((await look()).last).toBeLessThan(total * 0.7);
+  await page.mouse.move(b.x + b.width / 2, height / 2);
+  const mid = (await thumb.boundingBox())!;
+  await page.mouse.move(mid.x + mid.width / 2, mid.y + mid.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(mid.x + mid.width / 2, 0, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(async () => (await look()).last, { timeout: 10_000 }).toBeLessThan(500);
+  expect((await look()).top).toBeLessThan(10);
 });

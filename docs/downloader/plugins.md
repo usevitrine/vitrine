@@ -16,9 +16,9 @@ Not Go's `plugin` package (Linux-only, needs the exact Go version). Two layers:
    search: {per_page: 100, cursor: page}
    tags: {namespaces: {artist: creator, character: character, copyright: series}}
    ```
-2. **Sandboxed script** for odd sites: **JavaScript run by goja** (pure Go). Only Vitrine's own helpers are exposed
-   (HTTP to the domains the manifest lists, HTML parsing, JSON); no `require`, no file access, CPU/time limits per
-   call. (Starlark was the alternative: safer by design but niche.)
+2. **A sandboxed script layer** for odd sites (JavaScript run by goja, with Starlark as the alternative) was planned but
+   **isn't built**: so far each odd site has been served by a Go engine (`docs/downloader/engines.md`), and a plugin is a
+   manifest only.
 - **Plugins live in their own repo**: `usevitrine/vitrine-plugins`, which doubles as the default plugin index (an
   index file listing plugins, versions, checksums); users can add other index URLs. The core repo has the engines and
   one neutral example plugin. Separate repo = a plugin can be fixed the day a site changes, without a Vitrine

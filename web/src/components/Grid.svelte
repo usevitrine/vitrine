@@ -556,6 +556,25 @@
       : null,
   );
   let contentH = $derived(layout ? layout.height + GAP : rows * rowH);
+  // A list taller than a browser can make an element (33.5M px in Chromium and Safari, 17.9M in Firefox; a million files
+  // at 3 a row is 43M - the user: "I can't scroll past 2024"): the page stays at most MAX_H tall and shows a window of the
+  // list, base being where in the list the page starts. Nearing the window's edge it moves, the page's scroll with it, so
+  // nothing on screen does. place() says where a tile is on the page (the transforms stay small and exact: a browser
+  // keeps them in 32 bits); topNow() and moveTo() are positions in the list. (A shorter list: base 0.)
+  const MAX_H = 16_000_000;
+  const EDGE = 4_000_000;
+  let base = $state(0);
+  let listH = $derived(Math.max(0, contentH - GAP));
+  let pageH = $derived(Math.min(listH, MAX_H));
+  const topNow = () => (el?.scrollTop ?? 0) + base;
+  function moveTo(top: number) {
+    if (!el) return;
+    const spare = listH - pageH;
+    const at = top - base;
+    if (base > spare || (at < EDGE && base > 0) || (at > MAX_H - EDGE && base < spare)) base = Math.max(0, Math.min(spare, Math.round(top - MAX_H / 2)));
+    el.scrollTop = top - base;
+    scrollTop = topNow(); // (the page's scroll may land where it was: then no scroll event says the list moved)
+  }
   // Room under the last row: a gap, and on an iPhone clear of the home bar and the screen's curved corners (the last
   // tiles sat under them - the user). In pixels for the fast scroller.
   let padBottom = $state(0);
@@ -626,8 +645,9 @@
     let rects = '';
     for (const c of slotsIn) {
       const p = place(c);
-      if (p.y + p.h < y0 || p.y > y1) continue;
-      rects += `<rect x="${p.x}" y="${p.y - y0}" width="${p.w}" height="${p.h}" rx="${radius}"/>`;
+      const py = p.y + base;
+      if (py + p.h < y0 || py > y1) continue;
+      rects += `<rect x="${p.x}" y="${py - y0}" width="${p.w}" height="${p.h}" rx="${radius}"/>`;
     }
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="${BAND}"><g fill="${bandColor}">${rects}</g></svg>`;
     return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
@@ -662,7 +682,7 @@
         : { x: side + (c % cols) * (size + GAP), y: Math.floor(c / cols) * rowH, w: size, h: size };
     const x = Math.round(r.x);
     const y = Math.round(r.y);
-    return { x, y, w: Math.round(r.x + r.w) - x, h: Math.round(r.y + r.h) - y };
+    return { x, y: y - base, w: Math.round(r.x + r.w) - x, h: Math.round(r.y + r.h) - y };
   }
 
   // Masonry turned on: the search again, with the shapes (the tiles slide to their new places).
@@ -796,7 +816,7 @@
   function trackSpeed() {
     if (!el) return;
     const now = performance.now();
-    const top = el.scrollTop;
+    const top = topNow();
     // (the grid moving itself - following the viewer, revealing a file: not a flick)
     if (now < Number(el.dataset.quietUntil ?? 0)) {
       lastScroll = { top, t: now };
@@ -868,9 +888,9 @@
     if (key !== lastQuery) {
       lastQuery = key;
       const m = untrack(() => morphing);
-      if (m?.kind === 'open') topOutside = el?.scrollTop ?? 0;
+      if (m?.kind === 'open') topOutside = topNow();
       const top = m?.kind === 'close' ? topOutside : 0;
-      if (el) el.scrollTop = top;
+      moveTo(top);
       scrollTop = top;
       lead = 0;
       selection.clear();
@@ -882,7 +902,7 @@
   function scrollSelf(top: number) {
     if (!el) return;
     el.dataset.quietUntil = String(performance.now() + 300);
-    el.scrollTop = top;
+    moveTo(top);
   }
 
   /** Scrolls so the tile at index is visible (used when the viewer closes or swipes). */
@@ -891,7 +911,7 @@
     const p = place(index + lead);
     const top = el.scrollTop - pad + inset; // the list's part not under the bars
     if (p.y < top || p.y + p.h + GAP > el.scrollTop - pad + height) {
-      scrollSelf(p.y + pad - inset - (height - inset - p.h) / 2);
+      scrollSelf(p.y + base + pad - inset - (height - inset - p.h) / 2);
     }
   }
 
@@ -905,7 +925,7 @@
 
   /** Whether the grid is scrolled to the very top (new files can be added there without moving anything). */
   export function atTop() {
-    return !el || el.scrollTop < (rowH || 100) / 2;
+    return !el || topNow() < (rowH || 100) / 2;
   }
 
   // The last press, release or pointer move on the grid (performance.now()): someone aiming at a tile.
@@ -928,7 +948,7 @@
     if (layout) return masonryAddAtTop(n);
     // At the very top: it stays there and the new files come into view - the list-change animation (the same motion
     // as every other change: they appear, the others slide along to make room).
-    if (el && el.scrollTop < (rowH || 100) / 2) {
+    if (el && topNow() < (rowH || 100) / 2) {
       lead = 0;
       return;
     }
@@ -942,8 +962,8 @@
     lead = added * cols - extra;
     await tick(); // the list is taller first (else the browser clamps the scroll)
     if (el && rowH) {
-      scrollSelf(el.scrollTop + added * rowH);
-      scrollTop = el.scrollTop;
+      scrollSelf(topNow() + added * rowH);
+      scrollTop = topNow();
     }
   }
 
@@ -953,7 +973,7 @@
    *  the new layout, so the view follows it). */
   async function masonryAddAtTop(n: number) {
     lead = 0;
-    if (!el || el.scrollTop < (rowH || 100) / 2) return;
+    if (!el || topNow() < (rowH || 100) / 2) return;
     skipFlip = true;
     // (Called with the new list in place but the old tiles still on screen.)
     const box = el.getBoundingClientRect();
@@ -965,8 +985,8 @@
     }
     await tick();
     if (!anchor || !el) return;
-    scrollSelf(place(anchor.i + n).y - anchor.off);
-    scrollTop = el.scrollTop;
+    scrollSelf(place(anchor.i + n).y + base - anchor.off);
+    scrollTop = topNow();
   }
 
   // ---- The list changing (a delete, a tag edit that drops or adds files, or
@@ -1244,8 +1264,8 @@
       } else if (wasHidden) {
         wasHidden = false;
         if (el && keptTop) {
-          el.scrollTop = keptTop;
-          scrollTop = el.scrollTop;
+          moveTo(keptTop);
+          scrollTop = topNow();
         }
         tick().then(appearAll);
       }
@@ -1420,7 +1440,8 @@
 
   /** Back to the top (smoothly, unless reduced motion). */
   export function toTop(instant = false) {
-    el?.scrollTo({ top: 0, behavior: instant || reduced() ? 'auto' : 'smooth' });
+    if (base) moveTo(0); // (a window further down: straight there)
+    else el?.scrollTo({ top: 0, behavior: instant || reduced() ? 'auto' : 'smooth' });
   }
 
   /** The rounded corners of the tile at index (px; 0 when square or not on screen) - a picture flying to or from it
@@ -1468,9 +1489,9 @@
   /** The result position under a point on screen (clamped to the grid). */
   function indexAt(clientX: number, clientY: number): number {
     const r = el!.getBoundingClientRect();
-    if (layout) return Math.max(0, Math.min(results.total - 1, masonryIndexAt(layout, clientX - r.left - side, clientY - r.top - pad + el!.scrollTop)));
+    if (layout) return Math.max(0, Math.min(results.total - 1, masonryIndexAt(layout, clientX - r.left - side, clientY - r.top - pad + topNow())));
     const col = Math.min(cols - 1, Math.max(0, Math.floor((clientX - r.left) / (size + GAP))));
-    const row = Math.max(0, Math.floor((clientY - r.top - pad + el!.scrollTop) / rowH));
+    const row = Math.max(0, Math.floor((clientY - r.top - pad + topNow()) / rowH));
     return Math.max(0, Math.min(results.total - 1, row * cols + col - lead));
   }
 
@@ -2054,7 +2075,8 @@
   bind:clientHeight={height}
   role="presentation"
   onscroll={() => {
-    scrollTop = el!.scrollTop;
+    if (listH > MAX_H) moveTo(topNow()); // (nearing the window's edge: it moves)
+    scrollTop = topNow();
     if (el!.clientHeight > 0 && !wasHidden) keptTop = scrollTop; // (not the browser's own 0 as it's hidden or shown again)
     trackSpeed();
     scrolledAt = performance.now();
@@ -2084,11 +2106,11 @@
   onpointerup={up}
   onpointercancel={up}
   oncontextmenu={contextmenu}>
-  <div class="sizer" style:height="{Math.max(0, contentH - GAP)}px">
+  <div class="sizer" style:height="{pageH}px">
     <!-- (the tiles' shapes, under them: what a flick that outruns them shows - see bands; the last one ends with the
          list - a whole band's height went past it, and the page scrolled further than its end) -->
     {#each clearedView ? [] : bands as band (band.b)}
-      <div class="band" aria-hidden="true" style:top="{band.b * BAND}px" style:height="{Math.max(0, Math.min(BAND, contentH - GAP - band.b * BAND))}px" style:background-image={band.url}></div>
+      <div class="band" aria-hidden="true" style:top="{band.b * BAND - base}px" style:height="{Math.max(0, Math.min(BAND, contentH - GAP - band.b * BAND))}px" style:background-image={band.url}></div>
     {/each}
     {#if !clearedView && holeColor}
       {#each holes as p (`${p.x} ${p.y}`)}
@@ -2262,7 +2284,7 @@
   {#if showFast}
     <!-- Its track starts below the bars as they are when shown (pad), and stays there when they slide away:
          following them, the handle jumped up as the top bar went. -->
-    <FastScroller {el} {scrollTop} contentHeight={contentH - GAP + pad + padBottom} {height} top={pad} total={results.total} dates={results.dates} bind:dragging={fastDrag} side={fastSide} controls={scrollerId} />
+    <FastScroller {el} {scrollTop} {moveTo} contentHeight={contentH - GAP + pad + padBottom} {height} top={pad} total={results.total} dates={results.dates} bind:dragging={fastDrag} side={fastSide} controls={scrollerId} />
   {/if}
 </div>
 

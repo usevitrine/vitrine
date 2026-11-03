@@ -18,7 +18,7 @@ The stack (Go, Svelte, SQLite, ffmpeg/libvips), the speed targets and how they'r
   (`RunVideoShapes`: every video probed again, one at a time, 5 min after a start; meta `video_shapes`: where it got to).
 - **Web client: Svelte 5** (5.57 in Oct 2026; plain SPA built with Vite, no SvelteKit server) - compiled, tiny
   runtime, fine-grained reactivity, bigger ecosystem than SolidJS. Check versions/docs when coding starts.
-- **Plugin scripts: JavaScript via goja** (pure Go) - see `docs/downloader/plugins.md`.
+- **Plugin scripts**: none so far (JavaScript via goja was planned, not built) - see `docs/downloader/plugins.md`.
 - **Distribution - Docker first-class, native equally supported**:
   - Docker: official multi-arch image (amd64 + arm64), ready `compose.yaml` example (incl. an optional
     VPN-container variant), config via env vars and/or a mounted file, data in one volume (`/data`), non-root

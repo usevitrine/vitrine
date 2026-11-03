@@ -107,8 +107,14 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   orders that aren't by date, "12,345 of 87,000", and year marks appear along the track. Dates come from
   `GET /api/results/{id}/dates?field=imported|uploaded&n=200` (200 evenly spaced samples of the result, by the
   current order), so labels are instant where nothing has loaded. While it's dragged, thumbnails load only where it
-  pauses (120 ms). Not done: the browser's maximum element height (~33M px) for results of hundreds of thousands of
-  files on a phone (90k files at 3 per row is ~3.6M px, fine).
+  pauses (120 ms). **Lists taller than a browser's tallest element (2026-11-03, the user, at 1.15M files: "I can't scroll
+  past 2024")**: 33.5M px in Chromium and Safari, 17.9M in Firefox, and 1.15M files at 3 a row is about 50M, so what's
+  further down couldn't be reached. The page now stays at most 16M px tall and shows a window of the list (`base` in
+  Grid.svelte: moved when the scroll comes within 4M px of its edge, with the scroll, so nothing on screen moves). `place()`
+  gives a tile's place on the page, never the list's (a browser clamps a `top` at 33.5M px and keeps transforms in 32 bits:
+  whole-list positions landed off screen and rows out of line); `topNow()` and `moveTo()` are positions in the list, and
+  the fast scroller goes by `moveTo`. Masonry's positions are 64-bit for the same reason. A shorter list is
+  untouched (base 0). Test: "a list taller than a browser's tallest element".
 - **Search box border** follows the text field only (`:has(input:focus)`), so pressing the star or a chip no longer
   flashes it.
 - **"N new files" pill (built 2026-10-14)**: the grid's result list is a snapshot - downloads never shift it. Every

@@ -103,7 +103,7 @@ class Live {
     });
     es.addEventListener('repairs', (e) => {
       try {
-        repairs.list = JSON.parse((e as MessageEvent).data) as Repair[];
+        repairs.set(JSON.parse((e as MessageEvent).data) as Repair[]);
       } catch {
         /* ignore a bad message */
       }

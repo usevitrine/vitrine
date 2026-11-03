@@ -28,6 +28,20 @@
     if (!repairs.list.length) open = false;
   });
 
+  // A fix holding off after a restart counts down, while the panel's open.
+  let now = $state(Date.now());
+  $effect(() => {
+    if (!open || !repairs.list.some((r) => r.waiting)) return;
+    now = Date.now();
+    const tick = setInterval(() => (now = Date.now()), 1000);
+    return () => clearInterval(tick);
+  });
+  function waitWords(r: Repair): string {
+    const left = Math.ceil((repairs.at + (r.resume_in ?? 0) * 1000 - Math.max(now, repairs.at)) / 1000);
+    if (left <= 0) return t('repairs.waitingNow');
+    return t('repairs.waiting', { time: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` });
+  }
+
   const R = 13;
   const C = 2 * Math.PI * R;
 
@@ -63,7 +77,7 @@
         <header><h2>{t('repairs.label')}</h2></header>
         <ul>
           {#each repairs.list as r, i (r.id)}
-            <li class="card {r.state}" animate:flip={{ duration: 220 }} in:rowIn={{ i }} out:rowOut>
+            <li class="fix {r.state}" animate:flip={{ duration: 220 }} in:rowIn={{ i }} out:rowOut>
               <div class="head">
                 <h3>{repairName(r.id)}</h3>
                 {#if r.state === 'done'}<span class="badge" aria-hidden="true"><Icon name="check" size={15} /></span>{/if}
@@ -77,6 +91,7 @@
                   <span style:width="{r.total ? (r.done / r.total) * 100 : 0}%"></span>
                 </div>
                 <p class="count">{t('repairs.progress', { done: num(r.done), total: num(r.total) })}</p>
+                {#if r.waiting}<p class="count waits" transition:reveal>{waitWords(r)}</p>{/if}
               {:else}
                 <p class="count">{detail(r)}</p>
               {/if}
@@ -194,7 +209,8 @@
     overflow-y: auto;
     overscroll-behavior: contain;
   }
-  .card {
+  /* (not .card: the app's has a 14 px gap, on top of the margins here - the user: "so much white space") */
+  .fix {
     padding: 10px 12px;
     border: 1px solid var(--surface0);
     border-radius: 12px;
@@ -237,6 +253,9 @@
   .count {
     font-size: var(--font-small);
     color: var(--subtext);
+  }
+  .waits {
+    color: var(--peach);
   }
   .error {
     font-size: var(--font-small);

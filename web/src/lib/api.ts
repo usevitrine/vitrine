@@ -60,6 +60,8 @@ export interface Repair {
   total: number;
   changed: number;
   error?: string;
+  waiting?: boolean; // running, but holding off until the server's start-up work is done
+  resume_in?: number; // ... seconds from when this was sent
   offered_at: number;
   finished_at?: number;
 }

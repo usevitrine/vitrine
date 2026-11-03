@@ -23,7 +23,7 @@
 - Roaring bitmaps: https://github.com/RoaringBitmap/roaring
 - SQLite: modernc.org/sqlite (decided); fallback github.com/ncruces/go-sqlite3; not mattn/go-sqlite3 (cgo)
 - Images: libvips CLI (https://www.libvips.org); video: ffmpeg
-- Plugin scripts: goja https://github.com/dop251/goja (alternative considered: starlark-go)
+- Plugin scripts (planned, not built): goja https://github.com/dop251/goja (alternative considered: starlark-go)
 - Web Push: github.com/SherClockHolmes/webpush-go
 - Web client: Svelte 5 (https://svelte.dev), Vite
 

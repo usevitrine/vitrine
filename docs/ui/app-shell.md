@@ -25,7 +25,7 @@ The web client's setup (Svelte, build, embedding), the shell (top bar, menu, nav
   (default 0, changed from 26 pt on 2026-10-20; a "Top spacing" slider in Settings > Display, per device). Settings > Display shows window/screen/visible/app sizes and safe areas for diagnosing. E2E tests: Playwright 1.63 +
   WebKit, iPhone 15 and desktop projects (`npm run e2e`; builds a throwaway library with ffmpeg; tests log in from
   inside the page like the app).
-- **Not yet**: (the browser's ~33M px height limit for huge results on phones),
+- **Not yet**:
 
   drag a chip onto another to OR them,
   live updates (SSE), service worker / offline thumbnail cache, pause/delete

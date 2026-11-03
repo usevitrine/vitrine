@@ -12,7 +12,7 @@ than Hydrus on purpose, but Hydrus-level **advanced search**, **lightning fast**
 Name: **Vitrine** ("vi-TREEN", a display cabinet for a collection; history in `docs/project/background.md`).
 Accounts under **`usevitrine`** (a GitHub user account; `ghcr.io/usevitrine/vitrine`, Go module
 `github.com/usevitrine/vitrine`, website and email `vitrine.software`). Repos `usevitrine/vitrine` and
-`usevitrine/vitrine-plugins`, **private for now**; the plugin index URL works once vitrine-plugins is public.
+`usevitrine/vitrine-plugins`, public since 2026-10-23.
 
 ## Key decisions (details in the topic docs)
 - **One project, one repo**; headless **Go** server with the built web client embedded (one binary).
@@ -39,11 +39,12 @@ Accounts under **`usevitrine`** (a GitHub user account; `ghcr.io/usevitrine/vitr
 - **Own video player** (never the iOS one), gestures, preview frames; **no page walls** when browsing (server-side
   result lists, slices by position, grid and viewer always in sync). (`docs/ui/viewer-and-video.md`,
   `docs/ui/grid-and-search.md`)
-- **Site plugins**: declarative manifest per booru engine + sandboxed **JavaScript (goja)** for odd sites; plugins
+- **Site plugins**: a declarative manifest (YAML, no code) for one of the Go engines; an odd site gets an engine of its
+  own (the JavaScript layer once planned wasn't needed, see `docs/downloader/plugins.md`). Plugins
   live in a **separate repo** (`usevitrine/vitrine-plugins`, also the default plugin index). (`docs/downloader/`)
 - **Comics** have a page of their own (galleries, a reader, collections), never mixed into the library's grid.
   (`docs/comics.md`)
-- **License**: AGPL-3.0-or-later (core), MIT (plugin SDK, example plugins, manifests).
+- **License**: AGPL-3.0-or-later (core), MIT (the plugins repo).
 
 ## Build order (agreed)
 0. **Speed experiment**: the in-memory search index alone on synthetic data (100k files, 85k tags, ~5M tag links;
@@ -57,8 +58,11 @@ Accounts under **`usevitrine`** (a GitHub user account; `ghcr.io/usevitrine/vitr
    (2026-10-15), notifications (Web Push, 2026-10-15). **Done.**
 4. Good enough to replace a Hydrus setup (a library built by Vitrine's own subscriptions/searches).
 
-## Where it stands (2026-10-21)
-Library, search, thumbnails, duplicates, favorites, the downloader with five engines and subscriptions, the web
-client (library, viewer, Downloads, Tags, Settings, Duplicates, Comics with collections), Web Push, languages, the
-Docker image, backups. Measurements and choices are in each topic doc's "as built" sections. Open work is tracked
-outside the repo.
+## Where it stands (2026-11-03)
+Public since v1.0.0 (2026-10-23), with patch releases since (`CHANGELOG.md` says what each brought). Built: library,
+search, thumbnails, duplicates, favorites, view counts, Rankings, the downloader with six engines (gelbooru-v02 and its
+HTML form, Shimmie2, Mastodon, Danbooru, ehentai) and subscriptions, a site's pause when it stops answering, the web
+client (library, viewer, Downloads, Browse, Tags, Settings, Duplicates, Comics with collections), passkeys, Web Push,
+languages, fixes from updates (offered to run or skip), the Docker image, the Windows installer, backups, the website
+with its demo. Measurements and choices are in each topic doc's "as built" sections. Open work is tracked outside the
+repo.

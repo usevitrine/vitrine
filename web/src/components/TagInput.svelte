@@ -274,6 +274,23 @@
   let focused = $state(false);
   const canMark = $derived(multi && !!anyOf);
   const anyText = $derived(marks.length > 1 && anyOf ? anyOf(marks.map(writeTag)) : null);
+  // The strip of marked tags scrolls sideways: one just marked comes into view, at its end (and while it pops in) -
+  // the user: it "should always do this when adding tags to search".
+  let marksEl = $state<HTMLElement>();
+  let markCount = 0;
+  $effect(() => {
+    const n = marks.length;
+    const added = n > markCount;
+    markCount = n;
+    if (!added || !marksEl) return;
+    const el = marksEl;
+    const until = performance.now() + 240;
+    const follow = () => {
+      el.scrollLeft = el.scrollWidth;
+      if (performance.now() < until) requestAnimationFrame(follow);
+    };
+    follow();
+  });
   function toggleMark(s: Suggestion) {
     const full = s.ideal ?? s.tag;
     marks = marks.includes(full) ? marks.filter((m) => m !== full) : [...marks, full];
@@ -470,7 +487,7 @@
       {#if marks.length}
         <!-- The marked tags (a tap takes one out), then in they go: all of them, or any of them. -->
         <li class="marks" role="presentation">
-          <span class="mark-tags">
+          <span class="mark-tags" bind:this={marksEl}>
             {#each marks as m (m)}
               <button type="button" class="mtag" style:color={tagColor(m)} aria-label={t('tagInput.unmark', { tag: m })}
                 onmousedown={(e) => press(e, () => (marks = marks.filter((x) => x !== m)))} ontouchend={(e) => press(e, () => (marks = marks.filter((x) => x !== m)))}

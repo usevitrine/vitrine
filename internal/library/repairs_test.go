@@ -155,14 +155,20 @@ func TestRepairsGoOnAfterARestart(t *testing.T) {
 	stop()
 	time.Sleep(20 * time.Millisecond)
 
-	// (the same library, started again)
+	// (the same library, started again: it says it's holding off, then it isn't)
 	ctx2, stop2 := context.WithCancel(context.Background())
 	defer stop2()
 	l.rep.list = nil
+	l.rep.wait = 150 * time.Millisecond
 	if err := l.StartRepairs(ctx2); err != nil {
 		t.Fatal(err)
 	}
-	waitRepair(t, l, "asked", RepairRunning)
+	if r := waitRepair(t, l, "asked", RepairRunning); !r.Waiting {
+		t.Fatalf("not waiting: %+v", r)
+	}
+	for r := waitRepair(t, l, "asked", RepairRunning); r.Waiting; r = waitRepair(t, l, "asked", RepairRunning) {
+		time.Sleep(5 * time.Millisecond)
+	}
 	close(block)
 	waitRepair(t, l, "asked", RepairDone)
 	if r := waitRepair(t, l, "begun", RepairDone); r.Done != 41 {

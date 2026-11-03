@@ -1,4 +1,6 @@
-# Planned features
+# Features
+
+The list agreed at the start, kept up to date: all built unless it says otherwise. `CHANGELOG.md` has what came since.
 
 Library
 1. Content-addressed file store; files come from the downloader (site searches and subscriptions). **No web upload or
@@ -36,10 +38,13 @@ Downloader (see `docs/downloader/`)
 18. Blacklist on post tags before download; file rules (size/megapixels, mp4 vs webm).
 19. Searches -> subscriptions without overlap; subscription groups; history kept when moving; accurate counts.
 20. One-off clean-ups: delete by tags, purge newly blacklisted tags.
-21. Plugins: manifests + sandboxed JS, separate plugins repo/index, self-tests, update checks.
+21. Plugins: manifests (a planned script layer wasn't needed: `docs/downloader/plugins.md`), separate plugins repo/index, self-tests, update checks.
+    A site that stops answering pauses by itself (`docs/downloader/reliability.md`).
 
 Platform
-22. Built-in login (single user); optional egress/VPN check.
+22. Built-in login (single user), with passkeys; optional egress/VPN check.
 23. Docker image and native binaries, both first-class.
 24. Backup command (consistent DB snapshot); everything else regenerable or plain files. **Built 2026-10-16**: daily
     backups, Settings > Backups (back up now, download, restore, restore from a file), `vitrine backup` / `restore`.
+25. Updates from the app (a backup first); fixes for what's already in a library, offered to run or skip and followed in
+    the top bar (`docs/ui/notifications.md`, "Fixes from updates").

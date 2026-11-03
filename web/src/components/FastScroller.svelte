@@ -9,6 +9,7 @@
 
   let {
     el,
+    moveTo,
     scrollTop,
     contentHeight,
     height,
@@ -21,6 +22,7 @@
   }: {
     controls?: string; // the scroller's element ID
     el: HTMLElement | undefined;
+    moveTo?: (top: number) => void; // going to a position in the list (a list taller than the page: Grid)
     scrollTop: number;
     contentHeight: number;
     height: number;
@@ -63,7 +65,9 @@
     if (!el || !root) return;
     const rootTop = root.getBoundingClientRect().top;
     const r = (clientY - rootTop - grab - top - PAD) / Math.max(1, track - THUMB);
-    el.scrollTop = Math.min(1, Math.max(0, r)) * maxScroll;
+    const to = Math.min(1, Math.max(0, r)) * maxScroll;
+    if (moveTo) moveTo(to);
+    else el.scrollTop = to;
   }
 
   function down(e: PointerEvent) {
