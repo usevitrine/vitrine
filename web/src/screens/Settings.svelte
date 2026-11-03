@@ -21,6 +21,7 @@
   import InstallHelp from '../components/InstallHelp.svelte';
   import SitesCard from '../components/SitesCard.svelte';
   import DownloadRules from '../components/DownloadRules.svelte';
+  import OldFilesCard from '../components/OldFilesCard.svelte';
   import Icon from '../components/Icon.svelte';
   import { canSave, savedStats, clearSaved, helperState } from '../lib/offline.svelte';
   import NotificationsCard from '../components/NotificationsCard.svelte';
@@ -241,6 +242,9 @@
               <button class="quiet forget" onclick={forgetDeleted}><Icon name="trash" size={16} /> {t('settings.forgetDeleted.action')}</button>
             </div>
           </section>
+          {#if !settings.mediaOff}
+            <OldFilesCard />
+          {/if}
           {:else if current === 'new'}
           <section class="card">
             <div class="card-head">

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/usevitrine/vitrine/internal/i18n"
 	"github.com/usevitrine/vitrine/internal/search"
@@ -126,6 +127,17 @@ var settingCheck = map[string]func(json.RawMessage) error{
 	// Download rules: skip videos over N MB / images over N megapixels (0 = no limit).
 	"skipVideoMB": numberIn(0, 1_000_000),
 	"skipImageMP": numberIn(0, 100_000),
+	// ... and files uploaded in this year or before, by the date the site gives (0 = no limit).
+	"skipUploadedYear": func(v json.RawMessage) error {
+		var y int
+		if err := json.Unmarshal(v, &y); err != nil {
+			return err
+		}
+		if y != 0 && (y < 1970 || y > 9999) {
+			return fmt.Errorf("not a year")
+		}
+		return nil
+	},
 	// Push notifications by kind (missing = on).
 	"notifyNew":         isBool,
 	"notifyFailed":      isBool,
@@ -250,6 +262,13 @@ func (l *Library) CheckDepths(ctx context.Context) (all *int, sites map[string]i
 type DownloadRules struct {
 	VideoBytes  int64 // skip videos larger than this
 	ImagePixels int64 // skip images with more pixels than this
+	// Skip files uploaded before this (Unix ms; the end of the year set). A post with no upload time isn't skipped.
+	UploadedBefore int64
+}
+
+// TooOld reports whether an upload time is older than the limit (zero: unknown, so not).
+func (r DownloadRules) TooOld(posted time.Time) bool {
+	return r.UploadedBefore > 0 && !posted.IsZero() && posted.UnixMilli() < r.UploadedBefore
 }
 
 // DownloadRules reads the download rules from the settings.
@@ -263,7 +282,11 @@ func (l *Library) DownloadRules(ctx context.Context) (DownloadRules, error) {
 		json.Unmarshal(set[k], &f)
 		return f
 	}
-	return DownloadRules{VideoBytes: int64(num("skipVideoMB") * 1024 * 1024), ImagePixels: int64(num("skipImageMP") * 1e6)}, nil
+	rules := DownloadRules{VideoBytes: int64(num("skipVideoMB") * 1024 * 1024), ImagePixels: int64(num("skipImageMP") * 1e6)}
+	if y := int(num("skipUploadedYear")); y > 0 {
+		rules.UploadedBefore = YearEnd(y)
+	}
+	return rules, nil
 }
 
 // idList is a list of plugin IDs.
@@ -337,6 +360,18 @@ func (l *Library) SetSettings(ctx context.Context, values map[string]json.RawMes
 	}
 	defer tx.Rollback()
 	now := l.now().UnixMilli()
+	if v, ok := values["skipUploadedYear"]; ok {
+		// A limit lowered or gone: the posts skipped as too old are forgotten, so they're looked at again. (While it
+		// stands they aren't - a site whose list doesn't date its posts would need a request for each.)
+		var was, year int
+		tx.QueryRowContext(ctx, "SELECT value FROM settings WHERE key = 'skipUploadedYear'").Scan(&was)
+		json.Unmarshal(v, &year)
+		if year < was {
+			if _, err := tx.ExecContext(ctx, "DELETE FROM seen_posts WHERE outcome = 8"); err != nil {
+				return fmt.Errorf("library: %w", err)
+			}
+		}
+	}
 	for k, v := range values {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
 			ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
@@ -347,7 +382,7 @@ func (l *Library) SetSettings(ctx context.Context, values map[string]json.RawMes
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	if values["skipVideoMB"] != nil || values["skipImageMP"] != nil {
+	if values["skipVideoMB"] != nil || values["skipImageMP"] != nil || values["skipUploadedYear"] != nil {
 		l.listsVer.Add(1) // (the download rules: see DownloadListsVersion)
 	}
 	return nil

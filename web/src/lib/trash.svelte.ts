@@ -52,6 +52,7 @@ interface Refreshable {
 /** How many files go in one turn of a removal for good: the list refreshed after each, so they leave as they go
  *  (2026-10-28, the user: they all stayed until every one was gone). */
 const TURN = 50;
+const BIG_TRASH = 5000;
 const ofComics = (r: Refreshable) => r.index === 'comics';
 
 /** Files (or comics) back from the trash. */
@@ -108,6 +109,23 @@ export async function emptyTrash(results: Refreshable) {
   });
   if (!ok) return;
   trash.emptying = true;
+  // A big trash goes on the server, in the background (its notice says when it's done): in turns from here, with the
+  // list read again after each, a million files would take many hours.
+  if (!comics && trash.files > BIG_TRASH) {
+    await attempt(async () => {
+      await api.purgeOldFiles();
+      for (let i = 1; (await api.oldFilesJob()).job; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        if (i % 15 === 0) await Promise.all([results.refresh(), trash.load()]);
+      }
+    });
+    try {
+      await Promise.all([results.refresh(), trash.load()]);
+    } finally {
+      trash.emptying = false;
+    }
+    return;
+  }
   await attempt(async () => {
     let purged = 0;
     if (comics) purged = (await api.emptyComicsTrash()).purged;

@@ -3,6 +3,17 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### New
+
+- **Delete old files**: Settings > Library can delete every file uploaded in or before a year you pick, by the date on its site. It shows how many files and how much space first, goes to the trash so you can restore them, and can delete forever straight away to free the disk. Files with no upload date are never included.
+- **Skip old files when downloading**: Settings > Downloads can skip files uploaded in a year you pick or earlier. Files with no date still download, and a search stops early once it reaches only old posts.
+
+### Improved
+
+- Emptying a very big trash now runs on the server, so it finishes in reasonable time and carries on if you close the page.
+
 ## 1.0.24 - 2026-11-03
 
 ### New

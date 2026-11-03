@@ -259,6 +259,20 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   width x height, when the site gives them). Shared settings `skipVideoMB` / `skipImageMP` (0 = no limit); read at the
   start of each search. A post over a limit is outcome 7 (TooBig), counted as skipped (now shown in the download's
   numbers) and checked again on later runs, so raising a limit lets it download. Video = the file URL's extension.
+- **Age limit (2026-11-03)**, the user: "disallow the downloader to download/import files from x year and older":
+  Settings > Downloads, "Skip files uploaded in [year] or earlier" (shared setting `skipUploadedYear`, 0 = none; also in
+  the first steps; applies to running downloads like the other rules). By the date the site gives, in UTC
+  (`DownloadRules.TooOld`). A post over it is outcome 8 (`TooOld`, counted as skipped, retried as "too old"). Comics'
+  galleries too. **No date: downloaded**, the setting's hint says so. **A file already in the library stays** and still
+  gets this site's post (checked after the md5). Checked before the blacklist and before any file request; on sites
+  whose lists give no date (`Partial`) that needs the post's page, once: a post already `TooOld` isn't opened again while
+  a limit stands, nor ahead of time. **Lowering or removing the limit forgets those rows** (`SetSettings`; a small partial
+  index, migration 0051), so they're looked at again - but only by a search that reaches them: a subscription reads back to
+  where it stopped, so older posts need a new download of the search. **A run of 100 old posts in a row ends a search**
+  (`oldRunStop`; a site's posts are in upload order, so older ones follow; a post not known to be old starts the count
+  again). Not a favorites list, which goes through whole to notice removed ones; a post favorited lately can be old anyway.
+  **Only the downloader**: files added by hand have no upload date. Tests: `TestAgeLimit`, `TestAgeLimitStopsTheSearch`,
+  `TestAgeLimitNoRequestForASkippedPost`, `TestTooOld`, "settings: the downloader skips files" (e2e).
 - **Spread-out checks (2026-10-15)**: a subscription's next check (after a check, a skipped check or a failed one) is
   scheduled up to a tenth of its interval late at random, at most 30 min (`Downloader.jitter`, 0..1; tests set it to
   0), so subscriptions added together drift apart instead of all hitting the site at once.

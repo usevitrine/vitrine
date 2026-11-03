@@ -225,7 +225,7 @@ func (d *Downloader) retryPost(ctx context.Context, site string, post int64) (re
 
 var outcomeNames = map[int]string{
 	Downloaded: "downloaded", Already: "already", Deleted: "deleted", Failed: "failed", Skipped: "skipped",
-	Blacklisted: "blacklisted", TooBig: "too big",
+	Blacklisted: "blacklisted", TooBig: "too big", TooOld: "too old",
 }
 
 // dated fills in a looked-up post's upload time when the lookup didn't bring one (rule34's answer for one post has

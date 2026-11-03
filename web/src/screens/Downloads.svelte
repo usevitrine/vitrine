@@ -531,7 +531,7 @@
   // ---- Failed files: posts whose file couldn't be brought in, each tried again on its own.
   let failedPosts = $state<FailedPost[]>([]);
   const postKey = (f: { site: string; post: string }) => f.site + ':' + f.post;
-  const outcomes = new Set(['downloaded', 'already', 'deleted', 'skipped', 'blacklisted', 'too big']);
+  const outcomes = new Set(['downloaded', 'already', 'deleted', 'skipped', 'blacklisted', 'too big', 'too old']);
   const outcomeWord = (o: string) => (outcomes.has(o) ? t(`downloads.outcome.${o.replace(' ', '_')}`) : o);
 
   // ---- Retries: a failed post tried again runs in the background - in its site's queue, with its progress, then

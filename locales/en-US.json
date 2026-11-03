@@ -676,7 +676,11 @@
       "megapixels": "megapixels",
       "depthLabel": "Check depth (posts)",
       "posts": "posts",
-      "depthHint": "Catches posts tagged after a check saw them"
+      "depthHint": "Catches posts tagged after a check saw them",
+      "year": "Skip files uploaded in",
+      "yearLabel": "Skip files uploaded in this year or earlier",
+      "orEarlier": "or earlier",
+      "yearHint": "By the date on the site. Files with no date still download."
     },
     "videos": {
       "title": "Videos",
@@ -1252,7 +1256,8 @@
       "deleted": "Deleted before - not downloaded",
       "skipped": "Gone from the site",
       "blacklisted": "Blacklisted - not downloaded",
-      "too_big": "Over a download rule - not downloaded"
+      "too_big": "Over a download rule - not downloaded",
+      "too_old": "Older than the download rules' year - not downloaded"
     },
     "postFailed": "Post {post} failed again",
     "postFailedWhy": "Post {post} failed again: {error}",
@@ -2000,6 +2005,58 @@
     "noFavorites": "No favorites yet. Tap the heart on a file to add it.",
     "trashSearch": "Trash tag search",
     "trashEmpty": "The trash is empty."
+  },
+  "oldFiles": {
+    "title": "Delete old files",
+    "hint": "By the date each file was uploaded to its site, not when it came here.",
+    "label": "Uploaded in or before",
+    "pick": "Pick a year",
+    "none": "No files have an upload date.",
+    "orEarlier": "{year} or earlier",
+    "delete": {
+      "one": "Delete {n} file ({size})…",
+      "other": "Delete {n} files ({size})…"
+    },
+    "undated": {
+      "one": "{n} file ({size}) has no upload date and is never included.",
+      "other": "{n} files ({size}) have no upload date and are never included."
+    },
+    "confirmTitle": {
+      "one": "Delete {n} file uploaded in or before {year}?",
+      "other": "Delete {n} files uploaded in or before {year}?"
+    },
+    "confirmBody": "They go to the trash, where they can be restored. That frees none of their {size} until they're deleted forever.",
+    "confirmFavorites": {
+      "one": "{n} of them is a favorite.",
+      "other": "{n} of them are favorites."
+    },
+    "confirmNever": "They won't be downloaded again unless restored.",
+    "confirmForever": "Skip the trash: delete forever now and free {size}. This can't be undone.",
+    "confirmAction": "Delete",
+    "inTrash": {
+      "one": "{year} or earlier: {n} file in the trash. Its {size} is freed only once it's deleted forever.",
+      "other": "{year} or earlier: {n} files in the trash. Their {size} is freed only once they're deleted forever."
+    },
+    "purgeTitle": {
+      "one": "Delete {n} file forever?",
+      "other": "Delete {n} files forever?"
+    },
+    "purgeBody": "This frees {size} of disk space and can't be undone.",
+    "stopped": {
+      "one": "Stopped after {n} file",
+      "other": "Stopped after {n} files"
+    },
+    "trashed": {
+      "one": "Moved {n} old file to the trash. Delete it forever to free its space.",
+      "other": "Moved {n} old files to the trash. Delete them forever to free their space."
+    },
+    "job": {
+      "delete": "Moving files to the trash",
+      "purge": "Deleting forever and freeing disk space",
+      "restore": "Restoring files",
+      "count": "{done} of {total}",
+      "stop": "Stop"
+    }
   },
   "appSections": {
     "mediaHint": "Pictures, GIFs and videos.",

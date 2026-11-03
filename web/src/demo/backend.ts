@@ -142,6 +142,8 @@ function answer(method: string, path: string, q: URLSearchParams, body: Record<s
         return json({ boot: 'demo', notices: [] });
       case '/api/sections':
         return json({ media: { items: 0, bytes: 0, subscriptions: 0, downloads: 0 }, comics: { items: 0, bytes: 0, subscriptions: 0, downloads: 0 } });
+      case '/api/old-files':
+        return json({ years: [], undated: { items: 0, bytes: 0 }, in_trash: [] });
       case '/api/saved':
         return json({ saved: savedList() });
       case '/api/saved/looks': {

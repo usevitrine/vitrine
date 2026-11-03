@@ -9,7 +9,7 @@ const load = <T>(key: string, fallback: T): T => readJSON('vitrine.' + key, fall
 const save = (key: string, value: unknown) => writeJSON('vitrine.' + key, value);
 
 /** The settings every device shares (the server's allow-list). */
-const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'countViews', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck', 'whatsNew', 'whatsNewSeen', 'groupOrder'] as const;
+const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'countViews', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'skipUploadedYear', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck', 'whatsNew', 'whatsNewSeen', 'groupOrder'] as const;
 type SharedKey = (typeof shared)[number];
 
 class Settings {
@@ -70,6 +70,7 @@ class Settings {
   /** Download rules: skip videos over this many MB / images over this many megapixels (0 = no limit). */
   skipVideoMB = $state(load('skipVideoMB', 0));
   skipImageMP = $state(load('skipImageMP', 0));
+  skipUploadedYear = $state(load('skipUploadedYear', 0));
   /** The app's language for every device: 'auto' (each browser's own) or a language tag (lib/i18n). */
   language = $state(load('language', 'auto'));
   /** Check depth: posts a subscription's check goes on past the last check's newest (see lib/depth). */

@@ -42,7 +42,12 @@ const (
 	Skipped     = 5
 	Blacklisted = 6 // has a blacklisted tag: not downloaded
 	TooBig      = 7 // over a download rule's size limit: not downloaded (counted as skipped)
+	TooOld      = 8 // uploaded before the download rules' year: not downloaded (counted as skipped)
 )
+
+// oldRunStop: after this many posts in a row older than the download rules' year, a search ends - older ones follow (a
+// site's posts are in upload order), and a site that needs a request per post would go through them all for nothing.
+var oldRunStop = 100 // (a test makes it smaller)
 
 // Search states.
 const (
@@ -736,8 +741,13 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 	favorites := plugin.IsFavorites(s.Query)
 	exhausted := more == nil // (no more pages to bring meanwhile)
 	pf := newPrefetcher(ctx, st)
+	oldRun := 0 // posts in a row older than the limit (a favorites list goes through whole: see favorites above)
 	for i := 0; i < len(posts) || inflight > 0; {
 		if ending == "" && reached() {
+			ending = "done"
+		}
+		if ending == "" && oldRun >= oldRunStop && !favorites {
+			d.log.Info("search ended: only posts older than the download rules' year from here", "site", s.Site, "search", s.ID, "below", s.LowID)
 			ending = "done"
 		}
 		enoughInFlight := s.MaxPosts > 0 && s.Handled+inflight >= s.MaxPosts
@@ -800,6 +810,12 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 			rctx = context.WithoutCancel(ctx)
 		}
 		p := posts[r.i]
+		// (one it has counts too, by its date; any post not known to be old starts the count again)
+		if r.outcome == TooOld || lists.rules.TooOld(p.Posted) {
+			oldRun++
+		} else {
+			oldRun = 0
+		}
 		var stop errStopSearch
 		if errors.As(r.err, &stop) {
 			// (not recorded: the search goes on from this post later - a gallery from the page it stopped at)
@@ -1093,7 +1109,7 @@ func (d *Downloader) finish(s Search, state, msg string) {
 
 var counterColumn = map[int]string{
 	Downloaded: "downloaded", Already: "already", Deleted: "deleted", Failed: "failed", Skipped: "skipped",
-	Blacklisted: "blacklisted", TooBig: "skipped",
+	Blacklisted: "blacklisted", TooBig: "skipped", TooOld: "skipped",
 }
 
 // record writes the post's outcome and the search's resume point (low: the
@@ -1230,6 +1246,9 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 	// A whole gallery: a comic (its pages, never library files). Never skipped as
 	// seen: it fetches only the pages its comic lacks (none: had).
 	if p.Gallery != nil {
+		if rules.TooOld(p.Posted) {
+			return TooOld, 0, nil
+		}
 		return d.handleGallery(ctx, st, p, bl)
 	}
 
@@ -1238,7 +1257,12 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 	var prevFile sql.NullInt64
 	err := d.db.R.QueryRowContext(ctx, "SELECT outcome, file_id FROM seen_posts WHERE site_id = ? AND post_id = ?",
 		st.ID, p.ID).Scan(&prev, &prevFile)
-	if err == nil && prev != Failed && prev != Blacklisted && prev != TooBig {
+	// Too old last time, the limit still there: not opened again (lowering the limit forgets these; a post that came with
+	// its date is simply checked below).
+	if err == nil && prev == TooOld && p.Partial && rules.UploadedBefore > 0 {
+		return TooOld, 0, nil
+	}
+	if err == nil && prev != Failed && prev != Blacklisted && prev != TooBig && prev != TooOld {
 		// Refresh what the site says now (tags, links, upload time): running a
 		// search again updates posts the library already has. (A partial post
 		// isn't opened for that: the tag refresh does it at its own pace.)
@@ -1278,6 +1302,10 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 		return Skipped, 0, nil // gone from the site since the list page
 	}
 
+	// Older than the download rules' year (a file it has already was found above: that stays). No date: downloaded.
+	if rules.TooOld(fp.Posted) {
+		return TooOld, 0, nil
+	}
 	// Blacklisted: not downloaded, but recorded as seen so a rerun doesn't page
 	// through it again. (A post skipped earlier is checked again: the
 	// blacklist may have changed.)

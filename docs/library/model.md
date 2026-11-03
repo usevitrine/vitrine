@@ -105,6 +105,26 @@ Files, tags (one tag set, origins, namespaces), parents and siblings, delete/und
   start. Also: a day-only time's order within the day (its post ID, read from `seen_posts`) was lost when the site's
   post was recorded before the downloader had written that row - `SitePost.PostID` fills it in (it showed at the
   start of its day until a restart). Test: `TestImportPosted`.
+- **Delete old files (2026-11-03)**, the user: delete "files uploaded from x year and older": Settings > Library,
+  card "Delete old files" (`OldFilesCard`, `library/oldfiles.go`, `server/oldfiles.go`). Pick a year ("2019 or earlier ·
+  N files · size": each year counts all before it); the button names the count and size; the confirmation asks for
+  the word "delete" and says the trash frees no space, how many are favorites (they're included), and how many have
+  no date. By `posted_at`, in UTC: uploaded in the year or before = earlier than Jan 1 of the next.
+  **No upload date: never included**, and the card and the confirmation say how many - nothing says such a file is old
+  (its import time isn't its upload time). All of it reads the database, not the index: the index's upload time is the
+  import time for those files (`postedKey`), so it can't tell them apart. The normal delete in batches of 2,000
+  (`Delete`: tombstones, never downloaded again unless restored), reason `uploaded in or before <year>` - so what such a
+  delete left in the trash can be shown, restored or removed as one, after a restart too (`OldInTrash`, `RestoreOld`,
+  `PurgeOld`); a card row for each year says its space is freed only once deleted forever. Or, ticked in the
+  confirmation, straight on out of the trash. A comic's page stays as the comic's, as with any delete.
+  **In the background** (`cleanupState`, one job at a time, 409 otherwise; a bar and Stop in the card, a notice at the
+  end; a restart leaves what went in the trash): `GET /api/old-files`, `/api/old-files/job`, `POST
+  /api/old-files/{delete,restore,purge,stop}`. Measured on a small test library with 40 tags per file: about 0.1 ms a
+  file into the trash, 0.3 ms out (without a slow disk's removes), so a million files should take minutes to an hour;
+  not yet run at that size. **Empty trash over 5,000 files** uses the same job (`purge` with no year): the page's turns of
+  50, reading the list after each, would take many hours. The trash page's own Restore of a selection is still one
+  transaction: for a big delete use the card's. Tests: `TestOldFiles`, `TestOldFilesAPI`, "settings: delete old files"
+  (e2e).
 - Web client: a sort menu in the top bar (above the search bar) - Newest/Oldest imported, Newest/Oldest uploaded. The sort is kept
   apart from the search (2026-10-14): never a chip; in the URL as its own `?sort=` (only when it differs
   from the default); a `sort:` typed into the search moves into the menu. Default sort is a setting (Settings > Library; Newest uploaded unless picked - since 2026-10-23, the user; was Newest imported -

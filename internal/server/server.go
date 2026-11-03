@@ -40,7 +40,8 @@ const sessionCookie = "vitrine_session"
 type Server struct {
 	// anonymous: the setting anonymousLogin - signed out, only a plain sign-in page (signin.go).
 	anonymous atomic.Bool
-	wiping    atomic.Bool // a removed site being wiped (wipe.go)
+	wiping    atomic.Bool  // a removed site being wiped (wipe.go)
+	cleanup   cleanupState // old files being deleted or restored (oldfiles.go)
 	lib       *library.Library
 	auth      *auth.Auth
 	log       *slog.Logger
@@ -145,6 +146,12 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.handle("GET /api/sections", s.sections)
 	s.handle("POST /api/sections/{section}/off", s.signal(s.sectionOff))
 	s.handle("GET /api/trash", s.trashInfo)
+	s.handle("GET /api/old-files", s.oldFiles)
+	s.handle("GET /api/old-files/job", s.oldFilesJob)
+	s.handle("POST /api/old-files/delete", s.signal(s.deleteOldFiles))
+	s.handle("POST /api/old-files/restore", s.signal(s.restoreOldFiles))
+	s.handle("POST /api/old-files/purge", s.signal(s.purgeOldFiles))
+	s.handle("POST /api/old-files/stop", s.stopOldFiles)
 	s.handle("POST /api/trash/purge", s.purgeTrash)
 	s.handle("POST /api/trash/empty", s.emptyTrash)
 	s.handle("POST /api/trash/forget", s.forgetDeleted)

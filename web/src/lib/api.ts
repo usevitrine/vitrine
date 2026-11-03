@@ -457,6 +457,26 @@ export interface SubGroup {
   created_at: number;
 }
 
+/** A year's files by upload date (Settings > Library > Delete old files). */
+export interface YearFiles {
+  year: number;
+  files: number;
+  bytes: number;
+  favorites?: number;
+}
+export interface CleanupJob {
+  kind: 'delete' | 'restore' | 'purge';
+  year: number;
+  done: number;
+  total: number;
+}
+export interface OldFiles {
+  years?: YearFiles[];
+  undated?: { items: number; bytes: number };
+  in_trash?: YearFiles[];
+  job?: CleanupJob;
+}
+
 export interface BlacklistMatches {
   total: number;
   size: number;
@@ -561,6 +581,13 @@ export const api = {
   sectionOff: (section: 'media' | 'comics', del: boolean) =>
     post<{ subscriptions: number; downloads: number; deleting: boolean }>(`/api/sections/${section}/off`, { delete: del }),
   /** The trash: what it holds, and after how many days it empties itself (0 = never). */
+  oldFiles: () => get<OldFiles>('/api/old-files'),
+  oldFilesJob: () => get<{ job: CleanupJob | null }>('/api/old-files/job'),
+  deleteOldFiles: (year: number, forever: boolean) => post<{ started: boolean }>('/api/old-files/delete', { year, forever }),
+  restoreOldFiles: (year: number) => post<{ started: boolean }>('/api/old-files/restore', { year }),
+  /** What a delete of that year left in the trash goes for good (no year: the whole trash), in the background. */
+  purgeOldFiles: (year = 0) => post<{ started: boolean }>('/api/old-files/purge', { year }),
+  stopOldFiles: () => post<unknown>('/api/old-files/stop', {}),
   trashInfo: () => get<{ files: number; bytes: number; comics: number; comic_bytes: number; days: number }>('/api/trash'),
   purgeTrash: (ids: number[]) => post<{ purged: number }>('/api/trash/purge', { ids }),
   /** limit: only that many (the last deleted first) and how many are left - the page empties it in turns. */

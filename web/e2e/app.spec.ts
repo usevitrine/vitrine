@@ -2618,6 +2618,76 @@ test('settings: download rules are saved on the server (empty = no limit)', asyn
   await expect.poll(async () => (await page.evaluate(async () => (await fetch('/api/settings')).json())).skipVideoMB).toBe(0);
 });
 
+test('settings: the downloader skips files from a year and older', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough: settings are on the server');
+  const saved = async () => (await page.evaluate(async () => (await fetch('/api/settings')).json())).skipUploadedYear;
+  await page.goto('/settings/downloads');
+  const year = page.getByLabel('Skip files uploaded in this year or earlier');
+  await expect(year).toHaveValue('');
+  await year.fill('2015');
+  await year.press('Tab');
+  await expect.poll(saved).toBe(2015);
+  // Not a year: the box goes back to what's set.
+  await year.fill('15');
+  await year.press('Tab');
+  await expect(year).toHaveValue('2015');
+  await year.fill('');
+  await year.press('Tab');
+  await expect.poll(saved).toBe(0);
+});
+
+test('settings: delete old files says what it takes and what frees the disk', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-webkit' && test.info().project.name !== 'iphone', 'a desktop and a phone');
+  const posts: unknown[] = [];
+  let state: Record<string, unknown> = {
+    years: [
+      { year: 2015, files: 1000, bytes: 2_000_000_000, favorites: 2 },
+      { year: 2019, files: 500, bytes: 1_000_000_000 },
+      { year: 2024, files: 40, bytes: 50_000_000 },
+    ],
+    undated: { items: 7, bytes: 70_000 },
+    in_trash: [],
+  };
+  await page.route('**/api/old-files', (r) => r.fulfill({ json: state }));
+  await page.route('**/api/old-files/job', (r) => r.fulfill({ json: { job: null } }));
+  await page.route('**/api/old-files/delete', async (r) => {
+    posts.push(r.request().postDataJSON());
+    state = { ...state, years: [{ year: 2024, files: 40, bytes: 50_000_000 }], in_trash: [{ year: 2019, files: 1500, bytes: 3_000_000_000 }] };
+    await r.fulfill({ json: { started: true } });
+  });
+  await page.route('**/api/old-files/purge', async (r) => {
+    posts.push(r.request().postDataJSON());
+    state = { ...state, in_trash: [] };
+    await r.fulfill({ json: { started: true } });
+  });
+  await page.goto('/settings/library');
+  const card = page.locator('section.card', { has: page.getByRole('heading', { name: 'Delete old files' }) });
+  await expect(card).toContainText('7 files (68 KB) have no upload date and are never included.');
+  await card.getByRole('button', { name: 'Uploaded in or before' }).click();
+  // Each year counts everything before it.
+  await page.getByRole('menuitemradio', { name: /2019 or earlier · 1,?500 files · 2\.8 GB/ }).click();
+  await card.getByRole('button', { name: /Delete 1,?500 files \(2\.8 GB\)/ }).click();
+  const dlg = page.getByRole('alertdialog');
+  await expect(dlg).toContainText(/Delete 1,?500 files uploaded in or before 2019\?/);
+  await expect(dlg).toContainText('That frees none of their 2.8 GB until');
+  await expect(dlg).toContainText('2 of them are favorites.');
+  await expect(dlg).toContainText('have no upload date and are never included');
+  const go = dlg.getByRole('button', { name: 'Delete', exact: true });
+  await expect(go).toBeDisabled();
+  await dlg.getByRole('textbox').fill('delete');
+  await go.click();
+  await expect.poll(() => posts[0]).toEqual({ year: 2019, forever: false });
+  // In the trash: what's left to free, and how.
+  await expect(card).toContainText(/2019 or earlier: 1,?500 files in the trash\. Their 2\.8 GB is freed only once/);
+  await card.getByRole('button', { name: 'Delete forever' }).click();
+  await expect(dlg).toContainText('This frees 2.8 GB of disk space');
+  await dlg.getByRole('textbox').fill('delete');
+  await dlg.getByRole('button', { name: 'Delete forever' }).click();
+  await expect.poll(() => posts[1]).toEqual({ year: 2019 });
+  await expect(card).not.toContainText('in the trash');
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('settings: notifications card - other devices, kinds, service worker', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough: devices and settings are on the server');
   const sw = await page.request.get('/sw.js');

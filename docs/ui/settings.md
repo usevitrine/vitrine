@@ -137,6 +137,9 @@ Settings sections and cards: Library, New files, Sites, Downloads, Notifications
   middle of the row's two lines. The user's wording: "uptime", "deleted forever", "N seen" (posts), no "made again when
   needed" under previews, no "Counted in N ms". Test: "Settings > Stats" also checks nothing sticks out of a card and
   the last kind ends at the bar's right edge.
+- **Delete old files, skip old files (2026-11-03)**: Library has the card "Delete old files" after Trash (not while
+  Media is off; `docs/library/model.md`); Downloads' rules have "Skip files uploaded in [year] or earlier"
+  (`docs/downloader/downloads-and-subscriptions.md`).
 - **Media and Comics can be switched off (2026-10-23)** (the user: "an option to disable library and comics ... one HAS
   to be enabled ... prompt the user if they want to delete all the data ... where they need to actively type
   something"; and "in the initial setup the user should pick what they want to enable"): Settings > Viewing > Content
