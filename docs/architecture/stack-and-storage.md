@@ -12,7 +12,10 @@ The stack (Go, Svelte, SQLite, ffmpeg/libvips), the speed targets and how they'r
   shrink-on-load (decodes huge JPEGs at reduced size, streams big images instead of holding them whole - a 500 MP
   image would need ~2 GB RAM fully decoded), encodes WebP/AVIF (Go's standard library can't). The ~20 ms process
   start is irrelevant at download speed.
-- **Video: ffmpeg/ffprobe** (thumbnails, preview frames, metadata, codec detection, transcodes).
+- **Video: ffmpeg/ffprobe** (thumbnails, preview frames, metadata, codec detection, transcodes). A video's width and height
+  are as it's shown: its pixels needn't be square (`sample_aspect_ratio`; 2026-11-02, the user: a vertical video, 1270x720
+  at 9:25, had a squashed widescreen thumbnail). Those from before were put right once, in the background
+  (`RunVideoShapes`: every video probed again, one at a time, 5 min after a start; meta `video_shapes`: where it got to).
 - **Web client: Svelte 5** (5.57 in Oct 2026; plain SPA built with Vite, no SvelteKit server) - compiled, tiny
   runtime, fine-grained reactivity, bigger ecosystem than SolidJS. Check versions/docs when coding starts.
 - **Plugin scripts: JavaScript via goja** (pure Go) - see `docs/downloader/plugins.md`.

@@ -128,6 +128,103 @@ func (l *Library) pendingMedia(ctx context.Context, retryFailed bool, limit int)
 	return db.Column[uint32](ctx, l.db.R, q)
 }
 
+// ---- Videos in the library from before their pixels' shape counted (media.displayWidth): read once more, in the
+// background, one at a time; one whose shape is now another goes back to the media worker (shape and thumbnail) and gets
+// new preview frames. Picks up where it was after a restart (meta video_shapes: the last ID read; -1: done).
+
+const videoShapesPause = 25 * time.Millisecond
+
+// RunVideoShapes goes through the library's videos until done or ctx ends; done says how many changed.
+func (l *Library) RunVideoShapes(ctx context.Context, done func(read, changed int)) {
+	read, changed := 0, 0
+	for ctx.Err() == nil {
+		n, c, more, err := l.videoShapes(ctx, 100)
+		read += n
+		changed += c
+		if err != nil || !more {
+			if err == nil && done != nil && read > 0 {
+				done(read, changed)
+			}
+			return
+		}
+	}
+}
+
+// videoShapes reads the next videos (at most limit); more: there may be others.
+func (l *Library) videoShapes(ctx context.Context, limit int) (read, changed int, more bool, err error) {
+	if l.tools.Check() != nil {
+		return 0, 0, false, ErrNoMediaTools
+	}
+	var last int64
+	err = l.db.R.QueryRowContext(ctx, "SELECT value FROM meta WHERE key = 'video_shapes'").Scan(&last)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, false, fmt.Errorf("library: %w", err)
+	}
+	if last < 0 {
+		return 0, 0, false, nil
+	}
+	rows, err := l.db.R.QueryContext(ctx, `SELECT id, sha256, type, width, height FROM files
+		WHERE id > ? AND type BETWEEN 6 AND 9 AND deleted_at IS NULL AND flags & ? != 0 ORDER BY id LIMIT ?`, last, FlagProbed, limit)
+	if err != nil {
+		return 0, 0, false, fmt.Errorf("library: %w", err)
+	}
+	type video struct {
+		id   uint32
+		sha  []byte
+		typ  uint8
+		w, h int
+	}
+	var list []video
+	for rows.Next() {
+		var v video
+		if err := rows.Scan(&v.id, &v.sha, &v.typ, &v.w, &v.h); err != nil {
+			rows.Close()
+			return 0, 0, false, fmt.Errorf("library: %w", err)
+		}
+		list = append(list, v)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, 0, false, fmt.Errorf("library: %w", err)
+	}
+	for _, v := range list {
+		var h store.Hash
+		copy(h[:], v.sha)
+		last = int64(v.id)
+		read++
+		info, err := l.tools.Probe(ctx, l.store.Path(h, media.Type(v.typ)), media.Type(v.typ))
+		if ctx.Err() != nil {
+			return read, changed, false, ctx.Err()
+		}
+		if err == nil && (info.Width != v.w || info.Height != v.h) {
+			l.mu.Lock()
+			_, err = l.db.W.ExecContext(ctx, "UPDATE files SET flags = flags & ~? WHERE id = ?", FlagThumbnail|FlagSprite|FlagSpriteErr, v.id)
+			l.mu.Unlock()
+			if err != nil {
+				return read, changed, false, fmt.Errorf("library: %w", err)
+			}
+			changed++
+			l.WakeMedia()
+		}
+		select {
+		case <-time.After(videoShapesPause):
+		case <-ctx.Done():
+			return read, changed, false, ctx.Err()
+		}
+	}
+	more = len(list) == limit
+	if !more {
+		last = -1
+	}
+	l.mu.Lock()
+	_, err = l.db.W.ExecContext(ctx, "INSERT INTO meta (key, value) VALUES ('video_shapes', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", last)
+	l.mu.Unlock()
+	if err != nil {
+		return read, changed, false, fmt.Errorf("library: %w", err)
+	}
+	return read, changed, more, nil
+}
+
 // ProcessMany runs ProcessMedia over files with several workers (newest
 // first, as given). report is called after each file, from one goroutine at a
 // time. It stops early if ctx is canceled.

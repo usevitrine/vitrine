@@ -67,6 +67,7 @@ type probeOutput struct {
 		CodecName     string `json:"codec_name"`
 		Width         int    `json:"width"`
 		Height        int    `json:"height"`
+		SampleAspect  string `json:"sample_aspect_ratio"`
 		NbFrames      string `json:"nb_frames"`
 		NbReadPackets string `json:"nb_read_packets"`
 		Duration      string `json:"duration"`
@@ -117,7 +118,7 @@ func parseProbe(out []byte, typ Type) (Info, error) {
 				continue // first real video stream only (not cover art)
 			}
 			found = true
-			info.Codec, info.Width, info.Height = s.CodecName, s.Width, s.Height
+			info.Codec, info.Width, info.Height = s.CodecName, displayWidth(s.Width, s.SampleAspect), s.Height
 			rot := 0.0
 			if len(s.SideData) > 0 {
 				rot = s.SideData[0].Rotation
@@ -149,6 +150,21 @@ func parseProbe(out []byte, typ Type) (Info, error) {
 		info.Frames = 2 // unknown count, but it moves
 	}
 	return info, nil
+}
+
+// displayWidth is a video's width as shown: its pixels needn't be square (2026-11-02: 1270x720 at 9:25 shows as 457x720,
+// a vertical video - the thumbnail was squashed into 1270x720, and everything else laid out for it). As players do: the
+// height stays, the width follows. A ratio that's missing or makes no sense ("0:1", "N/A", far out): as stored.
+func displayWidth(w int, sar string) int {
+	num, den, ok := strings.Cut(sar, ":")
+	if !ok {
+		return w
+	}
+	n, d := atoi(num), atoi(den)
+	if n <= 0 || d <= 0 || n == d || n > 10*d || d > 10*n {
+		return w
+	}
+	return max(1, int(float64(w)*float64(n)/float64(d)+0.5))
 }
 
 func atoi(s string) int {

@@ -182,6 +182,15 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		func(id uint32, err error) { log.Warn("thumbnail failed", "file", id, "err", err) },
 		func(files, failed int) { log.Debug("thumbnails made", "files", files, "failed", failed) })
 
+	// Videos from before their pixels' shape counted: read once more, slowly, after the start's work (see the function).
+	go func() {
+		select {
+		case <-time.After(5 * time.Minute):
+			lib.RunVideoShapes(ctx, func(read, changed int) { log.Info("videos' shapes checked", "videos", read, "changed", changed) })
+		case <-ctx.Done():
+		}
+	}()
+
 	// The trash empties itself of files deleted more than trashDays ago (the setting; 0 / missing: never).
 	go server.Every(ctx, 0, time.Hour, func() {
 		if set, err := lib.Settings(ctx); err == nil {

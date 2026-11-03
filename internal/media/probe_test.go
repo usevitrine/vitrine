@@ -140,6 +140,25 @@ func TestThumbSize(t *testing.T) {
 	}
 }
 
+// Pixels that aren't square: a video's shape is as it's shown.
+func TestParseProbeSampleAspect(t *testing.T) {
+	for _, c := range []struct {
+		sar  string
+		w, h int
+	}{{"9:25", 457, 720}, {"4:3", 1693, 720}, {"1:1", 1270, 720}, {"0:1", 1270, 720}, {"N/A", 1270, 720}, {"", 1270, 720}, {"100:1", 1270, 720}} {
+		out := []byte(`{"streams":[{"codec_type":"video","codec_name":"h264","width":1270,"height":720,"sample_aspect_ratio":"` + c.sar + `"}],"format":{"duration":"10"}}`)
+		info, err := parseProbe(out, MP4)
+		if err != nil || info.Width != c.w || info.Height != c.h {
+			t.Errorf("%q: %dx%d, %v; want %dx%d", c.sar, info.Width, info.Height, err, c.w, c.h)
+		}
+	}
+	// With a rotation too: the shown width first, then turned.
+	out := []byte(`{"streams":[{"codec_type":"video","codec_name":"h264","width":1270,"height":720,"sample_aspect_ratio":"9:25","side_data_list":[{"rotation":90}]}],"format":{"duration":"10"}}`)
+	if info, err := parseProbe(out, MP4); err != nil || info.Width != 720 || info.Height != 457 {
+		t.Errorf("rotated: %dx%d, %v", info.Width, info.Height, err)
+	}
+}
+
 func TestParseProbeRotation(t *testing.T) {
 	out := []byte(`{"streams":[
 		{"codec_type":"video","codec_name":"jpeg","width":100,"height":100,"disposition":{"attached_pic":1}},

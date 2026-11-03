@@ -5,6 +5,9 @@ import (
 	"context"
 	"image"
 	"image/png"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"slices"
 	"testing"
 )
@@ -20,6 +23,68 @@ func realPNG(t *testing.T, w, h int) []byte {
 		t.Fatal(err)
 	}
 	return buf.Bytes()
+}
+
+// A video whose pixels aren't square: its shape as shown; one from before that counted is put right by RunVideoShapes.
+func TestVideoShapes(t *testing.T) {
+	l := newTest(t)
+	if err := l.tools.Check(); err != nil {
+		t.Skip(err)
+	}
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "squeezed.mp4")
+	out, err := exec.Command(l.tools.FFmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=size=1270x720:duration=1:rate=5", "-vf", "setsar=9/25", "-pix_fmt", "yuv420p", path).CombinedOutput()
+	if err != nil {
+		t.Fatalf("making it: %v\n%s", err, out)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := l.Import(ctx, bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := l.ProcessMedia(ctx, f.ID); err != nil {
+		t.Fatal(err)
+	}
+	size := func() (w, h, flags int) {
+		t.Helper()
+		if err := l.db.R.QueryRow("SELECT width, height, flags FROM files WHERE id = ?", f.ID).Scan(&w, &h, &flags); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	if w, h, _ := size(); w != 457 || h != 720 {
+		t.Fatalf("shape %dx%d", w, h)
+	}
+	thumb, err := l.Thumb(ctx, f.ID)
+	if err != nil || thumb.Width >= thumb.Height {
+		t.Fatalf("thumbnail %dx%d, %v", thumb.Width, thumb.Height, err)
+	}
+	// As it was stored before: read again, it goes back to the media worker - and only once.
+	if _, err := l.db.W.Exec("UPDATE files SET width = 1270, height = 720, flags = flags | ? WHERE id = ?", FlagSprite, f.ID); err != nil {
+		t.Fatal(err)
+	}
+	read, changed := 0, 0
+	l.RunVideoShapes(ctx, func(r, c int) { read, changed = r, c })
+	if read != 1 || changed != 1 {
+		t.Fatalf("read %d, changed %d", read, changed)
+	}
+	if _, _, flags := size(); flags&FlagThumbnail != 0 || flags&FlagSprite != 0 {
+		t.Fatalf("flags %b: not waiting for the worker", flags)
+	}
+	if err := l.ProcessMedia(ctx, f.ID); err != nil {
+		t.Fatal(err)
+	}
+	if w, h, _ := size(); w != 457 || h != 720 {
+		t.Fatalf("after: %dx%d", w, h)
+	}
+	read = 0
+	l.RunVideoShapes(ctx, func(r, c int) { read = r })
+	if read != 0 {
+		t.Fatalf("read again: %d", read)
+	}
 }
 
 func TestProcessMedia(t *testing.T) {

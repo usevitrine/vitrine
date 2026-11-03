@@ -5,6 +5,10 @@ shows this too (Settings > Help & about).
 
 ## Unreleased
 
+### Fixed
+
+- **Videos with non-square pixels**: a vertical video stored this way got a squashed widescreen thumbnail. It now has its real shape, and ones already in your library are found and put right in the background after the update.
+
 ### Improved
 
 - **Updates**: Check now is always there, even with an update on offer, and Update checks again first, so you get the newest version under its own name.
