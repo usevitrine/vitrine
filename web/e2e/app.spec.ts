@@ -10143,7 +10143,7 @@ test('settings: Help & about has the version, the changelog (newest first, built
   const heads = await page.locator('.log h2').allTextContents();
   expect(heads[heads.length - 1]).toMatch(/^1\.0\.0/); // (the oldest last)
   // Each version's changes sorted: New, Improved, Fixed as headings (never as stray ### lines); `code` as code.
-  const v102 = page.locator('.log section', { has: page.getByRole('heading', { name: /^1\.0\.2/ }) });
+  const v102 = page.locator('.log section', { has: page.getByRole('heading', { name: /^1\.0\.2\b/ }) });
   await expect(v102.locator('h3')).toHaveText(['New', 'Improved', 'Fixed']);
   await expect(page.getByText(/^###/)).toHaveCount(0);
   await expect(page.locator('.log code', { hasText: 'config.toml' }).first()).toBeVisible();
