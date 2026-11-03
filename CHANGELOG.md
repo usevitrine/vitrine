@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **Tags in the wrong namespace**: a general tag could get stuck under a namespace like `character:` for good, after one site called it that once. A tag now follows what its site says now, and tags already stuck are put back after the update. Tags you moved yourself stay where you put them.
+
 ## 1.0.18-hotfix - 2026-11-03
 
 ### Fixed
