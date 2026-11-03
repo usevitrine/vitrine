@@ -16,6 +16,8 @@ The stack (Go, Svelte, SQLite, ffmpeg/libvips), the speed targets and how they'r
   are as it's shown: its pixels needn't be square (`sample_aspect_ratio`; 2026-11-02, the user: a vertical video, 1270x720
   at 9:25, had a squashed widescreen thumbnail). Those from before were put right once, in the background
   (`RunVideoShapes`: every video probed again, one at a time, 5 min after a start; meta `video_shapes`: where it got to).
+  The URLs of a file's thumbnail and preview frames carry its shape (`s=962x1080`): they're cached for a year, so without
+  that browsers kept showing the old pictures of a corrected file.
 - **Web client: Svelte 5** (5.57 in Oct 2026; plain SPA built with Vite, no SvelteKit server) - compiled, tiny
   runtime, fine-grained reactivity, bigger ecosystem than SolidJS. Check versions/docs when coding starts.
 - **Plugin scripts**: none so far (JavaScript via goja was planned, not built) - see `docs/downloader/plugins.md`.

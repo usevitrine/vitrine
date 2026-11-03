@@ -47,6 +47,10 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   desktop), the 4x4 placeholder behind each thumbnail, duration badges, late thumbnails filled in. IDs come in
   500-ID slices of the server-side result and file details in batches around the visible rows (a screen behind, two
   ahead).
+- **The search line's end**: it comes into view whenever chips are added or another search ending in a new chip comes in,
+  and always when a saved search is picked (a search filled in as the page opens reads from its start; taking out a chip or
+  editing one further along doesn't move it). The typing box is as wide as its text (measured: counted in `ch`, the room
+  after the text grew with each letter).
 - **Search chips have an ×**: each chip in the search bar has an × on its right that takes
   it out of the search at once; tapping the chip still opens the editor (OR alternatives, include/exclude, split),
   which no longer has a "Remove chip" button.
@@ -113,7 +117,8 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   Grid.svelte: moved when the scroll comes within 4M px of its edge, with the scroll, so nothing on screen moves). `place()`
   gives a tile's place on the page, never the list's (a browser clamps a `top` at 33.5M px and keeps transforms in 32 bits:
   whole-list positions landed off screen and rows out of line); `topNow()` and `moveTo()` are positions in the list, and
-  the fast scroller goes by `moveTo`. Masonry's positions are 64-bit for the same reason. A shorter list is
+  the fast scroller goes by `moveTo`. The page's scroll is only set when the window moves (set on every scroll event, it
+  fought iOS's bounce past either end and the page shook). Masonry's positions are 64-bit for the same reason. A shorter list is
   untouched (base 0). Test: "a list taller than a browser's tallest element".
 - **Search box border** follows the text field only (`:has(input:focus)`), so pressing the star or a chip no longer
   flashes it.

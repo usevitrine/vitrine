@@ -149,24 +149,35 @@
   let chipsEl = $state<HTMLElement>();
   // A chip added from elsewhere too (a tag in the details: "add to the search"):
   // the end comes into view, where the new chip and the typing box are.
-  let chipCount = 0; // (a search filled in from nothing - the page opening - reads from its start)
+  let shown: string[] = []; // (a search filled in from nothing - the page opening - reads from its start)
   $effect(() => {
-    const n = chips.length;
+    const now = chips.map(chipText);
     void draft;
-    const added = chipCount > 0 && n > chipCount;
-    chipCount = n;
-    if (chipsEl && (added || document.activeElement === input)) {
-      // (and while a new chip opens to its width: the end keeps in view)
-      const el = chipsEl;
-      const until = performance.now() + (added ? 340 : 0);
-      const follow = () => {
-        el.scrollLeft = el.scrollWidth;
-        if (performance.now() < until) requestAnimationFrame(follow);
-      };
-      follow();
-    }
+    // More chips, or another search ending in a new one (not a chip taken out, or one edited further along).
+    const added = shown.length > 0 && now.length > 0 && (now.length > shown.length || !shown.includes(now[now.length - 1]));
+    shown = now;
+    if (added || document.activeElement === input) followEnd(added ? 340 : 0);
     queueMicrotask(edges);
   });
+  // What's typed, as wide as it is with the box's padding and the caret (counted in `ch`, a "0" - wider than most letters -
+  // the room after the text grew with each one, the user: "the bigger the padding at the end gets").
+  const ruler = document.createElement('canvas').getContext('2d');
+  function typedWidth(text: string) {
+    if (!text || !input || !ruler) return 0;
+    ruler.font = getComputedStyle(input).font;
+    return Math.ceil(ruler.measureText(text).width) + 10;
+  }
+  /** The end into view, and for `ms` more (while a new chip opens to its width). */
+  function followEnd(ms: number) {
+    if (!chipsEl) return;
+    const el = chipsEl;
+    const until = performance.now() + ms;
+    const follow = () => {
+      el.scrollLeft = el.scrollWidth;
+      if (performance.now() < until) requestAnimationFrame(follow);
+    };
+    follow();
+  }
   // Soft edges where more chips are scrolled out of view.
   let fadeL = $state(false);
   let fadeR = $state(false);
@@ -381,7 +392,7 @@
          empty space after them starts typing. -->
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions (a bigger target for the input, which has its own keys) -->
     <div class="chips-wrap" class:fade-l={fadeL} class:fade-r={fadeR}>
-    <div class="chips" style:--typed={draft.length} bind:this={chipsEl} onscroll={edges} onclick={(e) => e.target === e.currentTarget && input?.focus()}>
+    <div class="chips" style:--typed="{typedWidth(draft)}px" bind:this={chipsEl} onscroll={edges} onclick={(e) => e.target === e.currentTarget && input?.focus()}>
     {#each chips as c, i (chipKeys[i])}
       <span
         animate:moved
@@ -478,7 +489,10 @@
       query={format(chips)}
       sort={savedSort}
       defaultSort={savedDefault}
-      onrun={(q, s, key) => onsaved(q, s, key)}
+      onrun={async (q, s, key) => {
+        await onsaved(q, s, key); // (the page may ask the server something first)
+        followEnd(340);
+      }}
       onclose={(refocus) => {
         savedOpen = false;
         if (refocus) starBtn?.focus();
@@ -630,7 +644,7 @@
      (and fills the line when the chips leave room). */
   .chips > :global(.wrap) {
     flex: 1 0 0; /* not the input's default width: only what is left, or the minimum */
-    min-width: calc(2.5em + var(--typed, 0) * 1ch);
+    min-width: max(2.5em, var(--typed, 0px));
   }
   .field :global(input) {
     border: 0;

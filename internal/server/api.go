@@ -369,7 +369,7 @@ func (s *Server) toJSON(f library.FileRow) fileJSON {
 		// The fingerprint makes the URL unique to this file, so a long-cached
 		// thumbnail can never show up for another file with the same ID (e.g.
 		// after starting a new library).
-		j.Thumb = fmt.Sprintf("/thumbs/%d.webp?v=%d&f=%s", f.ID, media.ThumbVersion, thumbKey(f.SHA256))
+		j.Thumb = fmt.Sprintf("/thumbs/%d.webp?v=%d&f=%s&s=%s", f.ID, media.ThumbVersion, thumbKey(f.SHA256), shapeKey(f))
 		if sig != "" {
 			j.Thumb += "&" + sig
 		}
@@ -690,6 +690,10 @@ func (s *Server) serveThumb(w http.ResponseWriter, r *http.Request) {
 // thumbKey is the part of a file's SHA-256 put in its thumbnail URL.
 func thumbKey(h store.Hash) string { return h.String()[:16] }
 
+// shapeKey is the file's shape, put in the URLs of its thumbnail and preview frames: browsers keep those for a year, so
+// pictures remade for a corrected shape need another URL (the user, of a video put right on the server: "still wrong").
+func shapeKey(f library.FileRow) string { return fmt.Sprintf("%dx%d", f.Width, f.Height) }
+
 // namespaces lists the tag namespaces (the web client colors and groups
 // tags by them; a "x:" prefix that isn't one is part of the tag's name).
 func (s *Server) namespaces(w http.ResponseWriter, r *http.Request) {
@@ -751,7 +755,7 @@ func (s *Server) spriteInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"url":    fmt.Sprintf("/sprites/%d.webp?f=%s&v=%d", id, thumbKey(rows[0].SHA256), sp.Version),
+		"url":    fmt.Sprintf("/sprites/%d.webp?f=%s&v=%d&s=%s", id, thumbKey(rows[0].SHA256), sp.Version, shapeKey(rows[0])),
 		"frames": sp.Frames, "cols": sp.Cols, "tile_w": sp.TileW, "tile_h": sp.TileH, "interval_ms": sp.IntervalMS,
 	})
 }

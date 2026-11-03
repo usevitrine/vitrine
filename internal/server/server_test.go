@@ -495,6 +495,10 @@ func TestServeFilesAndThumbs(t *testing.T) {
 		if !strings.Contains(fj.Thumb, "&f="+fj.SHA256[:16]) {
 			t.Fatalf("thumb URL lacks the fingerprint: %s", fj.Thumb)
 		}
+		// ... and its shape: a thumbnail remade for a corrected shape can't be the long-cached one.
+		if !strings.Contains(fj.Thumb, fmt.Sprintf("&s=%dx%d", fj.Width, fj.Height)) {
+			t.Fatalf("thumb URL lacks the shape: %s", fj.Thumb)
+		}
 		stale := fmt.Sprintf("/thumbs/%d.webp?v=1&f=0123456789abcdef", f.ID)
 		resp, _ = e.c.Get(e.srv.URL + stale)
 		resp.Body.Close()

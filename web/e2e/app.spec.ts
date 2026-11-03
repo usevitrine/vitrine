@@ -5050,6 +5050,45 @@ test('a tag added to the search from the details: the search line shows its end 
     .toBeLessThanOrEqual(1);
 });
 
+// The user: selecting a saved search left the line at its start; only a search with more chips than before followed.
+for (const from of ['/', '/?q=-one_there_before%20-another_there_before%20-a_third_there_before%20-a_fourth_there_before']) {
+  test(`a saved search picked from ${from === '/' ? 'an empty search' : 'a longer one'}: the search line shows its end`, async ({ page }) => {
+    test.skip(test.info().project.name !== 'iphone', 'a narrow search line');
+    const query = 'blue_sky -nothing_like_aaaa -nothing_like_bbbb -nothing_like_cccc';
+    await page.route('**/api/saved*', (r) =>
+      r.request().method() === 'GET' ? r.fulfill({ json: { saved: [{ id: 904, name: 'Long one', query, sort: '', count: 4 }] } }) : r.continue(),
+    );
+    await page.goto(from);
+    await page.getByRole('button', { name: /^Saved searches/ }).click();
+    await page.getByRole('dialog', { name: 'Saved searches' }).getByText('Long one').click();
+    await expect(page).toHaveURL(/nothing_like_cccc/);
+    await expect
+      .poll(() => page.locator('.bar .chips').evaluate((el) => Math.round(el.scrollWidth - el.clientWidth - el.scrollLeft)))
+      .toBeLessThanOrEqual(1);
+    expect(await page.locator('.bar .chips').evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+  });
+}
+
+// The user: "the more I type in the search bar, the bigger the padding at the end gets".
+test('typing a long word: the room after it stays the same, and none of it is cut off', async ({ page }) => {
+  test.skip(test.info().project.name !== 'iphone', 'a narrow search line');
+  await page.goto('/');
+  const box = page.locator('.bar .chips input');
+  await box.fill('some_long_tag_name_'.repeat(8));
+  const room = await box.evaluate((el: HTMLInputElement) => {
+    const s = document.createElement('span');
+    s.style.cssText = 'position:absolute;white-space:pre';
+    s.style.font = getComputedStyle(el).font;
+    s.textContent = el.value;
+    document.body.append(s);
+    const w = s.getBoundingClientRect().width;
+    s.remove();
+    return { room: el.clientWidth - w, cut: el.scrollWidth - el.clientWidth };
+  });
+  expect(room.room).toBeLessThanOrEqual(14);
+  expect(room.cut).toBeLessThanOrEqual(0);
+});
+
 // Files arrived while the viewer was open, and go in once the grid is quiet - just as a tag from the details is being
 // searched: that took the search it was still waiting for with it, the chip there and the old files under it.
 test('a tag added to the search while files are waiting to come in: its search still runs to the end', async ({ page }) => {
@@ -10499,4 +10538,48 @@ test("the grid: a list taller than a browser's tallest element can be scrolled t
   await page.mouse.up();
   await expect.poll(async () => (await look()).last, { timeout: 10_000 }).toBeLessThan(500);
   expect((await look()).top).toBeLessThan(10);
+});
+
+// The user: on such a list, going past either end "shakes really fast": the grid set the page's scroll on every scroll
+// event, against the browser's own bounce. It only does when its window of the list has to move.
+test('the grid: scrolling a very long list leaves the page\'s scroll to the browser', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', 'a mouse wheel; the same code everywhere');
+  const total = 3_000_000;
+  await login(page);
+  await page.route('**/api/search?*', async (r) => {
+    const j = await (await r.fetch()).json();
+    await r.fulfill({ json: { ...j, total, comics: total } });
+  });
+  await page.route('**/api/results/*', async (r) => {
+    const u = new URL(r.request().url());
+    const offset = Number(u.searchParams.get('offset'));
+    const limit = Number(u.searchParams.get('limit'));
+    await r.fulfill({ json: { total, offset, ids: Array.from({ length: Math.min(limit, total - offset) }, (_, i) => 5_000_000 + offset + i) } });
+  });
+  await page.goto('/');
+  await page.locator('.sizer > .tile').first().waitFor();
+  // Counts the writes to the page's scroll.
+  await page.evaluate(() => {
+    const el = document.querySelector('.sizer')!.parentElement!;
+    const d = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')!;
+    (window as any).writes = 0;
+    Object.defineProperty(el, 'scrollTop', {
+      configurable: true,
+      get() {
+        return d.get!.call(el);
+      },
+      set(v) {
+        (window as any).writes++;
+        d.set!.call(el, v);
+      },
+    });
+  });
+  const box = (await page.locator('.sizer').boundingBox())!;
+  await page.mouse.move(box.x + 200, 400);
+  for (let i = 0; i < 8; i++) {
+    await page.mouse.wheel(0, 600);
+    await page.waitForTimeout(60);
+  }
+  await expect.poll(() => page.evaluate(() => document.querySelector('.sizer')!.parentElement!.scrollTop)).toBeGreaterThan(1000);
+  expect(await page.evaluate(() => (window as any).writes)).toBe(0);
 });

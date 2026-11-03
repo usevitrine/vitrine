@@ -569,11 +569,15 @@
   const topNow = () => (el?.scrollTop ?? 0) + base;
   function moveTo(top: number) {
     if (!el) return;
-    const spare = listH - pageH;
-    const at = top - base;
-    if (base > spare || (at < EDGE && base > 0) || (at > MAX_H - EDGE && base < spare)) base = Math.max(0, Math.min(spare, Math.round(top - MAX_H / 2)));
+    if (windowMoves(top)) base = Math.max(0, Math.min(listH - pageH, Math.round(top - MAX_H / 2)));
     el.scrollTop = top - base;
     scrollTop = topNow(); // (the page's scroll may land where it was: then no scroll event says the list moved)
+  }
+  /** Whether a position in the list is near the window's edge, with more of the list beyond it. */
+  function windowMoves(top: number) {
+    const spare = listH - pageH;
+    const at = top - base;
+    return base > spare || (at < EDGE && base > 0) || (at > MAX_H - EDGE && base < spare);
   }
   // Room under the last row: a gap, and on an iPhone clear of the home bar and the screen's curved corners (the last
   // tiles sat under them - the user). In pixels for the fast scroller.
@@ -2075,7 +2079,9 @@
   bind:clientHeight={height}
   role="presentation"
   onscroll={() => {
-    if (listH > MAX_H) moveTo(topNow()); // (nearing the window's edge: it moves)
+    // (Only then: setting the scroll on every event fought the browser's own - bouncing past either end, it snapped
+    // back each time and the page shook, the user: "It shakes really fast".)
+    if (listH > MAX_H && windowMoves(topNow())) moveTo(topNow());
     scrollTop = topNow();
     if (el!.clientHeight > 0 && !wasHidden) keptTop = scrollTop; // (not the browser's own 0 as it's hidden or shown again)
     trackSpeed();
