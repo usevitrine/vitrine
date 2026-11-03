@@ -20,18 +20,30 @@ import (
 // before their tags' types were known are filled in by LearnTypes, which
 // looks up their posts one at a time while the site's queue is idle.
 
-// namespaces maps a post's tags to namespaces from the site's tag types.
+// namespaces maps a post's tags to namespaces from the site's tag types: "" for a tag the site calls general (it said
+// so - a tag it said nothing about isn't in the map).
 func namespaces(m plugin.Manifest, p plugin.Post) map[string]string {
 	if p.TagTypes == nil {
 		return nil
 	}
 	out := map[string]string{}
 	for _, t := range p.Tags {
-		if ns := m.Namespace(p.TagTypes[t]); ns != "" {
-			out[t] = ns
+		if typ := p.TagTypes[t]; typ != "" {
+			out[t] = m.Namespace(typ)
 		}
 	}
 	return out
+}
+
+// GeneralType reports whether a tag type a site gave means a general tag there (library.RunGeneralTags). A site that
+// isn't loaded: no - its types can't be read.
+func (d *Downloader) GeneralType(site uint32, typ string) bool {
+	for _, st := range d.all() {
+		if st.ID == site {
+			return st.learnsTypes() && typ != "" && st.Client.Manifest().Namespace(typ) == ""
+		}
+	}
+	return false
 }
 
 // recordTypes saves what the site said about its tags.

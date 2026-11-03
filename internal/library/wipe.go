@@ -202,7 +202,7 @@ func (l *Library) WipeSite(ctx context.Context, name string) (Wiped, error) {
 		return nil
 	}
 	for batch := range slices.Chunk(shared, 500) {
-		if err := l.changeTags(ctx, batch, nil, false, false,
+		if err := l.changeTags(ctx, batch, nil, false, nil,
 			func(*sql.Tx, uint32) (bool, error) { return false, nil },
 			func(tx *sql.Tx, f uint32, _ []uint32) error { return strip(tx, f) }); err != nil {
 			return w, err

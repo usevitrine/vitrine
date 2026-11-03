@@ -404,6 +404,147 @@ func TestPlainNameFindsNamespacedTag(t *testing.T) {
 	checkReload(t, l)
 }
 
+// A site that calls a tag general gets the plain tag, not the one namespaced tag of that name; the tag comes back to
+// plain if that site alone had a say, and one site's type doesn't move what another site has a say on.
+func TestSiteSaysGeneral(t *testing.T) {
+	l := newTest(t)
+	ctx := context.Background()
+	ids := importN(t, l, 4)
+	one, _ := l.Site(ctx, "safebooru")
+	two, _ := l.Site(ctx, "examplebooru")
+	l.EnsureNamespaces(ctx, []string{"character", "meta"})
+	said := func(site uint32, name, typ string) {
+		if _, err := l.db.W.Exec("INSERT OR REPLACE INTO tag_types (site_id, name, type, checked_at) VALUES (?, ?, ?, 1)", site, name, typ); err != nil {
+			t.Fatal(err)
+		}
+	}
+	count := func(name string) (n int) {
+		l.db.R.QueryRow("SELECT count(*) FROM tags WHERE name = ?", name).Scan(&n)
+		return n
+	}
+
+	// One site changes its mind: the same tag, plain again.
+	said(one, "blue_sky", "character")
+	l.SetSitePost(ctx, ids[0], one, SitePost{Tags: []string{"blue_sky"}, Namespaces: map[string]string{"blue_sky": "character"}})
+	want(t, l, "character:blue_sky", ids[0])
+	said(one, "blue_sky", "tag")
+	l.SetSitePost(ctx, ids[1], one, SitePost{Tags: []string{"blue_sky"}, Namespaces: map[string]string{"blue_sky": ""}})
+	want(t, l, "blue_sky", ids[1], ids[0])
+	if n := count("blue_sky"); n != 1 {
+		t.Fatalf("%d blue_sky tags", n)
+	}
+
+	// Two sites disagree: each its own; the plain tag of the other site's files doesn't move.
+	said(one, "cloud", "tag")
+	l.SetSitePost(ctx, ids[0], one, SitePost{Tags: []string{"cloud"}, Namespaces: map[string]string{"cloud": ""}})
+	said(two, "cloud", "metadata")
+	l.SetSitePost(ctx, ids[1], two, SitePost{Tags: []string{"cloud"}, Namespaces: map[string]string{"cloud": "meta"}})
+	want(t, l, "meta:cloud", ids[1])
+	want(t, l, "cloud", ids[1], ids[0]) // (a plain name finds every namespace's)
+	l.SetSitePost(ctx, ids[2], one, SitePost{Tags: []string{"cloud"}, Namespaces: map[string]string{"cloud": ""}})
+	want(t, l, "meta:cloud", ids[1])
+	if n := count("cloud"); n != 2 {
+		t.Fatalf("%d cloud tags", n)
+	}
+
+	// Where the user put it stays; a site with no say still lands on the one namespaced tag.
+	said(one, "red", "character")
+	l.SetSitePost(ctx, ids[0], one, SitePost{Tags: []string{"red"}, Namespaces: map[string]string{"red": "character"}})
+	if _, _, err := l.SetNamespace(ctx, tag.Tag{Namespace: "character", Name: "red"}, "meta"); err != nil {
+		t.Fatal(err)
+	}
+	said(one, "red", "tag")
+	l.SetSitePost(ctx, ids[1], one, SitePost{Tags: []string{"red"}, Namespaces: map[string]string{"red": ""}})
+	want(t, l, "meta:red", ids[0])
+	if n := count("red"); n != 2 {
+		t.Fatalf("%d red tags", n)
+	}
+	said(one, "green", "character")
+	l.SetSitePost(ctx, ids[0], one, SitePost{Tags: []string{"green"}, Namespaces: map[string]string{"green": "character"}})
+	l.SetSitePost(ctx, ids[3], two, SitePost{Tags: []string{"green"}})
+	want(t, l, "character:green", ids[3], ids[0])
+	checkReload(t, l)
+}
+
+// The one-time pass: stuck tags every site with a say calls general go back to plain, in place or merged; one a site
+// types, one the user put there and one with parents stay.
+func TestRunGeneralTags(t *testing.T) {
+	l := newTest(t)
+	ctx := context.Background()
+	ids := importN(t, l, 3)
+	one, _ := l.Site(ctx, "safebooru")
+	two, _ := l.Site(ctx, "examplebooru")
+	l.EnsureNamespaces(ctx, []string{"character", "meta"})
+	said := func(site uint32, name, typ string) {
+		if _, err := l.db.W.Exec("INSERT OR REPLACE INTO tag_types (site_id, name, type, checked_at) VALUES (?, ?, ?, 1)", site, name, typ); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// (Placed as the old code did: by their own SetSiteTags, without any type said yet.)
+	put := func(file uint32, list ...string) {
+		if err := l.SetSiteTags(ctx, file, one, tags(list...)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	said(two, "merged", "tag") // (so a plain and a namespaced one can both be there)
+	said(two, "has_parent", "tag")
+	put(ids[2], "merged", "character:looked_up")
+	put(ids[1], "has_parent", "character:merged")
+	put(ids[0], "character:in_place", "character:merged", "character:typed", "character:placed", "character:has_parent", "merged")
+	for _, name := range []string{"in_place", "merged", "typed", "placed", "has_parent"} {
+		said(one, name, "tag")
+	}
+	said(one, "looked_up", "") // (no say)
+	said(two, "typed", "character")
+	if _, _, err := l.SetNamespace(ctx, tag.Tag{Namespace: "character", Name: "placed"}, "meta"); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.AddParent(ctx, tag.Tag{Namespace: "character", Name: "has_parent"}, tag.Tag{Name: "group"}); err != nil {
+		t.Fatal(err)
+	}
+	var before int64
+	l.db.R.QueryRow("SELECT modified_at FROM files WHERE id = ?", ids[1]).Scan(&before)
+	general := func(_ uint32, typ string) bool { return typ == "tag" }
+	moved, kept := 0, 0
+	if err := l.RunGeneralTags(ctx, general, func(m, k int) { moved, kept = m, k }); err != nil {
+		t.Fatal(err)
+	}
+	if moved != 2 || kept != 1 {
+		t.Fatalf("moved %d, kept %d", moved, kept)
+	}
+	ns := func(name string) (out []string) {
+		rows, _ := l.db.R.Query("SELECT n.name FROM tags t JOIN namespaces n ON n.id = t.namespace_id WHERE t.name = ? ORDER BY 1", name)
+		defer rows.Close()
+		for rows.Next() {
+			var s string
+			rows.Scan(&s)
+			out = append(out, s)
+		}
+		return out
+	}
+	for name, wantNS := range map[string][]string{
+		"in_place": {""}, "merged": {""}, "typed": {"character"}, "placed": {"meta"}, "has_parent": {"", "character"}, "looked_up": {"character"},
+	} {
+		if got := ns(name); !reflect.DeepEqual(got, wantNS) {
+			t.Fatalf("%s: %q, want %q", name, got, wantNS)
+		}
+	}
+	want(t, l, "merged", ids[2], ids[1], ids[0])
+	want(t, l, "character:merged")
+	want(t, l, "in_place", ids[0])
+	var after int64
+	l.db.R.QueryRow("SELECT modified_at FROM files WHERE id = ?", ids[1]).Scan(&after)
+	if after != before {
+		t.Fatal("the file counts as modified")
+	}
+	checkReload(t, l)
+	// Once.
+	moved = 0
+	if err := l.RunGeneralTags(ctx, general, func(m, k int) { moved = m }); err != nil || moved != 0 {
+		t.Fatalf("ran again: moved %d, err %v", moved, err)
+	}
+}
+
 // A comic's tag of the same name (other:3d from a gallery site) doesn't make a plain site tag ambiguous: it still
 // lands on the library's meta:3d, and re-syncing a file changes nothing (its modified time stays).
 func TestComicTagsDontSplitSiteTags(t *testing.T) {

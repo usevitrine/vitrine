@@ -50,8 +50,8 @@ const dayMS = 24 * 60 * 60 * 1000
 // SitePost is what a site says about a file.
 type SitePost struct {
 	Tags []string // verbatim site tags
-	// Namespaces gives tags their namespace (from the site's tag types). A
-	// tag named here takes over the unnamespaced tag of the same name.
+	// Namespaces gives tags their namespace (from the site's tag types), "" for one the site calls general; a tag not
+	// named here: the site said nothing about it (see lookupTags).
 	Namespaces map[string]string
 	PostURL    string
 	Sources    []string
@@ -74,12 +74,17 @@ func (l *Library) SetSitePost(ctx context.Context, file, site uint32, p SitePost
 		}
 	}
 	tags := make([]tag.Tag, 0, len(p.Tags))
+	general := map[string]bool{}
 	for _, t := range p.Tags {
 		if t != "" {
-			tags = append(tags, tag.Tag{Namespace: p.Namespaces[t], Name: t})
+			ns, said := p.Namespaces[t]
+			tags = append(tags, tag.Tag{Namespace: ns, Name: t})
+			if said && ns == "" {
+				general[t] = true
+			}
 		}
 	}
-	if err := l.SetSiteTags(ctx, file, site, tags); err != nil {
+	if err := l.setSiteTags(ctx, file, site, tags, general); err != nil {
 		return err
 	}
 	return l.write(ctx, func(tx *sql.Tx) (func() error, error) {

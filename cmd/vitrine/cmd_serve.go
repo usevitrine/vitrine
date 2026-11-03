@@ -161,6 +161,13 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		}
 		go dl.Run(ctx)
 		log.Info("downloader running", "sites", strings.Join(dl.Sites(), ", "))
+		// Tags stuck in a namespace no site calls them: back to plain, once (see the function).
+		go func() {
+			err := lib.RunGeneralTags(ctx, dl.GeneralType, func(moved, kept int) { log.Info("tags back to general", "moved", moved, "kept", kept) })
+			if err != nil && ctx.Err() == nil {
+				log.Warn("putting tags back to general failed", "err", err)
+			}
+		}()
 	}
 	srv := &http.Server{
 		Handler:           handler,

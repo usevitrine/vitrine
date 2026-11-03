@@ -70,7 +70,16 @@ Request URLs to sites with API keys carry the key - never log or print them unfi
   request fails the page still downloads without types. Types are saved per site in `tag_types` (migration `0007`).
   A site-typed tag **takes over the plain tag of the same name** (same tag ID: its files, parents, siblings and user
   tags all become `creator:some_artist`); a plain name typed or sent without a type resolves to the single namespaced tag
-  of that name, so no duplicate plain tag appears. The plugins' namespaces are created at start-up. **Older files**:
+  of that name, so no duplicate plain tag appears. **A site's "general" counts (2026-11-03)**: that fallback was also
+  taken by tags the site *said* are general, so one claim (a site's types can change: they're edited by its users, and
+  both a site's APIs can call `widescreen` a character) left a general tag in that namespace for good, whatever the sites
+  said after. Now a tag the site calls general is the plain one: the namespaced tag comes back to plain if this site alone
+  has a say and the user didn't put it there (`ns_overrides`), else a plain one is made. The takeover above likewise
+  only happens when no other site has a say, so each site's files keep what that site says (a plain name still finds
+  both in a search). `Library.RunGeneralTags` puts existing tags right, once at start-up (meta `general_tags`): a
+  namespaced tag every site with a say calls general goes back to plain, merged a batch of files at a time; modified
+  times stay. A site's own wrong type stays as the site says it: the user moves the tag, and it stays moved. The
+  plugins' namespaces are created at start-up. **Older files**:
   while a site's queue is idle the downloader looks up, one at a time, the post with the most site tags of unknown
   type (`id:N`, 2 requests) and writes it again with namespaces (also a tag refresh); tags of posts the site no
   longer has are marked looked up (`''`). Sites like this have no batch tag lookup (`names=` is ignored) and no OR of IDs,

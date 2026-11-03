@@ -151,6 +151,157 @@ func (l *Library) SetNamespace(ctx context.Context, from tag.Tag, ns string) (ta
 	return to, files, nil
 }
 
+// ---- Tags stuck in a namespace no site calls them (before a site's "general" counted: lookupTags). One pass, once
+// (meta general_tags): a namespaced tag every site with a say calls general goes back to plain - not one the user put
+// there. Modified times stay: a namespace move isn't an edit of a file's tags.
+
+const generalTagsBatch = 500 // files merged at a time: other writes go between (a tag can be on most of a library)
+
+// RunGeneralTags does the pass; general says whether a site's tag type is a general one. done: how many went back,
+// and how many couldn't (parents or siblings, with a plain tag there too: the user's to sort out).
+func (l *Library) RunGeneralTags(ctx context.Context, general func(site uint32, typ string) bool, done func(moved, kept int)) error {
+	var mark string
+	err := l.db.R.QueryRowContext(ctx, "SELECT value FROM meta WHERE key = 'general_tags'").Scan(&mark)
+	if err == nil || !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	rows, err := l.db.R.QueryContext(ctx, `SELECT t.id, t.name, s.id, tt.type FROM tags t CROSS JOIN sites s
+		JOIN tag_types tt ON tt.site_id = s.id AND tt.name = t.name
+		WHERE t.namespace_id != 0 AND tt.type != ''
+			AND NOT EXISTS (SELECT 1 FROM ns_overrides x WHERE x.name = t.name AND x.to_ns = t.namespace_id)`)
+	if err != nil {
+		return fmt.Errorf("library: %w", err)
+	}
+	names, other := map[uint32]string{}, map[uint32]bool{}
+	for rows.Next() {
+		var id, site uint32
+		var name, typ string
+		if err := rows.Scan(&id, &name, &site, &typ); err != nil {
+			rows.Close()
+			return fmt.Errorf("library: %w", err)
+		}
+		names[id] = name
+		if !general(site, typ) {
+			other[id] = true
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("library: %w", err)
+	}
+	moved, kept := 0, 0
+	for id, name := range names {
+		if other[id] {
+			continue
+		}
+		switch err := l.backToPlain(ctx, id, name); {
+		case errors.Is(err, ErrHasRelations):
+			kept++
+		case err != nil:
+			return err
+		default:
+			moved++
+		}
+	}
+	l.mu.Lock()
+	_, err = l.db.W.ExecContext(ctx, "INSERT INTO meta (key, value) VALUES ('general_tags', 'done') ON CONFLICT (key) DO UPDATE SET value = excluded.value")
+	l.mu.Unlock()
+	if err != nil {
+		return fmt.Errorf("library: %w", err)
+	}
+	if done != nil && moved+kept > 0 {
+		done(moved, kept)
+	}
+	return nil
+}
+
+// backToPlain makes a namespaced tag the plain one: in place, or into the plain tag that's there, a batch of files at a
+// time. (Stopped half-way, it carries on at the next start: the mark is only set after.)
+func (l *Library) backToPlain(ctx context.Context, id uint32, name string) error {
+	for more := true; more; {
+		more = false
+		err := l.write(ctx, func(tx *sql.Tx) (func() error, error) {
+			var target uint32
+			err := tx.QueryRowContext(ctx, "SELECT id FROM tags WHERE namespace_id = 0 AND name = ?", name).Scan(&target)
+			if errors.Is(err, sql.ErrNoRows) {
+				if _, err := tx.ExecContext(ctx, "UPDATE tags SET namespace_id = 0 WHERE id = ?", id); err != nil {
+					return nil, err
+				}
+				return func() error {
+					l.ix.AddTags(index.Tag{ID: id, NamespaceID: 0, Name: name}) // renames it (its files stay)
+					return nil
+				}, nil
+			}
+			if err != nil {
+				return nil, err
+			}
+			var rel int
+			if err := tx.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM tag_parents WHERE child_id = ?1 OR parent_id = ?1) +
+				(SELECT count(*) FROM tag_siblings WHERE from_id = ?1 OR to_id = ?1)`, id).Scan(&rel); err != nil {
+				return nil, err
+			}
+			if rel > 0 {
+				return nil, ErrHasRelations
+			}
+			files, err := db.Column[uint32](ctx, tx, "SELECT DISTINCT file_id FROM file_tags WHERE tag_id = ? LIMIT ?", id, generalTagsBatch)
+			if err != nil {
+				return nil, err
+			}
+			if len(files) == 0 {
+				for _, q := range []string{
+					"UPDATE OR IGNORE hidden_tags SET tag_id = ?1 WHERE tag_id = ?2",
+					"DELETE FROM tags WHERE id = ?2", // what couldn't move (already there) goes with it
+				} {
+					if _, err := tx.ExecContext(ctx, q, target, id); err != nil {
+						return nil, err
+					}
+				}
+				return nil, nil
+			}
+			more = true
+			var changes []tagChange
+			for _, f := range files {
+				before, err := fileTags(ctx, tx, f)
+				if err != nil {
+					return nil, err
+				}
+				for _, q := range []string{
+					"UPDATE OR IGNORE hidden_tags SET tag_id = ?1 WHERE tag_id = ?2 AND file_id = ?3",
+					"UPDATE OR IGNORE file_tags SET tag_id = ?1 WHERE tag_id = ?2 AND file_id = ?3",
+					"DELETE FROM file_tags WHERE tag_id = ?2 AND file_id = ?3",
+				} {
+					if _, err := tx.ExecContext(ctx, q, target, id, f); err != nil {
+						return nil, err
+					}
+				}
+				after, err := fileTags(ctx, tx, f)
+				if err != nil {
+					return nil, err
+				}
+				if added, removed := diff(before, after); len(added)+len(removed) > 0 {
+					c := tagChange{file: f, added: added, removed: removed}
+					if err := tx.QueryRowContext(ctx, "SELECT modified_at FROM files WHERE id = ?", f).Scan(&c.modified); err != nil {
+						return nil, err
+					}
+					changes = append(changes, c)
+				}
+			}
+			return func() error {
+				for _, c := range changes {
+					if err := l.ix.UpdateTags(c.file, c.added, c.removed, c.modified); err != nil {
+						return err
+					}
+				}
+				return nil
+			}, nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // nsOverride is where a tag a site calls namespace:name goes, if the user moved
 // it (else the same namespace).
 func nsOverride(st *txStmts, nsID uint32, name string) (uint32, error) {

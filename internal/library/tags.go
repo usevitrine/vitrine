@@ -49,17 +49,36 @@ func (l *Library) Site(ctx context.Context, name string) (uint32, error) {
 // the index by the returned function (call it after commit, before using the
 // IDs in the index).
 func (l *Library) tagIDs(ctx context.Context, tx *sql.Tx, tags []tag.Tag, create bool) ([]uint32, func(), error) {
-	return l.lookupTags(ctx, tx, tags, create, false)
+	return l.lookupTags(ctx, tx, tags, create, nil)
+}
+
+// siteSays: tags that come from a site, and which of them it says are general (a tag it said nothing about isn't).
+type siteSays struct {
+	site    uint32
+	general map[string]bool
+}
+
+// othersSay reports whether another site has said what type the tag is (tag_types; an empty type is only "looked up").
+func (s *siteSays) othersSay(st *txStmts, name string) (bool, error) {
+	var said bool
+	err := st.QueryRow(`SELECT EXISTS (SELECT 1 FROM sites s JOIN tag_types tt ON tt.site_id = s.id AND tt.name = ?
+		WHERE s.id != ? AND tt.type != '')`, name, s.site).Scan(&said)
+	return said, err
 }
 
 // notComicOnly leaves out tags only comics have (a WHERE clause on tags).
 const notComicOnly = " AND (EXISTS (SELECT 1 FROM file_tags ft WHERE ft.tag_id = tags.id) OR NOT EXISTS (SELECT 1 FROM comic_tags ct WHERE ct.tag_id = tags.id))"
 
-// lookupTags is tagIDs; with move set (a site said what type a tag is), a
+// lookupTags is tagIDs; with says set (a site said what type a tag is), a
 // namespaced tag that doesn't exist yet takes over the unnamespaced tag of
 // the same name instead of being created: the tag keeps its ID, files,
 // parents and siblings, and from then on shows as namespace:name everywhere.
-func (l *Library) lookupTags(ctx context.Context, tx *sql.Tx, tags []tag.Tag, create, move bool) ([]uint32, func(), error) {
+// Unless another site has said what it is: then each keeps its own (one site's
+// type moved every site's files, and a general tag stayed in that namespace for
+// good, whatever the sites said after). A tag the site calls general is the plain one,
+// never the one namespaced tag of that name: that one comes back to plain if this
+// site alone had a say and the user didn't put it there, else a plain one is made.
+func (l *Library) lookupTags(ctx context.Context, tx *sql.Tx, tags []tag.Tag, create bool, says *siteSays) ([]uint32, func(), error) {
 	ids := make([]uint32, 0, len(tags))
 	var newTags []index.Tag
 	type ns struct {
@@ -107,16 +126,42 @@ func (l *Library) lookupTags(ctx context.Context, tx *sql.Tx, tags []tag.Tag, cr
 				t.Name).Scan(&n); e != nil {
 				return nil, nil, fmt.Errorf("library: tag %q: %w", t, e)
 			}
-			if n == 1 {
+			general := says != nil && says.general[t.Name]
+			switch {
+			case n == 1 && !general:
 				err = st.QueryRow("SELECT id FROM tags WHERE name = ? AND namespace_id != 0"+notComicOnly, t.Name).Scan(&id)
+			case n == 1:
+				others, e := says.othersSay(st, t.Name)
+				if e != nil {
+					return nil, nil, fmt.Errorf("library: tag %q: %w", t, e)
+				}
+				if !others {
+					// (not one the user put there)
+					e = st.QueryRow(`UPDATE tags SET namespace_id = 0 WHERE name = ? AND namespace_id != 0`+notComicOnly+`
+						AND NOT EXISTS (SELECT 1 FROM ns_overrides x WHERE x.name = tags.name AND x.to_ns = tags.namespace_id)
+						RETURNING id`, t.Name).Scan(&id)
+					if e == nil {
+						err = nil
+						newTags = append(newTags, index.Tag{ID: id, NamespaceID: 0, Name: t.Name})
+					} else if !errors.Is(e, sql.ErrNoRows) {
+						return nil, nil, fmt.Errorf("library: tag %q: %w", t, e)
+					}
+				}
 			}
 		}
 		switch {
 		case errors.Is(err, sql.ErrNoRows) && !create:
 			continue
-		case errors.Is(err, sql.ErrNoRows) && move && nsID != 0:
-			err = st.QueryRow("UPDATE tags SET namespace_id = ? WHERE namespace_id = 0 AND name = ? RETURNING id",
-				nsID, t.Name).Scan(&id)
+		case errors.Is(err, sql.ErrNoRows) && says != nil && nsID != 0:
+			others, e := says.othersSay(st, t.Name)
+			if e != nil {
+				return nil, nil, fmt.Errorf("library: tag %q: %w", t, e)
+			}
+			err = sql.ErrNoRows
+			if !others {
+				err = st.QueryRow("UPDATE tags SET namespace_id = ? WHERE namespace_id = 0 AND name = ? RETURNING id",
+					nsID, t.Name).Scan(&id)
+			}
 			if errors.Is(err, sql.ErrNoRows) {
 				err = st.QueryRow("INSERT INTO tags (namespace_id, name) VALUES (?, ?) RETURNING id", nsID, t.Name).Scan(&id)
 			}
@@ -177,11 +222,11 @@ type tagChange struct {
 // which files' tags actually changed: their modified time is updated (unless
 // touch, asked before the edit, says the change doesn't count - nil: it
 // always does) and the index is told.
-func (l *Library) changeTags(ctx context.Context, files []uint32, tags []tag.Tag, create, move bool,
+func (l *Library) changeTags(ctx context.Context, files []uint32, tags []tag.Tag, create bool, says *siteSays,
 	touch func(tx *sql.Tx, file uint32) (bool, error),
 	edit func(tx *sql.Tx, file uint32, tagIDs []uint32) error) error {
 	return l.write(ctx, func(tx *sql.Tx) (func() error, error) {
-		ids, register, err := l.lookupTags(ctx, tx, tags, create, move)
+		ids, register, err := l.lookupTags(ctx, tx, tags, create, says)
 		if err != nil {
 			return nil, err
 		}
@@ -248,7 +293,7 @@ func fileExists(ctx context.Context, tx *sql.Tx, id uint32) error {
 
 // AddTags gives files tags as the user's own (they survive site re-syncs).
 func (l *Library) AddTags(ctx context.Context, files []uint32, tags []tag.Tag) error {
-	return l.changeTags(ctx, files, tags, true, false, nil, func(tx *sql.Tx, f uint32, ids []uint32) error {
+	return l.changeTags(ctx, files, tags, true, nil, nil, func(tx *sql.Tx, f uint32, ids []uint32) error {
 		st := newTxStmts(ctx, tx)
 		for _, t := range ids {
 			if _, err := st.Exec(
@@ -266,7 +311,7 @@ func (l *Library) AddTags(ctx context.Context, files []uint32, tags []tag.Tag) e
 // RemoveTags takes tags off files. A tag that came from a site is hidden
 // rather than deleted, so re-syncing the site doesn't bring it back.
 func (l *Library) RemoveTags(ctx context.Context, files []uint32, tags []tag.Tag) error {
-	return l.changeTags(ctx, files, tags, false, false, nil, func(tx *sql.Tx, f uint32, ids []uint32) error {
+	return l.changeTags(ctx, files, tags, false, nil, nil, func(tx *sql.Tx, f uint32, ids []uint32) error {
 		st := newTxStmts(ctx, tx)
 		for _, t := range ids {
 			if _, err := st.Exec(
@@ -290,6 +335,11 @@ func (l *Library) RemoveTags(ctx context.Context, files []uint32, tags []tag.Tag
 // has doesn't ("modified recently" filled up with files whose only change was a
 // site's retagging).
 func (l *Library) SetSiteTags(ctx context.Context, file, site uint32, tags []tag.Tag) error {
+	return l.setSiteTags(ctx, file, site, tags, nil)
+}
+
+// setSiteTags is SetSiteTags; general names the tags the site says are general ones.
+func (l *Library) setSiteTags(ctx context.Context, file, site uint32, tags []tag.Tag, general map[string]bool) error {
 	if site == OriginUser {
 		return fmt.Errorf("library: SetSiteTags needs a site, not the user")
 	}
@@ -300,7 +350,7 @@ func (l *Library) SetSiteTags(ctx context.Context, file, site uint32, tags []tag
 			    OR EXISTS (SELECT 1 FROM file_urls WHERE file_id = ?1 AND site_id = ?2)`, f, site).Scan(&had)
 		return !had, err
 	}
-	return l.changeTags(ctx, []uint32{file}, tags, true, true, isNew, func(tx *sql.Tx, f uint32, ids []uint32) error {
+	return l.changeTags(ctx, []uint32{file}, tags, true, &siteSays{site, general}, isNew, func(tx *sql.Tx, f uint32, ids []uint32) error {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM file_tags WHERE file_id = ? AND origin = ?", f, site); err != nil {
 			return err
 		}
