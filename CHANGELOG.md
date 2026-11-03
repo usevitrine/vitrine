@@ -3,6 +3,18 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## 1.0.22 - 2026-11-03
+
+### Improved
+
+- **Fixes from updates**: after a restart, a fix that's holding off for a few minutes counts down to when it carries on, instead of its progress just sitting still.
+- **Tags marked in the suggestions**: the row of marked tags scrolls to its end as you mark more, so the newest is always in view.
+
+### Fixed
+
+- **Very big libraries**: past about a million files on a phone (fewer in Firefox), the grid couldn't scroll to the oldest ones, because browsers limit how tall a page can be. All of them can be reached now.
+- **Fixes from updates**: their cards no longer have so much empty space around the progress bar.
+
 ## 1.0.21 - 2026-11-03
 
 ### Added
