@@ -36,6 +36,29 @@ import (
 // Installed with the Windows installer (RunSetup set: the notification-area program), the Update button instead
 // downloads the new release's installer from GitHub (checked against the SHA-256 GitHub gives for it) and hands it to
 // RunSetup, which starts it to update in place without asking and quits Vitrine; the installer starts Vitrine again.
+//
+// On NixOS (update_trigger + update_status; the module in nix/module.nix) the Update button creates the file
+// update_trigger, which starts the system's update job (a path unit; Vitrine has no rights over the system, and all it
+// can ask for is that one job). The job writes a word to update_status: running, then unchanged, failed or done. Rebuilding
+// the system restarts Vitrine on the new version, so this program usually never sees the last word.
+
+// Words the update job writes to update_status (nix/module.nix).
+const (
+	jobRunning   = "running"
+	jobUnchanged = "unchanged"
+	jobFailed    = "failed"
+	jobDone      = "done"
+)
+
+// BackedUpFile is the file beside update_trigger saying the backup before an update is made: the unit's own backup,
+// for updates Vitrine didn't start, then isn't made a second time (nix/module.nix).
+const BackedUpFile = "backed-up"
+
+// How long the job may take to start, and to run (without a binary cache it compiles Vitrine).
+var (
+	jobStartWait = time.Minute
+	jobRunWait   = 3 * time.Hour
+)
 
 // ReleasesURL is GitHub's API address for the latest release.
 const ReleasesURL = "https://api.github.com/repos/usevitrine/vitrine/releases/latest"
@@ -59,6 +82,9 @@ type UpdateConfig struct {
 	UserAgent       string
 	WatchtowerURL   string // "" = no Update button (unless RunSetup)
 	WatchtowerToken string
+	ManagedBy       string // what installs updates when it isn't Vitrine ("nixos", "nixos-auto"; "" = none): the page says so
+	UpdateTrigger   string // "" = no job to start; see the top of this file
+	UpdateStatus    string
 	// SetupName is the release's installer for this computer (%s: the version without its v), and RunSetup runs a
 	// downloaded one: it starts it and stops Vitrine. Both set: the Update button installs it.
 	SetupName string
@@ -327,6 +353,7 @@ func (s *Server) updateStateJSON(ctx context.Context) map[string]any {
 		"error":        u.err,
 		"check":        check,
 		"can_update":   u.cfg.canUpdate(),
+		"managed_by":   u.cfg.ManagedBy,
 		"updating":     u.step,
 		"update_error": u.stepErr,
 	}
@@ -342,9 +369,9 @@ func (s *Server) updateCheckNow(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.updateStateJSON(r.Context()))
 }
 
-// canUpdate: the Update button works (Watchtower, or the installer).
+// canUpdate: the Update button works (Watchtower, the system's update job, or the installer).
 func (c UpdateConfig) canUpdate() bool {
-	return c.WatchtowerURL != "" || (c.RunSetup != nil && c.SetupName != "")
+	return c.WatchtowerURL != "" || c.UpdateTrigger != "" || (c.RunSetup != nil && c.SetupName != "")
 }
 
 // updateStart starts the update (see the top of this file) and answers at once.
@@ -352,7 +379,7 @@ func (s *Server) updateStart(w http.ResponseWriter, r *http.Request) {
 	u := s.updates
 	cfg := u.config()
 	if !cfg.canUpdate() {
-		writeError(w, http.StatusConflict, errors.New("updating from here needs Watchtower (watchtower_url)"))
+		writeError(w, http.StatusConflict, errors.New("updating from here needs Watchtower (watchtower_url) or, on NixOS, services.vitrine.updates.button"))
 		return
 	}
 	u.mu.Lock()
@@ -377,7 +404,11 @@ func (s *Server) runUpdate(cfg UpdateConfig) {
 		u.step, u.stepErr = "", err.Error()
 		u.mu.Unlock()
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	limit := 15 * time.Minute
+	if cfg.UpdateTrigger != "" {
+		limit = jobRunWait + 15*time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	defer cancel()
 	backupName := ""
 	if s.backups != nil {
@@ -395,6 +426,11 @@ func (s *Server) runUpdate(cfg UpdateConfig) {
 	u.mu.Lock()
 	u.step = "download"
 	u.mu.Unlock()
+	if cfg.UpdateTrigger != "" {
+		s.log.Info("update started (the system's update job)", "from", s.info.Version, "backup", backupName)
+		fail(runUpdateJob(ctx, cfg, backupName != ""))
+		return
+	}
 	if cfg.WatchtowerURL == "" {
 		s.log.Info("update started (installer)", "from", s.info.Version, "backup", backupName)
 		if err := s.runSetup(ctx, cfg); err != nil {
@@ -439,6 +475,62 @@ func (s *Server) runUpdate(cfg UpdateConfig) {
 		fail(errors.New("Watchtower updated another container but not this one"))
 	}
 }
+
+// runUpdateJob starts the system's update job and waits for its last word; when that's a success this program is stopped
+// before it gets there. The error says why it's still running.
+func runUpdateJob(ctx context.Context, cfg UpdateConfig, backedUp bool) error {
+	marker := filepath.Join(filepath.Dir(cfg.UpdateTrigger), BackedUpFile)
+	if backedUp {
+		if err := os.WriteFile(marker, nil, 0o644); err != nil {
+			return fmt.Errorf("the update job's folder: %w", err)
+		}
+		defer os.Remove(marker) // (still running here: nothing was updated)
+	}
+	before := jobStamp(cfg.UpdateStatus)
+	if err := os.WriteFile(cfg.UpdateTrigger, nil, 0o644); err != nil {
+		return fmt.Errorf("couldn't start the update job: %w", err)
+	}
+	defer os.Remove(cfg.UpdateTrigger) // (never picked up: it mustn't start one later, unasked)
+	started := time.Now()
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("the update job didn't finish: %w", ctx.Err())
+		case <-time.After(jobPoll):
+		}
+		running := jobStamp(cfg.UpdateStatus) != before
+		if !running {
+			if time.Since(started) > jobStartWait {
+				return errors.New("the update job didn't start - is vitrine-update.path running?")
+			}
+			continue
+		}
+		word, _ := os.ReadFile(cfg.UpdateStatus)
+		switch strings.TrimSpace(string(word)) {
+		case jobUnchanged:
+			return errors.New("no newer version on the update channel yet - try again in a while")
+		case jobFailed:
+			return errors.New("the system's update failed and nothing changed - see journalctl -u vitrine-update")
+		case jobDone:
+			return errors.New("the system was rebuilt but Vitrine wasn't restarted - see journalctl -u vitrine-update")
+		}
+		if time.Since(started) > jobRunWait {
+			return errors.New("the update job is taking too long - see journalctl -u vitrine-update")
+		}
+	}
+}
+
+// jobStamp is when the job last wrote its status ("" = never): another one than before an update means it has started.
+func jobStamp(path string) string {
+	st, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	return st.ModTime().String()
+}
+
+// How often runUpdateJob looks at the status.
+var jobPoll = time.Second
 
 // runSetup downloads the newest release's installer, checks it, and hands it to RunSetup (which stops Vitrine).
 func (s *Server) runSetup(ctx context.Context, cfg UpdateConfig) error {

@@ -8,7 +8,7 @@
   import { settings } from '../lib/settings.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import { toasts } from '../lib/toast.svelte';
-  import { updater } from '../lib/updater.svelte';
+  import { howToUpdate, updater } from '../lib/updater.svelte';
   import { reveal, swap } from '../lib/motion';
   import { t } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
@@ -58,7 +58,7 @@
       {#if info.can_update}
         <button class="primary go" onclick={update} disabled={checking} in:swap><Icon name="download" size={18} /> {t('updates.updateTo', { version: info.latest })}</button>
       {:else}
-        <p class="hint" in:swap>{t('updates.howTo')}</p>
+        <p class="hint" in:swap>{howToUpdate(info)}</p>
       {/if}
     {:else}
       <p class="status" in:swap>

@@ -251,21 +251,19 @@ func (m *Manager) Stage(r io.Reader) error {
 // Check opens a database file read-only and checks that it is a sound
 // Vitrine library this version can open.
 func Check(path string) error {
+	if newer, version, err := schemaNewer(path); err != nil {
+		return err
+	} else if newer {
+		return fmt.Errorf("backup: made by a newer Vitrine (schema %d, this one knows %d) - update Vitrine first", version, db.SchemaVersion())
+	}
 	conn, err := sql.Open("sqlite", "file:"+filepath.ToSlash(path)+"?mode=ro")
 	if err != nil {
 		return fmt.Errorf("backup: %w", err)
 	}
 	defer conn.Close()
-	var version int
-	if err := conn.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
-		return fmt.Errorf("backup: not a database: %w", err)
-	}
 	var files int
 	if err := conn.QueryRow("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('files', 'tags', 'settings')").Scan(&files); err != nil || files < 3 {
 		return errors.New("backup: not a Vitrine library")
-	}
-	if version > db.SchemaVersion() {
-		return fmt.Errorf("backup: made by a newer Vitrine (schema %d, this one knows %d) - update Vitrine first", version, db.SchemaVersion())
 	}
 	var ok string
 	if err := conn.QueryRow("PRAGMA quick_check").Scan(&ok); err != nil || ok != "ok" {
@@ -377,4 +375,23 @@ func unpack(r io.Reader, dst string) error {
 		return fmt.Errorf("backup: reading the file: %w", err)
 	}
 	return out.Close()
+}
+
+// FromNewer tells whether the database at path was last opened by a newer Vitrine than this one.
+func FromNewer(path string) (bool, error) {
+	newer, _, err := schemaNewer(path)
+	return newer, err
+}
+
+func schemaNewer(path string) (bool, int, error) {
+	conn, err := sql.Open("sqlite", "file:"+filepath.ToSlash(path)+"?mode=ro")
+	if err != nil {
+		return false, 0, fmt.Errorf("backup: %w", err)
+	}
+	defer conn.Close()
+	var version int
+	if err := conn.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		return false, 0, fmt.Errorf("backup: not a database: %w", err)
+	}
+	return version > db.SchemaVersion(), version, nil
 }

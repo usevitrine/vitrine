@@ -23,6 +23,7 @@ func cmdBackup(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	load := configFlags(fset)
 	keep := fset.Int("keep", 0, "keep only the newest N backups (0 = keep all)")
 	before := fset.String("before", "", "marks it as made before updating to this version (e.g. 1.2.3)")
+	unlessNewer := fset.Bool("unless-newer", false, "nothing to do, not an error, if a newer Vitrine last opened the library (going back to an older version: this one couldn't restore that backup)")
 	if err := fset.Parse(args); err != nil {
 		return err
 	}
@@ -33,6 +34,16 @@ func cmdBackup(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	dbPath := filepath.Join(c.DataDir, "meta.db")
 	if _, err := os.Stat(dbPath); err != nil {
 		return fmt.Errorf("no library at %s", c.DataDir)
+	}
+	if *unlessNewer {
+		newer, err := backup.FromNewer(dbPath)
+		if err != nil {
+			return err
+		}
+		if newer {
+			fmt.Fprintln(stdout, "A newer Vitrine last opened this library: no backup. To go on with this version, restore a backup from before that one (vitrine restore).")
+			return nil
+		}
 	}
 	m := backup.New(dbPath, c.BackupDir)
 	var b backup.Info

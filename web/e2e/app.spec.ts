@@ -10583,3 +10583,19 @@ test('the grid: scrolling a very long list leaves the page\'s scroll to the brow
   await expect.poll(() => page.evaluate(() => document.querySelector('.sizer')!.parentElement!.scrollTop)).toBeGreaterThan(1000);
   expect(await page.evaluate(() => (window as any).writes)).toBe(0);
 });
+
+// NixOS: Vitrine can't update itself there. Settings says how, by what installs it.
+test('updates on NixOS: how to update, by hand or by the timer; the button when it is set up', async ({ page }) => {
+  let state = { current: 'v1.0.1', latest: 'v9.9.9', page: '', newer: true, checked_at: Date.now(), error: '', check: true, can_update: false, managed_by: 'nixos', updating: '', update_error: '', changelog: '' };
+  await page.route('**/api/update', (r) => r.fulfill({ json: state }));
+  await page.goto('/settings/updates');
+  await expect(page.getByText('nix flake update vitrine, then nixos-rebuild switch')).toBeVisible();
+  await expect(page.getByText('docker compose')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Update to v9.9.9' })).toHaveCount(0);
+  state = { ...state, managed_by: 'nixos-auto' };
+  await page.reload();
+  await expect(page.getByText('Your system installs it by itself')).toBeVisible();
+  state = { ...state, managed_by: 'nixos', can_update: true };
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Update to v9.9.9' })).toBeVisible();
+});

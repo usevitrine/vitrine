@@ -153,3 +153,33 @@ jobs:
           (cd dist && sha256sum * > SHA256SUMS)
           gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Vitrine ${TAG#v}" --generate-notes \
             --notes "Docker: \`docker pull ghcr.io/usevitrine/vitrine:${TAG#v}\` (see compose.example.yaml). Windows: Vitrine-Setup-${TAG#v}-x64.exe installs it (Vitrine-Setup-${TAG#v}-arm64.exe on ARM64 Windows; with ffmpeg and libvips, in the notification area, updates from the app). Programs for Linux and macOS below; SHA256SUMS to check them."
+
+  # The flake's build of this release, on both platforms (and into the binary cache when there is one: without the
+  # secret, NixOS installs compile it themselves).
+  nix:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    env:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31.11.3
+      - uses: cachix/cachix-action@v17
+        if: env.CACHIX_AUTH_TOKEN != ''
+        with:
+          name: vitrine
+          authToken: ${{ env.CACHIX_AUTH_TOKEN }}
+      - run: nix build .#default -L
+
+  # What NixOS systems follow (github:usevitrine/vitrine/stable), once all of this release is out and the flake builds it.
+  stable:
+    needs: [release, nix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: git push origin "HEAD:refs/heads/stable"

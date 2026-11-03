@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### New
+
+- **NixOS**: Vitrine can run natively on NixOS, with a flake and a module (`services.vitrine`), no containers involved. Update by hand, on a timer, or with the Update button in Settings; each makes a backup of the library first.
+
 ## 1.0.23 - 2026-11-03
 
 ### Fixed

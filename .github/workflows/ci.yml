@@ -77,3 +77,19 @@ jobs:
           CGO_ENABLED: "0"
           TARGET: ${{ matrix.target }}
         run: GOOS="${TARGET%/*}" GOARCH="${TARGET#*/}" go build -trimpath -o /dev/null ./cmd/vitrine
+
+  # The flake still builds (a change in go.sum or package-lock.json needs a new hash in nix/package.nix: this prints it),
+  # and the NixOS module works on a real system. See docs/architecture/nixos.md.
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Let the test's VM use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: cachix/install-nix-action@v31.11.3
+        with:
+          extra_nix_config: system-features = kvm nixos-test benchmark big-parallel
+      - run: nix build .#checks.x86_64-linux.module -L

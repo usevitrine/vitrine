@@ -61,6 +61,13 @@ type Config struct {
 	// Empty = no button (updating stays a docker compose pull).
 	WatchtowerURL   string `toml:"watchtower_url"`
 	WatchtowerToken string `toml:"watchtower_token"`
+	// ManagedBy: what installs Vitrine's updates, when it isn't Vitrine - "nixos" (by rebuilding the system) or "nixos-auto"
+	// (the same, on a timer): Settings says so. Set by the NixOS module, as are the next two.
+	ManagedBy string `toml:"managed_by"`
+	// UpdateTrigger and UpdateStatus: another way to have an Update button - creating the file UpdateTrigger starts a job
+	// of the system's, which writes how it went to UpdateStatus (see internal/server/updates.go).
+	UpdateTrigger string `toml:"update_trigger"`
+	UpdateStatus  string `toml:"update_status"`
 	// ReleasesURL is where the daily update check asks for the latest release (default: GitHub's API for
 	// usevitrine/vitrine); "off" never asks.
 	ReleasesURL string `toml:"releases_url"`
@@ -85,6 +92,9 @@ func (c *Config) envKeys() map[string]*string {
 		"VITRINE_SOCKET":           &c.Socket,
 		"VITRINE_WATCHTOWER_URL":   &c.WatchtowerURL,
 		"VITRINE_WATCHTOWER_TOKEN": &c.WatchtowerToken,
+		"VITRINE_MANAGED_BY":       &c.ManagedBy,
+		"VITRINE_UPDATE_TRIGGER":   &c.UpdateTrigger,
+		"VITRINE_UPDATE_STATUS":    &c.UpdateStatus,
 		"VITRINE_RELEASES_URL":     &c.ReleasesURL,
 		"VITRINE_CHANGELOG_URL":    &c.ChangelogURL,
 	}

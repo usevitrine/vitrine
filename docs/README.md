@@ -15,6 +15,7 @@ Split by topic: open only the files a task needs. Each file starts with what it 
   screen-sized copies, Docker image, the Windows installer and notification-area program.
 - `architecture/search-index.md` - the in-memory search index as built.
 - `architecture/media.md` - probing, thumbnails, previews (ffmpeg, libvips).
+- `architecture/nixos.md` - the flake, the NixOS module, its three ways to update, keeping it building.
 - `architecture/testing.md` - Go tests and the Playwright end-to-end tests.
 
 ## Command line

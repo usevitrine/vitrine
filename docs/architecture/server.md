@@ -292,6 +292,7 @@ waits before the server comes back up and fades the site back into view". `inter
   updates in place keeping config and library, and starts `Vitrine.exe --background` - the page sees the server go
   and come back on the new version (the same steps as Watchtower's). Tested end to end on Windows 2026-10-25 with a
   local stand-in for GitHub (1.0.3 to 1.0.4: ~5 s). Test: `TestUpdateWithInstaller`.
+- **On NixOS** the Update button starts the system's update job: `architecture/nixos.md`.
 - compose.example.yaml has the Watchtower service (optional) and the two Vitrine variables; config.example.toml
   documents `watchtower_url`, `watchtower_token`, `releases_url`.
 - **Settings > Updates** (2026-10-24, the user: "The update section should be on its own update page with the change

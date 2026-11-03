@@ -65,6 +65,44 @@ on the internet. The first steps then walk you through storage, sites, the app a
   example's Watchtower service, Update installs it from there; without it, `docker compose pull && docker compose
   up -d`.
 
+### NixOS
+
+Vitrine runs natively, with no containers: the repository is a flake with a package and a module. In your system's flake:
+
+```nix
+{
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs.vitrine.url = "github:usevitrine/vitrine/stable"; # the releases: main has what isn't released yet
+
+  outputs = { nixpkgs, vitrine, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        vitrine.nixosModules.default
+        ({ pkgs, ... }: {
+          services.vitrine = {
+            enable = true;
+            filesDir = "/mnt/bulk/vitrine"; # the originals: can be a big, slow disk
+            openFirewall = true;
+          };
+          hardware.graphics.extraPackages = [ pkgs.intel-media-driver ]; # for an Intel GPU
+        })
+      ];
+    };
+  };
+}
+```
+
+- Vitrine brings its own tools from its own `nixpkgs` input. Don't make that follow a stable release: Vitrine needs a
+  newer Go than those have.
+- Updates, each with a backup of the library first. By hand: `nix flake update vitrine`, then `nixos-rebuild switch`.
+  Or set `services.vitrine.updates.flake = "/etc/nixos"` (your flake's folder) and either or both of
+  `updates.automatic.enable = true` (a timer, 04:00 by default) and `updates.button = true` (Update in Settings). Those
+  move only Vitrine's input and rebuild the system from the flake as it stands, so with whatever else you've changed in it.
+- Going back with `nixos-rebuild switch --rollback` works until a new version has changed the database: the older one
+  then refuses it and says so. `vitrine restore /var/lib/vitrine/backups/<the backup from before the update>` brings it back.
+- More options: [`nix/module.nix`](nix/module.nix). The `vitrine` command works as usual, as root too.
+
 ### Windows
 
 Download `Vitrine-Setup-<version>-x64.exe` (`-arm64.exe` for Windows on ARM) from the

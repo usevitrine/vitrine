@@ -278,7 +278,8 @@ export interface UpdateState {
   checked_at: number; // Unix ms (0 = never)
   error: string; // why the last check failed
   check: boolean; // the daily check is on (setting updateCheck)
-  can_update: boolean; // Watchtower is set up, or installed with the Windows installer: the Update button
+  can_update: boolean; // Watchtower is set up, the system's update job (NixOS), or installed with the Windows installer: the Update button
+  managed_by?: '' | 'nixos' | 'nixos-auto'; // what installs updates when it isn't Vitrine
   updating: '' | 'backup' | 'download'; // an update under way: its step on the server
   update_error: string; // why the last update failed
   changelog: string; // a newer release's CHANGELOG.md ("" = none, or it couldn't be read)

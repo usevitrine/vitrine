@@ -48,7 +48,7 @@
             {:else if current(i) && !updater.error}<span class="spin" in:pop></span>
             {:else if current(i)}<span class="ic bad" in:pop><Icon name="close" size={14} /></span>{/if}
           </span>
-          {t(`updates.steps.${s}`)}
+          {s === 'download' && updater.managedBy ? t('updates.stepRebuild') : t(`updates.steps.${s}`)}
         </li>
       {/each}
     </ol>

@@ -2747,6 +2747,10 @@
     "stillOld": "Vitrine came back on {version} - Watchtower didn't update it. Check Watchtower's log.",
     "notBack": "Vitrine hasn't come back yet. Check the container.",
     "howTo": "To update: docker compose pull, then docker compose up -d.",
+    "howToNixos": "To update: nix flake update vitrine, then nixos-rebuild switch.",
+    "howToNixosAuto": "Your system installs it by itself, at the next update it's set to run.",
+    "stillOldNixos": "Vitrine came back on {version} - the system's update didn't change it. Check journalctl -u vitrine-update.",
+    "notBackNixos": "Vitrine hasn't come back yet. Check journalctl -u vitrine-update and -u vitrine.",
     "check": "Check for updates",
     "checkHint": "Once a day, from GitHub.",
     "showWhatsNew": "Show what's new after an update",
@@ -2758,6 +2762,7 @@
     "failedHint": "Vitrine is still on the version it was. Your library is untouched.",
     "keepOpen": "Keep this page open - it comes back on its own.",
     "close": "Close",
+    "stepRebuild": "Installing the new version on your system",
     "steps": {
       "backup": "Backing up your library",
       "download": "Downloading the new version",

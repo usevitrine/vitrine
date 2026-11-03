@@ -12,7 +12,7 @@
   import { fineMouse as hasFineMouse } from '../lib/media';
   import { newDownloadDialog } from '../lib/newDownload.svelte';
   import { api, type LibraryStats, type UpdateState } from '../lib/api';
-  import { updater } from '../lib/updater.svelte';
+  import { howToUpdate, updater } from '../lib/updater.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import { toasts } from '../lib/toast.svelte';
   import { settings } from '../lib/settings.svelte';
@@ -150,7 +150,7 @@
         <Icon name="download" size={18} />
         <span class="field">
           <strong>{t('updates.notice', { version: update.latest })}</strong>
-          <span class="hint">{update.can_update ? t('setup.update.hint') : t('updates.howTo')}</span>
+          <span class="hint">{update.can_update ? t('setup.update.hint') : howToUpdate(update)}</span>
         </span>
         {#if update.can_update}<button class="primary" onclick={updateNow}>{t('updates.update')}</button>{/if}
       </div>

@@ -119,6 +119,7 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	handler.SetBackups(backup.New(filepath.Join(c.DataDir, "meta.db"), c.BackupDir), stopServe)
 	go handler.RunDailyBackups(ctx)
 	handler.SetUpdates(server.UpdateConfig{ReleasesURL: c.ReleasesURL, ChangelogURL: c.ChangelogURL, UserAgent: userAgent(), WatchtowerURL: c.WatchtowerURL, WatchtowerToken: c.WatchtowerToken,
+		ManagedBy: c.ManagedBy, UpdateTrigger: c.UpdateTrigger, UpdateStatus: c.UpdateStatus,
 		SetupName: setupName, RunSetup: runSetup})
 	go handler.RunUpdateChecks(ctx)
 	go handler.RunPluginChecks(ctx)

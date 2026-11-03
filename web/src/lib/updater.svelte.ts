@@ -39,6 +39,7 @@ class Updater {
   leaving = $state(false);
   from = $state('');
   to = $state('');
+  managedBy = $state(''); // (NixOS: the system's update job does the download step, and other things go wrong)
   private stepAt = 0;
   private timer = 0;
   private run = 0;
@@ -74,6 +75,7 @@ class Updater {
     this.error = '';
     this.from = info.current;
     this.to = info.latest;
+    this.managedBy = info.managed_by ?? '';
     this.progress = 0;
     this.stepAt = 0;
     this.step = 'backup';
@@ -85,7 +87,7 @@ class Updater {
     } catch (e) {
       return this.fail((e as Error).message);
     }
-    const until = Date.now() + 20 * 60_000;
+    let until = Date.now() + 20 * 60_000;
     while (run === this.run && Date.now() < until) {
       await sleep(1000);
       if (run !== this.run) return;
@@ -100,11 +102,14 @@ class Updater {
         this.go('start');
         return this.finish(s.current);
       }
-      if ((this.step as UpdateStep) === 'restart') return this.fail(t('updates.stillOld', { version: s.current })); // (back, but the same)
+      if ((this.step as UpdateStep) === 'restart') return this.fail(t(this.managedBy ? 'updates.stillOldNixos' : 'updates.stillOld', { version: s.current })); // (back, but the same)
       if (s.update_error) return this.fail(s.update_error);
-      if (s.updating === 'backup' || s.updating === 'download') this.go(s.updating);
+      if (s.updating === 'backup' || s.updating === 'download') {
+        this.go(s.updating);
+        until = Date.now() + 20 * 60_000; // (a NixOS system may compile the new version: as long as the server says it's going)
+      }
     }
-    if (run === this.run) this.fail(t('updates.notBack'));
+    if (run === this.run) this.fail(t(this.managedBy ? 'updates.notBackNixos' : 'updates.notBack'));
   }
 
   private async finish(version: string) {
@@ -143,3 +148,7 @@ class Updater {
 }
 
 export const updater = new Updater();
+
+/** How to update without the Update button: by what installs them here. */
+export const howToUpdate = (info: UpdateState) =>
+  t(info.managed_by === 'nixos-auto' ? 'updates.howToNixosAuto' : info.managed_by === 'nixos' ? 'updates.howToNixos' : 'updates.howTo');

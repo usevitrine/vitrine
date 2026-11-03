@@ -270,3 +270,80 @@ func TestUpdateWithInstaller(t *testing.T) {
 	}
 	os.RemoveAll(filepath.Dir(ran.Load().(string)))
 }
+
+// The Update button on NixOS: creating the trigger starts the system's job, whose last word comes back as update_error
+// when Vitrine is still running. (Its success is this program being restarted: tested on a real system.)
+func TestUpdateJob(t *testing.T) {
+	jobPoll, jobStartWait = 5*time.Millisecond, 200*time.Millisecond
+	defer func() { jobPoll, jobStartWait = time.Second, time.Minute }()
+	e := newEnv(t)
+	e.loginAs("me", "correct horse")
+	e.h.SetInfo(Info{Version: "v1.0.1"})
+	dir := t.TempDir()
+	trigger, status := filepath.Join(dir, "request"), filepath.Join(dir, "status")
+	e.h.SetBackups(backup.New(filepath.Join(e.dir, "meta.db"), filepath.Join(e.dir, "backups")), func() {})
+	e.h.SetUpdates(UpdateConfig{ReleasesURL: "off", ManagedBy: "nixos", UpdateTrigger: trigger, UpdateStatus: status})
+	var st struct {
+		Updating    string
+		UpdateError string `json:"update_error"`
+		CanUpdate   bool   `json:"can_update"`
+		ManagedBy   string `json:"managed_by"`
+	}
+	finish := func() {
+		t.Helper()
+		for i := 0; i < 400; i++ {
+			e.call("GET", "/api/update", nil, &st)
+			if st.Updating == "" {
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		t.Fatalf("still updating: %+v", st)
+	}
+	// Nobody there: it says so, and leaves no request to start a job later.
+	if code := e.call("POST", "/api/update", map[string]any{}, nil); code != http.StatusAccepted {
+		t.Fatalf("start: %d", code)
+	}
+	finish()
+	if !st.CanUpdate || st.ManagedBy != "nixos" || !strings.Contains(st.UpdateError, "didn't start") {
+		t.Fatalf("no job: %+v", st)
+	}
+	if _, err := os.Stat(trigger); err == nil {
+		t.Fatal("the request stayed")
+	}
+	for word, want := range map[string]string{jobUnchanged: "no newer version", jobFailed: "update failed", jobDone: "wasn't restarted"} {
+		if err := os.WriteFile(status, []byte("an old word\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		old := time.Now().Add(-time.Hour)
+		os.Chtimes(status, old, old)
+		var marked atomic.Bool
+		go func() { // the job: picks up the request, runs, ends
+			for i := 0; i < 2000; i++ {
+				if _, err := os.Stat(trigger); err == nil {
+					_, err := os.Stat(filepath.Join(dir, BackedUpFile))
+					marked.Store(err == nil)
+					os.Remove(trigger)
+					os.WriteFile(status, []byte(jobRunning+"\n"), 0o644)
+					time.Sleep(20 * time.Millisecond)
+					os.WriteFile(status, []byte(word+"\n"), 0o644)
+					return
+				}
+				time.Sleep(time.Millisecond)
+			}
+		}()
+		if code := e.call("POST", "/api/update", map[string]any{}, nil); code != http.StatusAccepted {
+			t.Fatalf("start: %d", code)
+		}
+		finish()
+		if !strings.Contains(st.UpdateError, want) {
+			t.Fatalf("%s: %+v", word, st)
+		}
+		if !marked.Load() {
+			t.Fatalf("%s: the backup wasn't marked as made", word)
+		}
+		if _, err := os.Stat(filepath.Join(dir, BackedUpFile)); err == nil {
+			t.Fatalf("%s: the mark stayed, with nothing updated", word)
+		}
+	}
+}
