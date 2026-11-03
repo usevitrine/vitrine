@@ -82,6 +82,7 @@ Vitrine runs natively, with no containers: the repository is a flake with a pack
         ({ pkgs, ... }: {
           services.vitrine = {
             enable = true;
+            dataDir = "/var/lib/vitrine"; # the databases, thumbnails and plugins: fast storage (an SSD); this is the default
             filesDir = "/mnt/bulk/vitrine"; # the originals: can be a big, slow disk
             openFirewall = true;
           };
