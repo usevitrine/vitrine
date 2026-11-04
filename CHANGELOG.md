@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **Saved searches**: a short name no longer leaves the card's pictures short of its sides.
+
 ## 1.0.25 - 2026-11-03
 
 ### New

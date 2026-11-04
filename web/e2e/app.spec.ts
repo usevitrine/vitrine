@@ -10669,3 +10669,34 @@ test('updates on NixOS: how to update, by hand or by the timer; the button when 
   await page.reload();
   await expect(page.getByRole('button', { name: 'Update to v9.9.9' })).toBeVisible();
 });
+
+// The user, of a saved search with a short name: "the thumbnails dont reach the side of the card". The tile's button is
+// centered like every button, so its one column was only as wide as what's in it.
+test('saved searches: a short name, and the pictures still fill the tile', async ({ page }) => {
+  // (a tall picture: a wide one's height alone made the column wide enough. In a cell of another shape it's cropped, never
+  // stretched - the user: keep each thumbnail's aspect ratio)
+  const dot = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="5" height="20"><rect width="5" height="20" fill="red"/></svg>')}`;
+  await login(page);
+  await page.route('**/api/saved*', (r) =>
+    r.request().method() === 'GET' ? r.fulfill({ json: { saved: [{ id: 905, name: 'sky', query: 'blue_sky', sort: '', count: 4 }] } }) : r.continue(),
+  );
+  await page.route('**/api/saved/looks*', (r) =>
+    r.fulfill({ json: { saved: { 905: { pics: [1, 2, 3].map((id) => ({ id, thumb: dot })) } }, groups: [] } }),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Saved searches/ }).click();
+  const panel = page.getByRole('dialog', { name: 'Saved searches' });
+  const tile = panel.locator('li.tile', { hasText: 'sky' });
+  await expect(tile.locator('.mosaic img')).toHaveCount(3);
+  await panel.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  // (layout sizes: not the tile's own animation)
+  const widths = await tile.evaluate((el) => ({ tile: el.clientWidth, pics: el.querySelector<HTMLElement>('.pics')!.offsetWidth, foot: el.querySelector<HTMLElement>('.foot')!.offsetWidth }));
+  expect(Math.abs(widths.pics - widths.tile)).toBeLessThanOrEqual(1);
+  expect(Math.abs(widths.foot - widths.tile)).toBeLessThanOrEqual(1);
+  for (const img of await tile.locator('.mosaic img').all()) {
+    const pic = await img.evaluate((el: HTMLImageElement) => ({ fit: getComputedStyle(el).objectFit, natural: el.naturalWidth / el.naturalHeight, box: el.clientWidth / el.clientHeight }));
+    expect(pic.fit).toBe('cover');
+    expect(pic.natural).toBe(0.25);
+    expect(pic.box).toBeGreaterThan(0.25); // (so cover really is cropping here, and the picture itself keeps its 1:4)
+  }
+});

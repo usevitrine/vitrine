@@ -701,6 +701,9 @@
   }
   .run {
     display: grid;
+    /* (its own width, not its content's: buttons center, and a short name left the pictures short of the sides) */
+    grid-template-columns: minmax(0, 1fr);
+    border: 0; /* (the tile has one: a button's own left the pictures 1 px short all around) */
     width: 100%;
     min-height: 0;
     height: auto;
