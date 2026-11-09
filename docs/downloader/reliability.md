@@ -74,6 +74,13 @@ two requests go out together (one round trip).
   queue up** while it's paused: a selection's Refresh tags marks its posts due as always, and one file's Refresh tags
   (details) queues a paused site's post instead of asking (`{found, queued}`); the Tag refresh card shows the site
   Paused; the queue is worked through once it answers. Only connection failures count: a site answering nonsense still fails the search as before.
+- **A site's own ban** (2026-11-09, ExHentai: "banned ... for an excessive request rate", with how long): the engine
+  pauses the site for that long (`Client.Hold`, `Pause.Kind = "ban"`, kept over restarts: `site_pauses.kind`, migration
+  0052), then one request tries as after any pause. The Downloads page says it banned the address and when it carries
+  on, with no Try now (asking early can make a ban longer); the bell and push say so too (the paused event's `first`).
+  During any pause, browsing's pictures, logins and API posts aren't sent either (`breaker.waiting`), and a post that
+  failed because the site paused waits like the rest - before, a gallery's ban failed its search (retried on the
+  failed-search waits).
 - Told **once each way**: the events `paused` (with the last failure) and `back` - a bell notice and a push
   notification (under the "failed" push setting), not one per try or per subscription. The Downloads page shows a
   Paused chip by the site and a line under its queue (why, when it tries again, Try now); its running search shows as

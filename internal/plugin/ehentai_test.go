@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // fakeEH is a gallery site like e-hentai.org: a list (newest first, next=
@@ -27,6 +28,7 @@ type fakeEH struct {
 	apiCalls int      // gdata (and other API) requests
 	mpv      bool     // the multi-page viewer is open to the account (else "eeenope")
 	mpvCalls int
+	sCalls   int // picture pages asked for
 }
 
 func newFakeEH(t *testing.T) (*fakeEH, Manifest) {
@@ -108,6 +110,7 @@ var imagelist = [{"n":"01.jpg","k":"1111111111","t":"x"},{"n":"02.jpg","k":"2222
 		case strings.HasPrefix(r.URL.Path, "/s/"):
 			f.mu.Lock()
 			limit, banned := f.limit, f.banned
+			f.sCalls++
 			f.mu.Unlock()
 			if banned {
 				io.WriteString(w, "Your IP address has been temporarily banned for excessive pageloads which indicates that you are using automated mirroring/harvesting software. The ban expires in 59 minutes and 48 seconds")
@@ -242,6 +245,43 @@ func TestEHentaiPages(t *testing.T) {
 	f.mu.Unlock()
 	if _, _, err := ge.PageImage(ctx, pages[0], ""); !errors.Is(err, ErrBanned) || !strings.Contains(err.Error(), "59 minutes") {
 		t.Fatalf("ban: %v", err)
+	}
+	// ... and nothing more goes to the site until it ends (2026-11-09: Vitrine kept asking every few seconds):
+	// the site is paused for the ban's length, as a ban.
+	c := e.(*ehentai).c
+	p := c.Paused()
+	if p.Kind != PauseBan || time.Until(p.Until) < 60*time.Minute || time.Until(p.Until) > 62*time.Minute || !strings.Contains(p.Reason, "59 minutes") {
+		t.Fatalf("pause: %+v", p)
+	}
+	f.mu.Lock()
+	asked := f.sCalls
+	f.mu.Unlock()
+	if _, _, err := ge.PageImage(ctx, pages[1], ""); !errors.Is(err, ErrPaused) || !strings.Contains(err.Error(), "banned this address") {
+		t.Fatalf("during the ban: %v", err)
+	}
+	if _, _, err := c.Picture(ctx, f.srv.URL+"/img/one/1.png"); !errors.Is(err, ErrPaused) {
+		t.Fatalf("a picture during the ban: %v", err)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.sCalls != asked {
+		t.Fatalf("the site was asked %d more times during the ban", f.sCalls-asked)
+	}
+}
+
+func TestEHentaiBanLength(t *testing.T) {
+	for in, want := range map[string]time.Duration{
+		"Your IP address has been temporarily banned for excessive pageloads. The ban expires in 59 minutes and 48 seconds":       59*time.Minute + 48*time.Second,
+		"This IP address has been temporarily banned due to an excessive request rate. The ban expires in 2 hours and 5 minutes.": 2*time.Hour + 5*time.Minute,
+		"<html><body>Banned. The ban expires in 1 day, 3 hours and 1 second</body></html>":                                        27*time.Hour + time.Second,
+		"This IP address has been temporarily banned due to an excessive request rate.":                                           time.Hour, // (doesn't say: an hour)
+	} {
+		if got, _ := banLength([]byte(in)); got != want {
+			t.Errorf("%q: %v, want %v", in, got, want)
+		}
+	}
+	if _, says := banLength([]byte("Banned. The ban expires in 5 minutes. Contact us.")); says != "The ban expires in 5 minutes" {
+		t.Errorf("says %q", says)
 	}
 }
 

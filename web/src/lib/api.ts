@@ -339,12 +339,14 @@ export interface BrowsedTag {
   from_sites: boolean; // some file has it from a site
 }
 
-/** A site paused by itself: it kept failing to answer; its downloads wait until it does (tried again now and then). */
+/** A site paused by itself: it kept failing to answer, or banned this address for a while (kind "ban": until the
+ *  ban ends, as the site said); its downloads wait until it answers (tried again now and then). */
 export interface SitePause {
   since: string;
   until: string; // the next try
-  reason: string; // the last failure
+  reason: string; // the last failure (a ban: the site's words on how long)
   tries: number; // tries that failed since
+  kind?: 'ban';
 }
 
 /** What erasing a removed site would remove (library.SiteTraces). */

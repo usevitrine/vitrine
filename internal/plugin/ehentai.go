@@ -314,7 +314,11 @@ func (e *ehentai) page(ctx context.Context, rawURL string) ([]byte, error) {
 		low := strings.ToLower(text)
 		switch {
 		case strings.Contains(low, "banned") || strings.Contains(low, "excessive"):
-			return nil, fmt.Errorf("%s: %w (the site: %q)", e.c.m.Site, ErrBanned, text)
+			// Nothing more goes to the site until the ban ends (asking on could make it longer): its downloads wait
+			// and carry on by themselves then, browsing says until when.
+			d, says := banLength(body)
+			e.c.Hold(d+time.Minute, PauseBan, says)
+			return nil, fmt.Errorf("%s: %w (the site: %q)", e.c.m.Site, ErrBanned, says)
 		case text != "": // (e.g. "Invalid page.": not the blank page)
 			return nil, fmt.Errorf("%s: the site answered %q", e.c.m.Site, text)
 		case e.exhentai():
@@ -323,6 +327,35 @@ func (e *ehentai) page(ctx context.Context, rawURL string) ([]byte, error) {
 	}
 	return body, nil
 }
+
+// banLength reads how long a ban lasts from its answer ("... The ban expires in 59 minutes and 48 seconds", or
+// "in 2 hours and 5 minutes", "in 1 day ..."), with the sentence that says so for the user; an hour when it doesn't say.
+func banLength(body []byte) (time.Duration, string) {
+	text := strings.Join(strings.Fields(html.UnescapeString(ehTags.ReplaceAllString(string(body), " "))), " ")
+	i := strings.Index(strings.ToLower(text), "the ban expires")
+	if i < 0 {
+		return time.Hour, "banned for loading too many pages too fast"
+	}
+	says := text[i:]
+	if j := strings.IndexAny(says, ".!"); j >= 0 {
+		says = says[:j]
+	}
+	units := map[string]time.Duration{"day": 24 * time.Hour, "hour": time.Hour, "minute": time.Minute, "second": time.Second}
+	var d time.Duration
+	for _, m := range ehBanPart.FindAllStringSubmatch(strings.ToLower(says), -1) {
+		n, _ := strconv.Atoi(m[1])
+		d += time.Duration(n) * units[m[2]]
+	}
+	if d <= 0 {
+		d = time.Hour
+	}
+	return d, says
+}
+
+var ehBanPart = regexp.MustCompile(`(\d+)\s*(day|hour|minute|second)s?`)
+
+// ehPicturePace: ExHentai's covers and thumbnail sheets at most 5 a second (see NewEngine).
+const ehPicturePace = 200 * time.Millisecond
 
 // plainText is a short answer as one line of text (tags out, at most 200 characters).
 func plainText(b []byte) string {

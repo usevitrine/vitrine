@@ -7,6 +7,8 @@ shows this too (Settings > Help & about).
 
 ### Fixed
 
+- **ExHentai bans**: when the site bans your address for loading pages too fast, Vitrine stops asking it anything until the ban ends (it says when on the Downloads page), and its downloads carry on by themselves after. Before, it kept asking every few seconds, which can make a ban longer.
+- **ExHentai browsing**: covers and page thumbnails load at most 5 a second, so fast scrolling no longer counts towards a ban. With the ExHentai plugin's update (1.2.0), its pages load one every 3 seconds.
 - **E-Hentai and ExHentai login**: when Cloudflare holds up the forum's login longer than FlareSolverr can wait, the error now says so and suggests pasting the login cookies, instead of "context canceled".
 
 ## 1.0.26 - 2026-11-09

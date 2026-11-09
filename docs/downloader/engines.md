@@ -113,7 +113,9 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
   a picture that fails is asked for again with the page's reload key (another image server). Pages the comic has
   are skipped, so a stopped download carries on where it was. **Speed** (2026-10-20): the picture pages are read
   one after another at the plugin's `requests_per_sec` (1/s: at 2/s ExHentai stopped answering properly after ~55
-  pages, likely a ban for loading pages too fast - now `plugin.ErrBanned`, read from the ban's plain-text answer) and read ahead while the pictures download, up to its
+  pages, likely a ban for loading pages too fast - now `plugin.ErrBanned`, read from the ban's plain-text answer;
+  **ExHentai 0.33/s since 2026-11-09**, plugin 1.2.0: at 1/s, with browsing beside it and through a shared VPN address,
+  a 188-page gallery got the address banned after 49 pages; e-hentai stays at 1/s) and read ahead while the pictures download, up to its
   `connections` (3) at once - pictures come from many image servers, not the site; one gallery at a time per search
   (its pages share the connections). Measured before: ~1.4 s a page whatever its size (1 page/s, then the picture,
   one at a time). The downloads list counts a running gallery's pages ("12 of 75 pages", live: `FileProgress.pages/done`),
@@ -138,6 +140,14 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
     nor its picture asked for. A newer version is checked page by page by key (pages added in the middle, or changed,
     land right - before, only by page number); fewer pages: the rest go. Not the stored file's own hash: the site often
     serves a resized picture. Pages from before the keys get theirs on the next check of the gallery.
+- **A ban** (2026-11-09): the ban's answer says how long ("The ban expires in 59 minutes and 48 seconds"; days,
+  hours, minutes, seconds; an hour when it doesn't say - `banLength`): the site is **paused** that long plus a minute
+  (`Client.Hold`, kind `ban`: reliability.md), so nothing more goes to it - before, every browse and retry asked again
+  every few seconds, which can make a ban longer. Its downloads wait and carry on when it ends.
+  **ExHentai's covers and thumbnail sheets** come from the site itself (`s.exhentai.org`; e-hentai's from a CDN) and
+  skipped the rate limit (only 8 at once): fast browsing made ~25 a second beside the pages. They're paced at 5 a
+  second now (`Client.SetPicturePace`, set by the engine - not a plugin field: an older Vitrine refuses fields it
+  doesn't know). Cached ones (64 MB here, a month in the browser) never wait.
 - **The image limit**: a picture page serving the "509" picture -> `plugin.ErrImageLimit`, wrapped in
   `errStopSearch`: the search stops as failed (retried later) **without recording the gallery**, so the resume point
   stays before it. Same for a refused login, ExHentai's blank "sad panda" page (`ErrSadPanda`: no access) and a

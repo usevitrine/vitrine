@@ -828,19 +828,20 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 		} else {
 			oldRun = 0
 		}
+		if r.err != nil && pausedBy(st, r.err) {
+			// The site stopped answering, or banned this address for a while (a gallery's page said so): not recorded
+			// as failed - the search carries on from this post when the site's pause ends.
+			if ending == "" || ending == "done" || ending == "stop" {
+				ending = "paused"
+			}
+			continue
+		}
 		var stop errStopSearch
 		if errors.As(r.err, &stop) {
 			// (not recorded: the search goes on from this post later - a gallery from the page it stopped at)
 			d.log.Warn("search stopped", "site", s.Site, "post", p.ID, "err", r.err)
 			if ending == "" || ending == "done" || ending == "stop" {
 				ending = "failed: " + stop.Error()
-			}
-			continue
-		}
-		if r.err != nil && pausedBy(st, r.err) {
-			// The site stopped answering: not recorded as failed - the search carries on from this post later.
-			if ending == "" || ending == "done" || ending == "stop" {
-				ending = "paused"
 			}
 			continue
 		}
@@ -909,15 +910,18 @@ func pausedBy(st *Site, err error) bool {
 // sitePaused hears a site pause (it kept failing to answer; again: a try failed) or answer again: the user hears
 // of it once each way (not of every try), the Downloads page shows it, and the site's queue carries on when it's back.
 func (d *Downloader) sitePaused(m plugin.Manifest, paused bool, p plugin.Pause) {
-	if paused {
+	switch {
+	case paused && p.Kind == plugin.PauseBan:
+		d.log.Warn("site paused: it banned this address for a while", "site", m.ID, "until", p.Until.Format("15:04:05"), "err", p.Reason)
+	case paused:
 		d.log.Warn("site paused: it isn't answering", "site", m.ID, "until", p.Until.Format("15:04:05"), "tries", p.Tries, "err", p.Reason)
-	} else {
+	default:
 		d.log.Info("site answers again", "site", m.ID, "paused_since", p.Since.Format("15:04:05"))
 	}
 	// Kept over restarts (a restart doesn't start the waits over).
 	var keep *library.SitePause
 	if paused {
-		keep = &library.SitePause{Since: p.Since.UnixMilli(), Until: p.Until.UnixMilli(), Reason: p.Reason, Tries: p.Tries}
+		keep = &library.SitePause{Since: p.Since.UnixMilli(), Until: p.Until.UnixMilli(), Reason: p.Reason, Tries: p.Tries, Kind: p.Kind}
 	}
 	if err := d.lib.SetSitePause(context.Background(), m.ID, keep); err != nil {
 		d.log.Warn("keeping a site's pause", "site", m.ID, "err", err)
@@ -925,7 +929,7 @@ func (d *Downloader) sitePaused(m plugin.Manifest, paused bool, p plugin.Pause) 
 	if d.OnEvent != nil && (!paused || p.Tries == 0) {
 		e := Event{Kind: EventBack, Site: m.Site}
 		if paused {
-			e = Event{Kind: EventPaused, Site: m.Site, Error: p.Reason}
+			e = Event{Kind: EventPaused, Site: m.Site, Error: p.Reason, First: p.Kind == plugin.PauseBan}
 		}
 		d.OnEvent(e)
 	}
@@ -1015,7 +1019,7 @@ type Event struct {
 	New          int    // files downloaded
 	Error        string // EventFailed: why
 	Tag          string // EventBlacklisted: the blacklist entry the file now matches
-	First        bool   // EventDone: a subscription's first check (its initial download)
+	First        bool   // EventDone: a subscription's first check (its initial download); EventPaused: the site's own ban
 	Pages        int    // a gallery site's: the pages brought in (New counts its galleries)
 }
 

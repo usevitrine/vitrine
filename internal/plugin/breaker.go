@@ -30,13 +30,20 @@ type PausedError struct {
 	Site   string
 	Until  time.Time
 	Reason string
+	Kind   string // as Pause.Kind
 }
 
 func (e *PausedError) Error() string {
+	if e.Kind == PauseBan {
+		return fmt.Sprintf("%s: paused until %s - the site banned this address for a while (%s)", e.Site, e.Until.Format("15:04"), e.Reason)
+	}
 	return fmt.Sprintf("%s: paused until %s - it isn't answering (%s)", e.Site, e.Until.Format("15:04"), e.Reason)
 }
 
 func (e *PausedError) Unwrap() error { return ErrPaused }
+
+// PauseBan is the kind of pause a site's own ban is (see Hold).
+const PauseBan = "ban"
 
 // Pause is a site's pause, as shown (the zero value: not paused).
 type Pause struct {
@@ -44,6 +51,8 @@ type Pause struct {
 	Until  time.Time `json:"until"`  // the next try
 	Reason string    `json:"reason"` // the last failure
 	Tries  int       `json:"tries"`  // tries that failed since it paused
+	// Kind: "" it kept failing to answer; PauseBan the site banned this address until Until (it said so).
+	Kind string `json:"kind,omitempty"`
 }
 
 // breaker counts a site's connection failures and pauses it (safe for concurrent use).
@@ -70,7 +79,42 @@ func (b *breaker) allow(site string) error {
 		b.probing = true // this one tries; the others wait for how it goes
 		return nil
 	}
-	return &PausedError{Site: site, Until: b.pause.Until, Reason: b.pause.Reason}
+	return &PausedError{Site: site, Until: b.pause.Until, Reason: b.pause.Reason, Kind: b.pause.Kind}
+}
+
+// waiting is allow without taking the try: an error while the site is paused and its next try isn't due (requests
+// outside the downloads - browsing's pictures, logins, API posts - wait for the downloads' try to bring it back).
+func (b *breaker) waiting(site string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.pause.Until.IsZero() || (!b.probing && !b.now().Before(b.pause.Until)) {
+		return nil
+	}
+	return &PausedError{Site: site, Until: b.pause.Until, Reason: b.pause.Reason, Kind: b.pause.Kind}
+}
+
+// Hold pauses the site for a while it named itself - a ban for loading too many pages too fast (kind PauseBan):
+// nothing goes to it meanwhile (more requests could make the ban longer), then one request tries again as after
+// any pause. A pause that already lasts longer stays as it is.
+func (c *Client) Hold(d time.Duration, kind, reason string) {
+	b := &c.brk
+	b.mu.Lock()
+	until := b.now().Add(d)
+	if !b.pause.Until.IsZero() && b.pause.Kind == kind && !b.pause.Until.Before(until) {
+		b.mu.Unlock()
+		return
+	}
+	again := !b.pause.Until.IsZero()
+	p := Pause{Since: b.pause.Since, Until: until, Reason: reason, Tries: b.pause.Tries, Kind: kind}
+	if !again {
+		p.Since = b.now()
+	}
+	b.pause, b.probing = p, false
+	f := b.onChange
+	b.mu.Unlock()
+	if f != nil {
+		f(true, p)
+	}
 }
 
 // done records how a request went: err is a connection failure (no answer, 5xx, a Cloudflare block) or nil (the
@@ -97,7 +141,7 @@ func (b *breaker) done(err error) {
 			b.probing = false
 			b.pause.Tries++
 			b.pause.Until = b.now().Add(pauseSteps[min(b.pause.Tries, len(pauseSteps)-1)])
-			b.pause.Reason = b.last
+			b.pause.Reason, b.pause.Kind = b.last, "" // (not answering now, whatever paused it)
 		case !paused && b.after > 0 && b.fails >= b.after:
 			b.pause = Pause{Since: b.now(), Until: b.now().Add(pauseSteps[0]), Reason: b.last}
 		default:

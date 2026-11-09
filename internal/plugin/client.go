@@ -45,6 +45,8 @@ type Client struct {
 	files    chan struct{} // connection slots for file downloads
 	pics     chan struct{} // ... and for browsing's small pictures (Picture)
 	picsOnce sync.Once
+	picEvery time.Duration // browsing's pictures at most one per this (0: no pace - the engine sets it: SetPicturePace)
+	picNext  time.Time     // (under mu)
 	urgent   chan struct{} // one more, for a download someone waits for (see Urgent)
 	log      *slog.Logger  // the site's requests (debug), nil: none
 	// fileIdle: a file download with no answer for this long, or less than
@@ -208,6 +210,9 @@ func (c *Client) PostForm(ctx context.Context, u *url.URL, form url.Values) ([]b
 	if !c.m.allows(u.Hostname()) || (u.Scheme != "https" && u.Scheme != "http") {
 		return nil, fmt.Errorf("%s: %s is not one of the plugin's domains", c.m.Site, u.Hostname())
 	}
+	if err := c.brk.waiting(c.m.Site); err != nil {
+		return nil, err
+	}
 	if err := c.waitTurn(ctx); err != nil {
 		return nil, err
 	}
@@ -238,6 +243,9 @@ func (c *Client) PostForm(ctx context.Context, u *url.URL, form url.Values) ([]b
 func (c *Client) PostJSON(ctx context.Context, u *url.URL, body []byte) ([]byte, error) {
 	if !c.m.allows(u.Hostname()) || u.Scheme != "https" {
 		return nil, fmt.Errorf("%s: %s is not one of the plugin's domains", c.m.Site, u.Hostname())
+	}
+	if err := c.brk.waiting(c.m.Site); err != nil {
+		return nil, err
 	}
 	// Someone looking at the screen: the API has a turn of its own, at the same rate, apart from the site's pages. A
 	// search's list and its details then come one straight after the other (2026-11-02, measured: 250 ms + 280 ms, with
@@ -608,6 +616,12 @@ func (c *Client) Picture(ctx context.Context, rawURL string) ([]byte, string, er
 	if !c.m.allows(u.Hostname()) {
 		return nil, "", fmt.Errorf("%s: %s is not one of the plugin's domains", c.m.Site, u.Hostname())
 	}
+	if err := c.brk.waiting(c.m.Site); err != nil {
+		return nil, "", err
+	}
+	if err := c.picturePace(ctx); err != nil {
+		return nil, "", err
+	}
 	// At most 8 at once (as a browser does): a page of covers all at once opened as many TLS handshakes, which came
 	// back in bursts of timeouts (through a VPN).
 	c.picsOnce.Do(func() { c.pics = make(chan struct{}, 8) })
@@ -643,6 +657,42 @@ func (c *Client) Picture(ctx context.Context, rawURL string) ([]byte, string, er
 	}
 	b, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	return b, ct, err
+}
+
+// SetPicturePace makes browsing's pictures (Picture) go out at most one per d (0: no pace) - for a site that counts
+// them with its pages towards a ban (ExHentai: a page of covers and fast scrolling made ~25 a second).
+func (c *Client) SetPicturePace(d time.Duration) {
+	c.mu.Lock()
+	c.picEvery = d
+	c.mu.Unlock()
+}
+
+// picturePace waits for a picture's turn (see SetPicturePace). (One called off while it waits leaves its turn unused:
+// pictures are cheap to wait for, and a page of them is called off together.)
+func (c *Client) picturePace(ctx context.Context) error {
+	c.mu.Lock()
+	every := c.picEvery
+	if every <= 0 {
+		c.mu.Unlock()
+		return nil
+	}
+	now := time.Now()
+	at := now
+	if c.picNext.After(now) {
+		at = c.picNext
+	}
+	c.picNext = at.Add(every)
+	c.mu.Unlock()
+	if wait := at.Sub(now); wait > 0 {
+		t := time.NewTimer(wait)
+		defer t.Stop()
+		select {
+		case <-t.C:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
 }
 
 // maxResumes is how often one file carries on after breaking off (each time it must have brought something).

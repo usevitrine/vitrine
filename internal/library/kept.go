@@ -89,11 +89,12 @@ type SitePause struct {
 	Since, Until int64
 	Reason       string
 	Tries        int
+	Kind         string // "": it kept failing to answer; "ban": the site's own ban (plugin.PauseBan)
 }
 
 // SitePauses returns the paused sites, by plugin ID.
 func (l *Library) SitePauses(ctx context.Context) (map[string]SitePause, error) {
-	rows, err := l.db.R.QueryContext(ctx, "SELECT site, since, until, reason, tries FROM site_pauses")
+	rows, err := l.db.R.QueryContext(ctx, "SELECT site, since, until, reason, tries, kind FROM site_pauses")
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
 	}
@@ -102,7 +103,7 @@ func (l *Library) SitePauses(ctx context.Context) (map[string]SitePause, error) 
 	for rows.Next() {
 		var site string
 		var p SitePause
-		if err := rows.Scan(&site, &p.Since, &p.Until, &p.Reason, &p.Tries); err != nil {
+		if err := rows.Scan(&site, &p.Since, &p.Until, &p.Reason, &p.Tries, &p.Kind); err != nil {
 			return nil, fmt.Errorf("library: %w", err)
 		}
 		out[site] = p
@@ -116,9 +117,10 @@ func (l *Library) SetSitePause(ctx context.Context, site string, p *SitePause) e
 	if p == nil {
 		_, err = l.db.W.ExecContext(ctx, "DELETE FROM site_pauses WHERE site = ?", site)
 	} else {
-		_, err = l.db.W.ExecContext(ctx, `INSERT INTO site_pauses (site, since, until, reason, tries) VALUES (?, ?, ?, ?, ?)
-			ON CONFLICT (site) DO UPDATE SET since = excluded.since, until = excluded.until, reason = excluded.reason, tries = excluded.tries`,
-			site, p.Since, p.Until, p.Reason, p.Tries)
+		_, err = l.db.W.ExecContext(ctx, `INSERT INTO site_pauses (site, since, until, reason, tries, kind) VALUES (?, ?, ?, ?, ?, ?)
+			ON CONFLICT (site) DO UPDATE SET since = excluded.since, until = excluded.until, reason = excluded.reason, tries = excluded.tries,
+			kind = excluded.kind`,
+			site, p.Since, p.Until, p.Reason, p.Tries, p.Kind)
 	}
 	if err != nil {
 		return fmt.Errorf("library: %w", err)

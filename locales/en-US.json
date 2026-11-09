@@ -48,6 +48,8 @@
     "brave": "{error}. In Brave, turn on \"Use Google services for push messaging\" (brave://settings/privacy), then try again.",
     "sitePaused": "A site isn’t answering",
     "sitePausedBody": "Its downloads wait - Vitrine tries again by itself",
+    "siteBanned": "A site banned Vitrine for a while",
+    "siteBannedBody": "For loading pages too fast. Its downloads wait and carry on when the ban ends",
     "siteBack": "A site answers again",
     "siteBackBody": "Its downloads carry on",
     "fromSubs": {
@@ -1490,8 +1492,11 @@
     "allRetrying": "All of them are being tried again",
     "pausedTitle": "It kept failing to answer: its downloads wait until it does",
     "pausedLine": "isn't answering - its downloads wait. Trying again at {time}",
+    "bannedTitle": "It banned this address for loading pages too fast: its downloads wait until the ban ends",
+    "bannedLine": "banned this address for a while for loading pages too fast - its downloads wait. Carrying on at {time}",
     "tryNow": "Try now",
     "pausedNotice": "{site} isn’t answering: its downloads are paused until it does ({error})",
+    "bannedNotice": "{site} banned this address for a while for loading pages too fast: its downloads wait until the ban ends ({error})",
     "backNotice": "{site} answers again: its downloads carry on",
     "history": "History",
     "sum": {

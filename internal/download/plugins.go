@@ -33,7 +33,7 @@ func (d *Downloader) prepareSite(ctx context.Context, m plugin.Manifest, creds m
 	// (paused before a restart, or before the plugin was updated: still paused, its next try as it was)
 	if kept, err := d.lib.SitePauses(ctx); err == nil {
 		if p, ok := kept[m.ID]; ok {
-			c.RestorePause(plugin.Pause{Since: time.UnixMilli(p.Since), Until: time.UnixMilli(p.Until), Reason: p.Reason, Tries: p.Tries})
+			c.RestorePause(plugin.Pause{Since: time.UnixMilli(p.Since), Until: time.UnixMilli(p.Until), Reason: p.Reason, Tries: p.Tries, Kind: p.Kind})
 		}
 	}
 	d.mu.Lock()

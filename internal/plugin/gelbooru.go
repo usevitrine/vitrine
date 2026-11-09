@@ -69,7 +69,13 @@ func NewEngine(c *Client) (Engine, error) {
 	case "danbooru":
 		return &danbooru{c: c}, nil
 	case "ehentai":
-		return &ehentai{c: c}, nil
+		e := &ehentai{c: c}
+		if e.exhentai() {
+			// Its covers and thumbnail sheets come from the site itself (s.exhentai.org; e-hentai's from a CDN), and
+			// browsing fast made ~25 a second next to the pages: ExHentai banned the address (2026-11-09).
+			c.SetPicturePace(ehPicturePace)
+		}
+		return e, nil
 	}
 	return nil, fmt.Errorf("plugin %s: unknown engine %q", c.m.ID, c.m.Engine)
 }

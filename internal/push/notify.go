@@ -18,7 +18,7 @@ type Event struct {
 	New          int
 	Error        string
 	Tag          string // "blacklisted": the blacklist entry a library file now matches
-	First        bool   // "done": a subscription's first check (its initial download)
+	First        bool   // "done": a subscription's first check (its initial download); "paused": the site's own ban
 	Pages        int    // a gallery site's: the pages brought in (New counts its galleries)
 }
 
@@ -157,7 +157,11 @@ func Compose(events []Event, l i18n.Lang) []Message {
 		out = append(out, m)
 	}
 	// A site that kept failing to answer (its downloads wait), or answers again: one notification per site.
-	for range by["paused"] {
+	for _, e := range by["paused"] {
+		if e.First { // (the site's own ban)
+			out = append(out, Message{URL: "/downloads", Title: l.T("push.siteBanned"), Body: l.T("push.siteBannedBody")})
+			continue
+		}
 		out = append(out, Message{URL: "/downloads", Title: l.T("push.sitePaused"), Body: l.T("push.sitePausedBody")})
 	}
 	for range by["back"] {

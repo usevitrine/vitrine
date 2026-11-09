@@ -67,8 +67,8 @@ function word(n: ServerNotice): { text: string; kind: ToastKind } {
       };
     case 'failed':
       return { text: `${n.subscription ? t('push.checkFailed') : t('push.downloadStopped')}: ${what}${n.error ? ' - ' + n.error : ''}`, kind: 'error' };
-    case 'paused':
-      return { text: t('downloads.pausedNotice', { site: n.site ?? '', error: n.error ?? '' }), kind: 'error' };
+    case 'paused': // (first: the site's own ban)
+      return { text: t(n.first ? 'downloads.bannedNotice' : 'downloads.pausedNotice', { site: n.site ?? '', error: n.error ?? '' }), kind: 'error' };
     case 'back':
       return { text: t('downloads.backNotice', { site: n.site ?? '' }), kind: 'done' };
     case 'blacklisted':

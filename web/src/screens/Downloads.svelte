@@ -1242,7 +1242,7 @@
 
 <!-- A site paused by itself (it kept failing to answer): a chip by its name. -->
 {#snippet pausedChip(siteId: string)}
-  {#if sitesPaused[siteId]}<span class="paused-chip" title={t('downloads.pausedTitle')} transition:nudge>{t('downloads.paused')}</span>{/if}
+  {#if sitesPaused[siteId]}<span class="paused-chip" title={t(sitesPaused[siteId].kind === 'ban' ? 'downloads.bannedTitle' : 'downloads.pausedTitle')} transition:nudge>{t('downloads.paused')}</span>{/if}
 {/snippet}
 
 <!-- ... and at the top of the page: which site, why, when it tries again, and Try now. -->
@@ -1252,8 +1252,9 @@
     <div class="paused-line" role="status" transition:reveal>
       <Icon name="alert" size={16} />
       <span class="paused-text"
-        ><span><b>{siteLabel(siteId)}</b> {t('downloads.pausedLine', { time: time(new Date(p.until)) })}</span><span class="paused-why">{p.reason}</span></span>
-      <button class="quiet" onclick={() => tryNow(siteId)}>{t('downloads.tryNow')}</button>
+        ><span><b>{siteLabel(siteId)}</b> {t(p.kind === 'ban' ? 'downloads.bannedLine' : 'downloads.pausedLine', { time: time(new Date(p.until)) })}</span><span class="paused-why">{p.reason}</span></span>
+      <!-- (not during a ban: asking before it ends can make it longer) -->
+      {#if p.kind !== 'ban'}<button class="quiet" onclick={() => tryNow(siteId)}>{t('downloads.tryNow')}</button>{/if}
     </div>
   {/if}
 {/snippet}
