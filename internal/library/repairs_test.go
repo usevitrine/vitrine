@@ -158,8 +158,11 @@ func TestRepairsGoOnAfterARestart(t *testing.T) {
 	// (the same library, started again: it says it's holding off, then it isn't)
 	ctx2, stop2 := context.WithCancel(context.Background())
 	defer stop2()
+	// (under the lock: a repair of the first start can still be ending - the race detector caught it on CI, 2026-11-09)
+	l.rep.mu.Lock()
 	l.rep.list = nil
 	l.rep.wait = 150 * time.Millisecond
+	l.rep.mu.Unlock()
 	if err := l.StartRepairs(ctx2); err != nil {
 		t.Fatal(err)
 	}
