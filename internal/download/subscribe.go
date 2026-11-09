@@ -95,6 +95,11 @@ func (d *Downloader) SubscribeTo(ctx context.Context, site, query string, every 
 	if query == "" {
 		return 0, ErrEmptyQuery
 	}
+	if _, single, err := plugin.SinglePost(st.Client.Manifest(), query); err != nil {
+		return 0, err
+	} else if single {
+		return 0, ErrSinglePost
+	}
 	iv, err := checkInterval(every)
 	if err != nil {
 		return 0, err
@@ -171,6 +176,11 @@ func (d *Downloader) SubscribeSearch(ctx context.Context, searchID int64, every 
 	}
 	if s.SubscriptionID != 0 {
 		return 0, fmt.Errorf("%w: that is a subscription's check", ErrState)
+	}
+	if st := d.all()[s.Site]; st != nil {
+		if _, single, _ := plugin.SinglePost(st.Client.Manifest(), s.Query); single {
+			return 0, ErrSinglePost
+		}
 	}
 	tx, err := d.db.W.BeginTx(ctx, nil)
 	if err != nil {

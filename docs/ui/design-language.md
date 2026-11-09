@@ -36,8 +36,9 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   margin back; a grid doesn't (a track never goes below 0), so a single-column grid lays out as the same flex column
   while something in it moves (its alignment carried over, and its width held: as a flex column its widest content - a strip
   that scrolls sideways - made it grow past its place for a moment, and the details' tags overflowed as picking began). Measured: the details' Tags glide 166 px with no step at
-  the end. The details' facts: one card, the ones every file has first (they never move), the ones only some have
-  (duration, uploaded, came) after them, each sliding in and out - between the others, a fact coming or going moved all
+  the end. The details' facts: one card, the ones every file has first (they never move; Imported last, on a row's left,
+  2026-11-05, the user: Imported and Uploaded "next to each other"), the ones only some have (uploaded first, then duration,
+  came) after them, each sliding in and out - between the others, a fact coming or going moved all
   the ones after it to the other column (a second card for them, 2026-10-23 to 24, looked apart from the rest - the
   user). Grid tiles sit on whole pixels (their edges rounded): one between pixels was
   snapped onto them as its hover zoom began - a jump up and left (the user).

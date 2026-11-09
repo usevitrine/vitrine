@@ -279,6 +279,12 @@ func (d *Downloader) AddTo(ctx context.Context, site, query string, maxPosts int
 	if d.IsOff(site) {
 		return 0, fmt.Errorf("%w: %s", ErrSiteOff, site)
 	}
+	// One post's link or ID: kept as id:N (a link's other parts say nothing; the list shows the short form).
+	if post, single, err := plugin.SinglePost(s.Client.Manifest(), query); err != nil {
+		return 0, err
+	} else if single {
+		query = singleQuery(post)
+	}
 	var id int64
 	err := d.db.W.QueryRowContext(ctx, `
 		INSERT INTO searches (site_id, query, max_posts, position, created_at, favorite)
@@ -588,7 +594,13 @@ func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
 		pctx, cancel := context.WithCancel(ctx)
 		d.trackPage(s.ID, cancel)
 		pageStart := d.now()
-		page, err := st.Engine.Search(pctx, s.Query, below)
+		var page plugin.Page
+		var err error
+		if post, single, _ := plugin.SinglePost(st.Client.Manifest(), s.Query); single {
+			page, err = plugin.FetchSingle(pctx, st.Client.Manifest(), st.Engine, post, below)
+		} else {
+			page, err = st.Engine.Search(pctx, s.Query, below)
+		}
 		d.trackPage(s.ID, nil)
 		cancel()
 		d.log.Debug("page", "site", s.Site, "search", s.ID, "below", below, "posts", len(page.Posts), "total", page.Total,

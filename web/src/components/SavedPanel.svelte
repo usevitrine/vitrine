@@ -334,10 +334,10 @@
           <!-- (a dot: new files in one of its searches or groups - as on the save button, which says only that some has) -->
           <button type="button" role="tab" aria-selected={tab === 'saved'} onclick={() => switchTab('saved')}
             aria-label={t('saved.tabSaved') + (saved.savedNew ? t('searchBar.newFiles') : '')}
-            >{t('saved.tabSaved')}{#if saved.savedNew}<span class="tab-dot" aria-hidden="true" transition:pop></span>{/if}</button>
+            ><span class="tab-name">{t('saved.tabSaved')}{#if saved.savedNew}<span class="tab-dot" aria-hidden="true" transition:pop></span>{/if}</span></button>
           <button type="button" role="tab" aria-selected={tab === 'groups'} onclick={() => switchTab('groups')}
             aria-label={t('saved.tabGroups') + (saved.groupsNew ? t('searchBar.newFiles') : '')}
-            >{t('saved.tabGroups')}{#if saved.groupsNew}<span class="tab-dot" aria-hidden="true" transition:pop></span>{/if}</button>
+            ><span class="tab-name">{t('saved.tabGroups')}{#if saved.groupsNew}<span class="tab-dot" aria-hidden="true" transition:pop></span>{/if}</span></button>
         </div>
       {/if}
       <span class="grow"></span>
@@ -553,8 +553,12 @@
     align-items: center;
     gap: 8px;
     margin: 0 -12px;
-    padding: 8px 6px 8px 16px;
+    padding: 8px 0 8px 12px; /* (at the sides: the title and the X's drawing, not its button, end where the content does) */
     border-bottom: 1px solid var(--surface0);
+  }
+  .head button {
+    padding: 0 7px 0 0; /* (at its right, however wide, inside its 1 px border; the 20 px X is drawn 4 px inside its icon) */
+    justify-content: flex-end;
   }
   h2 {
     flex: 1;
@@ -594,12 +598,16 @@
     height: 30px;
     padding: 0 14px;
   }
+  /* The new-files dot: at the top right of the word, like the one on an icon (the word doesn't move for it). */
+  .tab-name {
+    position: relative;
+  }
   .tab-dot {
-    display: inline-block;
+    position: absolute;
+    top: -1px;
+    left: calc(100% + 1px);
     width: 7px;
     height: 7px;
-    margin-left: 6px;
-    vertical-align: 0.15em;
     border-radius: 50%;
     background: var(--mauve);
   }

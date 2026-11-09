@@ -307,9 +307,9 @@ func (e *mastodon) Lookup(ctx context.Context, id int64) (*Post, error) {
 	if err != nil {
 		return nil, err
 	}
-	var st mastoStatus
-	if err := json.Unmarshal(body, &st); err != nil {
-		return nil, fmt.Errorf("%s: unexpected reply: %s", e.c.m.Site, snippet(body))
+	st, err := e.decodeStatus(body)
+	if err != nil {
+		return nil, err
 	}
 	types := map[string]string{}
 	for _, p := range e.posts(st, types) {
@@ -319,4 +319,12 @@ func (e *mastodon) Lookup(ctx context.Context, id int64) (*Post, error) {
 		}
 	}
 	return nil, nil
+}
+
+func (e *mastodon) decodeStatus(body []byte) (mastoStatus, error) {
+	var st mastoStatus
+	if err := json.Unmarshal(body, &st); err != nil {
+		return st, fmt.Errorf("%s: unexpected reply: %s", e.c.m.Site, snippet(body))
+	}
+	return st, nil
 }

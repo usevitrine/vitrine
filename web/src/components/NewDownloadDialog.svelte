@@ -163,9 +163,33 @@
     newGroupName = split.length ? searchWords(parse(query)).slice(0, 60) : '';
     go('search');
   }
-  function toHow(e?: SubmitEvent) {
+  // One post (its link, or id:N): asked about first - the site says whether it has it, here in the dialog - and then
+  // there's nothing to choose (a one-time download of that post).
+  let single = $state<{ query: string; files: number } | null>(null);
+  let refError = $state('');
+  let checking = $state(false);
+  const mayBeSingle = (q: string) => /^(id:\S+|https?:\/\/\S+)$/i.test(q.trim());
+  async function toHow(e?: SubmitEvent) {
     e?.preventDefault();
-    if (ready) go('how');
+    if (!ready || checking) return;
+    single = null;
+    refError = '';
+    if (searches.length === 1 && mayBeSingle(searches[0])) {
+      checking = true;
+      try {
+        const res = await api.checkSingle(site, searches[0]);
+        if (res.single) {
+          single = { query: res.query ?? searches[0], files: res.files ?? 1 };
+          repeat = '0';
+        }
+      } catch (err) {
+        refError = err instanceof Error ? err.message : String(err);
+        return;
+      } finally {
+        checking = false;
+      }
+    }
+    go('how');
   }
 
   // svelte-ignore state_referenced_locally
@@ -340,8 +364,10 @@
                   onenter={() => toHow()} />
                 {#if split.length}<p class="hint left" transition:reveal>{t('newDl.split', { site: siteLabel(site), n: searches.length })}</p>{/if}
                 {#if left.length}<p class="hint left" transition:reveal>{t('newDl.leftOut', { what: searchWords(left) })}</p>{/if}
+                {#if refError}<p class="hint left ref-error" role="alert" transition:reveal>{refError}</p>
+                {:else if siteInfo.single[site]}<p class="hint left">{t('newDl.singleTip')}</p>{/if}
                 <div class="foot">
-                  <button type="submit" disabled={!ready}>{t('newDl.next')} <Icon name="right" size={16} /></button>
+                  <button type="submit" disabled={!ready || checking}>{t('newDl.next')} <Icon name="right" size={16} /></button>
                 </div>
               </form>
             {:else}
@@ -355,6 +381,7 @@
                     {#each searches as s (s)}<li>{s}</li>{/each}
                   </ul>
                 {/if}
+                {#if !single}
                 <div class="segmented" role="tablist" aria-label={t('newDl.how')}>
                   <button type="button" role="tab" aria-selected={repeat === '0'} onclick={() => (repeat = '0')} data-autofocus><Icon name="download" size={16} /> {t('downloads.once')}</button>
                   <button type="button" role="tab" aria-selected={repeat !== '0'} onclick={() => repeat === '0' && (repeat = String(DEFAULT_INTERVAL))}><Icon name="bell" size={16} /> {t('downloads.subscribe')}</button>
@@ -393,8 +420,10 @@
                       aria-label={repeat === '0' ? t('downloads.maxFiles') : t('downloads.maxFirst')} />
                   </label>
                 </div>
+                {/if}
                 <p class="hint">
-                  {#if repeat === '0'}{maxPosts ? t('downloads.noteOnce', { n: Number(maxPosts) }) : t('newDl.onceHint')}
+                  {#if single}{t('newDl.singleHint', { n: single.files })}
+                  {:else if repeat === '0'}{maxPosts ? t('downloads.noteOnce', { n: Number(maxPosts) }) : t('newDl.onceHint')}
                   {:else}{t('downloads.noteSub', { every: every(+repeat), first: maxPosts ? t('downloads.newestN', { n: Number(maxPosts) }) : t('downloads.everyPost') })}.{/if}
                 </p>
                 <div class="foot">
@@ -569,6 +598,9 @@
     margin: 0;
     font-size: var(--font-small);
     color: var(--overlay1);
+  }
+  .ref-error {
+    color: var(--red);
   }
   .what-tags {
     margin: -4px 0 2px;

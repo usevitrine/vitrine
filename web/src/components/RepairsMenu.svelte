@@ -192,7 +192,7 @@
     display: flex;
     align-items: center;
     min-height: 44px;
-    padding: 4px 14px 3px;
+    padding: 4px 12px 3px; /* (at the sides: as the cards below) */
     border-bottom: 1px solid var(--surface0);
   }
   h2 {
@@ -203,7 +203,7 @@
   ul {
     list-style: none;
     margin: 0;
-    padding: 6px;
+    padding: 6px 12px 10px;
     display: grid;
     gap: 6px;
     overflow-y: auto;

@@ -371,6 +371,7 @@ export interface SiteInfo {
   required: boolean;
   help?: string;
   search_hint?: string; // the new-download box's hint (the site's own search syntax)
+  single_post?: boolean; // one post by its link or id:N
   tag_query?: Record<string, string>; // how a tag becomes its search: namespace (or "*") -> template with {tag}
   or_query?: string; // how the site writes an OR search ({tags}), if it can
   or_sep?: string;
@@ -666,6 +667,8 @@ export const api = {
   /** favorite: the files it brings in become favorites too (e.g. your own favorites on the site). */
   addDownload: (site: string, query: string, max_posts: number, favorite = false, label = '') =>
     post<DownloadSearch>('/api/downloads', { site, query, max_posts, favorite, label }),
+  /** Is it one post (its link or id:N), and does the site have it? */
+  checkSingle: (site: string, query: string) => post<{ single: boolean; query?: string; files?: number }>('/api/downloads/single', { site, query }),
   pauseDownload: (id: number) => post<{ ok: boolean }>(`/api/downloads/${id}/pause`, {}),
   resumeDownload: (id: number) => post<{ ok: boolean }>(`/api/downloads/${id}/resume`, {}),
   backups: () => get<{ backups: BackupInfo[]; dir: string; auto: boolean; keep: number; pending: boolean; last_error: string }>('/api/backups'),

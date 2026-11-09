@@ -260,8 +260,9 @@
     align-items: center;
     gap: 6px;
     min-height: 44px;
-    /* (3 px under: with the line, 36 px around the 32 px buttons - on whole pixels, so their words and icons line up) */
-    padding: 4px 6px 3px 14px;
+    /* (3 px under: with the line, 36 px around the 32 px buttons - on whole pixels, so their words and icons line up;
+       at the sides: the title and the broom - its drawing, not its button - end where the cards below do) */
+    padding: 4px 2px 3px 12px;
     border-bottom: 1px solid var(--surface0);
   }
   h2 {
@@ -274,7 +275,8 @@
     width: 36px;
     height: 36px;
     min-height: 0;
-    padding: 0;
+    padding: 0 7.5px 0 0; /* (at its right, however wide: wider on phones, for the finger, its drawing stays put) */
+    justify-content: flex-end;
     color: var(--subtext);
   }
   @media (hover: hover) {
@@ -305,7 +307,7 @@
   ul {
     list-style: none;
     margin: 0;
-    padding: 4px;
+    padding: 6px 12px 10px; /* (at the sides: as the heading above) */
     overflow: hidden; /* (scrolls only when its rows don't fit: scrollsWhenFull) */
     overscroll-behavior: contain;
     display: grid;
@@ -368,6 +370,7 @@
     background: var(--surface0);
   }
   .badge {
+    align-self: center; /* (in the middle of a text of several lines) */
     display: grid;
     place-items: center;
     width: 26px;

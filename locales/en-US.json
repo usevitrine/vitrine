@@ -2750,6 +2750,11 @@
     "leftOut": "Left out (the site can’t search them): {what}",
     "next": "Next",
     "onceHint": "Everything the search finds now.",
+    "singleTip": "For one file: paste its post's link, or type id:12345.",
+    "singleHint": {
+      "one": "Just this post: {n} file, once.",
+      "other": "Just this post: {n} files, once."
+    },
     "split": "{site} has no OR search: {n} searches, one for each combination.",
     "searches": "{n} searches"
   },

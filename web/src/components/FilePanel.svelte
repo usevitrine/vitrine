@@ -144,10 +144,6 @@
       <dt>{t('details.dimensions')}</dt>
       <dd>{num(file.width)} × {num(file.height)}</dd>
     </div>
-    <div>
-      <dt>{t('filter.imported.label')}</dt>
-      <dd title={fullDate(file.imported_at)}>{when(file.imported_at)}</dd>
-    </div>
     <!-- Vitrine's own number for the file (also in the address as f=): handy to point at one file. -->
     <div>
       <dt>{t('details.fileId')}</dt>
@@ -156,19 +152,24 @@
         <button class="icon copy-id" aria-label={t('details.copyId')} title={t('tagMenu.copy')} onclick={() => copy(String(file.id), t('details.what.id'))}><Icon name="copy" size={15} /></button>
       </dd>
     </div>
+    <!-- Imported last of those every file has, on the row's left: Uploaded, the first of the others, comes right beside it. -->
+    <div class="imported">
+      <dt>{t('filter.imported.label')}</dt>
+      <dd title={fullDate(file.imported_at)}>{when(file.imported_at)}</dd>
+    </div>
     <!-- The facts only some files have, after all the others: one coming or going moves none of those (between them,
          it moved every one after it to the other column - it jumped). In the same card (a card of their own looked
          apart from the rest - the user). -->
+    {#if file.posted_at}
+      <div class="uploaded" transition:reveal>
+        <dt>{t('filter.uploaded.label')}</dt>
+        <dd title={fullDate(file.posted_at)}>{when(file.posted_at)}</dd>
+      </div>
+    {/if}
     {#if file.duration_ms}
       <div transition:reveal>
         <dt>{t('filter.duration.label')}</dt>
         <dd>{formatDuration(file.duration_ms)}{#if file.mime.startsWith('video/')}<span class="muted">{' · '}{file.has_audio ? t('details.sound') : t('details.silent')}</span>{/if}</dd>
-      </div>
-    {/if}
-    {#if file.posted_at}
-      <div transition:reveal>
-        <dt>{t('filter.uploaded.label')}</dt>
-        <dd title={fullDate(file.posted_at)}>{when(file.posted_at)}</dd>
       </div>
     {/if}
     {#if settings.views && file.views}
@@ -276,6 +277,11 @@
     pointer-events: none;
   }
   /* (The facts card, rows and headings: lib/details.css; the tags: TagsSection.) */
+  /* (side by side, one date on two lines: the other's stays right under its label, level with it) */
+  .imported,
+  .uploaded {
+    align-content: start;
+  }
   /* (a long link's path: one line, ending in …) */
   .path {
     overflow: hidden;

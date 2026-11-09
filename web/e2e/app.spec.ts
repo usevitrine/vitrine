@@ -5710,6 +5710,122 @@ test('library: the downloads menu - a counter, New download, what is downloading
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+test('details: Imported and Uploaded sit next to each other', async ({ page }) => {
+  await page.route('**/api/files?ids=*', async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    for (const f of body.files) f.posted_at = 1700000000000;
+    await route.fulfill({ response: res, json: body });
+  });
+  await page.goto('/');
+  await page.locator('.tile').first().click();
+  const panel = page.locator('.viewer aside.panel');
+  if (!(await panel.isVisible())) await page.getByRole('button', { name: 'Details', exact: true }).click();
+  const fact = (name: string) => panel.locator('dl > div', { has: page.locator('dt', { hasText: new RegExp(`^${name}$`) }) });
+  await expect(fact('Uploaded')).toBeVisible();
+  await page.waitForTimeout(500); // (the panel coming in)
+  const imported = (await fact('Imported').boundingBox())!;
+  const uploaded = (await fact('Uploaded').boundingBox())!;
+  expect(uploaded.y).toBe(imported.y);
+  expect(uploaded.x).toBeGreaterThan(imported.x);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+// One gutter: the heading's title and All's chevron (its drawing) above, the cards' edges below (the user: "different
+// left and right padding to the top bar").
+test('library: the downloads menu: its cards line up with its heading', async ({ page }) => {
+  const s = {
+    id: 1, site: 'test-down', query: 'menu_1', state: 'queued', max_posts: 10, site_total: 0, handled: 0, downloaded: 0, already: 0, deleted: 0, skipped: 0,
+    blacklisted: 0, position: 1, failed: 0, created_at: 0,
+  };
+  await page.route('**/api/downloads?active=1', (r) => r.fulfill({ json: { searches: [s], sites_paused: {} } }));
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Downloads/ }).click();
+  const menu = page.getByRole('dialog', { name: 'Downloads' });
+  await expect(menu.locator('.solo')).toBeVisible();
+  await page.waitForTimeout(400); // (its opening)
+  const m = await menu.evaluate((p) => {
+    const panel = p.getBoundingClientRect();
+    const card = p.querySelector('.solo')!.getBoundingClientRect();
+    const title = p.querySelector('h2')!.getBoundingClientRect();
+    const chevron = p.querySelector('header button:last-child svg')!.getBoundingClientRect();
+    return {
+      left: card.left - title.left,
+      right: panel.right - card.right,
+      chevron: panel.right - (chevron.right - (chevron.width * 5.3) / 16), // (the drawing ends 5.3 px inside a 16 px icon)
+      sides: card.left - panel.left - (panel.right - card.right),
+    };
+  });
+  expect(m.left).toBe(0);
+  expect(m.sides).toBe(0);
+  expect(Math.abs(m.chevron - m.right)).toBeLessThan(1);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+test('the bell, fixes from updates and saved searches: their content lines up with their heading', async ({ page }) => {
+  await page.route('**/api/notices', async (r) => {
+    if (r.request().method() !== 'GET') return r.continue();
+    const res = await r.fetch();
+    await r.fulfill({ response: res, json: { ...(await res.json()), notices: [{ id: 999999, at: Date.now(), kind: 'blacklisted', site: 'safebooru.org', tag: 'red' }] } });
+  });
+  await page.route('**/api/repairs', (r) => r.fulfill({ json: { repairs: [{ id: 'video_shapes', state: 'offered', done: 0, total: 10, changed: 0, offered_at: 1 }] } }));
+  await login(page);
+  await page.goto('/');
+  // The gutters of a panel: its title and its content's left edge, and the content's right edge and the panel's.
+  const gutters = (panel: import('@playwright/test').Locator, content: string) =>
+    panel.evaluate((p, content) => {
+      const box = p.getBoundingClientRect();
+      const card = p.querySelector(content)!.getBoundingClientRect();
+      const title = p.querySelector('h2')!.getBoundingClientRect();
+      return { left: card.left - title.left, sides: card.left - box.left - (box.right - card.right), right: box.right - card.right };
+    }, content);
+  /** Where a button's icon's drawing ends, from the panel's right edge (`inset`: of the icon's width, empty at its side). */
+  const drawn = (panel: import('@playwright/test').Locator, svg: string, inset: number) =>
+    panel.evaluate((p, [svg, inset]) => {
+      const icon = p.querySelector(svg as string)!.getBoundingClientRect();
+      return p.getBoundingClientRect().right - (icon.right - icon.width * (inset as number));
+    }, [svg, inset] as const);
+
+  await page.getByRole('button', { name: /^Notifications/ }).click();
+  const bell = page.getByRole('dialog', { name: 'Notifications' });
+  await expect(bell.locator('.solo')).toBeVisible();
+  await page.waitForTimeout(400); // (its opening)
+  const b = await gutters(bell, '.solo');
+  expect(b.left).toBe(0);
+  expect(b.sides).toBe(0);
+  expect(Math.abs((await drawn(bell, 'header button svg', 2 / 24)) - b.right)).toBeLessThan(1);
+  // (a notification of several lines: its icon in the middle of them)
+  const off = await bell.evaluate((p) => {
+    (p.querySelector('.text') as HTMLElement).style.maxWidth = '60px';
+    const item = p.querySelector('.item')!.getBoundingClientRect();
+    const badge = p.querySelector('.badge')!.getBoundingClientRect();
+    return { off: badge.top + badge.height / 2 - (item.top + item.height / 2), taller: item.height - badge.height };
+  });
+  expect(off.taller).toBeGreaterThan(30);
+  expect(Math.abs(off.off)).toBeLessThan(1);
+  await page.keyboard.press('Escape');
+  await expect(bell).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Fixes from updates' }).click();
+  const fixes = page.getByRole('dialog', { name: 'Fixes from updates' });
+  await expect(fixes.locator('.fix')).toBeVisible();
+  await page.waitForTimeout(400);
+  const f = await gutters(fixes, '.fix');
+  expect(f.left).toBe(0);
+  expect(f.sides).toBe(0);
+  await page.keyboard.press('Escape');
+  await expect(fixes).toHaveCount(0);
+
+  await page.getByRole('button', { name: /^Saved searches/ }).click();
+  const saved = page.getByRole('dialog', { name: 'Saved searches' });
+  await expect(saved.locator('.bar-row')).toBeVisible();
+  await page.waitForTimeout(400);
+  const s = await gutters(saved, '.bar-row');
+  expect(Math.abs(s.left)).toBeLessThan(1);
+  expect(Math.abs((await drawn(saved, '.head button svg', 5 / 24)) - s.right)).toBeLessThan(1);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 // A download coming in while the menu is open (a site's first, sliding in; one more on a site, making a stack): no
 // scrollbar for a moment (the user: "a scrollbar appears and i dont know why") - it scrolls only when its rows don't fit.
 test('library: the downloads menu shows no scrollbar as downloads come in, and scrolls once they fill it', async ({ page }) => {
@@ -6929,6 +7045,32 @@ test('starting the app: the empty-library welcome (with its download form) never
   await page.reload();
   await expect(page.getByText(/^26 files/)).toBeVisible();
   expect(await page.evaluate(() => [(window as any).__welcome ?? false, (window as any).__zero ?? false])).toEqual([false, false]);
+});
+
+test('saved searches menu: a tab\'s new-files dot sits close at the top right of its name', async ({ page }) => {
+  await page.route('**/api/saved*', (r) => (r.request().method() === 'GET' ? r.fulfill({ json: { saved: [{ id: 999, name: 'Sky', query: 'blue_sky', sort: '' }] } }) : r.continue()));
+  await page.route('**/api/news*', (r) => r.fulfill({ json: { saved: [{ id: 999, new: 3 }], groups: [{ tag: 'some_group', new: 2, tags: ['blue_sky'], preview: [] }] } }));
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Saved searches/ }).click();
+  const tabs = page.getByRole('dialog', { name: 'Saved searches' }).getByRole('tab');
+  await expect(tabs.first().locator('.tab-dot')).toBeVisible();
+  await page.waitForTimeout(500); // (its opening, the dot's pop)
+  for (const tab of await tabs.all()) {
+    const m = await tab.evaluate((b) => {
+      const name = b.querySelector('.tab-name')!;
+      const range = document.createRange();
+      range.selectNodeContents(name.firstChild!);
+      const word = range.getBoundingClientRect();
+      const dot = name.querySelector('.tab-dot')!.getBoundingClientRect();
+      const box = b.getBoundingClientRect();
+      return { gap: dot.left - word.right, above: dot.top - word.top, inside: box.right - dot.right };
+    });
+    expect(m.gap).toBeGreaterThanOrEqual(0);
+    expect(m.gap).toBeLessThanOrEqual(2);
+    expect(m.above).toBeLessThanOrEqual(2);
+    expect(m.inside).toBeGreaterThan(0);
+  }
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 test('saved searches menu: NEW pills on saved searches and group (parent) tags with files since they were last opened; the star shows a dot; opening one marks its new files NEW', async ({ page }) => {
@@ -8244,7 +8386,7 @@ test('downloads: subscriptions as cards - health, the search as chips, the next 
 test('downloads: a gallery subscription shows its title, not its link (the link on hover)', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop-chromium', 'one run is enough: it subscribes on the server');
   await page.goto('/');
-  const link = 'https://127.0.0.1:1/g/777/abcdef0123/';
+  const link = 'gallery_777_abcdef0123'; // (test-down isn't a gallery site: a real link there is refused as not a post)
   const res = await page.evaluate(
     (link) => fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: 'test-down', query: link, interval: 86400, initial_max: 0, label: 'A Labeled Comic' }) }).then(async (r) => ({ status: r.status, id: (await r.json()).id as number })),
     link,

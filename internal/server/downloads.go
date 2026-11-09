@@ -119,7 +119,7 @@ func (s *Server) addDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, err := s.dl.AddTo(r.Context(), req.Site, req.Query, req.MaxPosts, req.Favorite)
-	if errors.Is(err, download.ErrUnknownSite) {
+	if errors.Is(err, download.ErrUnknownSite) || plugin.IsPostRef(err) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -138,8 +138,36 @@ func (s *Server) addDownload(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sr)
 }
 
+// checkSingle: POST /api/downloads/single {site, query} -> {single, query, files}: is it one post (its link or id:N),
+// and does the site have it? 400: a link that can't be a post there; 404: no such post; anything else: the site's trouble.
+func (s *Server) checkSingle(w http.ResponseWriter, r *http.Request) {
+	if !s.needDL(w) {
+		return
+	}
+	var req struct {
+		Site  string `json:"site"`
+		Query string `json:"query"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	res, err := s.dl.CheckSingle(r.Context(), req.Site, req.Query)
+	switch {
+	case err == nil:
+		writeJSON(w, http.StatusOK, res)
+	case plugin.IsNoPost(err):
+		writeError(w, http.StatusNotFound, err)
+	case plugin.IsPostRef(err), errors.Is(err, download.ErrUnknownSite):
+		writeError(w, http.StatusBadRequest, err)
+	default:
+		writeError(w, http.StatusBadGateway, err)
+	}
+}
+
 func downloadError(w http.ResponseWriter, err error) {
 	switch {
+	case plugin.IsPostRef(err), errors.Is(err, download.ErrSinglePost):
+		writeError(w, http.StatusBadRequest, err)
 	case errors.Is(err, download.ErrNoSearch), errors.Is(err, download.ErrNoSubscription), errors.Is(err, download.ErrNoGroup):
 		writeError(w, http.StatusNotFound, err)
 	case errors.Is(err, download.ErrExists), errors.Is(err, download.ErrGroupExists):

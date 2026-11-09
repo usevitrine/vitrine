@@ -5,9 +5,17 @@ shows this too (Settings > Help & about).
 
 ## Unreleased
 
+### New
+
+- **Download one file**: in New download, paste a post's link or type `id:12345` to download just that post, once. Works on Gelbooru-style, Shimmie, Danbooru and Mastodon sites; a link for another site, or a post that doesn't exist, says so straight away.
+
 ### Fixed
 
 - **Saved searches**: a short name no longer leaves the card's pictures short of its sides.
+- **Saved searches**: the new-files dot on a tab sits at the top right of its name, close to it.
+- **Downloads, Notifications, Fixes from updates and Saved searches**: their cards line up with their headings on both sides.
+- **Notifications menu**: a notification's icon is centered beside its text.
+- **Details**: Imported and Uploaded sit next to each other.
 
 ## 1.0.25 - 2026-11-03
 

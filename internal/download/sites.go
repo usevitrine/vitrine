@@ -29,6 +29,7 @@ type SiteInfo struct {
 	Required bool     `json:"required"`
 	Help     string   `json:"help,omitempty"`
 	Hint     string   `json:"search_hint,omitempty"` // the new-download box's hint
+	Single   bool     `json:"single_post,omitempty"` // one post by its link or id:N
 	// TagQuery: how a tag becomes this site's search - a namespace (or "*") to
 	// a template with {tag}, e.g. {"creator": "@{tag}", "*": "#{tag}"}.
 	TagQuery map[string]string `json:"tag_query"`
@@ -71,6 +72,7 @@ func (d *Downloader) SiteInfos() []SiteInfo {
 		})
 		info := &out[len(out)-1]
 		info.OrQuery, info.OrSep = m.OrQuery()
+		info.Single = m.CanSinglePost()
 		info.FavBy, info.FavMe = plugin.FavoritesBy(m, info.Set)
 		_, isBuiltin := plugin.Builtin(id)
 		info.Removable = true // built-in ones too (installing one again from the plugin list brings it back)

@@ -166,6 +166,12 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   "Manage sites" cog sits muted in the card's title row. **`--overlay1` (#7f849c) was missing from the palette**:
   ten places that meant to be muted (Off chips, "Not started", subscription row icons, Settings chevrons...) showed
   in full text color.
+- **The downloads menu's sides (2026-11-05)**, the user: its items had "different left and right padding to the top
+  bar": one gutter, 13 px from the panel's outer edge - the title and the end of All's chevron (its drawing, not its
+  button) above, the cards' edges below (before: the title 15 px and the chevron about 15, the cards 5). The same on 2026-11-08 for
+  the notifications menu (its broom's drawing), Fixes from updates and Saved searches (its X's drawing), the user:
+  "also do it to the notifications menu, and any other menu in a similar situation". The filter menu and the details
+  panels already had one gutter.
 - **The downloads menu's rows: small queue cards (2026-10-29)**, the user: "downloads in the download dropdown need to be
   updated. Obviously doesn't need to be as verbose as the downloads page design but it kinda feels outdated now":
   each row is its site icon, then the search with how far and how fast on the right (the percent in peach and the

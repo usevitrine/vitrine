@@ -266,8 +266,9 @@
     align-items: center;
     gap: 6px;
     min-height: 44px;
-    /* (3 px under: with the line, 36 px around the 32 px buttons - on whole pixels, so their words and icons line up) */
-    padding: 4px 6px 3px 14px;
+    /* (3 px under: with the line, 36 px around the 32 px buttons - on whole pixels, so their words and icons line up;
+       at the sides: the title and All's chevron - its drawing, not its button - end where the cards below do) */
+    padding: 4px 4px 3px 12px;
     border-bottom: 1px solid var(--surface0);
   }
   h2 {
@@ -303,7 +304,7 @@
   ul {
     list-style: none;
     margin: 0;
-    padding: 4px;
+    padding: 6px 12px 10px; /* (at the sides: as the heading above) */
     overflow: hidden; /* (scrolls only when its rows don't fit: scrollsWhenFull) */
     overscroll-behavior: contain;
     display: grid;
@@ -466,7 +467,7 @@
     }
   }
   .more {
-    margin: 0 8px 8px;
+    margin: 0 12px 8px;
     min-height: 34px;
     border: 0;
     font-size: var(--font-small);

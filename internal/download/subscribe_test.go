@@ -890,24 +890,24 @@ func TestReorderAboveRunning(t *testing.T) {
 // A subscription or search named (a gallery's title for its link); one without a name, to a gallery the library
 // has: the comic's title.
 func TestLabels(t *testing.T) {
-	e := newEnv(t, 5)
+	e, f := newGalleryEnv(t)
 	ctx := context.Background()
 	e.clock()
-	id, err := e.dl.Subscribe(ctx, "fake", "https://site.test/g/1/abc/", time.Hour, 0)
+	id, err := e.dl.Subscribe(ctx, "galleries", f.srv.URL+"/g/1/abc/", time.Hour, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := e.dl.LabelSubscription(ctx, id, "Some Comic"); err != nil {
 		t.Fatal(err)
 	}
-	if s, _ := e.dl.GetSubscription(ctx, id); s.Label != "Some Comic" || s.Query != "https://site.test/g/1/abc/" {
+	if s, _ := e.dl.GetSubscription(ctx, id); s.Label != "Some Comic" || s.Query != f.srv.URL+"/g/1/abc/" {
 		t.Fatalf("labeled: %+v", s)
 	}
-	sid, _ := e.dl.Add(ctx, "fake", "https://site.test/g/2/def/", 0)
+	sid, _ := e.dl.Add(ctx, "galleries", f.srv.URL+"/g/2/def/", 0)
 	if s, _ := e.dl.Get(ctx, sid); s.Label != "" {
 		t.Fatalf("no name, no comic: %q", s.Label)
 	}
-	if _, _, err := e.lib.AddComic(ctx, library.ComicInfo{Title: "Other Comic", Site: "fake", Gallery: "2", URL: "https://site.test/g/2/def"}); err != nil {
+	if _, _, err := e.lib.AddComic(ctx, library.ComicInfo{Title: "Other Comic", Site: "galleries", Gallery: "2", URL: f.srv.URL + "/g/2/def"}); err != nil {
 		t.Fatal(err)
 	}
 	if s, _ := e.dl.Get(ctx, sid); s.Label != "Other Comic" {

@@ -9,6 +9,8 @@ class Sites {
   names = $state<Record<string, string>>({});
   /** The new-download box's hint for sites with their own search syntax. */
   hints = $state<Record<string, string>>({});
+  /** The sites that can fetch one post by its link or id:N. */
+  single = $state<Record<string, boolean>>({});
   /** Each site's engine (the site picker groups by it when there are many). */
   engines = $state<Record<string, string>>({});
   /** How a tag becomes each site's search (see tagQuery). */
@@ -34,6 +36,7 @@ class Sites {
       const list = (await api.sites()).sites;
       this.names = Object.fromEntries(list.map((s) => [s.id, s.site]));
       this.hints = Object.fromEntries(list.filter((s) => s.search_hint).map((s) => [s.id, s.search_hint!]));
+      this.single = Object.fromEntries(list.map((s) => [s.id, !!s.single_post]));
       this.engines = Object.fromEntries(list.map((s) => [s.id, s.engine]));
       this.tagQueries = Object.fromEntries(list.map((s) => [s.id, s.tag_query ?? {}]));
       this.hosts = Object.fromEntries(list.map((s) => [s.id, s.host]));

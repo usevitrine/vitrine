@@ -2,6 +2,17 @@
 
 How the downloader behaves: searches and the queue per site, resuming, the blacklist, managing searches, subscriptions and their groups, retries, parallel downloads, download rules, a user's favorites, check depth.
 
+## One post as a one-time download (2026-11-09)
+A search that is exactly a post's link or `id:N` fetches that post alone (`plugin.SinglePost`, `FetchSingle`; a link's
+other query parts such as `tags=` are ignored). It's queued as `id:N`, and can't be a subscription (`ErrSinglePost`).
+The New download dialog asks first (`POST /api/downloads/single`, which also asks the site): a link for another site
+(400) or a post the site doesn't have (404) is said in the dialog; if the site has it, only Download is left. A link is
+matched against the site's own hosts (`post_url`, `base`), not all of `domains`: danbooru and safebooru.donmai.us share one.
+By engine: gelbooru-v02 the site's `id:N` search (it has the upload time); gelbooru-v02-html, shimmie2 and danbooru
+`Lookup`; mastodon every file of the status (`/@name/<id>`, `/web/statuses/<id>`; `id:N` = the status ID; `/tags/` and
+profile links stay searches). **ehentai**: no - a gallery needs its token, so `id:N` is refused; a gallery's link was
+already one comic.
+
 ## Downloader behavior
 Lessons from self-hosted download setups built on gallery-dl and companion tools (problem in brackets).
 - **Downloads go straight into the library**, file by file - no import queue, no double imports, no staging buildup.
