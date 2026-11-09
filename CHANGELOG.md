@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **E-Hentai and ExHentai login**: when Cloudflare holds up the forum's login longer than FlareSolverr can wait, the error now says so and suggests pasting the login cookies, instead of "context canceled".
+
 ## 1.0.26 - 2026-11-09
 
 ### New

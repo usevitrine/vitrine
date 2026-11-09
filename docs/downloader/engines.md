@@ -145,7 +145,10 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
   Logged in, the account's own limit applies (it can be raised on the site; Vitrine never spends the account's
   points).
 - **Login** (`auth.login: ehentai`, fields `username, password, ipb_member_id, ipb_pass_hash` - either pair): the
-  e-hentai forum's login form; if it asks for a captcha, the two cookies pasted from a browser. The cookies (and
+  e-hentai forum's login form; if it asks for a captcha, the two cookies pasted from a browser. The forum's login
+  page is behind a Cloudflare check that FlareSolverr can fail on from a VPN address (2026-11-09: it timed out every
+  time, ~65 s): a login page that runs out of time is `errEHCloudflare` too (it suggests the cookies), not a bare
+  "context canceled". The cookies (and
   `nw=1`: no content-warning page) go to e-hentai.org, its API and forum hosts, and exhentai.org.
 - **Tag suggestions**: a gallery site's tags are the comics' only - never in the library's suggestions or namespace
   lists (`Library.Namespaces` leaves out namespaces only comics use). The Comics page's search and New download for

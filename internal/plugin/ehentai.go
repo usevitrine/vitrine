@@ -223,8 +223,10 @@ func (e *ehentai) ensureLogin(ctx context.Context) error {
 		if e.real() {
 			lp, _ := url.Parse("https://forums.e-hentai.org/index.php?act=Login")
 			if _, err := c.WebPage(ctx, lp); err != nil {
+				// (out of time: FlareSolverr still working on the check - it runs up to a minute, as
+				// long as the request may take - or a request that waited on it went out too late)
 				var cf *CloudflareError
-				if errors.As(err, &cf) {
+				if errors.As(err, &cf) || ctx.Err() != nil || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 					return fmt.Errorf("%s: %w", c.m.Site, errEHCloudflare)
 				}
 				return fmt.Errorf("%s: opening the login page: %w", c.m.Site, err)

@@ -184,6 +184,42 @@ func TestCloudflareStrictSite(t *testing.T) {
 	}
 }
 
+// FlareSolverr still working on the challenge when the request is called off (the page
+// gave up waiting): a Cloudflare error that says so, not a bare "context canceled" -
+// for the one who asked FlareSolverr and for one waiting on its answer (2026-11-09).
+func TestCloudflareSolverTooSlow(t *testing.T) {
+	m, srv := cfSite(t, false)
+	release := make(chan struct{})
+	flare := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select { // (a challenge it can't get past: no answer in time)
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() { close(release); flare.Close() })
+	s := NewSolver()
+	s.SetEndpoint(flare.URL)
+	c := testClient(m, srv, nil)
+	c.SetSolver(s)
+	errs := make(chan error, 2)
+	for i := range 2 {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(200+100*i)*time.Millisecond)
+			defer cancel()
+			_, err := c.API(ctx, pageURL(srv, ""))
+			errs <- err
+		}()
+		time.Sleep(20 * time.Millisecond)
+	}
+	for range 2 {
+		err := <-errs
+		var cf *CloudflareError
+		if !errors.As(err, &cf) || !strings.Contains(err.Error(), "FlareSolverr") {
+			t.Fatalf("err = %v", err)
+		}
+	}
+}
+
 func TestFlareSolverrPing(t *testing.T) {
 	flare, _, _ := fakeFlare(t, "example.test")
 	s := NewSolver()
