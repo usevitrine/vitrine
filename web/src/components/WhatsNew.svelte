@@ -139,7 +139,7 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 0 20px 4px;
+    padding: 0 20px 16px; /* (room under the last line before the footer's border - 4px left it touching it) */
   }
   footer {
     display: flex;

@@ -3254,6 +3254,14 @@ test("what's new after an update: the new version's changes once per server, Don
     expect(await box.getByRole('heading', { level: 2 }).count()).toBeGreaterThan(2); // (the title and two versions or more)
     await expect(box.locator('li').first()).toBeVisible();
     if (test.info().project.name === 'iphone') await expect(box).toHaveAttribute('data-sheet', '');
+    // Scrolled to the end: room under the last line before the bottom bar's border (it touched it - the user, 2026-11-10).
+    const room = await box.evaluate((d) => {
+      const body = d.querySelector('.body')!;
+      body.scrollTop = body.scrollHeight;
+      const items = body.querySelectorAll('li');
+      return d.querySelector('footer')!.getBoundingClientRect().top - items[items.length - 1].getBoundingClientRect().bottom;
+    });
+    expect(room).toBeGreaterThanOrEqual(12);
     await box.getByRole('checkbox', { name: "Don't show again" }).check();
     await box.getByRole('button', { name: 'Got it' }).click();
     await expect(box).toHaveCount(0);

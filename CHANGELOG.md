@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **What's new**: the list of changes has room under its last line before the bottom bar.
+
 ## 1.0.27 - 2026-11-09
 
 ### Fixed
