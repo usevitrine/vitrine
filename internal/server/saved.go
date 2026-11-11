@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"sort"
@@ -300,4 +301,50 @@ func (s *Server) seen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]int64{"previous": prev})
+}
+
+// ---- Recent searches (the search bar's drop-down, 2026-11-11). Every call takes ?scope= as the saved searches do.
+
+func (s *Server) writeRecent(w http.ResponseWriter, r *http.Request) {
+	list, err := s.lib.RecentSearches(r.Context(), r.URL.Query().Get("scope"))
+	if err != nil {
+		savedError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"recent": list})
+}
+
+// listRecent: GET /api/recent -> {recent: [{query, sort, used_at}]}, newest first.
+func (s *Server) listRecent(w http.ResponseWriter, r *http.Request) { s.writeRecent(w, r) }
+
+// addRecent: POST /api/recent {query, sort} -> {recent}; removeRecent: POST /api/recent/remove {query, sort} -> {recent}.
+func (s *Server) addRecent(w http.ResponseWriter, r *http.Request) {
+	s.changeRecent(w, r, s.lib.AddRecentSearch)
+}
+func (s *Server) removeRecent(w http.ResponseWriter, r *http.Request) {
+	s.changeRecent(w, r, s.lib.RemoveRecentSearch)
+}
+
+func (s *Server) changeRecent(w http.ResponseWriter, r *http.Request, change func(ctx context.Context, query, sort, scope string) error) {
+	var req struct {
+		Query string `json:"query"`
+		Sort  string `json:"sort"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	if err := change(r.Context(), req.Query, req.Sort, r.URL.Query().Get("scope")); err != nil {
+		savedError(w, err)
+		return
+	}
+	s.writeRecent(w, r)
+}
+
+// clearRecent: POST /api/recent/clear -> {recent}.
+func (s *Server) clearRecent(w http.ResponseWriter, r *http.Request) {
+	if err := s.lib.ClearRecentSearches(r.Context(), r.URL.Query().Get("scope")); err != nil {
+		savedError(w, err)
+		return
+	}
+	s.writeRecent(w, r)
 }

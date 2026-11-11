@@ -20,6 +20,7 @@
     ChevronRight,
     CircleAlert,
     Clock,
+    RotateCcwClock,
     Copy,
     Crop,
     Download,
@@ -118,6 +119,7 @@
     eye: Eye,
     eyeoff: EyeOff,
     clock: Clock,
+    recent: RotateCcwClock, // (recent searches: a clock with an arrow going back)
     bell: Bell,
     filter: ListFilter,
     stack: GalleryVerticalEnd,

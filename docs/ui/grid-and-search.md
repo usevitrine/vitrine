@@ -69,6 +69,27 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   arrow keys move between saved searches. Stored on the server (`saved_searches`, migration `0008`; API
   `GET/POST /api/saved`, `POST /api/saved/{id}`, `/api/saved/{id}/remove`, `/api/saved/reorder`), so every device
   has the same list - the first server-side setting.
+- **Recent searches (2026-11-11)** (the user: mockups of "a Recent searches menu", then picked "B + D together": a
+  drop-down from the empty box, and matches mixed into autocomplete; not a tab in Saved searches - two taps for
+  something meant to be quick, nor a button of its own - the bar is full on a phone).
+  - **Kept**: a search stayed on for 2.5 s (`RECENT_AFTER` in SearchBar: the steps of building one a chip at a time
+    don't count) goes to the top of its page's list, with its order ('' = the page's default; Browse: "site:order" as a
+    saved search). The same search again (case and spaces aside, the same order) moves up instead of showing twice; 20
+    kept per page (`library.MaxRecent`). Server-side like saved searches (`recent_searches`, migration 0053; scope '' /
+    comics / browse; `GET /api/recent`, `POST /api/recent`, `/api/recent/remove`, `/api/recent/clear`), so every device
+    has the same ones. Not in a trash (`SearchBar remember={!inTrash}`), not in Settings' search fields (plain).
+    **Off** with the shared setting `recentSearches` (Settings > Library, "Remember recent searches"; missing = on):
+    none kept or shown, and turning it off clears every page's list. Off in the e2e test library (`setup.ts`: every
+    test's searches would be options in the others' suggestion lists); the recent searches test turns it on in its
+    own page only (the settings answer changed by the test).
+  - **Offered** by the search box's own list (`TagInput`'s `recent` rows, drawn by the search bar's `recentRow`
+    snippet: the clock icon, the search's chips small and colored as in the bar, its order or site, an x that forgets
+    it): with the search empty, the last 10 under "Recent searches" with Clear; while the first word is typed (no chips
+    yet), up to 3 with a word starting like it (any of their words), over the tag suggestions with a line between. Not
+    with chips in the search (more tags are being added to it). The arrow keys reach them first, Enter or a tap runs
+    one with its order (the saved searches' `onsaved` path) and the box lets go; Escape hides them until something is
+    typed or the box is left. Test: `recent searches:` (e2e, the page's calls answered by the test - the shared
+    server's list has every test's searches), `TestRecentSearches`.
 - **Saved searches as tiles (2026-10-31)** (the user: "I think this dropdown needs a redesign. Give me some
   prototypes" -> picked "B · Tiles" and shaped it in comments -> "Good, build it. Just make sure the design is fully
   animated and in line with the current design"): replaces the list above (what it does stays: save, Update after a

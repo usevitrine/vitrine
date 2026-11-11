@@ -373,7 +373,7 @@
         </div>
       {/if}
       <div class="search-grow">
-        <SearchBar {query} {sort} placeholder={fav ? t('library.favSearch') : inTrash ? t('library.trashSearch') : t('library.search')} defaultSort={defaultSort()} onsearch={search} onsaved={runSaved} onsort={setSort} />
+        <SearchBar {query} {sort} placeholder={fav ? t('library.favSearch') : inTrash ? t('library.trashSearch') : t('library.search')} defaultSort={defaultSort()} onsearch={search} onsaved={runSaved} onsort={setSort} remember={!inTrash} />
       </div>
     </div>
     {#if inTrash && trash.files > 0}

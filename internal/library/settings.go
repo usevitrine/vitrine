@@ -104,8 +104,10 @@ var settingCheck = map[string]func(json.RawMessage) error{
 		return nil
 	},
 	"hoverPreview": isBool,
-	"cameButton":   isBool, // the viewer's "I came" button and the Rankings page (missing = off)
-	"countViews":   isBool, // view counts: the viewer counts each file's views (missing = on)
+	// The search bar keeps and offers recent searches (missing = on; turned off in Settings, they are forgotten too).
+	"recentSearches": isBool,
+	"cameButton":     isBool, // the viewer's "I came" button and the Rankings page (missing = off)
+	"countViews":     isBool, // view counts: the viewer counts each file's views (missing = on)
 	// The app's sections: Media (pictures and videos) and Comics, each can be switched off (missing = on) - never both.
 	"mediaOff":  isBool,
 	"comicsOff": isBool,

@@ -9,6 +9,8 @@
   import { touch } from '../lib/media';
   import { reveal, pop } from '../lib/motion';
   import { api, toPlainSignIn } from '../lib/api';
+  import { saved as librarySaved } from '../lib/saved.svelte';
+  import { comicsScope, browseScope } from '../lib/scope.svelte';
   import { settings } from '../lib/settings.svelte';
   import { switchOff } from '../lib/sections';
   import { displayInfo } from '../lib/viewport';
@@ -41,6 +43,11 @@
   let { user, onLoggedOut, onRenamed }: { user: string; onLoggedOut: () => void; onRenamed?: (name: string) => void } = $props();
   let stats = $state<{ files: number; tags: number; server?: { version: string } } | null>(null);
   // View counts: every file's views taken off (asks first).
+  /** Recent searches turned off: every search page's are forgotten too (on the server, so on every device). */
+  function forgetRecent() {
+    for (const list of [librarySaved, comicsScope.saved, browseScope.saved]) list.clearRecent();
+  }
+
   async function clearViews() {
     const ok = await confirmAction({ title: t('settings.videos.clearViewsTitle'), body: t('settings.videos.clearViewsBody'), action: t('settings.videos.clearViews'), icon: 'trash' });
     if (!ok) return;
@@ -200,6 +207,19 @@
                 current={sortLabel(settings.favoritesSort)}
                 items={sortItems(settings.favoritesSort, (v) => (settings.favoritesSort = v))} />
             </div>
+            <!-- (every search page's - Comics and Browse too; turned off, the ones kept so far are forgotten) -->
+            <label class="check">
+              <input
+                type="checkbox"
+                bind:checked={settings.recentSearches}
+                onchange={() => {
+                  if (!settings.recentSearches) forgetRecent();
+                }} />
+              <span class="field">
+                <span class="field-label">{t('settings.recentSearches.label')}</span>
+                <span class="hint">{t('settings.recentSearches.hint')}</span>
+              </span>
+            </label>
             {#if stats}
               <p class="hint" transition:reveal>{t('common.files', { n: stats.files })} · {t('settings.tagsInUse', { n: stats.tags })}</p>
             {/if}

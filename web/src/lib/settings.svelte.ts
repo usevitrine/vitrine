@@ -9,7 +9,7 @@ const load = <T>(key: string, fallback: T): T => readJSON('vitrine.' + key, fall
 const save = (key: string, value: unknown) => writeJSON('vitrine.' + key, value);
 
 /** The settings every device shares (the server's allow-list). */
-const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'countViews', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'skipUploadedYear', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck', 'whatsNew', 'whatsNewSeen', 'groupOrder'] as const;
+const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'countViews', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'skipUploadedYear', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck', 'whatsNew', 'whatsNewSeen', 'groupOrder', 'recentSearches'] as const;
 type SharedKey = (typeof shared)[number];
 
 class Settings {
@@ -31,6 +31,8 @@ class Settings {
   backupKeep = $state(load('backupKeep', 7));
   /** Desktop: hovering a video's thumbnail plays it (muted). */
   hoverPreview = $state(load('hoverPreview', true));
+  /** The search bar keeps the searches run and offers them again (its drop-down; off: none kept or shown). */
+  recentSearches = $state(load('recentSearches', true));
   speed = $state(load('speed', 1));
   /** The search run when the app opens with no search in the URL. */
   defaultSearch = $state(load('defaultSearch', ''));

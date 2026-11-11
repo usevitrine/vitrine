@@ -1672,6 +1672,102 @@ test('search chips: the × on a chip removes it from the search', async ({ page 
   await expect(page.getByText(/^26 files/)).toBeVisible();
 });
 
+test('recent searches: the empty box offers them, one runs with its order; ones matching the first word typed sit over the tags; a search stayed on is kept; x forgets one, Clear all', async ({ page }) => {
+  test.skip(test.info().project.name === 'iphone', 'a tap on a row is the same code (touchEnd) as a suggestion\'s');
+  // (the server's list is shared with the tests running meanwhile - each records its own: the page's calls are answered here)
+  let list = [
+    { query: 'system:type=image', sort: '', used_at: 2 },
+    { query: 'recent_only_tag -system:has_audio', sort: 'imported_asc', used_at: 1 },
+  ];
+  const added: { query: string; sort: string }[] = [];
+  const removed: string[] = [];
+  await page.route('**/api/recent**', async (r) => {
+    const url = new URL(r.request().url());
+    const body = r.request().method() === 'POST' ? r.request().postDataJSON() : null;
+    if (url.pathname.endsWith('/remove')) {
+      removed.push(body.query);
+      list = list.filter((x) => x.query !== body.query);
+    } else if (url.pathname.endsWith('/clear')) list = [];
+    else if (body) added.push(body);
+    await r.fulfill({ json: { recent: list } });
+  });
+  // (off on the test server - every test's searches would be options in the others' lists: on for this page only)
+  let on = true;
+  await page.route('**/api/settings', async (r) => {
+    if (r.request().method() !== 'GET') return r.continue();
+    const res = await r.fetch();
+    await r.fulfill({ response: res, json: { ...(await res.json()), recentSearches: on } });
+  });
+  await page.goto('/');
+  await expect(page.getByText(/^\d+ files/)).toBeVisible();
+  const box = page.locator('.bar').getByRole('combobox', { name: 'Search' });
+  const rows = page.getByRole('option', { name: /^Recent search: / });
+
+  // The empty box: all of them under a heading, newest first.
+  await box.click();
+  await expect(page.getByRole('listbox').getByText('Recent searches')).toBeVisible();
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).toHaveAccessibleName('Recent search: system:type=image');
+  await expect(rows.nth(1)).toContainText('Oldest imported'); // (an order other than the default says so)
+  await expect(rows.first().locator('.r-icon')).toBeVisible();
+  // Escape hides them; the box keeps the focus.
+  await page.keyboard.press('Escape');
+  await expect(rows).toHaveCount(0);
+  await expect(box).toBeFocused();
+
+  // One picked: the search and its order, the box let go.
+  await box.evaluate((e) => (e as HTMLElement).blur());
+  await box.click();
+  await rows.nth(1).click();
+  await expect(page.locator('.bar .chip')).toHaveText([/recent_only_tag/, /no audio/]);
+  await expect(page.locator('.bar .filt .dot')).toBeVisible(); // (the order isn't the default)
+  await expect(box).not.toBeFocused();
+  // Stayed on: kept as a recent search, with its order.
+  await expect.poll(() => added.at(-1), { timeout: 8000 }).toEqual({ query: 'recent_only_tag -system:has_audio', sort: 'imported_asc' });
+  // With chips in the search: no recent searches (more tags are being added to it).
+  await box.click();
+  await expect(rows).toHaveCount(0);
+
+  // The first word typed: the recent searches with a word starting so (any of their words) over the tag suggestions -
+  // no heading, no Clear.
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  await box.fill('syst');
+  await expect(rows).toHaveCount(2); // (-system:has_audio too)
+  await box.fill('system:ty');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toHaveAccessibleName('Recent search: system:type=image');
+  await expect(page.getByRole('listbox').getByText('Recent searches')).toHaveCount(0);
+  // The arrow keys reach it first; Enter runs it.
+  await page.keyboard.press('ArrowDown');
+  await expect(rows.first()).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.bar .chip')).toHaveText([/image/]);
+
+  // x forgets one; Clear empties the list (and the box shows nothing more).
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  await box.click();
+  await expect(rows).toHaveCount(2);
+  await rows.nth(1).locator('.forget').click();
+  await expect(rows).toHaveCount(1);
+  expect(removed).toEqual(['recent_only_tag -system:has_audio']);
+  await expect(box).toBeFocused();
+  await page.getByRole('listbox').getByRole('button', { name: 'Clear' }).click();
+  await expect(rows).toHaveCount(0);
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+
+  // Turned off (Settings > Library): none shown, none kept.
+  list = [{ query: 'blue_sky', sort: '', used_at: 3 }];
+  on = false;
+  await page.goto('/?q=red');
+  await expect(page.locator('.bar .chip')).toHaveText([/red/]);
+  const before = added.length;
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  await expect(box).toBeFocused();
+  await expect(rows).toHaveCount(0);
+  await page.waitForTimeout(3000); // (longer than a search must be stayed on to be kept)
+  expect(added.length).toBe(before);
+});
+
 test('saved searches: save, run with its order, update after a change, rename, reorder, delete with undo', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough: the list is on the server (phone layout: screenshots)');
   // (the list is shared with the tests running meanwhile: only this test's own searches are looked at)

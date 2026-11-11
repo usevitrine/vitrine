@@ -1,5 +1,5 @@
 // Saved searches (favorites), kept on the server so every device shares them.
-import { api, type SavedSearch, type News, type Scope } from './api';
+import { api, type SavedSearch, type News, type Scope, type RecentSearch } from './api';
 import { settings } from './settings.svelte';
 import { format, parse } from './query';
 
@@ -71,6 +71,50 @@ export class Saved {
   async remove(id: number) {
     this.list = this.list.filter((s) => s.id !== id); // at once; the server confirms
     this.list = (await api.removeSaved(id, this.scope)).saved;
+  }
+
+  // ---- Recent searches (the search bar's drop-down): the page's last searches, newest first, kept on the server.
+  recent = $state<RecentSearch[]>([]);
+  recentLoaded = false;
+
+  async loadRecent() {
+    try {
+      this.recent = (await api.recent(this.scope)).recent;
+      this.recentLoaded = true;
+    } catch {
+      // Offline: the list stays as it was.
+    }
+  }
+
+  /** A search run (and stayed on): to the top of the list - at once here, the server confirms. */
+  async addRecent(query: string, sort: string) {
+    const q = normalize(query);
+    if (!q) return;
+    const rest = this.recent.filter((r) => !(normalize(r.query) === q && r.sort === sort));
+    this.recent = [{ query: format(parse(query)), sort, used_at: Date.now() }, ...rest].slice(0, 20);
+    try {
+      this.recent = (await api.addRecent(format(parse(query)), sort, this.scope)).recent;
+    } catch {
+      /* offline: kept here until the next load */
+    }
+  }
+
+  async removeRecent(r: RecentSearch) {
+    this.recent = this.recent.filter((x) => x !== r);
+    try {
+      this.recent = (await api.removeRecent(r.query, r.sort, this.scope)).recent;
+    } catch {
+      /* offline */
+    }
+  }
+
+  async clearRecent() {
+    this.recent = [];
+    try {
+      this.recent = (await api.clearRecent(this.scope)).recent;
+    } catch {
+      /* offline */
+    }
   }
 
   async reorder(ids: number[]) {

@@ -3,8 +3,10 @@
   // library's tags (with counts). Used for searching, editing chips and
   // tagging files. Tags already there (in the box, or exclude: the search's chips) aren't suggested; with anyOf,
   // suggestions can be marked - from several words typed one after another - and go in together: all of them, or
-  // any of them (an OR group).
-  import { api, type Suggestion } from '../lib/api';
+  // any of them (an OR group). With recent: the page's recent searches over them (the search bar: all of them while the
+  // box is empty, the ones matching the first word typed), each run with a tap.
+  import { api, type Suggestion, type RecentSearch } from '../lib/api';
+  import type { Snippet } from 'svelte';
   import { pop, moved, nudge, reduced, onPixels } from '../lib/motion';
   import { cubicOut } from 'svelte/easing';
   import { splitTag, tagColor, nsLabel } from '../lib/namespaces.svelte';
@@ -36,6 +38,12 @@
     suggest,
     exclude = [],
     anyOf,
+    recent = [],
+    recentRow,
+    recentHead = false,
+    onrecent,
+    onrecentremove,
+    onrecentclear,
   }: {
     value?: string;
     placeholder?: string;
@@ -64,6 +72,14 @@
     exclude?: string[];
     /** Marking suggestions (multi): how several marked tags are written as one "any of them" group (null: they can't be). */
     anyOf?: (tags: string[]) => string | null;
+    /** Recent searches to offer while the box has the focus (the search bar decides which), drawn by recentRow. */
+    recent?: RecentSearch[];
+    recentRow?: Snippet<[RecentSearch]>;
+    /** Their heading with Clear (the whole list, the box empty). */
+    recentHead?: boolean;
+    onrecent?: (r: RecentSearch) => void;
+    onrecentremove?: (r: RecentSearch) => void;
+    onrecentclear?: () => void;
   } = $props();
 
   // Under the anchor, as wide as it (fixed: the search box scrolls its chips sideways).
@@ -146,7 +162,7 @@
     maxHeight = Math.max(120, Math.min(420, below));
   }
   $effect(() => {
-    if (!open) return;
+    if (!listShown) return;
     placeList();
     const vv = window.visualViewport;
     addEventListener('resize', placeList);
@@ -272,6 +288,17 @@
   // ---- marked suggestions: they go in together (all of them, or any of them)
   let marks = $state<string[]>([]);
   let focused = $state(false);
+  // The recent searches: shown while the box has the focus (Escape hides them until something is typed or it's left).
+  let hush = $state(false);
+  const shownRecent = $derived(focused && !hush && recentRow ? recent : []);
+  const nR = $derived(shownRecent.length);
+  const listShown = $derived(open || (focused && marks.length > 0) || nR > 0);
+  /** A recent search picked: the search bar runs it, the box lets go (the keyboard goes, the results show). */
+  function takeRecent(r: RecentSearch) {
+    selected = -1;
+    onrecent?.(r);
+    inputEl?.blur();
+  }
   const canMark = $derived(multi && !!anyOf);
   const anyText = $derived(marks.length > 1 && anyOf ? anyOf(marks.map(writeTag)) : null);
   // The strip of marked tags scrolls sideways: one just marked comes into view, at its end (and while it pops in) -
@@ -335,10 +362,17 @@
   // the box lost focus (the keyboard starts closing and the list moves away
   // under the finger). The suggestion is the one touched, even if the list
   // changed meanwhile; moving the finger (scrolling the list) isn't a tap.
-  let touch: { s: Suggestion; x: number; y: number; mark: boolean } | null = null;
+  let touch: { act: () => void; x: number; y: number } | null = null;
   function touchStart(e: TouchEvent, s: Suggestion) {
+    const mark = !!(e.target as Element).closest('.mark');
+    touchFor(e, mark ? () => toggleMark(s) : () => choose(s));
+  }
+  function touchFor(e: TouchEvent, act: () => void) {
     const t = e.touches[0];
-    touch = { s, x: t.clientX, y: t.clientY, mark: !!(e.target as Element).closest('.mark') };
+    touch = { act, x: t.clientX, y: t.clientY };
+  }
+  function touchRecent(e: TouchEvent, r: RecentSearch) {
+    touchFor(e, (e.target as Element).closest('.forget') ? () => onrecentremove?.(r) : () => takeRecent(r));
   }
   function touchMove(e: TouchEvent) {
     const t = e.touches[0];
@@ -347,23 +381,22 @@
   function touchEnd(e: TouchEvent) {
     if (!touch) return;
     e.preventDefault(); // no blur, no faked mouse events
-    const { s, mark } = touch;
+    const { act } = touch;
     touch = null;
-    if (mark) toggleMark(s);
-    else choose(s);
+    act();
   }
 
   function keydown(e: KeyboardEvent) {
-    if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    if (listShown && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && nR + suggestions.length > 0) {
       e.preventDefault();
-      const n = suggestions.length;
+      const n = nR + suggestions.length;
       selected = (selected + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
       return;
     }
     // (the arrow keys move through the list; Space marks the highlighted suggestion - none highlighted: a space)
-    if (open && selected >= 0 && canMark && e.key === ' ') {
+    if (open && selected >= nR && canMark && e.key === ' ') {
       e.preventDefault();
-      toggleMark(suggestions[selected]);
+      toggleMark(suggestions[selected - nR]);
       return;
     }
     if (e.key === 'Enter' && marks.length) {
@@ -371,9 +404,14 @@
       addMarked(e.shiftKey);
       return;
     }
-    if (open && selected >= 0 && (e.key === 'Enter' || e.key === 'Tab')) {
+    if (selected >= 0 && selected < nR && (e.key === 'Enter' || e.key === 'Tab')) {
       e.preventDefault();
-      pick(selected);
+      takeRecent(shownRecent[selected]);
+      return;
+    }
+    if (open && selected >= nR && (e.key === 'Enter' || e.key === 'Tab')) {
+      e.preventDefault();
+      pick(selected - nR);
       return;
     }
     if (e.key === 'Enter') {
@@ -383,10 +421,11 @@
       return;
     }
     if (e.key === 'Escape') {
-      if (open || marks.length) {
+      if (open || marks.length || nR) {
         e.stopPropagation();
         close();
         marks = [];
+        hush = true;
       } else {
         onescape?.();
       }
@@ -407,7 +446,7 @@
     {placeholder}
     aria-label={label}
     role="combobox"
-    aria-expanded={open || (focused && marks.length > 0)}
+    aria-expanded={listShown}
     aria-controls={listId}
     aria-autocomplete="list"
     autocomplete="off"
@@ -415,6 +454,8 @@
     spellcheck="false"
     enterkeyhint="search"
     oninput={() => {
+      hush = false;
+      selected = -1;
       schedule();
       oninputchange?.(value);
     }}
@@ -422,6 +463,7 @@
     onfocus={() => {
       clearTimeout(blurTimer);
       focused = true;
+      hush = false;
       // (back in a box left mid-word: its suggestions again. Only after leaving: a box opened with text in it stays quiet.)
       if (left) schedule();
       left = false;
@@ -435,7 +477,7 @@
       }, 120);
       onblur?.();
     }} />
-  {#if open || (focused && marks.length > 0)}
+  {#if listShown}
     <!-- The box (placed; at the page's top level when anchored); the list scrolls inside it, under the app's
          floating scrollbar (overlayScroll: its thumb goes in the box). -->
     <div
@@ -452,6 +494,36 @@
       style:bottom={place?.bottom !== undefined ? `${place.bottom}px` : undefined}
       style:width={place ? `${place.width}px` : spread ? `${spread.width}px` : undefined}>
     <ul class="scroll" id={listId} role="listbox" {@attach overlayScroll} style:max-height={place?.room !== undefined ? `calc(var(--view-h) - ${place.room + 10}px)` : maxHeight ? `${maxHeight}px` : undefined}>
+      {#if nR && recentHead}
+        <li class="head" role="presentation">
+          <span>{t('searchBar.recent')}</span>
+          <button type="button" class="clear-recent" onmousedown={(e) => press(e, () => onrecentclear?.())} ontouchend={(e) => press(e, () => onrecentclear?.())}
+            >{t('searchBar.clearRecent')}</button>
+        </li>
+      {/if}
+      {#each shownRecent as r, i (r.query + '|' + r.sort)}
+        <li
+          class="recent"
+          role="option"
+          aria-label={t('searchBar.recentOption', { search: r.query })}
+          aria-selected={i === selected}
+          animate:moved
+          out:pop
+          onmousedown={(e) => {
+            e.preventDefault(); // (the box keeps the focus until the search is run)
+            if ((e.target as Element).closest('.forget')) onrecentremove?.(r);
+            else takeRecent(r);
+          }}
+          ontouchstart={(e) => touchRecent(e, r)}
+          ontouchmove={touchMove}
+          ontouchend={touchEnd}>
+          <span class="r-icon" aria-hidden="true"><Icon name="recent" size={16} /></span>
+          <span class="r-search">{@render recentRow!(r)}</span>
+          <span class="forget" role="button" aria-label={t('searchBar.forgetRecent', { search: r.query })} title={t('searchBar.forgetRecentTitle')}
+            ><Icon name="close" size={14} /></span>
+        </li>
+      {/each}
+      {#if nR && suggestions.length}<li class="sep" role="presentation"></li>{/if}
       {#each suggestions as s, i (s.tag)}
         {@const p = splitTag(s.tag)}
         {@const m = marked(p.name)}
@@ -459,7 +531,7 @@
         <li
           role="option"
           aria-label="{s.tag}{s.ideal ? ` → ${s.ideal}` : ''}{s.count ? `, ${num(s.count)}` : ''}"
-          aria-selected={i === selected}
+          aria-selected={i + nR === selected}
           class:marked={on}
           onmousedown={(e) => {
             e.preventDefault(); // keeps the focus (and the keyboard) in the box
@@ -566,6 +638,74 @@
   li[aria-selected='true'],
   li:hover {
     background: var(--surface0);
+  }
+  /* Recent searches: the clock, the search's chips (one line, faded at the end when long), an x that forgets it. */
+  li.recent {
+    justify-content: flex-start;
+    gap: 8px;
+    padding-right: 4px;
+  }
+  .r-icon {
+    flex: none;
+    display: grid;
+    color: var(--overlay0);
+  }
+  .r-search {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    mask-image: linear-gradient(to left, transparent, #000 16px);
+  }
+  .forget {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    align-self: stretch;
+    margin: -6px 0;
+    border-radius: 6px;
+    color: var(--overlay0);
+  }
+  @media (hover: hover) {
+    .forget:hover {
+      color: var(--red);
+    }
+  }
+  li.head,
+  li.head:hover {
+    min-height: 0;
+    padding: 2px 2px 2px 10px;
+    background: none;
+    cursor: default;
+    color: var(--subtext);
+    font-size: var(--font-small);
+    font-weight: 600;
+  }
+  .clear-recent {
+    min-height: 28px;
+    padding: 0 8px;
+    border: 0;
+    background: none;
+    color: var(--subtext);
+    font-size: var(--font-small);
+    font-weight: 600;
+  }
+  @media (hover: hover) {
+    .clear-recent:hover {
+      color: var(--text);
+    }
+  }
+  li.sep,
+  li.sep:hover {
+    min-height: 0;
+    height: 1px;
+    margin: 4px 6px;
+    padding: 0;
+    background: var(--surface0);
+    cursor: default;
   }
   .name {
     overflow-wrap: anywhere;

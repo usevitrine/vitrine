@@ -655,6 +655,10 @@
     "defaultSearchPlaceholder": "Tags or filters",
     "defaultSort": "Default sort",
     "favoritesSort": "Favorites sort",
+    "recentSearches": {
+      "label": "Remember recent searches",
+      "hint": "Tap the empty search box to run one of your last searches again. Each page keeps its own; turning this off forgets them."
+    },
     "comicsSort": "Comics default sort",
     "comicsSearch": "Comics default search",
     "browseSearch": "Browse default search",
@@ -2212,6 +2216,11 @@
     "chipTitle": "{chip} - tap to edit",
     "chipTitleDrag": "{chip} - tap to edit, drag onto another chip to make an OR group",
     "removeChip": "Remove {chip} from the search",
+    "recent": "Recent searches",
+    "clearRecent": "Clear",
+    "recentOption": "Recent search: {search}",
+    "forgetRecent": "Remove {search} from recent searches",
+    "forgetRecentTitle": "Remove from recent searches",
     "filters": "Filters",
     "sortFilters": "Sort and filters",
     "sortFiltersChanged": "Sort and filters (not the default order)",

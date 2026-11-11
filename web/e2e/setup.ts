@@ -73,6 +73,9 @@ function makeTemplate() {
   // The test sites below never answer: they'd pause after a few errors (their searches waiting instead of failing).
   // Off here; the test of pausing turns it on for itself.
   run(bin, ['setting', '-data-dir', data, 'pauseAfter', '0']);
+  // Every test's searches would be kept as recent searches on the shared server, as options in the others' suggestion
+  // lists: off here; the test of recent searches turns it on for itself.
+  run(bin, ['setting', '-data-dir', data, 'recentSearches', 'false']);
   run(bin, ['setting', '-data-dir', data, 'newFromBulk', 'true']); // (the test library is an import: bulk - its files count as new for the tests)
 
   // Two test sites that never deliver anything (no real site is contacted by the

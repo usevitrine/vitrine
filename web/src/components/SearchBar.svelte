@@ -3,7 +3,9 @@
   // edited in place. Each change runs the search straight away.
   import { parse, format, chipText, atomText, label, kindOf, balanced, isTitleText, titleTerm, type Chip } from '../lib/query';
   import { pop as grow, moved, settle, sizeOf, nudge, onPixels, reduced } from '../lib/motion';
-  import type { Suggestion } from '../lib/api';
+  import type { Suggestion, RecentSearch } from '../lib/api';
+  import { sortOptions } from './SortMenu.svelte';
+  import { siteLabel } from '../lib/sites.svelte';
   import TagInput from './TagInput.svelte';
   import { tagColor } from '../lib/namespaces.svelte';
   import ChipEditor from './ChipEditor.svelte';
@@ -36,6 +38,7 @@
     browseSites = [],
     site = '',
     onsite = () => {},
+    remember = true,
   }: {
     query: string;
     sort?: string;
@@ -56,6 +59,8 @@
     browseSites?: string[];
     site?: string;
     onsite?: (id: string) => void;
+    /** Keeps the searches run here as recent searches, and offers them (not in a trash: its searches aren't the page's). */
+    remember?: boolean;
   } = $props();
   /** The order this page counts as its default (the sort mark, the menu's "default" and Reset). */
   // (in Settings - plain, sortable - the order picked is the default being set: nothing there is "not the default")
@@ -126,7 +131,47 @@
   let current = $derived(saved.list.length ? saved.find(format(chips), savedSort, savedDefault) : undefined);
   onMount(() => {
     if (!saved.loaded) saved.load();
+    if (recents && !saved.recentLoaded) saved.loadRecent();
   });
+
+  // ---- Recent searches (2026-11-11, the user picked "drops down when the search box is empty" + "mixed into
+  // autocomplete"): a search stayed on for a moment goes to the top of the page's list (the steps of building one, a
+  // chip at a time, don't); the box offers them - all of them while the search is empty, the ones with a word starting
+  // like the first word typed over the tag suggestions. One runs with its order (Browse: its site too).
+  const recents = $derived(!plain && remember && settings.recentSearches !== false);
+  /** The order kept with a recent search: '' for the page's default (Browse: "site:order", as a saved search). */
+  const recentSort = $derived(browse ? savedSort : sort === pageDefault ? '' : sort);
+  $effect(() => {
+    const q = query.trim();
+    const s = recentSort;
+    if (!recents || !q) return;
+    const timer = setTimeout(() => saved.addRecent(q, s), RECENT_AFTER);
+    return () => clearTimeout(timer);
+  });
+  const recentShown = $derived.by((): RecentSearch[] => {
+    if (!recents || chips.length) return [];
+    if (!draft) return saved.recent.slice(0, 10);
+    const word = draft.trim().toLowerCase().replace(/^-/, '');
+    if (!word || /\s/.test(draft.trim())) return [];
+    return saved.recent.filter((r) => r.query.toLowerCase().split(/\s+/).some((w) => w.replace(/^[-(~]+/, '').startsWith(word))).slice(0, 3);
+  });
+  /** What a recent search says after its chips: an order that isn't the page's default (Browse: its site). */
+  function recentFacts(r: RecentSearch) {
+    if (browse) {
+      const at = r.sort.indexOf(':');
+      const order = r.sort.slice(at + 1);
+      return siteLabel(r.sort.slice(0, at)) + (order && order !== 'newest' ? ' · ' + t(`browse.sort.${order}`) : '');
+    }
+    return r.sort && r.sort !== pageDefault ? (sortOptions(comics).find((o) => o.value === r.sort)?.label ?? r.sort) : '';
+  }
+  async function runRecent(r: RecentSearch) {
+    editing = null;
+    filterMenu = null;
+    await onsaved(r.query, browse ? r.sort : r.sort || pageDefault);
+    followEnd(340);
+  }
+
+  const RECENT_AFTER = 2500; // ms a search is stayed on before it counts as one run
 
   // The menus under the search bar drop in a little and fade (not with reduced motion).
   function pop(node: Element, { out = false } = {}) {
@@ -361,6 +406,11 @@
   }
 </script>
 
+{#snippet recentRow(r: RecentSearch)}
+  {#each parse(r.query) as c, i (i)}<span class="r-chip" class:group={c.atoms.length > 1}>{@render atomsOf(c)}</span>{/each}
+  {#if recentFacts(r)}<span class="r-facts">{recentFacts(r)}</span>{/if}
+{/snippet}
+
 {#snippet atomsOf(c: Chip)}
   {#each c.atoms as a, j}
     {#if j > 0}<span class="or">{t('searchBar.or')}</span>{/if}
@@ -446,7 +496,13 @@
       onenter={commitDraft}
       onbackspaceempty={backspaceEmpty}
       anchor={fieldEl}
-      span=".search-row" />
+      span=".search-row"
+      recent={recentShown}
+      recentRow={recents ? recentRow : undefined}
+      recentHead={!draft}
+      onrecent={runRecent}
+      onrecentremove={(r) => saved.removeRecent(r)}
+      onrecentclear={() => saved.clearRecent()} />
     </div>
     </div>
     <span class="tail">
@@ -793,6 +849,31 @@
   }
   .atom.title {
     color: var(--text);
+  }
+  /* A recent search in the box's list: its chips, smaller, as the search bar draws them. */
+  .r-chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--surface0);
+    font-size: var(--font-small);
+    font-weight: 500;
+  }
+  .r-chip.group {
+    background: color-mix(in srgb, var(--mauve) 18%, var(--surface0));
+  }
+  :global(li[aria-selected='true']) .r-chip,
+  :global(li:hover) .r-chip {
+    background: var(--surface1);
+  }
+  .r-facts {
+    flex: none;
+    color: var(--subtext);
+    font-size: var(--font-small);
+    white-space: nowrap;
   }
   .or {
     font-size: 10px;

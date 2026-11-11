@@ -720,6 +720,11 @@ export const api = {
     post<{ saved: SavedSearch[] }>(`/api/saved/${id}?x${sc(scope)}`, change),
   removeSaved: (id: number, scope: Scope = '') => post<{ saved: SavedSearch[] }>(`/api/saved/${id}/remove?x${sc(scope)}`, {}),
   reorderSaved: (ids: number[], scope: Scope = '') => post<{ saved: SavedSearch[] }>('/api/saved/reorder?x' + sc(scope), { ids }),
+  /** Recent searches (the search bar's drop-down), newest first. */
+  recent: (scope: Scope = '') => get<{ recent: RecentSearch[] }>('/api/recent?x' + sc(scope)),
+  addRecent: (query: string, sort: string, scope: Scope = '') => post<{ recent: RecentSearch[] }>('/api/recent?x' + sc(scope), { query, sort }),
+  removeRecent: (query: string, sort: string, scope: Scope = '') => post<{ recent: RecentSearch[] }>('/api/recent/remove?x' + sc(scope), { query, sort }),
+  clearRecent: (scope: Scope = '') => post<{ recent: RecentSearch[] }>('/api/recent/clear?x' + sc(scope), {}),
   savedLooks: (sort: string) => get<{ saved: Record<string, SavedLook>; groups: SavedLook[] }>('/api/saved/looks?sort=' + encodeURIComponent(sort)),
   scheduleRefresh: (ids: number[]) => post<{ posts: number }>('/api/refresh', { ids }),
   sprite: (id: number) => get<SpriteInfo>(`/api/files/${id}/sprite`),
@@ -791,6 +796,13 @@ export interface LibraryStats {
     hwaccel?: string; // the GPU that decodes videos ("" / none: the processor)
     in_docker: boolean;
   };
+}
+
+/** A search run lately on a search page: its order '' = the page's default. */
+export interface RecentSearch {
+  query: string;
+  sort: string;
+  used_at: number;
 }
 
 /** What the saved searches menu's tile shows of a saved search or group besides its name. */

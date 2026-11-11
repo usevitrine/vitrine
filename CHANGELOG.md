@@ -5,6 +5,10 @@ shows this too (Settings > Help & about).
 
 ## Unreleased
 
+### New
+
+- **Recent searches**: tap the empty search box to see your last searches and run one again with a tap, with the order it had. While you type the first word, recent searches with a matching word show above the tag suggestions. An × forgets one, Clear forgets them all. Each page (Library, Comics, Comics > Browse) keeps its own, on the server, so every device has the same ones; searches in the trash aren't kept. Settings > Library can turn them off, which forgets them too.
+
 ### Fixed
 
 - **What's new**: the list of changes has room under its last line before the bottom bar.

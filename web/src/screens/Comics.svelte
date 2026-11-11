@@ -540,7 +540,7 @@
           >{#if trash.emptying}<span class="spinner" role="status" aria-label={t('trash.emptying')} transition:pop></span>{:else}<span class="icon-in" transition:pop><Icon name="trash" size={20} /></span>{/if}</button
         >
       {/if}
-      <div class="search-grow"><SearchBar {query} {sort} placeholder={fav ? t('comics.favSearch') : inTrash ? t('comics.trashSearch') : t('comics.searchPlaceholder')} defaultSort={inTrash ? 'modified' : DEFAULT_SORT} onsearch={search} onsaved={(q, s) => ((sort = s), search(q))} onsort={setSort} /></div>
+      <div class="search-grow"><SearchBar {query} {sort} placeholder={fav ? t('comics.favSearch') : inTrash ? t('comics.trashSearch') : t('comics.searchPlaceholder')} defaultSort={inTrash ? 'modified' : DEFAULT_SORT} onsearch={search} onsaved={(q, s) => ((sort = s), search(q))} onsort={setSort} remember={!inTrash} /></div>
     </div>
     {#if inTrash && trash.comics > 0}
       <p class="trash-facts" transition:reveal>{t('comics.count', { n: trash.comics })} · {trash.comicSize} · {trash.days ? t('trash.keepDays', { n: trash.days }) : t('trash.keep')}</p>
