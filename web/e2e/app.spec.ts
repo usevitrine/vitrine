@@ -2424,7 +2424,7 @@ test('tag browser: counts, filter, namespace, rename your own tag, alias a tag',
   // Tapping a tag searches for it (once the filtered list has loaded).
   await expect(card.getByText('1 tag', { exact: true })).toBeVisible();
   await row('browse_fixed').getByRole('button').first().click();
-  await expect(page).toHaveURL(/q=browse_fixed/);
+  await expect(page).toHaveURL(/\/view\?q=browse_fixed/); // (the results page: the library's search stays)
   await expect(page.getByText(/^3 files/)).toBeVisible();
   // (the tag off again: the next test on this server - or this one run again - starts without it)
   await page.evaluate(async () => {
@@ -3326,6 +3326,61 @@ test('downloads: how long a download has worked - on its opened card, counting o
   const done = page.locator('.item', { hasText: 'timed_done' });
   await expect(done.locator('.qsum')).toHaveText(/1 h 2 min/); // (in its card's summary: how long it took)
   if (process.env.SHOTS) await done.screenshot({ path: process.env.SHOTS + '/runtime-done-' + test.info().project.name + '.png' });
+});
+
+// The user (2026-11-12): a download tapped in the menu - its tab, scrolled to, highlighted; a queue item's or a
+// subscription's search tapped - the library with it, newest imported first.
+test('downloads: the menu opens a download on its tab, highlighted; a search tapped is the library with it, newest imported first', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough: the subscription is on the server');
+  const base = { site: 'safebooru', max_posts: 500, site_total: 900, handled: 40, downloaded: 30, already: 2, deleted: 0, skipped: 0, blacklisted: 8, failed: 0, created_at: Date.now() };
+  const mine = [
+    ...Array.from({ length: 12 }, (_, k) => ({ ...base, id: 99300 + k, query: `filler_${k}`, state: 'queued', position: k + 1 })),
+    { ...base, id: 99399, query: 'blue_sky', state: 'queued', position: 50 },
+  ];
+  await page.route('**/api/downloads', async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    body.searches = [...body.searches, ...mine];
+    await r.fulfill({ response: res, json: body });
+  });
+  await page.route('**/api/downloads?active=1', (r) => r.fulfill({ json: { searches: mine, sites_paused: {} } }));
+  await page.goto('/settings');
+  await page.evaluate(() => localStorage.setItem('vitrine.downloadsTab', 'history')); // (another tab looked at last)
+  await page.locator('header.topbar').getByRole('button', { name: /^Downloads/ }).click();
+  const menu = page.getByRole('dialog', { name: 'Downloads' });
+  await menu.getByRole('button', { name: /^Show all/ }).click();
+  await menu.locator('button.item', { hasText: 'blue_sky' }).click();
+  await expect(page).toHaveURL(/\/downloads$/);
+  await expect(page.getByRole('tab', { name: /Queue/ })).toHaveAttribute('aria-selected', 'true');
+  const row = page.locator('[data-dl="99399"]');
+  await expect(row).toHaveClass(/flash/);
+  await expect(row).toBeInViewport();
+
+  // Its search: the library itself with it, newest imported first.
+  await row.locator('button.qlink', { hasText: 'blue_sky' }).click();
+  await expect(page).toHaveURL(/\/\?q=blue_sky&sort=imported$|\/\?q=blue_sky$/);
+  await expect(page.locator('.bar .chip')).toHaveText([/blue_sky/]);
+  expect(await shownSort(page)).toBe('Newest imported');
+
+  // A subscription's search: the same.
+  const sub = await page.evaluate(() =>
+    fetch('/api/subscriptions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ site: 'test-down', query: 'red', interval: 86400, initial_max: 0 }),
+    }).then((r) => r.json()),
+  );
+  await page.evaluate((id) => {
+    localStorage.setItem('vitrine.downloadsTab', 'subs');
+    return id;
+  }, sub.id);
+  await page.goto('/downloads');
+  await page.getByRole('tab', { name: /Subscriptions/ }).click();
+  const subRow = page.locator(`li[data-sub="${sub.id}"]`);
+  if (!(await subRow.isVisible())) await page.getByRole('button', { name: /^Unfold test-down/ }).first().click();
+  await subRow.locator('button.qlink').click();
+  await expect(page.locator('.bar .chip')).toHaveText([/red/]);
+  await page.evaluate((id) => fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), sub.id);
 });
 
 test('downloads: on phones the summary is one row - too many for the width, it scrolls sideways with a soft edge', async ({ page }) => {
@@ -8558,8 +8613,10 @@ test('downloads: subscriptions as cards - health, the search as chips, the next 
   }
   // "+3": those files, as a library search (found by this subscription).
   await card.getByRole('button', { name: /3 new files since you last looked/ }).click();
-  await expect(page).toHaveURL(new RegExp(`found_by(%3D|=)${sub.id}`));
+  await expect(page).toHaveURL(new RegExp(`/view\\?.*found_by(%3D|=)${sub.id}`)); // (the results page: the library's search stays)
   await expect(page.locator('.bar .chip').first()).toContainText('found by “cards_sky'); // (named by its search)
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page).toHaveURL(/\/downloads/);
   await page.evaluate((id) => fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), sub.id);
 });
 

@@ -46,6 +46,12 @@
     close();
     openNewDownload(query);
   }
+  /** One download: the Downloads page on it - its tab, scrolled to, highlighted (Downloads' focus "dl:"). */
+  function toDownload(id: number) {
+    close();
+    router.focus = 'dl:' + id;
+    router.go('downloads');
+  }
   function toDownloads() {
     close();
     router.go('downloads');
@@ -153,7 +159,7 @@
 
 {#snippet row(s: DownloadSearch)}
   {@const st = shownState(s)}
-  <button class="item" onclick={toDownloads}>
+  <button class="item" onclick={() => toDownload(s.id)}>
     <SiteIcon host={siteInfo.hosts[s.site] ?? ''} />
     <span class="text">
       <span class="head">

@@ -87,7 +87,7 @@
   }
 
   function search(tag: string) {
-    router.openSearch(tag);
+    router.openResults(tag); // (a page of their own: the library's search stays)
   }
 
   async function rename(bt: BrowsedTag) {

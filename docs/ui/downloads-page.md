@@ -280,3 +280,16 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   sparkles (new, green), check (had), trash (deleted before), crossed-out eye (blacklisted), filter (skipped), alert
   (failed, red) - named when pointed at and for screen readers (a visually hidden "41,650 new"). "up to N files" is gone
   (the limit is in the lead). The bar is the same count over the same goal (also the top bar's downloads menu).
+
+## Searches as links, the menu's downloads (2026-11-12)
+- **A search tapped** (the user: "if you click a sub query in the downloads page it should open up the main page with
+  the query + sort by newest imported first"; "and a queue item's query should do the same"): a subscription's search
+  and a queue card's (finished ones in History too) is a link (`.qlink`) to the library itself, its search replaced by
+  the search's own words, `sort:imported` (`openQuery` -> `router.openSearch`). Gallery sites (ehentai) aren't links:
+  their downloads are comics. On a queue card the rest of the line still opens its details; the toggle's hover rule
+  (100% wide) is held to the same size, or it pushed the link out from under the pointer between press and release.
+  "+3 new files" on a subscription is still the results page (`router.openResults`, found by it lately).
+- **A download tapped in the top bar's Downloads menu** (the user: "it should go to the downloads page, to the correct
+  tab, scroll to the download, and flash highlight it"): `router.focus = 'dl:<id>'`; Downloads opens the Queue (finished
+  meanwhile: History, its Earlier part opened if it's there), its site unfolded and its stack spread out, scrolls it to
+  the middle and flashes it (`data-dl`, the subscriptions' `flash`). "All" and "+N more" still just open the page.

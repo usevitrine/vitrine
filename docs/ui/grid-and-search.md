@@ -47,8 +47,9 @@ search, no recent searches recorded there; the menu marks no Library entry. Used
 `system:came>0 sort:came`) and the blacklist's Show them. **A file tapped on I came** is only the viewer:
 `openResults(q, fileId)` searches with `find=` for its place, opens the viewer on it with the page kept out of sight
 (`viewer-only`), and closing the viewer goes back to I came. Each call counts (`router.resultsGen`), so the page,
-kept from a visit before, runs the new search. The Tags page's tag browser and Downloads' "files found" still open
-the library itself (`openSearch`).
+kept from a visit before, runs the new search. Also the Tags page's tag browser (a tag tapped) and Downloads' "+3
+new files" on a subscription (the user: "Yes, those too"). A subscription's or a queue item's search tapped opens the
+library itself on purpose (docs/ui/downloads-page.md).
 
 ## As built (web client, from 2026-10-14 on)
 - **Search bar**: booru text -> chips (a finished word becomes a chip on space and searches at once); chips colored

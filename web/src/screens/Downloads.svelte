@@ -836,6 +836,36 @@
     });
   });
 
+  // A download tapped in the top bar's Downloads menu (2026-11-12, the user): its tab (the queue; finished meanwhile:
+  // the history), its site's stack open, scrolled to it and briefly highlighted.
+  let flashDl = $state(0);
+  $effect(() => {
+    const f = router.focus;
+    if (!f?.startsWith('dl:')) return;
+    const id = Number(f.slice(3));
+    const q = queueSites.find((g) => g.entries.some((e) => e.kind === 'search' && e.s.id === id));
+    const done = q ? undefined : finished.find((s) => s.id === id);
+    if (!q && !done) return; // (not loaded yet: the lists come in a moment)
+    router.focus = null;
+    let key: string;
+    if (q) {
+      setTab('queue');
+      key = 'queue:' + q.site;
+    } else {
+      setTab('history');
+      const today = (done!.finished_at ?? done!.created_at) >= startOfToday;
+      if (!today && !earlierOpen) toggleEarlier();
+      key = (today ? 'done:' : 'earlier:') + done!.site;
+    }
+    if (siteFolded(key)) toggleSite(key);
+    unfolded[key] = true; // (a stack of several: spread out, so it can be seen)
+    setTimeout(() => {
+      document.querySelector(`[data-dl="${id}"]`)?.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' });
+      flashDl = id;
+      setTimeout(() => (flashDl = 0), 2200);
+    }, 260); // (after the tab's slide and the stack opening)
+  });
+
   // ---- subscriptions: a search checked again on a schedule for new posts.
 
   const repeatOptions = $derived([{ value: '0', label: t('downloads.once') }, ...intervals.map((v) => ({ value: String(v), label: cap(every(v)) }))]);
@@ -958,11 +988,15 @@
     }
     return out;
   }
+  /** A search's own words in the library itself (its search replaced), newest imported first. */
+  function openQuery(q: string) {
+    router.openSearch((q.trim() + ' sort:imported').trim());
+  }
   function openFresh(s: Subscription) {
     const l = looks[s.id];
     if (l?.comic) return router.go('comics', String(l.comic));
     const hours = Math.max(1, Math.ceil((Date.now() - freshSince) / 3600_000));
-    router.openSearch(`system:found_by=${s.id} system:imported<${hours}h`);
+    router.openResults(`system:found_by=${s.id} system:imported<${hours}h`); // (a page of their own)
   }
 
   // ---- phones: a card swiped to the left shows Check now and Pause/Resume behind it
@@ -1338,8 +1372,14 @@
   {@const g = s.state === 'running' && gal ? galleryNow(s) : null}
   {@const sum = summaryOf(s)}
   <div class="qhead">
-    <button class="qtoggle" aria-expanded={open} aria-label={detailsLabel(s)} onclick={() => (qopen[s.id] = !open)}>
+    <div class="qline">
+    {#if gal}
       <span class="query one-line qname" title={s.query || t('push.everything')}>{named(s) || t('push.everything')}</span>
+    {:else}
+      <!-- Tapped: the library with this search, newest imported first (the user, 2026-11-12); the rest of the line opens the details. -->
+      <button class="qlink query one-line qname" onclick={() => openQuery(s.query)} title={t('downloads.searchLibrary', { query: s.query || t('push.everything') })}>{named(s) || t('push.everything')}</button>
+    {/if}
+    <button class="qtoggle" aria-expanded={open} aria-label={detailsLabel(s)} onclick={() => (qopen[s.id] = !open)}>
       {#if st === 'running'}
         <span class="qnow">
           {#if measurable(s)}<b>{Math.floor(progress(s) * 100)}%</b>{/if}
@@ -1351,6 +1391,7 @@
       {/if}
       <span class="chev" class:open aria-hidden="true"><Icon name="chevron" size={16} /></span>
     </button>
+    </div>
     {#if st === 'running' || s.handled}{@render bar(s)}{/if}
     {#if !open && sum}<span class="qsum" transition:reveal>{sum}</span>{/if}
   </div>
@@ -1422,14 +1463,22 @@
             {/if}
             <span class="health {h}" role="img" aria-label={t(`downloads.health.${h}`)}></span>
           </span>
-          {#if s.label}
-            <span class="query" title={s.query}>{s.label}</span>
+          {#snippet subQuery()}
+            {#if s.label}
+              <span class="query" title={s.query}>{s.label}</span>
+            {:else}
+              <!-- The search as chips (excluded terms marked, a namespace's color). -->
+              <span class="query qchips" title={s.query} {@attach edgeFades}
+                >{#each queryChips(s.query) as c, k (k)}{#if k}{' '}{/if}{#if c.parts.length > 1}<span class="qchip any"
+                    >{#each c.parts as p, j (j)}{#if j}<span class="or">{t('searchBar.or')}</span>{/if}<span style:color={p.color}>{p.text}</span>{/each}</span
+                  >{:else}<span class="qchip" class:neg={c.neg} style:color={c.parts[0].color}>{c.parts[0].text}</span>{/if}{:else}<span class="qchip">{t('push.everything')}</span>{/each}</span>
+            {/if}
+          {/snippet}
+          {#if gallery}
+            {@render subQuery()}
           {:else}
-            <!-- The search as chips (excluded terms marked, a namespace's color). -->
-            <span class="query qchips" title={s.query} {@attach edgeFades}
-              >{#each queryChips(s.query) as c, k (k)}{#if k}{' '}{/if}{#if c.parts.length > 1}<span class="qchip any"
-                  >{#each c.parts as p, j (j)}{#if j}<span class="or">{t('searchBar.or')}</span>{/if}<span style:color={p.color}>{p.text}</span>{/each}</span
-                >{:else}<span class="qchip" class:neg={c.neg} style:color={c.parts[0].color}>{c.parts[0].text}</span>{/if}{:else}<span class="qchip">{t('push.everything')}</span>{/each}</span>
+            <!-- Tapped: the library with this search, newest imported first (the user, 2026-11-12). -->
+            <button class="qlink" onclick={() => openQuery(s.query)} title={t('downloads.searchLibrary', { query: s.query || t('push.everything') })}>{@render subQuery()}</button>
           {/if}
           {#if st === 'paused' || st === 'failed'}<span class="state {st}" transition:nudge>{stateLabel(st)}</span>{/if}
           {#if fresh}
@@ -1682,7 +1731,7 @@
                     {@render retryCard(e.r)}
                   {:else}
                     {@const grips = c.open && q.list.length > 1}
-                    <div class="row qrow" class:has-grip={grips} data-wi={e.wi >= 0 ? e.wi : undefined}>
+                    <div class="row qrow" class:has-grip={grips} class:flash={flashDl === e.s.id} data-dl={e.s.id} data-wi={e.wi >= 0 ? e.wi : undefined}>
                       {#if grips}
                         <button
                           class="icon grip"
@@ -1979,7 +2028,7 @@
     <Stack items={g.list} key={(s) => s.id} bind:open={() => !!unfolded[key], (v) => (unfolded[key] = v)} label={t('downloads.finishedOn', { site: siteLabel(g.site) })}>
       {#snippet card(s: DownloadSearch)}
         <!-- (the queue's card: finished downloads look the same - 2026-10-29, the user: "update completed downloads") -->
-        <div class="row qrow">
+        <div class="row qrow" class:flash={flashDl === s.id} data-dl={s.id}>
           <div class="main">{@render queueCard(s, true)}</div>
         </div>
       {/snippet}
@@ -2015,7 +2064,8 @@
   li + li {
     border-top: 1px solid var(--surface0);
   }
-  li.flash {
+  li.flash,
+  .qrow.flash {
     animation: flash 2.2s ease-out;
   }
   @keyframes flash {
@@ -2107,6 +2157,51 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .qline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  /* (the same sizes hovered or not: the toggle's hover rule is 100% wide - it pushed the link out from under the
+     pointer between the press and the release, and the click went to neither) */
+  .qhead .qline .qtoggle.qtoggle,
+  .qhead .qline .qtoggle.qtoggle:hover:not(:disabled) {
+    flex: 1 1 0;
+    width: auto;
+  }
+  .qhead .qline > .qlink.qlink {
+    flex: 0 1 auto;
+  }
+  /* A search's words as a link to the library (over the line's own toggle, which covers the card's head). */
+  .qlink,
+  .qlink:hover:not(:disabled) {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+  .head > .qlink,
+  .head > .qlink:hover:not(:disabled) {
+    flex: 1;
+    display: flex;
+  }
+  @media (hover: hover) {
+    .qlink:hover {
+      text-decoration: underline;
+      text-decoration-color: var(--overlay0);
+      text-underline-offset: 3px;
+    }
   }
   .qnow {
     flex: none;

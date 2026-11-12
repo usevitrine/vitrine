@@ -8,7 +8,8 @@ shows this too (Settings > Help & about).
 ### Improved
 
 - **Tag suggestions**: the search box suggests all the tags that match what you type (up to 200), not just the first 12. The list keeps its height and scrolls, and the arrow keys keep the highlighted one in view.
-- **I came and the blacklist**: their files open on a results page of their own, with a Back button, so your library's search, filters and order stay as they were. A file tapped on I came opens straight in the viewer, and closing it brings you back to I came.
+- **Results page**: files shown from I came, the blacklist, a tag on the Tags page and a subscription's new files open on a results page of their own, with a Back button, so your library's search, filters and order stay as they were. A file tapped on I came opens straight in the viewer, and closing it brings you back to I came.
+- **Downloads**: tap a subscription's or a download's search to see it in your library, newest imported first. A download tapped in the top bar's Downloads menu opens on the Downloads page, scrolled to and highlighted.
 - **Recent searches**: saved searches aren't added to them any more. They are a tap away already, and run every day they pushed your other searches out.
 
 ### Fixed
