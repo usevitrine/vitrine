@@ -4239,6 +4239,25 @@ test('downloads page: a stopped site at the top, a summary that links to its tab
   await expect(page.getByRole('tab', { name: /^Subscriptions/ })).toHaveAttribute('aria-selected', 'true');
 });
 
+// The user: "the multiselect dot and the new label overlap on thumbnails" (2026-11-12).
+test('new files: while selecting, the NEW pill sits beside the round check, not under it', async ({ page }) => {
+  test.skip(isPhone(page), 'the same CSS: the right-click menu is enough');
+  // (everything new for this page only: the settings are shared with the tests running meanwhile)
+  await page.route('**/api/settings', async (r) => {
+    if (r.request().method() !== 'GET') return r.continue();
+    const res = await r.fetch();
+    await r.fulfill({ response: res, json: { ...(await res.json()), seenAt: 1, newFromBulk: true } });
+  });
+  await page.goto('/');
+  const tile = page.locator('.tile[data-i="0"]');
+  await expect(tile.locator('.new-badge')).toBeVisible();
+  await tile.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Select' }).click();
+  await expect(page.getByText('1 selected')).toBeVisible();
+  const check = (await tile.locator('.check').boundingBox())!;
+  await expect.poll(async () => (await tile.locator('.new-badge').boundingBox())!.x).toBeGreaterThanOrEqual(check.x + check.width);
+});
+
 test('new files: "Bulk downloads count as new" off leaves bulk files (imports, one-off downloads) unmarked', async ({ page }) => {
   test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough: shared settings');
   // (Set before the app opens: on a fresh library its first start marks everything seen.)

@@ -2277,7 +2277,7 @@
           <span class="fav-badge" class:on-comic={!!tile.f.comic} role="img" aria-label={t('filter.favorite.label')} transition:pop><Icon name="heart" size={tile.f.comic ? 15 : 12} filled /></span>
         {/if}
         {#if tile.f && results.isNew(tile.i, tile.f.id)}
-          <span class="new-badge" transition:pop>{t('grid.new')}</span>
+          <span class="new-badge" class:by-check={selection.active && !unpickable(tile.f)} transition:pop>{t('grid.new')}</span>
         {/if}
         {#if selection.active && !unpickable(tile.f)}
           <span class="check" aria-hidden="true" transition:pop>{#if selection.has(tile.f?.id)}<Icon name="check" size={14} />{/if}</span>
@@ -2814,6 +2814,11 @@
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.04em;
+  }
+  /* Selecting: next to the round check in the corner, not under it (the user: they overlapped - 2026-11-12). */
+  .new-badge.by-check {
+    left: 33px;
+    top: 9px;
   }
   .making {
     position: absolute;

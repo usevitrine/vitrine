@@ -10,6 +10,10 @@ shows this too (Settings > Help & about).
 - **Tag suggestions**: the search box suggests all the tags that match what you type (up to 200), not just the first 12. The list keeps its height and scrolls, and the arrow keys keep the highlighted one in view.
 - **Recent searches**: saved searches aren't added to them any more. They are a tap away already, and run every day they pushed your other searches out.
 
+### Fixed
+
+- **Selecting files**: on a new file's thumbnail, the NEW label moves beside the round check instead of sitting under it.
+
 ## 1.0.28 - 2026-11-11
 
 ### New
