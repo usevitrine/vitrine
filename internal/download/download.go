@@ -1021,6 +1021,8 @@ type Event struct {
 	Tag          string // EventBlacklisted: the blacklist entry the file now matches
 	First        bool   // EventDone: a subscription's first check (its initial download); EventPaused: the site's own ban
 	Pages        int    // a gallery site's: the pages brought in (New counts its galleries)
+	SearchID     int64  // the download it is about (0: none - a site's pause, a blacklisted tag)
+	SubID        int64  // the subscription it is about (0: none)
 }
 
 const (
@@ -1085,6 +1087,7 @@ func (d *Downloader) emit(s Search, e Event) {
 		}
 	}
 	e.Subscription = s.SubscriptionID != 0
+	e.SearchID, e.SubID = s.ID, s.SubscriptionID
 	d.OnEvent(e)
 }
 

@@ -7,6 +7,7 @@
   import { nudge, reveal } from '../lib/motion';
   import { flip } from 'svelte/animate';
   import { repairs } from '../lib/repairs.svelte';
+  import { router } from '../lib/router.svelte';
   import type { Repair } from '../lib/api';
   import { repairName, repairWhat } from '../lib/repairWords';
   import { t, num } from '../lib/i18n.svelte';
@@ -22,6 +23,12 @@
 
   $effect(() => {
     if (open) return dismiss(() => panel, () => button, () => (open = false));
+  });
+  // A repair's notice tapped (the bell): the fixes, open (none left: nothing to show).
+  $effect(() => {
+    if (router.focus !== 'repairs') return;
+    router.focus = null;
+    if (repairs.list.length) open = true;
   });
   // (the last one gone: nothing left to show)
   $effect(() => {

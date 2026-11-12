@@ -142,3 +142,24 @@ fix and tag fix" - "they should be given the option to run the fix or skip it wi
   it's on ("2/5 · page 12 of 40"; `lib/downloadProgress`'s `oneGallery`, shared with the Downloads page). Tests:
   `TestComposeGalleryPages`, "the downloads menu counts a gallery by its pages".
 - **Blacklisted tags lead to Delete them (2026-10-25)** (the user: "take the user to the tags page where the button is to delete files with blacklisted tags"): a bell notice of kind blacklisted leads to Tags > Rules (it led to Downloads), and the push one's address is `/tags/rules?focus=blacklist-delete`: the router takes `?focus=` (a tapped notification, or the app starting from one) into `router.focus` and tidies the address; BlacklistPanel brings Delete them into view, focuses it and lights it (a red glow pulsing twice; none with reduced motion) - also when the page was open already. Test: "the bell: files that got a blacklisted tag lead to Tags > Rules".
+
+## A tap leads to what it's about (2026-11-12)
+The user: "same when i press notifications/push notifications for blacklisted tags, and any notification for that
+matter, should take me to the correct context within the app". The downloader's events carry the download's and the
+subscription's IDs (`download.Event.SearchID/SubID`, kept with the notice: migration 0054 `notices.search_id/sub_id`),
+and a tap - the bell's or a push notification's (`push.Compose`; its URL by IDs only, never a site, a tag or a search's
+words) - goes to:
+- **New files from one subscription**: the results page with them, newest first (`/view?q=system:found_by=ID
+  sort:imported`, the library's own search untouched); several subscriptions in one push: the library, new first (as
+  before).
+- **A download finished or failed**: its card on Downloads - its tab (Queue, or History), its site and stack opened,
+  scrolled to the middle and lit (`?focus=dl:ID`). **A subscription's check that failed, or its first check done**:
+  the subscription's row on the Subscriptions tab, lit (`?focus=sub:ID`). Several in one push: the Downloads page.
+- **Files that got a blacklisted tag**: Tags > Rules, Delete them in view, focused and lit; none left to delete (the
+  clean-up took them meanwhile): the blacklist card itself, lit.
+- **A fix from an update** (the bell): the wrench's panel opens (focus `repairs`). A release: Settings > Updates; a
+  plugin's update: Settings > Sites; a site paused or back: Downloads (the stopped site is at its top), as before.
+- The scroll is checked again a moment later (`lib/bringIntoView`): a page just opened is still filling in above the
+  target and moved it away (the blacklist's notice missed now and then).
+- A results-page address from a push (`/view?q=`) runs through `router.openResults`, so it searches anew even when that
+  page is open already.

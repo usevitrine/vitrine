@@ -5797,6 +5797,52 @@ test('the bell: files that got a blacklisted tag lead to Tags > Rules, Delete th
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
+// The user (2026-11-12): "any notification ... should take me to the correct context within the app".
+test('the bell and push notifications lead to what they are about: a subscription\'s new files, a download finished', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-webkit', 'one run is enough');
+  const base = { site: 'safebooru', max_posts: 500, site_total: 900, handled: 40, downloaded: 30, already: 2, deleted: 0, skipped: 0, blacklisted: 0, failed: 0, position: 1 };
+  const done = { ...base, id: 99501, query: 'bell_done_search', state: 'done', created_at: Date.now() - 60_000, finished_at: Date.now() };
+  await page.route('**/api/downloads', async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    body.searches = [...body.searches, done];
+    await r.fulfill({ response: res, json: body });
+  });
+  await page.route('**/api/notices', async (r) => {
+    if (r.request().method() !== 'GET') return r.continue();
+    const res = await r.fetch();
+    const body = await res.json();
+    body.notices = [
+      ...(body.notices ?? []),
+      { id: 999901, at: Date.now() - 2000, kind: 'new', site: 'safebooru.org', query: 'bell_new_sub', subscription: true, new: 3, sub_id: 4242, search_id: 99500 },
+      { id: 999902, at: Date.now() - 1000, kind: 'done', site: 'safebooru.org', query: 'bell_done_search', new: 30, search_id: 99501 },
+    ];
+    await r.fulfill({ response: res, json: body });
+  });
+  await page.goto('/');
+  const bell = page.getByRole('button', { name: /^Notifications/ });
+  const panel = page.getByRole('dialog', { name: 'Notifications' });
+  // A subscription's new files: on the results page, newest first (the library's own search stays).
+  await bell.click();
+  await panel.locator('li', { hasText: 'bell_new_sub' }).first().getByRole('button').click();
+  await expect(page).toHaveURL(/\/view\?q=system(%3A|:)found_by(%3D|=)4242/);
+  // A download finished: its card in History, in view and lit.
+  await bell.click();
+  await panel.locator('li', { hasText: 'bell_done_search' }).first().getByRole('button').click();
+  await expect(page).toHaveURL(/\/downloads$/);
+  await expect(page.getByRole('tab', { name: /History/ })).toHaveAttribute('aria-selected', 'true');
+  const card = page.locator('[data-dl="99501"]');
+  await expect(card).toHaveClass(/flash/);
+  await expect(card).toBeInViewport();
+  // A tapped push notification (its address) lands the same way, the address tidied.
+  await page.goto('/settings');
+  await page.goto('/downloads?focus=dl:99501');
+  await expect(card).toHaveClass(/flash/);
+  await expect(card).toBeInViewport();
+  await expect(page).toHaveURL(/\/downloads$/);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 /** Empties the bell (it's the server's: shared by every device and so by the tests on one server). */
 async function clearBell(page: Page) {
   await page.evaluate(async () => {
@@ -5821,6 +5867,11 @@ test('the bell rings for what the downloader did: a subscription check that fail
   await expect(item).toContainText('test-down.invalid');
   await item.getByRole('button').click();
   await expect(page).toHaveURL(/\/downloads/);
+  // (the subscription itself: its tab, in view, lit - 2026-11-12)
+  await expect(page.getByRole('tab', { name: /Subscriptions/ })).toHaveAttribute('aria-selected', 'true');
+  const row = page.locator(`li[data-sub="${sub.id}"]`);
+  await expect(row).toHaveClass(/flash/);
+  await expect(row).toBeInViewport();
   await page.evaluate((id) => fetch('/api/subscriptions/' + id + '/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), sub.id);
 });
 

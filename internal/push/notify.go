@@ -2,6 +2,8 @@ package push
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +22,8 @@ type Event struct {
 	Tag          string // "blacklisted": the blacklist entry a library file now matches
 	First        bool   // "done": a subscription's first check (its initial download); "paused": the site's own ban
 	Pages        int    // a gallery site's: the pages brought in (New counts its galleries)
+	SearchID     int64  // the download it is about (0: none)
+	SubID        int64  // the subscription it is about (0: none)
 }
 
 // Notifier gathers events and sends them as a few notifications (one per
@@ -142,10 +146,18 @@ func Compose(events []Event, l i18n.Lang) []Message {
 		for _, e := range es {
 			subs[e.Site+"\x00"+e.Query] = true
 		}
-		out = append(out, Message{Title: newWhat(es, l), Body: l.T("push.fromSubs", "n", len(subs)), URL: "/?new=1"}) // the library, new files first
+		// (one subscription: its files on a page of their own, newest first; several: the library, new files first)
+		u := "/?new=1"
+		if id := oneSub(es); id > 0 {
+			u = resultsURL(fmt.Sprintf("system:found_by=%d sort:imported", id))
+		}
+		out = append(out, Message{Title: newWhat(es, l), Body: l.T("push.fromSubs", "n", len(subs)), URL: u})
 	}
 	if es := by["failed"]; len(es) > 0 {
 		m := Message{URL: "/downloads", Body: l.T("push.seeWhy")}
+		if len(es) == 1 {
+			m.URL = downloadURL(es[0])
+		}
 		switch {
 		case len(es) > 1:
 			m.Title = l.T("push.downloadsFailed", "n", len(es))
@@ -185,12 +197,45 @@ func Compose(events []Event, l i18n.Lang) []Message {
 		if len(es) == 0 {
 			return
 		}
-		out = append(out, Message{URL: "/downloads", Title: title(len(es)), Body: newWhat(es, l)})
+		u := "/downloads"
+		if len(es) == 1 {
+			u = downloadURL(es[0])
+		}
+		out = append(out, Message{URL: u, Title: title(len(es)), Body: newWhat(es, l)})
 	}
 	appendDone(first, func(n int) string { return l.T("push.subsReady", "n", n) })
 	appendDone(oneOff, func(n int) string { return l.T("push.downloadsDone", "n", n) })
 	return out
 }
+
+// Where a tap takes you (2026-11-12, the user: "any notification ... should take me to the correct context within the
+// app") - by IDs only, never a site, a tag or a search's words (see Compose).
+
+// downloadURL is a download's or a subscription's own card on the Downloads page, brought into view and lit: a
+// subscription's check (failed) or first check (done) - the subscription; the rest - the download.
+func downloadURL(e Event) string {
+	switch {
+	case e.SubID > 0 && (e.Subscription || e.First):
+		return fmt.Sprintf("/downloads?focus=sub:%d", e.SubID)
+	case e.SearchID > 0:
+		return fmt.Sprintf("/downloads?focus=dl:%d", e.SearchID)
+	}
+	return "/downloads"
+}
+
+// oneSub is the subscription all the events are from (0: several, or none known).
+func oneSub(es []Event) int64 {
+	id := es[0].SubID
+	for _, e := range es[1:] {
+		if e.SubID != id {
+			return 0
+		}
+	}
+	return id
+}
+
+// resultsURL is the results page with a search (the web client's /view).
+func resultsURL(q string) string { return "/view?q=" + url.QueryEscape(q) }
 
 // newWhat says what events brought: new files, and a gallery site's new pages (its galleries are comics, counted by
 // page - "1 new file" for a gallery of 40 pages said nothing).

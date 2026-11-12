@@ -59,7 +59,7 @@ func newNotices(lib *library.Library, log *slog.Logger) *notices {
 
 func (n *notices) add(e download.Event) {
 	n.put(library.Notice{At: time.Now().UnixMilli(), Kind: e.Kind, Site: e.Site, Query: e.Query,
-		Subscription: e.Subscription, New: e.New, Error: e.Error, Tag: e.Tag, First: e.First, Pages: e.Pages})
+		Subscription: e.Subscription, New: e.New, Error: e.Error, Tag: e.Tag, First: e.First, Pages: e.Pages, SearchID: e.SearchID, SubID: e.SubID})
 }
 
 func (n *notices) put(x library.Notice) {

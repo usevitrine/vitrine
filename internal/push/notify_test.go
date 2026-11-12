@@ -141,3 +141,43 @@ func TestNotifierFlushOnStop(t *testing.T) {
 		t.Fatalf("flushed: %v", kinds)
 	}
 }
+
+// A tap leads to what it's about (2026-11-12): one subscription's new files on the results page, one download's or
+// subscription's card on Downloads; several - the page that lists them. By IDs only.
+func TestComposeLinks(t *testing.T) {
+	url := func(es ...Event) string {
+		t.Helper()
+		ms := Compose(es, en)
+		if len(ms) != 1 {
+			t.Fatalf("%d messages", len(ms))
+		}
+		return ms[0].URL
+	}
+	newFrom := func(sub int64) Event {
+		return Event{Kind: "new", Subscription: true, New: 2, SubID: sub, SearchID: 90 + sub}
+	}
+	if got := url(newFrom(7), newFrom(7)); got != "/view?q=system%3Afound_by%3D7+sort%3Aimported" {
+		t.Fatalf("one subscription's new files: %s", got)
+	}
+	if got := url(newFrom(7), newFrom(8)); got != "/?new=1" {
+		t.Fatalf("several subscriptions': %s", got)
+	}
+	if got := url(Event{Kind: "failed", Subscription: true, SubID: 7, SearchID: 41}); got != "/downloads?focus=sub:7" {
+		t.Fatalf("a check that failed: %s", got)
+	}
+	if got := url(Event{Kind: "failed", SearchID: 41}); got != "/downloads?focus=dl:41" {
+		t.Fatalf("a download that stopped: %s", got)
+	}
+	if got := url(Event{Kind: "failed", SearchID: 41}, Event{Kind: "failed", SearchID: 42}); got != "/downloads" {
+		t.Fatalf("several failed: %s", got)
+	}
+	if got := url(Event{Kind: "done", SearchID: 41, New: 3}); got != "/downloads?focus=dl:41" {
+		t.Fatalf("a download done: %s", got)
+	}
+	if got := url(Event{Kind: "done", First: true, SubID: 7, SearchID: 41, New: 3}); got != "/downloads?focus=sub:7" {
+		t.Fatalf("a subscription ready: %s", got)
+	}
+	if got := url(Event{Kind: "done", New: 3}); got != "/downloads" {
+		t.Fatalf("no ID known: %s", got)
+	}
+}

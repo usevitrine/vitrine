@@ -6,6 +6,7 @@
 </script>
 
 <script lang="ts">
+  import { bringIntoView } from '../lib/bringIntoView';
   import { overlayScroll } from '../lib/overlayScroll';
   import { onMount, tick, untrack } from 'svelte';
   import { slide } from 'svelte/transition';
@@ -830,7 +831,8 @@
     if (it && siteFolded('subs:' + it.site)) toggleSite('subs:' + it.site); // its site open (they start folded)
     if (it?.group_id) toggleGroup(it.group_id, true); // and its group
     tick().then(() => {
-      document.querySelector(`li[data-sub="${id}"]`)?.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' });
+      const el = document.querySelector(`li[data-sub="${id}"]`);
+      if (el) bringIntoView(el);
       flashSub = id;
       setTimeout(() => (flashSub = 0), 2200);
     });
@@ -860,7 +862,8 @@
     if (siteFolded(key)) toggleSite(key);
     unfolded[key] = true; // (a stack of several: spread out, so it can be seen)
     setTimeout(() => {
-      document.querySelector(`[data-dl="${id}"]`)?.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' });
+      const el = document.querySelector(`[data-dl="${id}"]`);
+      if (el) bringIntoView(el);
       flashDl = id;
       setTimeout(() => (flashDl = 0), 2200);
     }, 260); // (after the tab's slide and the stack opening)

@@ -25,7 +25,9 @@ type Notice struct {
 	Error        string `json:"error,omitempty"`
 	Tag          string `json:"tag,omitempty"`
 	First        bool   `json:"first,omitempty"`
-	Pages        int    `json:"pages,omitempty"` // a gallery site's: the pages it brought (New counts galleries)
+	Pages        int    `json:"pages,omitempty"`     // a gallery site's: the pages it brought (New counts galleries)
+	SearchID     int64  `json:"search_id,omitempty"` // the download it is about (its card on the Downloads page)
+	SubID        int64  `json:"sub_id,omitempty"`    // the subscription it is about
 	// Done in the app (kind "app"): its words, tone (done, info, removed, error) and kind of notice (its setting).
 	Text     string `json:"text,omitempty"`
 	Tone     string `json:"tone,omitempty"`
@@ -34,8 +36,8 @@ type Notice struct {
 
 // AddNotice stores a notice (the oldest beyond NoticesKept go) and returns its ID.
 func (l *Library) AddNotice(ctx context.Context, n Notice) (int64, error) {
-	res, err := l.db.W.ExecContext(ctx, `INSERT INTO notices (at, kind, site, query, subscription, new, error, tag, first, text, tone, category, pages)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, n.At, n.Kind, n.Site, n.Query, n.Subscription, n.New, n.Error, n.Tag, n.First, n.Text, n.Tone, n.Category, n.Pages)
+	res, err := l.db.W.ExecContext(ctx, `INSERT INTO notices (at, kind, site, query, subscription, new, error, tag, first, text, tone, category, pages, search_id, sub_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, n.At, n.Kind, n.Site, n.Query, n.Subscription, n.New, n.Error, n.Tag, n.First, n.Text, n.Tone, n.Category, n.Pages, n.SearchID, n.SubID)
 	if err != nil {
 		return 0, fmt.Errorf("library: %w", err)
 	}
@@ -48,7 +50,7 @@ func (l *Library) AddNotice(ctx context.Context, n Notice) (int64, error) {
 
 // Notices returns the kept notices, oldest first.
 func (l *Library) Notices(ctx context.Context) ([]Notice, error) {
-	rows, err := l.db.R.QueryContext(ctx, `SELECT id, at, kind, site, query, subscription, new, error, tag, first, text, tone, category, pages
+	rows, err := l.db.R.QueryContext(ctx, `SELECT id, at, kind, site, query, subscription, new, error, tag, first, text, tone, category, pages, search_id, sub_id
 		FROM notices ORDER BY id DESC LIMIT ?`, NoticesKept)
 	if err != nil {
 		return nil, fmt.Errorf("library: %w", err)
@@ -57,7 +59,7 @@ func (l *Library) Notices(ctx context.Context) ([]Notice, error) {
 	var out []Notice
 	for rows.Next() {
 		var n Notice
-		if err := rows.Scan(&n.ID, &n.At, &n.Kind, &n.Site, &n.Query, &n.Subscription, &n.New, &n.Error, &n.Tag, &n.First, &n.Text, &n.Tone, &n.Category, &n.Pages); err != nil {
+		if err := rows.Scan(&n.ID, &n.At, &n.Kind, &n.Site, &n.Query, &n.Subscription, &n.New, &n.Error, &n.Tag, &n.First, &n.Text, &n.Tone, &n.Category, &n.Pages, &n.SearchID, &n.SubID); err != nil {
 			return nil, fmt.Errorf("library: %w", err)
 		}
 		out = append(out, n)

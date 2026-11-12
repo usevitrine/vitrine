@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { bringIntoView } from '../lib/bringIntoView';
   // The download blacklist: tags whose posts are never downloaded, and a
   // clean-up for library files that already have them (an undoable delete).
   import { onMount } from 'svelte';
-  import { reveal, pop, moved, reduced } from '../lib/motion';
+  import { reveal, pop, moved } from '../lib/motion';
   import { api, type BlacklistMatches } from '../lib/api';
   import { blacklist } from '../lib/blacklist.svelte';
   import { results, formatSize } from '../lib/results.svelte';
@@ -40,14 +41,24 @@
   // lit a moment - what the notice was about (also when this page was open already).
   let deleteBtn = $state<HTMLButtonElement>();
   let lit = $state(false);
+  // (none left to delete - the clean-up took them meanwhile: the blacklist itself, lit, 2026-11-12)
+  let card = $state<HTMLElement>();
+  let cardLit = $state(false);
   $effect(() => {
-    if (router.focus !== 'blacklist-delete' || !deleteBtn) return;
+    if (router.focus !== 'blacklist-delete') return;
+    const none = matches !== null && !matches.total;
+    if (!deleteBtn && !(none && card)) return; // (its files still being counted)
     router.focus = null;
-    const el = deleteBtn;
-    el.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' });
-    el.focus({ preventScroll: true });
-    lit = false;
-    requestAnimationFrame(() => (lit = true));
+    const el = deleteBtn ?? card!;
+    bringIntoView(el);
+    if (deleteBtn) {
+      deleteBtn.focus({ preventScroll: true });
+      lit = false;
+      requestAnimationFrame(() => (lit = true));
+    } else {
+      cardLit = false;
+      requestAnimationFrame(() => (cardLit = true));
+    }
   });
 
   async function save(next: string[]) {
@@ -110,7 +121,7 @@
 
 </script>
 
-<section class="card blacklist">
+<section class="card blacklist" class:lit={cardLit} bind:this={card} onanimationend={(e) => e.target === card && (cardLit = false)}>
   <div class="card-head">
     <h2>{t('blacklist.title')}</h2>
     <p class="hint">{hint[0]}<code>*</code>{hint[1]}<code>ai_*</code>{hint[2]}</p>

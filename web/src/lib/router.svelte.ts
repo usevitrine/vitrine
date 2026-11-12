@@ -124,6 +124,11 @@ class Router {
       this.go('library');
       return;
     }
+    // The results page (a subscription's new files): its search run there, even if it's the page already.
+    if (screenOf(u.pathname) === 'library' && subOf(u.pathname) === 'view') {
+      this.openResults(u.searchParams.get('q') ?? '');
+      return;
+    }
     // (?focus=x: what to bring into view there - a push notification's: files that got a blacklisted tag, Delete them)
     const f = u.searchParams.get('focus');
     if (f) {

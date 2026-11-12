@@ -24,6 +24,8 @@ export interface Notice {
   sub?: string;
   /** Something to bring into view where a tap goes (router.focus). */
   focus?: string;
+  /** A search for the results page instead (a subscription's new files). */
+  q?: string;
 }
 
 /** A notice as the server sends it: one of the downloader's events (worded here, in this page's language), or
@@ -40,6 +42,8 @@ export interface ServerNotice {
   tag?: string;
   first?: boolean;
   pages?: number; // a gallery site's: the pages it brought (new counts galleries)
+  search_id?: number; // the download it is about
+  sub_id?: number; // the subscription it is about
   text?: string;
   tone?: ToastKind;
   category?: string;
@@ -111,8 +115,17 @@ class Notices {
     // (the user); the rest to Downloads.
     const to = e.kind === 'app' || e.kind === 'repair' ? undefined : e.kind === 'release' || e.kind === 'plugin' ? 'settings' : e.kind === 'blacklisted' ? 'tags' : 'downloads';
     const sub = e.kind === 'release' ? 'updates' : e.kind === 'plugin' ? 'sites' : e.kind === 'blacklisted' ? 'rules' : undefined;
-    const focus = e.kind === 'blacklisted' ? 'blacklist-delete' : undefined;
-    return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to, sub, focus };
+    // (2026-11-12, the user: "any notification ... should take me to the correct context") A subscription's new files:
+    // the results page with them, newest first; a download finished or failed: its card on Downloads, its tab, scrolled
+    // to and lit - a subscription's check or first check: the subscription's.
+    let focus = e.kind === 'blacklisted' ? 'blacklist-delete' : e.kind === 'repair' ? 'repairs' : undefined;
+    let q: string | undefined;
+    if (e.kind === 'new' && e.sub_id) q = `system:found_by=${e.sub_id} sort:imported`;
+    else if (e.kind === 'done' || e.kind === 'failed') {
+      if (e.sub_id && (e.subscription || e.first)) focus = `sub:${e.sub_id}`;
+      else if (e.search_id) focus = `dl:${e.search_id}`;
+    }
+    return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to, sub, focus, q };
   }
 
   /** The list as the server has it (at the start, and whenever the live stream opens again). */

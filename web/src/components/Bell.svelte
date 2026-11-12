@@ -32,6 +32,7 @@
   }
   function go(n: Notice) {
     close();
+    if (n.q !== undefined) return router.openResults(n.q);
     if (n.focus) router.focus = n.focus;
     if (n.to) router.go(n.to, n.sub);
   }
@@ -148,7 +149,7 @@
 
 {#snippet row(n: Notice)}
   <div class="row {n.kind}" class:lit={lit.has(n.key)}>
-    {#if n.to}
+    {#if n.to || n.focus || n.q !== undefined}
       <button class="item" onclick={() => go(n)}>{@render body(n)}</button>
     {:else}
       <div class="item">{@render body(n)}</div>

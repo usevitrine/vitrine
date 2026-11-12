@@ -151,7 +151,7 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 		dl.OnEvent = func(e download.Event) {
 			handler.Notice(e)
 			if notifier != nil {
-				notifier.Add(push.Event{Kind: e.Kind, Site: e.Site, Query: e.Query, Subscription: e.Subscription, New: e.New, Error: e.Error, Tag: e.Tag, First: e.First, Pages: e.Pages})
+				notifier.Add(push.Event{Kind: e.Kind, Site: e.Site, Query: e.Query, Subscription: e.Subscription, New: e.New, Error: e.Error, Tag: e.Tag, First: e.First, Pages: e.Pages, SearchID: e.SearchID, SubID: e.SubID})
 			}
 		}
 		// (the stored settings the downloader keeps - FlareSolverr, when a site pauses, checks first - go to it
