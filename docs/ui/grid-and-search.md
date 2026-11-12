@@ -276,7 +276,7 @@ library itself on purpose (docs/ui/downloads-page.md).
   fades at an edge with more chips beyond - overlays, not a CSS mask, which hid the suggestions inside it; the typing
   box is a small target at the end, 2.5em plus what is typed, filling the line only when the chips leave room; a tap
   on empty space there focuses it; typing keeps it in view). The clear ✕ replaces the magnifier at the front when there is something
-  to clear; on the right only Sort and filters + Saved searches, 34 px wide. Autocomplete suggestions line up with the
+  to clear (a tap puts the focus back in the box, except on a touch screen, where that would bring up the keyboard); on the right only Sort and filters + Saved searches, 34 px wide. Autocomplete suggestions line up with the
   whole search box (TagInput `anchor`, position: fixed, so the sideways scroller doesn't clip them).
 - **Search chips show whole tags, without their type (2026-10-16)**: no width cap (a long tag makes the chip as wide
   as it needs; the row scrolls), text left-aligned; a tag's namespace (creator:, character:, ...) isn't written on the

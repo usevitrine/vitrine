@@ -1779,7 +1779,9 @@ test('recent searches: the empty box offers them, one runs with its order; ones 
   await expect(page.locator('.bar .chip')).toHaveText([/red/]);
   const before = added.length;
   await page.getByRole('button', { name: 'Clear search' }).click();
-  await expect(box).toBeFocused();
+  // (focused again on a computer; on a phone not: it would bring up the keyboard)
+  if (isPhone(page)) await expect(box).not.toBeFocused();
+  else await expect(box).toBeFocused();
   await expect(rows).toHaveCount(0);
   await page.waitForTimeout(3000); // (longer than a search must be stayed on to be kept)
   expect(added.length).toBe(before);
@@ -3600,8 +3602,11 @@ test('the search bar\'s clear button closes the suggestions, and an answer on it
   await clear.click();
   await expect(list).toHaveCount(0);
   await expect(box).toHaveValue('');
-  await expect(box).toBeFocused();
+  // (focused again on a computer; on a phone not: it would bring up the keyboard)
+  if (isPhone(page)) await expect(box).not.toBeFocused();
+  else await expect(box).toBeFocused();
   // Just typed: the suggestions not here yet.
+  await box.click();
   await box.pressSequentially('blue');
   await clear.click();
   await page.waitForTimeout(600);

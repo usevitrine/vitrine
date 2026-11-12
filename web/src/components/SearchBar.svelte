@@ -21,6 +21,7 @@
   import { newDownload } from '../lib/newDownload.svelte';
   import SubMark from './SubMark.svelte';
   import { t } from '../lib/i18n.svelte';
+  import { touch } from '../lib/media';
 
   let {
     query,
@@ -434,7 +435,8 @@
           editing = null;
           tagInput?.reset();
           run([]);
-          input?.focus();
+          // On a touch screen the focus would bring up the keyboard: clearing isn't asking to type.
+          if (!touch()) input?.focus();
         }} transition:nudge><Icon name="close" size={18} /></button>
     {:else}
       <span class="lead"><Icon name="search" size={18} /></span>
