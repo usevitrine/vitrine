@@ -243,11 +243,11 @@
     abort?.abort();
     abort = new AbortController();
     try {
-      // (a few more asked for: the ones already there are left out)
+      // (all of them, as many as the server gives: the list scrolls; the ones already there are left out)
       const res =
-        suggest ? await suggest(word, abort.signal) : typeof comics === 'string' ? await api.comicTags(word, comics, 18, abort.signal) : await api.autocomplete(word, 18, abort.signal, comics ? 'comics' : '', sites);
+        suggest ? await suggest(word, abort.signal) : typeof comics === 'string' ? await api.comicTags(word, comics, 100, abort.signal) : await api.autocomplete(word, 200, abort.signal, comics ? 'comics' : '', sites);
       const have = present();
-      suggestions = res.suggestions.filter((s) => !have(s.tag) && !(s.ideal && have(s.ideal))).slice(0, 12);
+      suggestions = res.suggestions.filter((s) => !have(s.tag) && !(s.ideal && have(s.ideal)));
       shownFor = word;
       selected = -1;
       open = suggestions.length > 0 && document.activeElement === inputEl;
@@ -386,11 +386,16 @@
     act();
   }
 
+  // The arrow keys keep the highlighted row in view (the list scrolls).
+  $effect(() => {
+    if (selected >= 0) listEl?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+  });
+
   function keydown(e: KeyboardEvent) {
     if (listShown && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && nR + suggestions.length > 0) {
       e.preventDefault();
       const n = nR + suggestions.length;
-      selected = (selected + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+      selected = e.key === 'ArrowUp' && selected < 0 ? n - 1 : (selected + (e.key === 'ArrowDown' ? 1 : -1) + n) % n; // (up from none: the last)
       return;
     }
     // (the arrow keys move through the list; Space marks the highlighted suggestion - none highlighted: a space)

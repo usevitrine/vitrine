@@ -6149,6 +6149,28 @@ test('search: a suggestion picked while the typed word is highlighted becomes a 
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('blue_sky');
 });
 
+// The user: "it should show all results, keep the current height but make it scrollable" (2026-11-12).
+test('suggestions: all the matching tags, in a list of the usual height that scrolls (the arrow keys follow)', async ({ page }) => {
+  test.skip(isPhone(page), 'the arrow keys: a keyboard');
+  let asked = '';
+  await page.route('**/api/autocomplete?*', (r) => {
+    asked = new URL(r.request().url()).searchParams.get('limit') ?? '';
+    return r.fulfill({ json: { suggestions: Array.from({ length: 40 }, (_, k) => ({ tag: `many_tag_${k}`, count: 100 - k })) } });
+  });
+  await page.goto('/');
+  const box = page.getByRole('combobox', { name: 'Search' });
+  await box.fill('many');
+  const list = page.locator('.list:not([data-leaving])');
+  await expect(list.getByRole('option')).toHaveCount(40);
+  expect(asked).toBe('200');
+  const scroller = list.locator('ul.scroll');
+  expect((await scroller.boundingBox())!.height).toBeLessThanOrEqual(421);
+  expect(await scroller.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+  await box.press('ArrowUp'); // (from none: the last one, scrolled into view)
+  await expect(list.getByRole('option', { name: 'many_tag_39' })).toHaveAttribute('aria-selected', 'true');
+  await expect(list.getByRole('option', { name: 'many_tag_39' })).toBeInViewport();
+});
+
 test('suggestions: a long list scrolls under the app\'s floating scrollbar (not the browser\'s)', async ({ page }, info) => {
   test.skip(isPhone(page) || info.project.name === 'desktop-webkit', 'the floating scrollbar: with a mouse');
   await page.route('**/api/autocomplete?*', (r) =>

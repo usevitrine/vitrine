@@ -484,6 +484,10 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   while the text is highlighted it doesn't become a chip"): the word being completed was found from the selection's
   start, so the pick went in front of the highlighted word ("blue_sky blu") and stayed typed text; TagInput now
   works from the selection's end (the highlighted word is replaced; the pick becomes a chip as usual).
+- **All the matching tags (2026-11-12)** (the user: "it should show all results, keep the current height but make it
+  scrollable"): TagInput asks for 200 suggestions (the autocomplete endpoint's most; the comics' site tags: 100) and
+  shows them all instead of the first 12. The list keeps its max height (min(50vh, 420px), or the room above the
+  keyboard) and scrolls; the arrow keys scroll the highlighted row into view.
 - **Suggestions found inside names, marked, namespaces as chips (2026-10-22)** (the user: "modern_warfare should
   match call_of_duty_modern_warfare", "show the search highlighted in the tags", "the namespace should be a chip"):
   the index (`matchText`) finds the text anywhere in a name from two characters on - names starting with it first,
