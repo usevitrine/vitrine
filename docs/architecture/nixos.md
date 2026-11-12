@@ -67,3 +67,7 @@ a binary cache (they come with the first release).
 ## Prebuilt copies (optional)
 The release workflow pushes to the Cachix cache `vitrine` when the secret `CACHIX_AUTH_TOKEN` is there. Without it, every
 system compiles each new version (under a minute on four cores, once the tools are downloaded).
+
+**FlareSolverr next to it** (nixpkgs' `services.flaresolverr`; 2026-11-12): its unit denies `@setuid`, which its browser's
+virtual display (Xvfb) needs to start ("Failed to activate virtual core keyboard"), so it never passes a Cloudflare check.
+Allow it again: `systemd.services.flaresolverr.serviceConfig.SystemCallFilter = lib.mkAfter [ "@setuid" ];`.
