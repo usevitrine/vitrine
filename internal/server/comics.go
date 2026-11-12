@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/usevitrine/vitrine/internal/index"
 	"github.com/usevitrine/vitrine/internal/library"
@@ -36,6 +37,8 @@ type comicJSON struct {
 	Stack *library.Collection `json:"stack,omitempty"`
 	// Mosaic: a collection's tile is made of its first comics' covers (up to four).
 	Mosaic []mosaicJSON `json:"mosaic,omitempty"`
+	// Subscription: the subscription that follows its gallery (its search is the comic's address; 0: none).
+	Subscription int64 `json:"subscription,omitempty"`
 }
 
 type mosaicJSON struct {
@@ -152,9 +155,18 @@ func (s *Server) comicsJSON(r *http.Request, list []library.Comic) ([]comicJSON,
 	for _, f := range rows {
 		byID[f.ID] = s.toJSON(f)
 	}
+	var subs map[string]int64
+	if s.dl != nil && slices.ContainsFunc(list, func(c library.Comic) bool { return c.URL != "" }) {
+		if subs, err = s.dl.GallerySubs(r.Context()); err != nil {
+			return nil, err
+		}
+	}
 	out := make([]comicJSON, len(list))
 	for i, c := range list {
 		out[i] = comicJSON{Comic: c}
+		if c.URL != "" {
+			out[i].Subscription = subs[strings.TrimRight(c.URL, "/")]
+		}
 		if f, ok := byID[c.Cover]; ok {
 			out[i].Thumb, out[i].Placeholder, out[i].CoverW, out[i].CoverH = f.Thumb, f.Placeholder, f.Width, f.Height
 			out[i].CoverURL, out[i].CoverMIME = f.URL, f.MIME

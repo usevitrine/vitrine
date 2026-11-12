@@ -1002,3 +1002,20 @@ func (e *env) subSearches(id int64) int {
 	e.dl.db.R.QueryRow("SELECT count(*) FROM searches WHERE subscription_id = ?", id).Scan(&n)
 	return n
 }
+
+func TestGallerySubs(t *testing.T) {
+	e := newEnv(t, 1)
+	ctx := context.Background()
+	id, err := e.dl.Subscribe(ctx, "fake", "some_gallery/", time.Hour, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := e.dl.GallerySubs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// (a search ending in / found without it: a comic's address, with or without the last /, finds its subscription)
+	if got["some_gallery"] != id || len(got) != 1 {
+		t.Fatalf("GallerySubs = %v, want the address without its last / -> %d", got, id)
+	}
+}

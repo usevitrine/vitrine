@@ -11135,3 +11135,31 @@ test('saved searches: a short name, and the pictures still fill the tile', async
     expect(pic.box).toBeGreaterThan(0.25); // (so cover really is cropping here, and the picture itself keeps its 1:4)
   }
 });
+
+test('comics: a comic\'s menu subscribes to its gallery (the dialog at Subscribe), then says Subscribed and leads to it', async ({ page }) => {
+  test.skip(isPhone(page), 'a mouse');
+  const comic = { id: 7, title: 'Ongoing comic', site: 'test-down', url: 'https://example.test/g/7/', pages: 10, have: 10, created_at: 1, updated_at: 1, read_page: 0, tags: [], cover_w: 700, cover_h: 1000 };
+  await page.route('**/api/search?*scope=comics*', (r) => r.fulfill({ json: { result: 'r', total: 1, comics: 1, ids: [7], took_ms: 1, now: 1, unknown: [], seed: 0, shapes: '' } }));
+  await page.route('**/api/comics/info?*', (r) => r.fulfill({ json: { comics: [comic] } }));
+  await page.route('**/api/downloads?sites=1', (r) => r.fulfill({ json: { sites: ['test-down'], groups: [] } }));
+  const posted: { site: string; query: string; label: string }[] = [];
+  await page.route('**/api/subscriptions', (r) => {
+    if (r.request().method() !== 'POST') return r.fallback();
+    posted.push(r.request().postDataJSON());
+    return r.fulfill({ json: { id: 42, site: 'test-down', query: comic.url, interval: 604800 } });
+  });
+  await page.goto('/comics');
+  const tile = page.getByRole('button', { name: 'Ongoing comic', exact: true });
+  await tile.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Subscribe' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('tab', { name: 'Subscribe' })).toHaveAttribute('aria-selected', 'true');
+  await dialog.getByRole('button', { name: 'Subscribe' }).click();
+  await expect.poll(() => posted.length).toBe(1);
+  expect(posted[0]).toMatchObject({ site: 'test-down', query: comic.url, label: 'Ongoing comic' });
+  // Subscribed now: the menu leads to the subscription on Downloads.
+  await tile.click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Subscribe', exact: true })).toHaveCount(0);
+  await page.getByRole('menuitem', { name: 'Subscribed' }).click();
+  await expect(page).toHaveURL(/\/downloads/);
+});

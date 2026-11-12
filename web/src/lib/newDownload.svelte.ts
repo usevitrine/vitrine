@@ -17,7 +17,8 @@ export interface NewDownloadRequest {
   site?: string;
   text?: string;
   label?: string; // shown instead of the search (the gallery's title)
-  ondone?: (subscribed: boolean) => void;
+  subscribe?: boolean; // Subscribe picked at first (a comic's menu: Subscribe)
+  ondone?: (subscribed: boolean, id?: number) => void; // (id: the new subscription's)
 }
 
 class Dialog {
@@ -31,8 +32,8 @@ export function openNewDownload(query: string) {
 }
 
 /** The dialog for one search on a site (a gallery in Comics > Browse: its link) - once, or a subscription. */
-export function openSiteDownload(site: string, text: string, label: string, ondone?: (subscribed: boolean) => void) {
-  newDownloadDialog.current = { query: '', fromTags: false, site, text, label, ondone };
+export function openSiteDownload(site: string, text: string, label: string, ondone?: (subscribed: boolean, id?: number) => void, subscribe = false) {
+  newDownloadDialog.current = { query: '', fromTags: false, site, text, label, ondone, subscribe };
 }
 
 /** The dialog for library tags (any: an OR group - posts with any of them; a site without an OR search: one search each). */

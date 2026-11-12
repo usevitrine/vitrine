@@ -209,6 +209,7 @@ export interface Comic {
   site_title?: string; // the site's title, when the user gave the comic their own (title)
   crop?: number[]; // the part of the cover shown: x, y, width, height (fractions)
   collection?: number; // the collection it's in
+  subscription?: number; // the subscription that follows its gallery
   /** This entry is a collection's tile (its comics folded into it): the rest is its cover comic's. */
   stack?: Collection;
   mosaic?: { thumb: string; crop?: number[]; w?: number; h?: number }[]; // (a collection's tile: its first comics' covers)

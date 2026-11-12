@@ -15,6 +15,12 @@ The comics library (galleries, comic tags, read state, custom titles, cover crop
   falling into its tray; ended whole, it turns into a tick drawn in green for 1.5 s, then goes (user: "animate into a
   tick"). With no cover yet the tile has a cover's shape, 7:10 (`Index.Shapes`), not a square.
 - **A comic's menu has Rename** (the details' dialog; user, 2026-11-02).
+- **A comic's menu: Subscribe / Subscribed** (2026-11-12, the user: "subscribe to a comic from the all comics page, maybe in
+  the right click menu"): a comic from a site (its `url`), not in the trash: **Subscribe** opens the New download dialog at
+  "once or subscribe" with Subscribe picked (`openSiteDownload(..., subscribe)`; its gallery's link, its title as the
+  label) - its newer versions come in. A comic its gallery's subscription follows says **Subscribed**, which opens that
+  subscription on Downloads (`focus sub:<id>`). The server marks it: `subscription` on a comic (`comicsJSON`; one
+  `GallerySubs` read per page - every subscription's search without its last /, as the Downloads page matches them).
 - **Hold a comic to drag it into a collection (2026-11-02, user: "click and hold ... the same tilted effect with a
   border")**: with a mouse, still for 300 ms (moved sooner: the drag that selects, as ever), a copy of the tile follows the
   pointer, tilted, mauve outline, its place faint; the collection under it lights; let go there and it goes in (with the

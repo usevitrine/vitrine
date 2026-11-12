@@ -36,6 +36,7 @@
     presetSite = '',
     presetText = '',
     label = '',
+    subscribe = false,
     ondone,
     onclose,
   }: {
@@ -45,7 +46,8 @@
     presetSite?: string; // a search on a site already (a Browse gallery's link): straight to "once or subscribe"
     presetText?: string;
     label?: string; // shown for it instead of the search (the gallery's title)
-    ondone?: (subscribed: boolean) => void;
+    subscribe?: boolean; // Subscribe picked at first (a comic's menu)
+    ondone?: (subscribed: boolean, id?: number) => void; // (id: the new subscription's)
     onclose: () => void;
   } = $props();
 
@@ -193,7 +195,7 @@
   }
 
   // svelte-ignore state_referenced_locally
-  let repeat = $state('0'); // seconds between checks; '0' = download once
+  let repeat = $state(subscribe ? String(DEFAULT_INTERVAL) : '0'); // seconds between checks; '0' = download once
   let maxPosts = $state<number | undefined>(undefined);
   let formGroup = $state(''); // a group's ID, 'new' or '' (none)
   let newGroupName = $state('');
@@ -212,12 +214,13 @@
     e.preventDefault();
     if (!ready || busy) return;
     await attempt(async () => {
+      let subId: number | undefined;
       const q = searches.length > 1 ? t('newDl.searches', { n: searches.length }) : searches[0];
       if (repeat !== '0') {
         if (!favSearch && formGroup === 'new' && !newGroupName.trim()) throw new Error(t('downloads.nameGroupFirst'));
         const group = favSearch ? {} : formGroup === 'new' ? { group_name: newGroupName.trim() } : formGroup ? { group_id: +formGroup } : {};
         // (a split search: each combination its own subscription - a new group's name finds the group the first one made)
-        for (const s of searches) await api.subscribe(site, s, +repeat, maxPosts ?? 0, group, ownFavs, label); // (label: a gallery's title - its name in the lists)
+        for (const s of searches) subId = (await api.subscribe(site, s, +repeat, maxPosts ?? 0, group, ownFavs, label)).id; // (label: a gallery's title - its name in the lists)
         const gName = favSearch ? t('menu.favorites') : formGroup === 'new' ? newGroupName.trim() : siteGroups.find((x) => String(x.id) === formGroup)?.name;
         toasts.show(gName ? t('downloads.subscribedIn', { query: label || q, name: gName, every: every(+repeat) }) : t('downloads.subscribed', { query: label || q, every: every(+repeat) }), {
           cat: 'downloadsStarted',
@@ -227,7 +230,7 @@
         toasts.show(t('downloads.downloading', { query: label || q, site: siteLabel(site) }), { cat: 'downloadsStarted', kind: 'info' });
       }
       write('vitrine.lastSite', site);
-      ondone?.(repeat !== '0');
+      ondone?.(repeat !== '0', subId);
       onclose();
     }, (b) => (busy = b));
   }

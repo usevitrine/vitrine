@@ -840,3 +840,25 @@ func (d *Downloader) SubscriptionLooks(ctx context.Context, since int64) (map[in
 	}
 	return out, nil
 }
+
+// GallerySubs maps each subscription's search, without a last /, to its ID: a comic follows the subscription whose
+// search is its gallery's address (the Comics page's Subscribe / Subscribed).
+func (d *Downloader) GallerySubs(ctx context.Context) (map[string]int64, error) {
+	rows, err := d.db.R.QueryContext(ctx, `SELECT id, rtrim(query, '/') FROM subscriptions`)
+	if err != nil {
+		return nil, fmt.Errorf("download: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var id int64
+		var q string
+		if err := rows.Scan(&id, &q); err != nil {
+			return nil, fmt.Errorf("download: %w", err)
+		}
+		if _, ok := out[q]; !ok {
+			out[q] = id
+		}
+	}
+	return out, rows.Err()
+}

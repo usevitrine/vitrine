@@ -33,6 +33,9 @@
   import { layOut, visible, indexAt as masonryIndexAt } from '../lib/masonry';
   import { handoff, release } from '../lib/videoHandoff';
   import { itemName, t, num } from '../lib/i18n.svelte';
+  import { openSiteDownload } from '../lib/newDownload.svelte';
+  import { siteOn } from '../lib/sections';
+  import { router } from '../lib/router.svelte';
 
   // pad: room at the top of the list for the bars floating over it; inset: how much of
   // the grid they cover now (less once they've slid away).
@@ -1953,6 +1956,16 @@
           { label: t('comics.state.unread'), on: unread, run: () => markComicsRead([id], false, results) },
         ],
       });
+    }
+    // Its gallery's subscription (its newer versions come in): Subscribe - the New download dialog, Subscribe picked;
+    // Subscribed - the subscription on Downloads.
+    if (results.scope !== 'trash' && c.site && c.url) {
+      const site = c.site, url = c.url;
+      if (c.subscription) {
+        const sub = c.subscription;
+        items.push({ label: t('comics.subscribed'), icon: 'bell', run: () => { router.focus = 'sub:' + sub; router.go('downloads'); } });
+      } else if (siteOn(site))
+        items.push({ label: t('downloads.subscribe'), icon: 'bell', run: () => openSiteDownload(site, url, c.title, (subscribed, sub) => subscribed && sub && results.patch(id, { comic: { ...c, subscription: sub } }), true) });
     }
     if (oncrop && c.cover_url) items.push({ label: t('comics.crop.menu'), icon: 'crop', run: () => oncrop(i) });
     // Collections: on a collection's page, out of it; elsewhere into one (or a new one).

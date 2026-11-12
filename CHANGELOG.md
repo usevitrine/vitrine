@@ -11,6 +11,7 @@ shows this too (Settings > Help & about).
 - **Results page**: files shown from I came, the blacklist, a tag on the Tags page and a subscription's new files open on a results page of their own, with a Back button, so your library's search, filters and order stay as they were. A file tapped on I came opens straight in the viewer, and closing it brings you back to I came.
 - **Downloads**: tap a subscription's or a download's search to see it in your library, newest imported first. A download tapped in the top bar's Downloads menu opens on the Downloads page, scrolled to and highlighted.
 - **Notifications**: tapping one, in the bell or a push notification, takes you to what it's about: a subscription's new files, the download or subscription itself on the Downloads page (scrolled to and highlighted), or the blacklist's Delete them button. A fix's notice opens the fixes.
+- **Comics**: subscribe to a comic from its menu (right-click or long-press) on the Comics page, to get its newer versions. A comic you follow says Subscribed there, and takes you to its subscription.
 - **Recent searches**: saved searches aren't added to them any more. They are a tap away already, and run every day they pushed your other searches out.
 
 ### Fixed

@@ -2487,6 +2487,7 @@
     "originalTitle": "Original title",
     "titleLabel": "Title",
     "markAs": "Mark as",
+    "subscribed": "Subscribed",
     "state": {
       "read": "Read",
       "unread": "Unread",
