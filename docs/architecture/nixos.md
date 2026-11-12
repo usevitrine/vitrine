@@ -70,4 +70,7 @@ system compiles each new version (under a minute on four cores, once the tools a
 
 **FlareSolverr next to it** (nixpkgs' `services.flaresolverr`; 2026-11-12): its unit denies `@setuid`, which its browser's
 virtual display (Xvfb) needs to start ("Failed to activate virtual core keyboard"), so it never passes a Cloudflare check.
-Allow it again: `systemd.services.flaresolverr.serviceConfig.SystemCallFilter = lib.mkAfter [ "@setuid" ];`.
+Allow it again: `systemd.services.flaresolverr.serviceConfig.SystemCallFilter = lib.mkAfter [ "@setuid" ];`. The README's
+NixOS example has it (optional, with `services.flaresolverr.enable`; the website's example too - the user: "There should
+be a flaresolverr example for nixos somewhere"). Vitrine and FlareSolverr on one host share its address, as Cloudflare
+needs; FlareSolverr's port stays closed (its module opens the firewall only when asked).

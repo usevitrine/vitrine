@@ -79,7 +79,7 @@ Vitrine runs natively, with no containers: the repository is a flake with a pack
       system = "x86_64-linux";
       modules = [
         vitrine.nixosModules.default
-        ({ pkgs, ... }: {
+        ({ pkgs, lib, ... }: {
           services.vitrine = {
             enable = true;
             dataDir = "/var/lib/vitrine"; # the databases, thumbnails and plugins: fast storage (an SSD); this is the default
@@ -93,6 +93,12 @@ Vitrine runs natively, with no containers: the repository is a flake with a pack
           # nixpkgs.config.allowUnfree = true;
           # services.xserver.videoDrivers = [ "nvidia" ];
           # hardware.nvidia.open = true; # false for cards older than the GTX 16 series
+
+          # FlareSolverr (optional), for sites that show Cloudflare's "Checking your browser" page: then set
+          # Settings > Sites > Cloudflare to http://localhost:8191 (Test says whether it answers). Its browser's
+          # virtual display needs @setuid, which nixpkgs' unit denies - without this line no check ever passes.
+          services.flaresolverr.enable = true;
+          systemd.services.flaresolverr.serviceConfig.SystemCallFilter = lib.mkAfter [ "@setuid" ];
         })
       ];
     };
