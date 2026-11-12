@@ -27,6 +27,10 @@ Cloudflare and FlareSolverr, stalled and trickling downloads, files checked agai
   the engine decides by it); a form Cloudflare challenges itself is sent again once with a clearance FlareSolverr got
   for the form's address (never its values); still refused: `CloudflareError` (e-hentai: its "Cloudflare" error).
   Forms are logged like page requests (debug: host and path, status, time). Test: `TestShimmieLoginBehindCloudflare`.
+- **Every request meets the check the same way (2026-11-12)** (the user: "make sure all the other logins go through
+  flaresolverr if needed"): page requests in `getOnce`, posts in `Client.postPassing` - a login form (Shimmie2,
+  Gelbooru 0.2 HTML, e-hentai) and e-hentai's API calls (`PostJSON`). The other logins are page requests already: API
+  keys in the query (Gelbooru, Danbooru), a bearer token (Mastodon), e-hentai's pasted cookies. Test: `TestCloudflarePosts`.
 
 ## Stalls and logs (2026-10-20)
 - A file download with no data for a minute (no answer, or a stall mid-file) is given up (`plugin.ErrStalled`; tried

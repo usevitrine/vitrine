@@ -235,3 +235,36 @@ func TestFlareSolverrPing(t *testing.T) {
 		t.Fatalf("not FlareSolverr: %v", err)
 	}
 }
+
+// Posts meet the check like page requests (2026-11-12): a login form and an API call Cloudflare challenges are sent
+// again with a clearance FlareSolverr got for their address - never their bodies.
+func TestCloudflarePosts(t *testing.T) {
+	m, srv := cfSite(t, false)
+	host, _ := url.Parse(srv.URL)
+	flare, calls, asked := fakeFlare(t, host.Hostname())
+	s := NewSolver()
+	s.SetEndpoint(flare.URL)
+	c := testClient(m, srv, nil)
+	c.SetSolver(s)
+	u, _ := url.Parse(srv.URL + "/index.php?page=account&s=login&code=00")
+	if body, err := c.PostForm(context.Background(), u, url.Values{"user": {"some_user"}, "pass": {"SECRET"}}); err != nil || string(body) != "<html>the real page</html>" {
+		t.Fatalf("form: %q, %v", body, err)
+	}
+	api, _ := url.Parse(srv.URL + "/api.php")
+	if body, err := c.PostJSON(context.Background(), api, []byte(`{"method":"gdata"}`)); err != nil || string(body) != "<html>the real page</html>" {
+		t.Fatalf("API call: %q, %v", body, err)
+	}
+	if calls.Load() != 1 { // (the clearance from the form's visit serves the API call too)
+		t.Fatalf("FlareSolverr asked %d times, want 1", calls.Load())
+	}
+	for _, a := range *asked {
+		if strings.Contains(a, "SECRET") || strings.Contains(a, "gdata") {
+			t.Fatalf("FlareSolverr was given a body: %s", a)
+		}
+	}
+	// Without FlareSolverr: the Cloudflare error, not "403 Forbidden".
+	bare := testClient(m, srv, nil)
+	if _, err := bare.PostForm(context.Background(), u, url.Values{"user": {"some_user"}}); !errors.Is(err, ErrCloudflare) {
+		t.Fatalf("without FlareSolverr: %v", err)
+	}
+}

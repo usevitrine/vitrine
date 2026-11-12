@@ -223,26 +223,14 @@ func (c *Client) PostForm(ctx context.Context, u *url.URL, form url.Values) ([]b
 	// (time for FlareSolverr's visit too: up to a minute)
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	resp, err := c.post(ctx, u, form)
-	if err != nil {
-		return nil, err
-	}
-	if challenged, _ := isChallenge(resp); challenged {
-		resp.Body.Close()
-		if c.solver == nil || c.solver.Endpoint() == "" {
-			return nil, &CloudflareError{Site: c.m.Site}
-		}
-		c.solver.forget(u.Hostname(), resp.Request)
-		if _, err := c.solver.solve(ctx, u); err != nil { // (the form's address: its values never leave Vitrine)
-			return nil, &CloudflareError{Site: c.m.Site, Reason: err.Error()}
-		}
-		if resp, err = c.post(ctx, u, form); err != nil {
+	resp, err := c.postPassing(ctx, u, func() (*http.Response, error) {
+		if err := c.waitTurn(ctx); err != nil {
 			return nil, err
 		}
-		if challenged, _ := isChallenge(resp); challenged {
-			resp.Body.Close()
-			return nil, &CloudflareError{Site: c.m.Site, Reason: "the site still refused the cleared requests"}
-		}
+		return c.post(ctx, u, "application/x-www-form-urlencoded", []byte(form.Encode()), false)
+	})
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
@@ -254,23 +242,54 @@ func (c *Client) PostForm(ctx context.Context, u *url.URL, form url.Values) ([]b
 	return io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 }
 
-// post sends the form once (with the clearance there is, if any), its redirect not followed - logged like a page
-// request (the address only).
-func (c *Client) post(ctx context.Context, u *url.URL, form url.Values) (*http.Response, error) {
-	if err := c.waitTurn(ctx); err != nil {
+// postPassing sends a POST (send: once, after its turn) and, when Cloudflare challenges it, gets a clearance from
+// FlareSolverr for its address (never its body: a form's values, an API call's) and sends it once more with it. Every
+// request to a site meets the check the same way: page requests in getOnce, these here (a login form, e-hentai's
+// API) - 2026-11-12, the user: "make sure all the other logins go through flaresolverr if needed".
+func (c *Client) postPassing(ctx context.Context, u *url.URL, send func() (*http.Response, error)) (*http.Response, error) {
+	resp, err := send()
+	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), strings.NewReader(form.Encode()))
+	if challenged, _ := isChallenge(resp); !challenged {
+		return resp, nil
+	}
+	resp.Body.Close()
+	if c.solver == nil || c.solver.Endpoint() == "" {
+		return nil, &CloudflareError{Site: c.m.Site}
+	}
+	c.solver.forget(u.Hostname(), resp.Request)
+	if _, err := c.solver.solve(ctx, u); err != nil {
+		return nil, &CloudflareError{Site: c.m.Site, Reason: err.Error()}
+	}
+	if resp, err = send(); err != nil {
+		return nil, err
+	}
+	if challenged, _ := isChallenge(resp); challenged {
+		resp.Body.Close()
+		return nil, &CloudflareError{Site: c.m.Site, Reason: "the site still refused the cleared requests"}
+	}
+	return resp, nil
+}
+
+// post sends a POST once (with the clearance there is, if any; follow: its redirects followed, else the redirect is
+// the reply) - logged like a page request (the address only).
+func (c *Client) post(ctx context.Context, u *url.URL, contentType string, body []byte, follow bool) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("%s: bad request", c.m.Site)
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("User-Agent", UserAgent)
 	if c.solver != nil {
 		c.solver.apply(req)
 	}
-	h := *c.http // (the same transport and cookie jar: the session cookie in a redirect is kept)
-	h.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	h := c.http
+	if !follow {
+		cp := *c.http // (the same transport and cookie jar: the session cookie in a redirect is kept)
+		cp.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		h = &cp
+	}
 	start := time.Now()
 	resp, err := h.Do(req)
 	if err != nil {
@@ -298,29 +317,19 @@ func (c *Client) PostJSON(ctx context.Context, u *url.URL, body []byte) ([]byte,
 	if fg, _ := ctx.Value(foregroundKey{}).(bool); fg {
 		wait = c.waitAPITurn
 	}
-	if err := wait(ctx); err != nil {
-		return nil, err
-	}
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	// (a minute per try; a FlareSolverr visit between them)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(body))
+	resp, err := c.postPassing(ctx, u, func() (*http.Response, error) {
+		if err := wait(ctx); err != nil {
+			return nil, err
+		}
+		return c.post(ctx, u, "application/json", body, true)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("%s: bad request", c.m.Site)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", UserAgent)
-	if c.solver != nil {
-		c.solver.apply(req)
-	}
-	start := time.Now()
-	resp, err := c.http.Do(req)
-	if err != nil {
-		err = fmt.Errorf("%s: request to %s failed: %w", c.m.Site, u.Hostname(), unwrapURL(err))
-		c.logRequest(u, 0, start, err)
 		return nil, err
 	}
 	defer resp.Body.Close()
-	c.logRequest(u, resp.StatusCode, start, nil)
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusTooManyRequests {
 			c.backOff(resp.Header.Get("Retry-After"))
