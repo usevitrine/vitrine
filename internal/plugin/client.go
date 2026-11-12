@@ -206,6 +206,13 @@ func (c *Client) sessionCookie(name string) string {
 
 // PostForm posts a form (a login) to an allowed host and returns the reply,
 // at most 2 MB. Errors never contain the form's values.
+//
+// A redirect is the reply (a login's usual one: its session cookie comes with
+// it), never followed - nil, no error; the caller looks for the session.
+// Following it went to a page with the client's own User-Agent and no
+// clearance, which a site behind Cloudflare's check refused: a login that
+// worked read as failed (2026-11-12). A form Cloudflare challenges itself is
+// sent again once with a clearance from FlareSolverr.
 func (c *Client) PostForm(ctx context.Context, u *url.URL, form url.Values) ([]byte, error) {
 	if !c.m.allows(u.Hostname()) || (u.Scheme != "https" && u.Scheme != "http") {
 		return nil, fmt.Errorf("%s: %s is not one of the plugin's domains", c.m.Site, u.Hostname())
@@ -213,11 +220,46 @@ func (c *Client) PostForm(ctx context.Context, u *url.URL, form url.Values) ([]b
 	if err := c.brk.waiting(c.m.Site); err != nil {
 		return nil, err
 	}
+	// (time for FlareSolverr's visit too: up to a minute)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	resp, err := c.post(ctx, u, form)
+	if err != nil {
+		return nil, err
+	}
+	if challenged, _ := isChallenge(resp); challenged {
+		resp.Body.Close()
+		if c.solver == nil || c.solver.Endpoint() == "" {
+			return nil, &CloudflareError{Site: c.m.Site}
+		}
+		c.solver.forget(u.Hostname(), resp.Request)
+		if _, err := c.solver.solve(ctx, u); err != nil { // (the form's address: its values never leave Vitrine)
+			return nil, &CloudflareError{Site: c.m.Site, Reason: err.Error()}
+		}
+		if resp, err = c.post(ctx, u, form); err != nil {
+			return nil, err
+		}
+		if challenged, _ := isChallenge(resp); challenged {
+			resp.Body.Close()
+			return nil, &CloudflareError{Site: c.m.Site, Reason: "the site still refused the cleared requests"}
+		}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, &StatusError{Site: c.m.Site, Host: u.Hostname(), Code: resp.StatusCode}
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+}
+
+// post sends the form once (with the clearance there is, if any), its redirect not followed - logged like a page
+// request (the address only).
+func (c *Client) post(ctx context.Context, u *url.URL, form url.Values) (*http.Response, error) {
 	if err := c.waitTurn(ctx); err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("%s: bad request", c.m.Site)
@@ -227,15 +269,17 @@ func (c *Client) PostForm(ctx context.Context, u *url.URL, form url.Values) ([]b
 	if c.solver != nil {
 		c.solver.apply(req)
 	}
-	resp, err := c.http.Do(req)
+	h := *c.http // (the same transport and cookie jar: the session cookie in a redirect is kept)
+	h.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	start := time.Now()
+	resp, err := h.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%s: request to %s failed: %w", c.m.Site, u.Hostname(), unwrapURL(err))
+		err = fmt.Errorf("%s: request to %s failed: %w", c.m.Site, u.Hostname(), unwrapURL(err))
+		c.logRequest(u, 0, start, err)
+		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, &StatusError{Site: c.m.Site, Host: u.Hostname(), Code: resp.StatusCode}
-	}
-	return io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	c.logRequest(u, resp.StatusCode, start, nil)
+	return resp, nil
 }
 
 // PostJSON posts a JSON request (an API call) to an allowed host under the

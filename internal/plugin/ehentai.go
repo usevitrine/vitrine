@@ -238,7 +238,8 @@ func (e *ehentai) ensureLogin(ctx context.Context) error {
 			"UserName": {user}, "PassWord": {pass}, "CookieDate": {"1"},
 		})
 		var se *StatusError
-		if errors.As(err, &se) && se.Code == http.StatusForbidden {
+		var cf *CloudflareError
+		if errors.As(err, &se) && se.Code == http.StatusForbidden || errors.As(err, &cf) {
 			return fmt.Errorf("%s: %w", c.m.Site, errEHCloudflare) // (the check refused the form even so)
 		}
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -222,5 +223,70 @@ func TestDecaret(t *testing.T) {
 		if got := decaret(in); got != want {
 			t.Errorf("decaret(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// A Shimmie site behind Cloudflare's check (2026-11-12, rule34hentai from some VPN exits): every page needs the
+// clearance; the login form isn't checked and answers with a redirect to the user's page. Following that redirect
+// (the client's own User-Agent, no clearance) got the challenge: a login that worked read as failed.
+func TestShimmieLoginBehindCloudflare(t *testing.T) {
+	var postedForms atomic.Int32
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/user_admin/login" {
+			postedForms.Add(1)
+			r.ParseForm()
+			if r.Form.Get("user") == "some_user" && r.Form.Get("pass") == "right" {
+				http.SetCookie(w, &http.Cookie{Name: "shm_session", Value: "s3ss10n", Path: "/"})
+				http.Redirect(w, r, "/user/some_user", http.StatusFound)
+				return
+			}
+			io.WriteString(w, `<html>No user with those details</html>`)
+			return
+		}
+		if ck, _ := r.Cookie("cf_clearance"); ck == nil || ck.Value != "ok" || r.Header.Get("User-Agent") != "BrowserUA" {
+			w.Header().Set("Server", "cloudflare")
+			w.Header().Set("cf-mitigated", "challenge")
+			w.WriteHeader(http.StatusForbidden)
+			io.WriteString(w, "<title>Just a moment...</title>")
+			return
+		}
+		if ck, _ := r.Cookie("shm_session"); ck == nil && strings.HasPrefix(r.URL.Path, "/post/list/") {
+			t.Errorf("a search without the session: %s", r.URL.Path)
+		}
+		io.WriteString(w, shmList)
+	}))
+	t.Cleanup(srv.Close)
+	m, err := Parse([]byte(`
+id: shimmie_test
+engine: shimmie2
+base: ` + srv.URL + `
+post_url: ` + srv.URL + `/post/view/{id}
+auth: {fields: [username, password], login: shimmie2}
+limits: {requests_per_sec: 100}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	host, _ := url.Parse(srv.URL)
+	flare, calls, _ := fakeFlare(t, host.Hostname())
+	s := NewSolver()
+	s.SetEndpoint(flare.URL)
+	c := testClient(m, srv, map[string]string{"username": "some_user", "password": "right"})
+	c.http.Jar = newSessionJar()
+	c.SetSolver(s)
+	e, _ := NewEngine(c)
+	if _, err := e.Search(context.Background(), "blue_sky", 0); err != nil {
+		t.Fatalf("search after logging in: %v", err)
+	}
+	if postedForms.Load() != 1 || calls.Load() != 1 {
+		t.Fatalf("%d logins, %d FlareSolverr visits; want 1 and 1", postedForms.Load(), calls.Load())
+	}
+	// Wrong password: still refused (the form's own page, no session).
+	c2 := testClient(m, srv, map[string]string{"username": "some_user", "password": "wrong"})
+	c2.http.Jar = newSessionJar()
+	c2.SetSolver(s)
+	e2, _ := NewEngine(c2)
+	if _, err := e2.Search(context.Background(), "blue_sky", 0); !errors.Is(err, ErrLoginRefused) {
+		t.Fatalf("wrong password: %v", err)
 	}
 }

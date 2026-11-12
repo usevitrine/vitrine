@@ -19,6 +19,14 @@ Cloudflare and FlareSolverr, stalled and trickling downloads, files checked agai
   Sites"). FlareSolverr must reach sites from the same IP as Vitrine (behind a VPN: share its network namespace).
 - While a clearance is in use, requests carry the browser's User-Agent instead of Vitrine's (Cloudflare ties the
   clearance to it).
+- **Login forms (`Client.PostForm`, 2026-11-12)** (the user: "why doesn't rule34h login work on an Irish connection? ...
+  why doesn't flaresolverr bypass it?"): from that exit Cloudflare checked every page but not the login form, which
+  answered with a redirect; the client followed it as a page request with its own User-Agent and no clearance, got the
+  challenge, and a login that worked read as failed (the Settings test always: a new client, no clearance yet). Now a
+  form's redirect is never followed - it is the reply (nil body, no error; the session cookie it set is in the jar, and
+  the engine decides by it); a form Cloudflare challenges itself is sent again once with a clearance FlareSolverr got
+  for the form's address (never its values); still refused: `CloudflareError` (e-hentai: its "Cloudflare" error).
+  Forms are logged like page requests (debug: host and path, status, time). Test: `TestShimmieLoginBehindCloudflare`.
 
 ## Stalls and logs (2026-10-20)
 - A file download with no data for a minute (no answer, or a stall mid-file) is given up (`plugin.ErrStalled`; tried

@@ -17,6 +17,7 @@ shows this too (Settings > Help & about).
 ### Fixed
 
 - **Selecting files**: on a new file's thumbnail, the NEW label moves beside the round check instead of sitting under it.
+- **Site logins behind Cloudflare**: logging in to a site (such as a Shimmie or Gelbooru site) whose pages Cloudflare checks no longer fails when the login itself worked. A login form Cloudflare checks too is passed with FlareSolverr.
 - **Search box**: on a phone or tablet, clearing the search no longer brings up the keyboard.
 
 ## 1.0.28 - 2026-11-11
