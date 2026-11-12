@@ -144,7 +144,8 @@
   $effect(() => {
     const q = query.trim();
     const s = recentSort;
-    if (!recents || !q) return;
+    // (a saved search isn't one: it is a tap away already, and run daily it pushed the others out - 2026-11-12)
+    if (!recents || !q || current) return;
     const timer = setTimeout(() => saved.addRecent(q, s), RECENT_AFTER);
     return () => clearTimeout(timer);
   });

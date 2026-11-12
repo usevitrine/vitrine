@@ -8,6 +8,7 @@ shows this too (Settings > Help & about).
 ### Improved
 
 - **Tag suggestions**: the search box suggests all the tags that match what you type (up to 200), not just the first 12. The list keeps its height and scrolls, and the arrow keys keep the highlighted one in view.
+- **Recent searches**: saved searches aren't added to them any more. They are a tap away already, and run every day they pushed your other searches out.
 
 ## 1.0.28 - 2026-11-11
 

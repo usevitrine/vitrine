@@ -77,7 +77,10 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
     saved search). The same search again (case and spaces aside, the same order) moves up instead of showing twice; 20
     kept per page (`library.MaxRecent`). Server-side like saved searches (`recent_searches`, migration 0053; scope '' /
     comics / browse; `GET /api/recent`, `POST /api/recent`, `/api/recent/remove`, `/api/recent/clear`), so every device
-    has the same ones. Not in a trash (`SearchBar remember={!inTrash}`), not in Settings' search fields (plain).
+    has the same ones. Not in a trash (`SearchBar remember={!inTrash}`), not in Settings' search fields (plain), and
+    not a saved search (2026-11-12, the user agreed: it is a tap away already, and saved ones run daily pushed the
+    others out of the 20; a search matching a saved one, the floppy lit, is skipped however it was run). Group/parent
+    tag searches are kept like any other.
     **Off** with the shared setting `recentSearches` (Settings > Library, "Remember recent searches"; missing = on):
     none kept or shown, and turning it off clears every page's list. Off in the e2e test library (`setup.ts`: every
     test's searches would be options in the others' suggestion lists); the recent searches test turns it on in its

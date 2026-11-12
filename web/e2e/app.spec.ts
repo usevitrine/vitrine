@@ -1755,6 +1755,18 @@ test('recent searches: the empty box offers them, one runs with its order; ones 
   await expect(rows).toHaveCount(0);
   await expect(page.getByRole('listbox')).toHaveCount(0);
 
+  // A saved search isn't kept (it is a tap away already) - another search is.
+  await page.route('**/api/saved?*', async (r) => {
+    if (r.request().method() !== 'GET') return r.continue();
+    await r.fulfill({ json: { saved: [{ id: 990, name: 'Sky', query: 'blue_sky', sort: '', count: 1 }] } });
+  });
+  await page.goto('/?q=blue_sky');
+  await expect(page.locator('.bar .chip')).toHaveText([/blue_sky/]);
+  await page.waitForTimeout(3000); // (longer than a search must be stayed on to be kept)
+  expect(added.map((a) => a.query)).not.toContain('blue_sky');
+  await page.goto('/?q=red');
+  await expect.poll(() => added.at(-1)?.query, { timeout: 8000 }).toBe('red');
+
   // Turned off (Settings > Library): none shown, none kept.
   list = [{ query: 'blue_sky', sort: '', used_at: 3 }];
   on = false;
