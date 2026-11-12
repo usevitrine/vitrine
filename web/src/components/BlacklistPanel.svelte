@@ -75,7 +75,7 @@
   let query = $derived(tags.length === 1 ? tags[0] : `( ${tags.join(' ~ ')} )`);
 
   function show() {
-    router.openSearch(query);
+    router.openResults(query); // (a page of their own: the library's search stays)
   }
 
   async function purge() {

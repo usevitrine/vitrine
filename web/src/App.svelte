@@ -179,7 +179,7 @@
     on?: () => boolean; // it's the current entry (else: its screen is showing)
   }[] = $derived([
     // Everything (/) and Favorites (/favorites, only favorites; see Library.svelte).
-    { screen: 'library', label: t('menu.library'), icon: 'library', subs: [{ sub: '', label: t('menu.everything') }, { sub: 'favorites', label: t('menu.favorites') }], on: () => router.screen === 'library' && router.sub !== 'trash' },
+    { screen: 'library', label: t('menu.library'), icon: 'library', subs: [{ sub: '', label: t('menu.everything') }, { sub: 'favorites', label: t('menu.favorites') }], on: () => router.screen === 'library' && router.sub !== 'trash' && router.sub !== 'view' },
     // (their own page: never in the library) All comics and Favorites (/comics/favorites).
     { screen: 'comics', label: t('comics.title'), icon: 'book', subs: [{ sub: '', label: t('comics.everything') }, { sub: 'favorites', label: t('menu.favorites') }, { sub: '', label: t('browse.title'), screen: 'browse' as const }], on: () => router.screen === 'comics' && router.sub !== 'trash' },
     { screen: 'downloads', label: t('stats.downloads'), icon: 'download' },

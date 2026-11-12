@@ -59,7 +59,7 @@
     d.setDate(d.getDate() - (data.days.length - 1 - i));
     return date(d, { day: 'numeric', month: 'short', year: data.days.length > 60 ? 'numeric' : undefined });
   };
-  const search = (q: string) => router.openSearch(q);
+  const search = (q: string) => router.openResults(q); // (a page of their own: the library's search stays)
   async function clearAll() {
     const ok = await confirmAction({
       title: t('rankings.clearTitle'),
@@ -133,7 +133,7 @@
             {#each data.files as f, i (f.id)}
               {@const info = files.get(f.id)}
               <li animate:moved transition:reveal>
-                <button class="file" onclick={() => search('system:came>0 sort:came')} aria-label={t('rankings.fileLabel', { rank: i + 1, n: f.count })}>
+                <button class="file" onclick={() => router.openResults('system:came>0 sort:came', f.id)} aria-label={t('rankings.fileLabel', { rank: i + 1, n: f.count })}>
                   <span class="thumb" style:background-image={info?.thumb ? `url(${info.thumb})` : undefined}></span>
                   <span class="rank">{i + 1}</span>
                   <span class="cnt">{n(f.count)}</span>

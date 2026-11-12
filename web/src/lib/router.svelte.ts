@@ -30,7 +30,7 @@ function subOf(path: string): string {
   const s = screenOf(path);
   if (s === 'library') {
     const p = path.replace(/^\/+|\/+$/g, '');
-    return p === 'favorites' || p === 'trash' ? p : '';
+    return p === 'favorites' || p === 'trash' || p === 'view' ? p : '';
   }
   const sub = path.slice(paths[s].length).replace(/^\/+|\/+$/g, '');
   return (s === 'settings' && settingsRenamed[sub]) || sub;
@@ -52,6 +52,13 @@ class Router {
   sub = $state(subOf(location.pathname));
   /** A search another screen asked the library to run (see openSearch). */
   pendingSearch = $state<string | null>(null);
+  /** The screen that opened the results page (/view, see openResults): its Back goes there. */
+  resultsFrom = $state<Screen | null>(null);
+  /** A file to open in the viewer on the results page, the page itself kept out of sight (I came's files: just a
+   *  viewer over it - closing it is that screen again). */
+  resultsFile = $state<number | null>(null);
+  /** Counts openResults calls: the results page runs each one (it may be the page already, kept from before). */
+  resultsGen = $state(0);
   /** Something the next screen should bring into view (e.g. "sub:12" on Downloads). */
   focus = $state<string | null>(null);
 
@@ -133,6 +140,21 @@ class Router {
   openSearch(q: string) {
     this.pendingSearch = q;
     this.go('library');
+  }
+
+  /** Shows files another screen found (I came, the blacklist) on a page of their own - the library's grid and viewer
+   *  with their own search and order (/view?q=): the library's own search and filters stay as they were (2026-11-12,
+   *  the user: "i dont like that it opens the main page and changes the filters/searches"). */
+  openResults(q: string, file: number | null = null) {
+    this.resultsFile = file;
+    this.resultsGen++;
+    libraryParams.view = '?q=' + encodeURIComponent(q);
+    if (this.screen !== 'library' || this.sub !== 'view') this.resultsFrom = this.screen;
+    if (this.screen === 'library' && this.sub === 'view') {
+      this.pendingSearch = q;
+      return;
+    }
+    this.go('library', 'view');
   }
 
   /** Replaces the library's URL parameters without adding history entries. */

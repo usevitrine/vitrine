@@ -37,6 +37,19 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
   selection bar and the video controls, and the toasts above the bar) and `--safe-corner` (10px more at their sides).
   Sheets and the reader's slider keep their own room.
 
+## Results page for other screens (2026-11-12)
+The user: "i dont like that it opens the main page and changes the filters/searches"; "clicking an image in i came
+should open a viewer, pressing see all should open its own results page". Files another screen finds open on a
+library page of their own, `/view?q=` (`router.openResults`; Library's page `view`): the library's grid, viewer,
+search bar and sort, with its own search and order in its address and a Back button (to the screen that opened it;
+opened at its address: the library). The library's own search, filters and order stay as they were. No default
+search, no recent searches recorded there; the menu marks no Library entry. Used by I came (See all, a tag's row;
+`system:came>0 sort:came`) and the blacklist's Show them. **A file tapped on I came** is only the viewer:
+`openResults(q, fileId)` searches with `find=` for its place, opens the viewer on it with the page kept out of sight
+(`viewer-only`), and closing the viewer goes back to I came. Each call counts (`router.resultsGen`), so the page,
+kept from a visit before, runs the new search. The Tags page's tag browser and Downloads' "files found" still open
+the library itself (`openSearch`).
+
 ## As built (web client, from 2026-10-14 on)
 - **Search bar**: booru text -> chips (a finished word becomes a chip on space and searches at once); chips colored
   by kind (system blue, sort/limit peach, wildcard yellow, excluded red, OR groups tinted mauve); tap a chip to edit

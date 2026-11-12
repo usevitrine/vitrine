@@ -991,6 +991,11 @@ test('blacklist: add tags, see matching files, show them, delete and undo', asyn
   await panel.getByRole('button', { name: 'Show them' }).click();
   await expect(page.locator('header.topbar').getByText(/^2 files/)).toBeVisible(); // (the Tags page fades under the library a moment)
   await expect(page.locator('.chip')).toContainText('OR');
+  // On a page of their own (the library's search stays as it was); Back: the Tags page again.
+  await expect(page).toHaveURL(/\/view\?q=/);
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page).toHaveURL(/\/tags\/rules$/);
+  await expect(panel.getByRole('button', { name: 'Show them' })).toBeVisible();
 
   await page.goto('/tags/rules');
   await panel.getByRole('button', { name: 'Delete them…' }).click();
@@ -7414,6 +7419,24 @@ test('"I came" button (off by default): counted in the viewer with Undo; Ranking
   await page.getByRole('button', { name: 'See all' }).click();
   await expect(page.getByText(/^1 file\b/)).toBeVisible();
   await expect(page.locator('.tile[data-i="0"]')).toHaveAttribute('data-id', id!);
+  // (a page of its own: the library's search untouched; Back is the I came page again)
+  await expect(page).toHaveURL(/\/view\?/);
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'I came' })).toBeVisible();
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await unfold(page, 'library');
+  await page.locator('#nav-drawer').getByRole('button', { name: 'Everything', exact: true }).click();
+  await expect(page.locator('.bar .chip')).toHaveText([/blue_sky/]); // (the library's own search, as it was)
+  // A ranked file tapped: just the viewer, on it (the user); closing it is the I came page again.
+  await page.goto('/rankings?period=all');
+  await page.locator('ol.files li button.file').first().click();
+  await expect(page.locator('.viewer')).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/view\\?.*f=${id}`));
+  await expect(page.locator('.library')).toBeHidden(); // (the results page out of sight under it)
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.viewer')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'I came' })).toBeVisible();
+  await expect(page).toHaveURL(/\/rankings/);
   // Clear all (the I came page): asks first, then nothing counted.
   await page.goto('/rankings');
   await page.getByRole('button', { name: 'Clear all' }).click();

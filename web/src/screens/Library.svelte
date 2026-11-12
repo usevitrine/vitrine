@@ -31,12 +31,16 @@
   // searches limited to favorites (no chip: the search bar holds only what was typed) or run on the deleted files
   // (lib/trash), each page with its own search, order and default order (Settings; the trash: the last deleted
   // first), kept in its URL.
-  type Page = '' | 'favorites' | 'trash';
-  const pageNow = (): Page => (router.screen === 'library' && (router.sub === 'favorites' || router.sub === 'trash') ? router.sub : '');
+  // (and /view: files another screen found - I came, the blacklist - with a search of their own; router.openResults)
+  type Page = '' | 'favorites' | 'trash' | 'view';
+  const pageNow = (): Page =>
+    router.screen === 'library' && (router.sub === 'favorites' || router.sub === 'trash' || router.sub === 'view') ? router.sub : '';
+  const scopeOf = (p: Page) => (p === 'view' ? '' : p);
   let page = $state<Page>(pageNow());
   const fav = $derived(page === 'favorites');
   const inTrash = $derived(page === 'trash');
-  results.scope = pageNow(); // (the first search's page)
+  const inView = $derived(page === 'view');
+  results.scope = scopeOf(pageNow()); // (the first search's page)
   if (pageNow() === 'trash') trash.load();
   const defaultSort = () => (page === 'favorites' ? settings.favoritesSort : page === 'trash' ? 'modified' : settings.defaultSort);
   const fromNotification = router.param('new') === '1'; // a "new files" notification: everything, new first
@@ -70,6 +74,7 @@
   // it - unless a search or an order was picked meanwhile.
   async function search(q: string, since: number | null = null) {
     results.sinceOverride = since; // (another search: NEW since "Mark all as seen" again)
+    viewerOnly = false; // (a search from the viewer - a tag tapped: the results page, shown)
     if (viewing !== null && history.state?.viewer) {
       pendingSearch = q;
       viewing = null; // the viewer closes and steps back; onPop runs the search
@@ -105,16 +110,49 @@
     if (now === page || router.screen !== 'library') return;
     untrack(() => {
       page = now;
-      results.scope = now;
+      results.scope = scopeOf(now);
       if (now === 'trash') trash.load();
       viewing = null;
       selection.clear();
       const typed = extractSort(router.param('q'));
       query = typed.q;
       sort = router.param('sort') || typed.sort || defaultSort();
+      if (now === 'view') return openView();
       results.search(query, sort);
     });
   });
+
+  // The results page asked for again while it is the page already (kept from the last time): runs the new one.
+  $effect(() => {
+    if (router.resultsGen === viewGen || router.screen !== 'library' || pageNow() !== 'view') return;
+    untrack(() => {
+      if (page !== 'view') return; // (the page switch above does it)
+      viewing = null;
+      selection.clear();
+      const typed = extractSort(router.param('q'));
+      query = typed.q;
+      sort = router.param('sort') || typed.sort || defaultSort();
+      openView();
+    });
+  });
+
+  /** The results page's search (see router.openResults); with a file: only the viewer, on it. */
+  let viewGen = router.resultsGen; // (opened at its address: onMount searches)
+  function openView() {
+    viewGen = router.resultsGen;
+    const file = router.resultsFile;
+    router.resultsFile = null;
+    viewerOnly = file !== null;
+    if (file === null) return void results.search(query, sort);
+    let at = -1;
+    results
+      .search(query, sort, { find: [file], prepare: async (res) => ((at = res.found?.[file] ?? res.ids.indexOf(file)), []) })
+      .then(async () => {
+        if (at < 0 || pageNow() !== 'view') return void (viewerOnly = false);
+        await results.ensure(at, at + 1);
+        viewing = at;
+      });
+  }
 
   // A saved search or group tag from the menu: its search and order together;
   // its NEW files are those since it was last opened from there (and it's marked opened now).
@@ -130,6 +168,12 @@
     sort = s;
     await search(q, since);
     saved.refreshNews();
+  }
+
+  /** The results page's Back: to the screen that opened it (opened from an address: the library). */
+  function back() {
+    if (router.resultsFrom && history.length > 1) history.back();
+    else router.go('library');
   }
 
   function setSort(s: string) {
@@ -261,6 +305,8 @@
   // ---- opening and closing the viewer, animated between the tile and the
   // image's place in the viewer (lib/hero), like iOS Photos.
   let heroing = $state(false);
+  // Only the viewer (a file tapped on I came): the page stays out of sight under it; closing it goes back there.
+  let viewerOnly = $state(false);
   // The file in the viewer has no tile while it's open (a swipe down fades the viewer: the grid shows an empty place
   // for the picture to shrink into), nor while it flies back to it on closing.
   let closingId = $state<number | undefined>();
@@ -289,6 +335,15 @@
   }
 
   function close() {
+    if (viewerOnly) {
+      // Back to the screen it was opened from, once the viewer's own history step is gone.
+      viewing = null;
+      tick().then(() => {
+        if (history.state?.viewer) addEventListener('popstate', () => back(), { once: true });
+        else back();
+      });
+      return;
+    }
     const i = viewing;
     // Where the image is now (also mid swipe-down, shrunk and moved), unless zoomed.
     const f = i === null ? undefined : results.fileAt(i);
@@ -318,7 +373,7 @@
     // (default search and order, what counts as new), read a moment ago.
     await settings.whenSynced();
     if (!router.param('sort') && !fromURL.sort) sort = defaultSort();
-    if (!query && settings.defaultSearch && !fromNotification && !fav) query = extractSort(settings.defaultSearch).q;
+    if (!query && settings.defaultSearch && !fromNotification && !fav && !inView) query = extractSort(settings.defaultSearch).q;
     if (fromNotification) router.setParams({ new: undefined });
     updateBadge();
     saved.refreshNews();
@@ -351,12 +406,18 @@
   >
 {/snippet}
 
-<div class="library" style:--lib-pad="{pad}px">
+<div class="library" class:viewer-only={viewerOnly} style:--lib-pad="{pad}px">
   <header bind:offsetHeight={headH}>
     <div class="search-row">
       <!-- The trash: Empty trash as a red button before the search bar (the user's choice: an icon, no label). -->
       <!-- New files: an eye that marks them seen (just the icon - the user; how many only in its label, for screen readers). Both slide
            in and out sideways, their gap with them. -->
+      {#if inView}
+        <!-- The results page: Back to the screen that opened it (I came, the blacklist). -->
+        <div class="slot">
+          <button class="back" aria-label={t('library.back')} title={t('library.back')} onclick={back}><Icon name="left" size={22} /></button>
+        </div>
+      {/if}
       {#if results.fresh > 0 && !inTrash}
         <div class="slot" transition:slide={{ axis: 'x', duration: reduced() ? 0 : 260, easing: cubicOut }}>
           <button class="new-chip" onclick={markSeen} aria-label={t('library.markSeen', { n: results.fresh })}
@@ -373,7 +434,7 @@
         </div>
       {/if}
       <div class="search-grow">
-        <SearchBar {query} {sort} placeholder={fav ? t('library.favSearch') : inTrash ? t('library.trashSearch') : t('library.search')} defaultSort={defaultSort()} onsearch={search} onsaved={runSaved} onsort={setSort} remember={!inTrash} />
+        <SearchBar {query} {sort} placeholder={fav ? t('library.favSearch') : inTrash ? t('library.trashSearch') : t('library.search')} defaultSort={defaultSort()} onsearch={search} onsaved={runSaved} onsort={setSort} remember={!inTrash && !inView} />
       </div>
     </div>
     {#if inTrash && trash.files > 0}
@@ -421,6 +482,9 @@
 {/if}
 
 <style>
+  .library.viewer-only {
+    visibility: hidden;
+  }
   .library {
     height: 100%;
     position: relative;
@@ -526,6 +590,21 @@
       background: color-mix(in srgb, var(--mauve) 85%, white);
     }
   }
+  .back {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    padding: 0;
+    border: 1px solid var(--surface1);
+    border-radius: 12px;
+    background: var(--mantle);
+    color: var(--text);
+  }
+  @media (hover: hover) {
+    .back:hover {
+      background: var(--surface0);
+    }
+  }
   .status {
     display: flex;
     align-items: center;
@@ -569,6 +648,7 @@
   }
   /* Square, the search bar's one-line height (its border too), whatever the bar grows to. */
   .empty-trash,
+  .back,
   .new-chip {
     --sq: max(var(--control-h), 38px); /* (44 px on phones; 38 with a mouse, as the bar with its input) */
     width: var(--sq);
