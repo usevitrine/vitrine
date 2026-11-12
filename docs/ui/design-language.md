@@ -93,6 +93,11 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   for it looped for ever). Something inside a parent that moves (not one only fading) is left to its parent. Not reproducible in headless Chromium (it keeps the fraction in the layer -
   measured: 0-6 pixels change as the panel settles, before and after); in the e2e flow every panel, dialog, menu
   and section ends on whole pixels (before: 43.5, 358.6, 106.8...).
+- **Dialogs above the keyboard (2026-11-12)** (the user: "dialogues on mobile such as the site login form... It's behind the
+  keyboard"): every dialog sits between the top of what can be seen and the keyboard (`--view-top`, `--kb`; at most
+  `--view-h` - 24px tall) and scrolls inside when its content is taller (`Modal` didn't: a site's login ran out of it,
+  under the keyboard). The box being typed in is scrolled into view when the keyboard comes up, in a dialog too
+  (`lib/viewport` `showField`: sheets, details panels, `[role=dialog]`).
 - **Type (2026-10-24, the user's pick of Geist / Inter / Plus Jakarta Sans / Manrope)**: Plus Jakarta Sans, the
   variable font bundled with the app (`@fontsource-variable/plus-jakarta-sans`; woff2 files split
   by script, only the ones a page's text needs are fetched; no outside font service - self-hosted, offline, private),

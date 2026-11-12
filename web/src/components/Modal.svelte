@@ -57,6 +57,10 @@
     translate: 0 0; /* (an identity: drawn the same at rest as while it animates in) */
     width: min(var(--w), calc(100vw - 24px));
     max-height: calc(var(--view-h) - 24px);
+    /* Taller than what's above the keyboard (a site's login on a phone, 2026-11-12): its content scrolls in it - it
+       ran out of the box, under the keyboard. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
     display: flex;
     flex-direction: column;
     gap: 12px;

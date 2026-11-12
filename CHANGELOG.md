@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **Dialogs on a phone**: a dialog taller than the room above the keyboard, such as a site's login, scrolls instead of running behind the keyboard, and the box you type in stays in view.
+
 ## 1.0.29 - 2026-11-12
 
 ### Improved

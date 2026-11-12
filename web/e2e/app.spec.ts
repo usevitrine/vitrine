@@ -11163,3 +11163,24 @@ test('comics: a comic\'s menu subscribes to its gallery (the dialog at Subscribe
   await page.getByRole('menuitem', { name: 'Subscribed' }).click();
   await expect(page).toHaveURL(/\/downloads/);
 });
+
+test('phone: a dialog taller than what\'s above the keyboard (a site\'s login) scrolls in place, all of it above the keyboard', async ({ page }) => {
+  test.skip(!isPhone(page), 'phones');
+  await page.goto('/settings/sites');
+  await rowMenu(page, 'test-auth.invalid', 'Log in');
+  const dialog = page.getByRole('dialog', { name: 'Log in to test-auth.invalid' });
+  await expect(dialog).toBeVisible();
+  // (no keyboard under test: its height as lib/viewport sets it - an iPhone's with its suggestions bar)
+  const kb = 380;
+  await page.evaluate((px) => document.documentElement.style.setProperty('--kb', `${px}px`), kb);
+  const height = page.viewportSize()!.height;
+  await expect.poll(async () => Math.round((await dialog.boundingBox())!.y + (await dialog.boundingBox())!.height)).toBeLessThanOrEqual(height - kb);
+  expect(await dialog.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true); // (taller than the room: it scrolls)
+  // Its last row (Save) scrolls into the dialog's own visible part - not under the keyboard.
+  const save = dialog.getByRole('button', { name: 'Save' });
+  await save.scrollIntoViewIfNeeded();
+  const box = (await dialog.boundingBox())!;
+  const b = (await save.boundingBox())!;
+  expect(b.y + b.height).toBeLessThanOrEqual(box.y + box.height + 1);
+  expect(b.y).toBeGreaterThanOrEqual(box.y - 1);
+});

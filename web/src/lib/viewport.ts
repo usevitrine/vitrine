@@ -28,10 +28,10 @@ export function trackKeyboard() {
   update();
 }
 
-/** The text box being typed in, when it's in a phone sheet: scrolled into the sheet's visible part. */
+/** The text box being typed in, when it's in a phone sheet or a dialog: scrolled into its visible part. */
 function showField() {
   const el = document.activeElement;
-  if (el?.matches('input, textarea') && el.closest('[data-sheet], .details-panel')) el.scrollIntoView({ block: 'nearest' });
+  if (el?.matches('input, textarea') && el.closest('[data-sheet], .details-panel, [role="dialog"]')) el.scrollIntoView({ block: 'nearest' });
 }
 
 /** Numbers for the Display section in Settings (to diagnose iOS layout issues). */
