@@ -36,7 +36,8 @@
     <h2>{title}</h2>
     <button type="button" class="icon" aria-label={t('sites.close')} onclick={onclose}><Icon name="close" /></button>
   </header>
-  {@render children()}
+  <!-- (the content scrolls, the heading and close button stay: taller than the room above the keyboard) -->
+  <div class="body">{@render children()}</div>
 </div>
 
 <style>
@@ -57,13 +58,12 @@
     translate: 0 0; /* (an identity: drawn the same at rest as while it animates in) */
     width: min(var(--w), calc(100vw - 24px));
     max-height: calc(var(--view-h) - 24px);
-    /* Taller than what's above the keyboard (a site's login on a phone, 2026-11-12): its content scrolls in it - it
-       ran out of the box, under the keyboard. */
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    /* Taller than what's above the keyboard (a site's login on a phone, 2026-11-12): its content scrolls under the
+       heading (.body) - it ran out of the box, under the keyboard. */
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px; /* (12 to the content: .body's margin takes 4) */
     padding: 12px 14px 14px;
     background: var(--mantle);
     border: 1px solid var(--surface1);
@@ -71,6 +71,7 @@
     box-shadow: 0 20px 50px rgb(0 0 0 / 0.6);
   }
   header {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -79,6 +80,18 @@
     flex: 1;
     margin: 0;
     font-size: 17px;
+  }
+  .body {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /* (room for focus rings at the edges: the scroll box would cut them off) */
+    margin: -4px;
+    padding: 4px;
   }
   .dialog :global(.foot) {
     display: flex;

@@ -97,7 +97,9 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   keyboard"): every dialog sits between the top of what can be seen and the keyboard (`--view-top`, `--kb`; at most
   `--view-h` - 24px tall) and scrolls inside when its content is taller (`Modal` didn't: a site's login ran out of it,
   under the keyboard). The box being typed in is scrolled into view when the keyboard comes up, in a dialog too
-  (`lib/viewport` `showField`: sheets, details panels, `[role=dialog]`).
+  (`lib/viewport` `showField`: sheets, details panels, `[role=dialog]`). `Modal`: the heading and close button stay, its
+  `.body` scrolls. **iOS's form bar** (the ⌃ ⌄ ✓ pill, floating over the page above the keyboard since iOS 26) isn't in
+  the visual viewport's height: on iOS `--kb` adds 60 px for it (the user's screenshot: ~47 px of bar, ~12 of gap).
 - **Type (2026-10-24, the user's pick of Geist / Inter / Plus Jakarta Sans / Manrope)**: Plus Jakarta Sans, the
   variable font bundled with the app (`@fontsource-variable/plus-jakarta-sans`; woff2 files split
   by script, only the ones a page's text needs are fetched; no outside font service - self-hosted, offline, private),

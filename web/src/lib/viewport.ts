@@ -5,6 +5,10 @@ export const standalone =
   matchMedia('(display-mode: standalone)').matches ||
   (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
+// (iOS: the form bar over the keyboard, see trackKeyboard)
+const IOS_FORM_BAR = 60;
+const iosBar = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 /**
  * Tracks the on-screen keyboard's height as the CSS variable --kb, so
  * bottom sheets can sit above it (iOS shrinks the visual viewport, not the
@@ -17,7 +21,11 @@ export function trackKeyboard() {
   if (!vv) return;
   let last = 0;
   const update = () => {
-    const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    let kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    // iOS's form bar (the ⌃ ⌄ ✓ pill) floats over the page above the keyboard since iOS 26 - not in the visual
+    // viewport's height, so things placed above the keyboard went under it (2026-11-12, the user's screenshot: a site's
+    // login dialog's buttons). Its room: ~47 px of bar and ~12 px of gap. (Older iOS, where the bar was part of the keyboard: some room to spare.)
+    if (kb > 40 && iosBar) kb += IOS_FORM_BAR;
     document.documentElement.style.setProperty('--kb', `${Math.round(kb)}px`);
     document.documentElement.style.setProperty('--vv-top', `${Math.round(Math.max(0, vv.offsetTop))}px`);
     if (kb > last) requestAnimationFrame(showField); // (the sheet moved up and got shorter: its field may be out of sight)

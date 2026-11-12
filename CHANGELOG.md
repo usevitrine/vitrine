@@ -7,7 +7,7 @@ shows this too (Settings > Help & about).
 
 ### Fixed
 
-- **Dialogs on a phone**: a dialog taller than the room above the keyboard, such as a site's login, scrolls instead of running behind the keyboard, and the box you type in stays in view.
+- **Dialogs on a phone**: a dialog taller than the room above the keyboard, such as a site's login, scrolls under its title instead of running behind the keyboard, and the box you type in stays in view. On an iPhone, sheets and dialogs also leave room for the bar above the keyboard (the arrows and the tick).
 
 ## 1.0.29 - 2026-11-12
 

@@ -11175,7 +11175,8 @@ test('phone: a dialog taller than what\'s above the keyboard (a site\'s login) s
   await page.evaluate((px) => document.documentElement.style.setProperty('--kb', `${px}px`), kb);
   const height = page.viewportSize()!.height;
   await expect.poll(async () => Math.round((await dialog.boundingBox())!.y + (await dialog.boundingBox())!.height)).toBeLessThanOrEqual(height - kb);
-  expect(await dialog.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true); // (taller than the room: it scrolls)
+  const body = dialog.locator('.body');
+  expect(await body.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true); // (taller than the room: its content scrolls)
   // Its last row (Save) scrolls into the dialog's own visible part - not under the keyboard.
   const save = dialog.getByRole('button', { name: 'Save' });
   await save.scrollIntoViewIfNeeded();
@@ -11183,4 +11184,9 @@ test('phone: a dialog taller than what\'s above the keyboard (a site\'s login) s
   const b = (await save.boundingBox())!;
   expect(b.y + b.height).toBeLessThanOrEqual(box.y + box.height + 1);
   expect(b.y).toBeGreaterThanOrEqual(box.y - 1);
+  // The heading and close button stay in view (only the content scrolled).
+  expect(await body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  const head = (await dialog.getByRole('heading').boundingBox())!;
+  expect(head.y).toBeGreaterThanOrEqual(box.y);
+  await expect(dialog.getByRole('button', { name: 'Close' })).toBeInViewport();
 });
