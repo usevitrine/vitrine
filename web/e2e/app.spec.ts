@@ -4,6 +4,18 @@ import { expect, test, login, USER, PASSWORD, PORT0 } from './fixtures';
 
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 0) < 900;
 
+/** Safari's on-screen keyboard (there is none under test): the visible part made `px` shorter, so lib/viewport's own
+ *  tracking runs. Gives the room then kept at the bottom (--kb: on an iPhone, iOS's form bar too while a box has focus). */
+async function safariKeyboard(page: Page, px: number): Promise<number> {
+  return page.evaluate(async (px) => {
+    const vv = window.visualViewport!;
+    Object.defineProperty(vv, 'height', { configurable: true, get: () => innerHeight - px });
+    vv.dispatchEvent(new Event('resize'));
+    await new Promise((done) => requestAnimationFrame(() => done(null)));
+    return parseFloat(document.documentElement.style.getPropertyValue('--kb'));
+  }, px);
+}
+
 /** Unfolds a menu item's sub-pages (folded to begin with). */
 async function unfold(page: Page, screen: string) {
   const b = page.locator(`#nav-drawer .fold[aria-describedby="menu-${screen}"]`);
@@ -3620,8 +3632,7 @@ test('phone sheets sit above the on-screen keyboard, the box being typed in in s
   test.skip(!isPhone(page), 'phones');
   await page.goto('/?q=blue_sky');
   await expect(page.locator('.tile img.in').first()).toBeVisible();
-  // (no keyboard under test: its height as lib/viewport sets it)
-  const keyboard = (px: number) => page.evaluate((px) => document.documentElement.style.setProperty('--kb', `${px}px`), px);
+  const keyboard = (px: number) => safariKeyboard(page, px);
   const above = async (sheet: import('@playwright/test').Locator, kb: number) => {
     const height = page.viewportSize()!.height;
     await expect.poll(async () => Math.round((await sheet.boundingBox())!.y + (await sheet.boundingBox())!.height)).toBe(height - kb);
@@ -3635,21 +3646,19 @@ test('phone sheets sit above the on-screen keyboard, the box being typed in in s
   await saved.locator('.bar-row .add').click();
   const name = saved.getByRole('textbox', { name: 'Name for the current search' });
   await name.focus();
-  await keyboard(kb);
-  await above(saved, kb);
+  const room = await keyboard(kb); // (the keyboard, and on an iPhone its form bar: a box has the focus)
+  await above(saved, room);
   const box = (await name.boundingBox())!;
   expect(box.y).toBeGreaterThanOrEqual(0);
-  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height - kb);
-  await keyboard(0);
-  await above(saved, 0);
+  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height - room);
+  await above(saved, await keyboard(0));
   await saved.getByRole('button', { name: /^Close/ }).click();
   await expect(saved).toHaveCount(0);
 
   // The search menu.
   await page.getByRole('button', { name: 'Filters', exact: true }).click();
   const menu = page.locator('.panel.sheet');
-  await keyboard(kb);
-  await above(menu, kb);
+  await above(menu, await keyboard(kb));
   await keyboard(0);
 });
 
@@ -6417,8 +6426,7 @@ test('library: the download dialog with a very long search never scrolls sideway
 
 test('dialogs open above the on-screen keyboard (iOS: it covers the bottom of the page, the middle of the screen is under it)', async ({ page }) => {
   await page.goto('/?q=system:type%3Dimage');
-  const kb = Math.round(page.viewportSize()!.height * 0.5); // (as lib/viewport reports an open keyboard: about half a phone's screen)
-  await page.evaluate((h) => document.documentElement.style.setProperty('--kb', `${h}px`), kb);
+  const kb = await safariKeyboard(page, Math.round(page.viewportSize()!.height * 0.5)); // (about half a phone's screen)
   const above = async (loc: ReturnType<typeof page.locator>) => {
     const box = (await loc.boundingBox())!;
     expect(box.y).toBeGreaterThanOrEqual(0);
@@ -10032,7 +10040,7 @@ test('new download on a phone with the keyboard up: the tag suggestions are part
     });
   await expect.poll(async () => { const g = await gap(); return g >= 0 && g <= 16; }).toBe(true); // (4px above its frame; it was a keyboard's height)
   // The keyboard rising (the sheet moves up by --kb, as on an iPhone): the list stays on the box.
-  await page.evaluate(() => document.documentElement.style.setProperty('--kb', '120px'));
+  await safariKeyboard(page, 120);
   await expect.poll(async () => { const g = await gap(); return g >= 0 && g <= 16; }).toBe(true); // (once the sheet has settled)
 });
 
@@ -11170,9 +11178,7 @@ test('phone: a dialog taller than what\'s above the keyboard (a site\'s login) s
   await rowMenu(page, 'test-auth.invalid', 'Log in');
   const dialog = page.getByRole('dialog', { name: 'Log in to test-auth.invalid' });
   await expect(dialog).toBeVisible();
-  // (no keyboard under test: its height as lib/viewport sets it - an iPhone's with its suggestions bar)
-  const kb = 380;
-  await page.evaluate((px) => document.documentElement.style.setProperty('--kb', `${px}px`), kb);
+  const kb = await safariKeyboard(page, 380); // (an iPhone's keyboard with its suggestions)
   const height = page.viewportSize()!.height;
   await expect.poll(async () => Math.round((await dialog.boundingBox())!.y + (await dialog.boundingBox())!.height)).toBeLessThanOrEqual(height - kb);
   const body = dialog.locator('.body');
@@ -11218,4 +11224,28 @@ test('search bar: with its suggestions open, a press elsewhere only closes them;
   await expect(list).toBeVisible();
   await page.getByRole('button', { name: 'Filters', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Sort by/ })).toBeVisible();
+});
+
+test('phone: the home-screen app\'s keyboard (the page itself shrinks) - a dialog keeps clear of iOS\'s form bar too', async ({ page }) => {
+  test.skip(!isPhone(page), 'phones');
+  await page.goto('/settings/sites');
+  await rowMenu(page, 'test-auth.invalid', 'Log in');
+  const dialog = page.getByRole('dialog', { name: 'Log in to test-auth.invalid' });
+  await expect(dialog).toBeVisible();
+  const vp = page.viewportSize()!;
+  // A box focused, then the page made shorter by the keyboard (as iOS's home-screen app does): --kb is only the bar.
+  await dialog.getByLabel('test-auth.invalid API key').focus();
+  const kbH = 336;
+  await page.setViewportSize({ width: vp.width, height: vp.height - kbH });
+  const h = vp.height - kbH;
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--kb'))).toBe('60px');
+  await expect.poll(async () => Math.round((await dialog.boundingBox())!.y + (await dialog.boundingBox())!.height)).toBeLessThanOrEqual(h - 60);
+  const save = dialog.getByRole('button', { name: 'Save' });
+  await save.scrollIntoViewIfNeeded();
+  const b = (await save.boundingBox())!;
+  expect(b.y + b.height).toBeLessThanOrEqual(h - 60);
+  // The keyboard gone (no box focused, the page tall again): no room kept.
+  await page.setViewportSize(vp);
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--kb'))).toBe('0px');
 });

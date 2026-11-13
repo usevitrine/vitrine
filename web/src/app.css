@@ -511,7 +511,8 @@ a {
 /* A dialog in the middle of what can be seen: above the on-screen keyboard (--kb, --vv-top: lib/viewport). */
 :root {
   --view-top: var(--vv-top, 0px);
-  --view-h: calc(100dvh - var(--kb, 0px) - var(--vv-top, 0px));
+  /* (--vis-h: what can be seen above the keyboard and iOS's form bar, from lib/viewport) */
+  --view-h: var(--vis-h, calc(100dvh - var(--kb, 0px) - var(--vv-top, 0px)));
   --view-mid: calc(var(--view-top) + var(--view-h) / 2);
 }
 .mpages {

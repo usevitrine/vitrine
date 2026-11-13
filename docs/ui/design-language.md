@@ -100,6 +100,13 @@ How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per
   (`lib/viewport` `showField`: sheets, details panels, `[role=dialog]`). `Modal`: the heading and close button stay, its
   `.body` scrolls. **iOS's form bar** (the ⌃ ⌄ ✓ pill, floating over the page above the keyboard since iOS 26) isn't in
   the visual viewport's height: on iOS `--kb` adds 60 px for it (the user's screenshot: ~47 px of bar, ~12 of gap).
+  **2026-11-13** (the user: "the dialogues fix doesnt seem to have worked"): the iPhone's home-screen app shrinks the
+  page itself for the keyboard (the visual viewport stays the page's height: `--kb` read 0, so the bar was never
+  added). `lib/viewport` now knows the keyboard is up when a text box has the focus and either the visual viewport or
+  the page has shrunk (against the page's height with no box focused, per width); the bar is added then. Dialogs fit
+  in `--vis-h` (the visual viewport's height less the bar) instead of the screen's height less `--kb`. Tests fake
+  Safari's keyboard through the visual viewport (`safariKeyboard`), so the tracking itself runs, and the app's by
+  shrinking the page.
 - **Type (2026-10-24, the user's pick of Geist / Inter / Plus Jakarta Sans / Manrope)**: Plus Jakarta Sans, the
   variable font bundled with the app (`@fontsource-variable/plus-jakarta-sans`; woff2 files split
   by script, only the ones a page's text needs are fetched; no outside font service - self-hosted, offline, private),

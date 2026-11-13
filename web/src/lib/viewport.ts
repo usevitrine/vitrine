@@ -9,30 +9,50 @@ export const standalone =
 const IOS_FORM_BAR = 60;
 const iosBar = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+/** A box the keyboard comes up for has the focus. */
+function typing(): boolean {
+  const el = document.activeElement as HTMLElement | null;
+  return !!el && (el.isContentEditable || el.matches('textarea, input:not([type=checkbox], [type=radio], [type=button], [type=submit], [type=reset], [type=range], [type=file], [type=color])'));
+}
+
 /**
- * Tracks the on-screen keyboard's height as the CSS variable --kb, so
- * bottom sheets can sit above it (iOS shrinks the visual viewport, not the
- * layout viewport, when the keyboard opens), and how far the visible part is
- * scrolled down as --vv-top: a dialog in the middle centers between the two
- * (in the middle of the screen it opened behind the keyboard).
+ * Tracks the on-screen keyboard as CSS variables, so sheets and dialogs sit above it:
+ * - --kb: the room it takes at the bottom of the page (bottom sheets: `bottom: var(--kb)`);
+ * - --vis-h: the height that can be seen above it (dialogs fit in it);
+ * - --vv-top: how far the visible part is scrolled down (a dialog in the middle centers in what can be seen).
+ * The keyboard shows two ways: Safari shrinks the visual viewport (the page stays as tall: --kb is the difference),
+ * and the iPhone's home-screen app can shrink the page itself (the page's bottom is the keyboard's top: --kb 0) -
+ * measured against the page's height with no box focused, per width (2026-11-13: only the first was handled, so
+ * iOS's form bar was never allowed for in the app).
  */
 export function trackKeyboard() {
   const vv = window.visualViewport;
   if (!vv) return;
+  const full = new Map<number, number>(); // the page's height with the keyboard down, by width (a turned phone)
   let last = 0;
   const update = () => {
-    let kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-    // iOS's form bar (the ⌃ ⌄ ✓ pill) floats over the page above the keyboard since iOS 26 - not in the visual
-    // viewport's height, so things placed above the keyboard went under it (2026-11-12, the user's screenshot: a site's
-    // login dialog's buttons). Its room: ~47 px of bar and ~12 px of gap. (Older iOS, where the bar was part of the keyboard: some room to spare.)
-    if (kb > 40 && iosBar) kb += IOS_FORM_BAR;
-    document.documentElement.style.setProperty('--kb', `${Math.round(kb)}px`);
-    document.documentElement.style.setProperty('--vv-top', `${Math.round(Math.max(0, vv.offsetTop))}px`);
+    const editing = typing();
+    if (!editing) full.set(innerWidth, innerHeight);
+    const shrunk = Math.max(0, (full.get(innerWidth) ?? innerHeight) - innerHeight);
+    let kb = Math.max(0, innerHeight - vv.height - vv.offsetTop);
+    // iOS's form bar (the ⌃ ⌄ ✓ pill) floats over the page above the keyboard since iOS 26, in neither height: things
+    // placed above the keyboard went under it (2026-11-12, the user's screenshot: a site's login dialog's buttons).
+    // Its room: ~47 px of bar and ~12 px of gap. (Older iOS, where the bar was part of the keyboard: some to spare.)
+    const bar = iosBar && editing && (kb > 40 || shrunk > 120) ? IOS_FORM_BAR : 0;
+    kb += bar;
+    const root = document.documentElement.style;
+    root.setProperty('--kb', `${Math.round(kb)}px`);
+    root.setProperty('--vis-h', `${Math.round(vv.height - bar)}px`);
+    root.setProperty('--vv-top', `${Math.round(Math.max(0, vv.offsetTop))}px`);
     if (kb > last) requestAnimationFrame(showField); // (the sheet moved up and got shorter: its field may be out of sight)
     last = kb;
   };
   vv.addEventListener('resize', update);
   vv.addEventListener('scroll', update);
+  window.addEventListener('resize', update);
+  // (the bar comes and goes with the focus; the focus has moved once these have run)
+  document.addEventListener('focusin', () => setTimeout(update));
+  document.addEventListener('focusout', () => setTimeout(update));
   update();
 }
 
