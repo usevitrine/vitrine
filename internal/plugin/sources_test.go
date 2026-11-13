@@ -11,6 +11,8 @@ func TestSourceLinks(t *testing.T) {
 		want []string
 	}{
 		{"https://example.com/a", []string{"https://example.com/a"}},
+		// (as a JSON API sends it: the site's HTML codes in it)
+		{"https://x.com/someone/status/1/photo/2?a=GF&amp;s=46", []string{"https://x.com/someone/status/1/photo/2?a=GF&s=46"}},
 		{"Twitter: https://twitter.com/some_artist/status/1 Patreon: https://patreon.com/some_artist",
 			[]string{"https://twitter.com/some_artist/status/1", "https://patreon.com/some_artist"}},
 		{"x.com/some_artist/status/2", []string{"https://x.com/some_artist/status/2"}},

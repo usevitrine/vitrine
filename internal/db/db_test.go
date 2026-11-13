@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -138,5 +139,58 @@ func TestFileIDsNeverReused(t *testing.T) {
 	}
 	if c := ins(3); a != 1 || b != 2 || c != 3 {
 		t.Fatalf("ids %d %d %d, want 1 2 3", a, b, c)
+	}
+}
+
+// Migration 0055: source links kept with "&amp;" become their decoded form, merged with it where a file has both.
+func TestSourceAmpMigration(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	setup := `
+CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT NOT NULL UNIQUE);
+CREATE TABLE file_urls (file_id INTEGER NOT NULL, url_id INTEGER NOT NULL, kind INTEGER NOT NULL, site_id INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (file_id, url_id, kind));
+INSERT INTO urls (id, url) VALUES (1, 'https://x.example/s?a=1&amp;b=2'), (2, 'https://x.example/s?a=1&b=2'),
+  (3, 'https://y.example/t?c=3&amp;d=4'), (4, 'https://post.example/p?id=9');
+-- file 1: both forms (the refresh's duplicate); file 2: the coded one only; file 3: the coded one and a post link.
+INSERT INTO file_urls VALUES (1, 1, 2, 7), (1, 2, 2, 7), (2, 1, 2, 7), (3, 3, 2, 7), (3, 4, 1, 7);`
+	if _, err := db.Exec(setup); err != nil {
+		t.Fatal(err)
+	}
+	mig, err := migrationFiles.ReadFile("migrations/0055_source_amp.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(string(mig)); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := db.Query(`SELECT fu.file_id, u.url, fu.kind, fu.site_id FROM file_urls fu JOIN urls u ON u.id = fu.url_id ORDER BY 1, 2`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var got []string
+	for rows.Next() {
+		var f, k, s int
+		var u string
+		rows.Scan(&f, &u, &k, &s)
+		got = append(got, fmt.Sprintf("%d %s %d %d", f, u, k, s))
+	}
+	want := []string{
+		"1 https://x.example/s?a=1&b=2 2 7",
+		"2 https://x.example/s?a=1&b=2 2 7",
+		"3 https://post.example/p?id=9 1 7",
+		"3 https://y.example/t?c=3&d=4 2 7",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("after 0055:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	var coded int
+	db.QueryRow(`SELECT count(*) FROM urls WHERE url LIKE '%&amp;%'`).Scan(&coded)
+	if coded != 0 {
+		t.Fatalf("%d coded links left in urls", coded)
 	}
 }

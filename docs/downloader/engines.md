@@ -65,6 +65,11 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
   "x.com/someone" gets https://; a lone domain, labels and words are dropped) for every engine, and the library
   stores only http(s) sources. Migration 0016 removed the non-link sources saved before (over a thousand in a real library
   - backed up first).
+- **Source links decoded (2026-11-13)** (the user: "sometimes when i refresh tags on an image it grabs the same source
+  again"): Gelbooru 0.2's JSON API (a tag refresh) sends the source text as the site stores it, `&amp;` for `&`; its XML
+  API (lists, so downloads) decodes it - the same link twice once both had been read. `SourceLinks` decodes HTML codes
+  first (`CleanTag`), for every engine. Migration 0055 turned the coded links already kept into their decoded form,
+  merged where a file had both.
 - **HTML codes in tag names (2026-10-19)**: some Gelbooru 0.2 APIs send some tags with HTML character codes ("kai&#039;sa"
   for "kai'sa", "&lt;" / "&gt;"); `plugin.Tags` / `CleanTag` decode them (the gelbooru engine's tags and tag
   types). At start-up `library.fixEscapedTags` repairs tags saved before: renamed, or merged into the tag with the

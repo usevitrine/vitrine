@@ -13,6 +13,9 @@ import (
 // Labels and other words are dropped; a bare address gets https://. Each link
 // once, in order.
 func SourceLinks(text string) []string {
+	// (HTML codes decoded: a JSON API sends the text as the site stores it, "&amp;" for "&", its XML API decoded - the
+	// same link twice once both had been read, 2026-11-13)
+	text = CleanTag(text)
 	var out []string
 	seen := map[string]bool{}
 	for _, w := range strings.Fields(text) {
