@@ -11249,3 +11249,31 @@ test('phone: the home-screen app\'s keyboard (the page itself shrinks) - a dialo
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--kb'))).toBe('0px');
 });
+
+test('grid: a picked tile\'s band is as wide on every side, tall tile or wide', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('vitrine.gridLayout', JSON.stringify('masonry'))); // (tiles in their files' shapes)
+  await page.goto('/');
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  // The tallest and the widest tile in view, picked (Ctrl-click; on a phone, select mode from a long press, then taps).
+  const ids = await page.evaluate(() => {
+    const seen = [...document.querySelectorAll<HTMLElement>('.tile')].filter((t) => {
+      const r = t.getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= innerHeight && t.querySelector('img.in');
+    });
+    const shape = (t: HTMLElement) => t.offsetHeight / t.offsetWidth;
+    seen.sort((x, y) => shape(y) - shape(x));
+    return [seen[0], seen[seen.length - 1]].map((t) => t.dataset.i!);
+  });
+  for (const i of ids) await page.locator(`.tile[data-i="${i}"]`).click({ modifiers: ['Control'] });
+  await page.waitForTimeout(400);
+  const bands = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('.tile.selected')].map((t) => {
+      const a = t.getBoundingClientRect();
+      const b = t.querySelector('.fit img')!.getBoundingClientRect(); // (the picture as drawn)
+      return { shape: a.height / a.width, sides: [b.left - a.left, a.right - b.right, b.top - a.top, a.bottom - b.bottom].map((v) => Math.round(v * 10) / 10) };
+    }),
+  );
+  expect(bands.length).toBeGreaterThan(1);
+  expect(bands.some((b) => b.shape > 1.1) || bands.some((b) => b.shape < 0.9)).toBe(true); // (not all square)
+  for (const b of bands) expect(Math.max(...b.sides) - Math.min(...b.sides), JSON.stringify(b)).toBeLessThanOrEqual(0.5);
+});

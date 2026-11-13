@@ -11,6 +11,7 @@ shows this too (Settings > Help & about).
 
 ### Fixed
 
+- **Selecting files**: the purple band around a selected thumbnail is the same width on every side, on tall and wide thumbnails alike.
 - **Source links**: refreshing a file's tags no longer adds a source link it already had, written with `&amp;` instead of `&`. For the ones already in your library, the fixes menu (the wrench) offers "Source links listed twice" after you update.
 - **Dialogs on a phone**: a dialog taller than the room above the keyboard, such as a site's login, scrolls under its title instead of running behind the keyboard, and the box you type in stays in view. On an iPhone, sheets and dialogs also leave room for the bar above the keyboard (the arrows and the tick).
 
