@@ -28,6 +28,10 @@ examples are written; how decisions are recorded.
 - Before using a library API, check current docs (versions move, e.g. Svelte 5.x).
 - Explain things to the user in plain terms.
 - UI work is checked on a phone and a desktop size (screenshots) before it's called done; iOS gets the same care.
+- **A fix to what's already in a library is a fix in the fixes menu** (the wrench: offered with what it does, Run or
+  Skip, progress, OK when done - `docs/ui/notifications.md`, "Fixes from updates"), never a silent migration or start-up
+  pass (2026-11-13, the user: "whenever we do a database/library fix like this it should be a fixes menu thing").
+  Migrations change the schema; data that was saved wrong is put right by a fix.
 - Tests: `go test ./...`; in `web/`: `npm run check`, `npm run i18n:check`, `npm run build`, `npm run e2e`
   (`docs/architecture/testing.md`).
 

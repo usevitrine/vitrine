@@ -186,6 +186,7 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 
 	// Fixes an update brings for what's in the library: offered in the top bar (library/repairs.go).
 	lib.AddVideoShapesRepair()
+	lib.AddSourceLinksRepair()
 	lib.OnRepair = func(r library.Repair) {
 		handler.RepairNotice(r)
 		switch r.State {

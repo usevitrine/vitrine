@@ -47,7 +47,8 @@ The user: "users are notified about fixes included in an update and they can tra
 header. The new button disappears when the user acknowledges that it has completed successfully" - "like the thumbnail
 fix and tag fix" - "they should be given the option to run the fix or skip it with an explanation of what the fix does".
 - **A fix** is a one-time pass over what's already in a library (`library/repairs.go`: `AddRepair(id, find, run)`; the
-  video shapes and stuck tags are the first two). At each start `StartRepairs` asks each new one how much it has to do:
+  video shapes and stuck tags are the first two, source links listed twice the third - `library/fixsources.go`,
+  2026-11-13). At each start `StartRepairs` asks each new one how much it has to do:
   nothing means it never shows (a new library, or one with nothing wrong). States, kept in meta `repair:<id>` and the same
   for every device: **offered** -> **running** -> **done** -> acknowledged; **skipped** (not offered again); **failed**
   (Try again or Skip). A fix never starts by itself: the one exception is a pass that had already begun before fixes
@@ -63,7 +64,12 @@ fix and tag fix" - "they should be given the option to run the fix or skip it wi
   the stream's `repairs` event. Only a finished fix can be acknowledged, so the button can't be dismissed mid-way.
 - **The bell** gets a notice (kind `repair`, Settings > Notifications, bell by default) when one is offered and when it
   ends. Not sent as a push: nothing here needs the user right away.
-- A new fix: add its pass (resumable, its own meta key, calling `stepRepair`), register it in `cmd_serve.go`, add its words.
+- A new fix: add its pass (resumable, its own meta key, calling `stepRepair`), register it in `cmd_serve.go`, add its words
+  (`locales/` under `repairs`, and its entry in `lib/repairWords.ts`: name, what it does, its count and its result).
+  **Every fix to a library's data is one** (2026-11-13, the user: "whenever we do a database/library fix like this it
+  should be a fixes menu thing"; `docs/project/rules.md`): not a migration, not a silent start-up pass. The source links
+  fix began as migration 0055 and was turned into one before release; 0055 is kept as an empty step (a database that had
+  run it mustn't be a version ahead).
 
 ## Notices kept over restarts (2026-10-21)
 - The bell's notices (the downloader's events) are kept in meta.db (`notices`, migration 0032; the last 100,

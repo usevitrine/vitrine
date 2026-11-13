@@ -2582,6 +2582,18 @@
         "one": "Put back {n} tag",
         "other": "Put back {n} tags"
       }
+    },
+    "sourceLinks": {
+      "name": "Source links listed twice",
+      "what": "A file's source link could be listed twice after refreshing its tags: once as the site wrote it, with \"&amp;\" where the link has \"&\", and once as it should be. This writes each such link the right way and keeps one of each. Your files, tags and modified times don't change.",
+      "count": {
+        "one": "{n} link to fix",
+        "other": "{n} links to fix"
+      },
+      "done": {
+        "one": "Fixed {n} link",
+        "other": "Fixed {n} links"
+      }
     }
   },
   "bell": {

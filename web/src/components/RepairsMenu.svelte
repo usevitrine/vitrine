@@ -9,7 +9,7 @@
   import { repairs } from '../lib/repairs.svelte';
   import { router } from '../lib/router.svelte';
   import type { Repair } from '../lib/api';
-  import { repairName, repairWhat } from '../lib/repairWords';
+  import { repairName, repairWhat, repairDetail } from '../lib/repairWords';
   import { t, num } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
 
@@ -52,10 +52,7 @@
   const R = 13;
   const C = 2 * Math.PI * R;
 
-  function detail(r: Repair): string {
-    if (r.state === 'done') return r.id === 'video_shapes' ? t('repairs.videoShapes.done', { n: r.done, changed: r.changed }) : t('repairs.generalTags.done', { n: r.changed });
-    return t(r.id === 'video_shapes' ? 'repairs.videoShapes.count' : 'repairs.generalTags.count', { n: r.total });
-  }
+  const detail = repairDetail;
 </script>
 
 {#if repairs.list.length}
