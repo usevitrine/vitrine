@@ -501,6 +501,12 @@ library itself on purpose (docs/ui/downloads-page.md).
   while the text is highlighted it doesn't become a chip"): the word being completed was found from the selection's
   start, so the pick went in front of the highlighted word ("blue_sky blu") and stayed typed text; TagInput now
   works from the selection's end (the highlighted word is replaced; the pick becomes a chip as usual).
+- **A press off the open list only closes it (2026-11-13)** (the user: "if the recent searches dropdown is open,
+  clicking off of it should close it instead of interacting with the page"): while the search bar's list is open
+  (recent searches or suggestions), a press outside the bar and the list closes it, lets the box go (the keyboard
+  goes) and does nothing else - its click is swallowed (`TagInput` `zone`: the search bar passes its whole bar, whose
+  buttons still work at once). Other tag boxes (forms: the Tags page, the blacklist) keep the old way, so their Add
+  button works with the list open.
 - **All the matching tags (2026-11-12)** (the user: "it should show all results, keep the current height but make it
   scrollable"): TagInput asks for 200 suggestions (the autocomplete endpoint's most; the comics' site tags: 100) and
   shows them all instead of the first 12. The list keeps its max height (min(50vh, 420px), or the room above the

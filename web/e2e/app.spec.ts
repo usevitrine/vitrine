@@ -11190,3 +11190,32 @@ test('phone: a dialog taller than what\'s above the keyboard (a site\'s login) s
   expect(head.y).toBeGreaterThanOrEqual(box.y);
   await expect(dialog.getByRole('button', { name: 'Close' })).toBeInViewport();
 });
+
+test('search bar: with its suggestions open, a press elsewhere only closes them; the bar\'s own buttons still work', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  const box = page.locator('.field input[role="combobox"]');
+  const list = page.getByRole('listbox');
+  await box.click();
+  await box.pressSequentially('blue');
+  await expect(list).toBeVisible();
+  // A file pressed: the list closes, the file doesn't open.
+  const tile = page.locator('.tile').nth(2);
+  await tile.click();
+  await expect(list).toHaveCount(0);
+  await page.waitForTimeout(400);
+  await expect(page.locator('.viewer')).toHaveCount(0);
+  await expect(box).not.toBeFocused();
+  // Pressed again: it opens.
+  await tile.click();
+  await expect(page.locator('.viewer')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.viewer')).toHaveCount(0);
+  // The bar's own buttons (Filters) work at once, the list open or not.
+  await box.click();
+  await box.fill('');
+  await box.pressSequentially('blue');
+  await expect(list).toBeVisible();
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Sort by/ })).toBeVisible();
+});

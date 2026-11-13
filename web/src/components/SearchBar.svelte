@@ -193,6 +193,7 @@
   // The chips scroll sideways: keep the typing box in view while typing and
   // when a chip is added.
   let fieldEl = $state<HTMLElement>();
+  let barEl = $state<HTMLElement>(); // (the whole bar: a press in it while the suggestions are open does its own thing)
   let chipsEl = $state<HTMLElement>();
   // A chip added from elsewhere too (a tag in the details: "add to the search"):
   // the end comes into view, where the new chip and the typing box are.
@@ -422,7 +423,7 @@
   {/each}
 {/snippet}
 
-<div class="bar" class:plain>
+<div class="bar" class:plain bind:this={barEl}>
   <div class="field" role="group" aria-label={barLabel} bind:this={fieldEl}>
     {#if chips.length || draft}
       <!-- Something to clear: the magnifier becomes the clear button. -->
@@ -484,6 +485,7 @@
     {/each}
     <TagInput
       bind:this={tagInput}
+      zone={barEl}
       bind:value={draft}
       bind:inputEl={input}
       {comics}

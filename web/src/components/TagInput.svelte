@@ -44,6 +44,7 @@
     onrecent,
     onrecentremove,
     onrecentclear,
+    zone,
   }: {
     value?: string;
     placeholder?: string;
@@ -55,6 +56,10 @@
     onescape?: () => void;
     oninputchange?: (text: string) => void;
     onblur?: () => void;
+    /** Pressing outside this (and the list) while the list is open only closes it - the press does nothing else (the
+     *  search bar: its whole bar; 2026-11-13, the user: "clicking off of it should close it instead of interacting with
+     *  the page"). None: a press elsewhere closes it and goes on (a form's Add button works at once). */
+    zone?: HTMLElement;
     inputEl?: HTMLInputElement;
     anchor?: HTMLElement; // the suggestions take this element's width and sit under it
     span?: string; // the box's ancestor (a selector) the suggestions are as wide as, still right under the box
@@ -293,6 +298,22 @@
   const shownRecent = $derived(focused && !hush && recentRow ? recent : []);
   const nR = $derived(shownRecent.length);
   const listShown = $derived(open || (focused && marks.length > 0) || nR > 0);
+  // A press outside the zone and the list, while it's open: it closes, and the press (and its click) go no further.
+  // Not over a menu, dialog or notice it may have opened itself.
+  function pressedOff(e: PointerEvent) {
+    const on = e.target as Element | null;
+    if (!zone || !listShown || e.button !== 0 || !on || zone.contains(on) || listEl?.contains(on)) return;
+    if (on.closest('[role=menu], [role=dialog], [role=alertdialog], .toast, .toasts')) return;
+    e.stopPropagation();
+    e.preventDefault(); // (no focus moving, no text selection: the box just lets go)
+    window.addEventListener('click', swallow, { capture: true, once: true });
+    window.setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 600);
+    inputEl?.blur();
+  }
+  const swallow = (c: Event) => {
+    c.stopPropagation();
+    c.preventDefault();
+  };
   /** A recent search picked: the search bar runs it, the box lets go (the keyboard goes, the results show). */
   function takeRecent(r: RecentSearch) {
     selected = -1;
@@ -443,6 +464,8 @@
     if (autofocus) inputEl?.focus();
   });
 </script>
+
+<svelte:window onpointerdowncapture={pressedOff} />
 
 <div class="wrap" class:above={inSheet}>
   <input
