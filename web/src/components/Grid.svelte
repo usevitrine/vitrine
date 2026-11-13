@@ -2417,6 +2417,7 @@
     position: absolute;
     inset: 0;
     display: block;
+    transition: inset 0.15s;
   }
   /* Growing, open or shrinking back (or a comic - big, with a dark foot): a layer of its own, so the rounded clip is
      one mask over all of it (else the browser clips each piece and the edges show). */
@@ -2484,9 +2485,13 @@
     opacity: 0.4;
     filter: saturate(0.6);
   }
-  .tile.selected img {
-    transform: scale(0.88);
+  /* Picked: the picture's frame drawn in by the same few pixels on every side, the tile's tint around it (2026-11-13,
+     the user: "the purple border when multi selecting thumbnails isnt even" - the picture was scaled to 88%, so a tall
+     tile got a thicker band at the top and bottom than at the sides). */
+  .tile.selected .fit {
+    inset: 8px;
     border-radius: 6px;
+    overflow: hidden;
   }
   .tile.selected {
     background-color: color-mix(in srgb, var(--mauve) 30%, var(--crust));
