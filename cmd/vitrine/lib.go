@@ -22,6 +22,9 @@ func openLibrary(ctx context.Context, c config.Config) (*library.Library, func()
 }
 
 // openApp is openLibrary that also returns meta.db (for the login).
+// indexSavePath: where the server saves the tags' files for its next start (library/indexsave.go) - beside meta.db.
+func indexSavePath(c config.Config) string { return filepath.Join(c.DataDir, "index-tags.bin") }
+
 func openApp(ctx context.Context, c config.Config) (*library.Library, *db.DB, func(), error) {
 	if err := os.MkdirAll(c.DataDir, 0o755); err != nil {
 		return nil, nil, nil, err
@@ -45,7 +48,7 @@ func openApp(ctx context.Context, c config.Config) (*library.Library, *db.DB, fu
 	closeAll := func() { errors.Join(th.Close(), d.Close()) }
 	tools := media.FindTools(c.FFmpeg, c.FFprobe, c.VipsThumbnail)
 	tools.UseHW(c.HWAccel) // (the GPU is looked for when a video first needs it - serve: at start-up)
-	lib, err := library.Open(ctx, library.Deps{DB: d, Store: s, Thumbs: th, Tools: tools})
+	lib, err := library.Open(ctx, library.Deps{DB: d, Store: s, Thumbs: th, Tools: tools, IndexSave: indexSavePath(c)})
 	if err != nil {
 		closeAll()
 		return nil, nil, nil, err

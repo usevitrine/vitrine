@@ -42,6 +42,11 @@ type Library struct {
 	ix     *index.Index
 	now    func() time.Time
 
+	// fromSave: the index's tags' files came from the saved copy (indexsave.go); savedSums: theirs as checksums, until
+	// StartIndexCheck takes them.
+	fromSave  bool
+	savedSums map[uint32]uint64
+
 	mu sync.Mutex // serializes writes: DB transaction + index update
 
 	mediaWake chan struct{} // new files to probe and thumbnail (see RunMedia)
@@ -74,6 +79,8 @@ type Deps struct {
 	// library without them still imports, tags and searches.
 	Thumbs *thumbs.Store
 	Tools  media.Tools
+	// IndexSave: where the tags' files are saved for the next start (indexsave.go; "": never - built from the database).
+	IndexSave string
 }
 
 // Open builds the search index from the database and returns the library.
@@ -84,11 +91,24 @@ func Open(ctx context.Context, d Deps) (*Library, error) {
 	if err := fixCaretTags(ctx, d.DB.W); err != nil {
 		return nil, err
 	}
-	ix, err := index.Load(ctx, d.DB.R)
-	if err != nil {
-		return nil, err
+	// (after the repairs above: one that changed tags took the save's token away)
+	var ix *index.Index
+	fromSave := false
+	if d.IndexSave != "" {
+		ix = loadSaved(ctx, d.DB, d.IndexSave)
+		fromSave = ix != nil
 	}
-	return &Library{db: d.DB, store: d.Store, thumbs: d.Thumbs, tools: d.Tools, ix: ix, now: time.Now, mediaWake: make(chan struct{}, 1)}, nil
+	if ix == nil {
+		var err error
+		if ix, err = index.Load(ctx, d.DB.R); err != nil {
+			return nil, err
+		}
+	}
+	l := &Library{db: d.DB, store: d.Store, thumbs: d.Thumbs, tools: d.Tools, ix: ix, now: time.Now, mediaWake: make(chan struct{}, 1), fromSave: fromSave}
+	if fromSave {
+		l.savedSums = ix.SavedSums()
+	}
+	return l, nil
 }
 
 // Index is the search index (read-only use: searches, autocomplete).

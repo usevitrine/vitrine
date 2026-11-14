@@ -107,6 +107,9 @@ type Index struct {
 	// comic: the comics index's own columns (nil in the library's; see comics.go).
 	comic *comicColumns
 
+	// savedSums: each tag's files as a checksum, when they came from a save (saved.go; taken by SavedSums).
+	savedSums map[uint32]uint64
+
 	// Presorted file IDs per sort field (nil = needs rebuilding).
 	sortMu    sync.Mutex
 	sortCache [search.FieldRandom]atomic.Pointer[[]uint32]

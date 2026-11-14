@@ -83,7 +83,23 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	}
 	defer closeLib()
 	st := lib.Index().Stats()
-	log.Info("library loaded", "files", st.Files, "tags", st.Tags, "took", time.Since(start).Round(time.Millisecond))
+	from := "database"
+	if lib.FromSave() {
+		from = "saved tags"
+	}
+	log.Info("library loaded", "files", st.Files, "tags", st.Tags, "from", from, "took", time.Since(start).Round(time.Millisecond))
+	// Loaded from the saved tags: read from the database too, in the background, and compared (before anything writes).
+	lib.StartIndexCheck(ctx, indexSavePath(c), func(bad int, took time.Duration, err error) {
+		switch {
+		case err != nil && ctx.Err() == nil:
+			log.Warn("saved tags not checked", "err", err)
+		case err != nil:
+		case bad > 0:
+			log.Warn("saved tags differed from the database: thrown away (the next start reads the database)", "tags", bad, "took", took.Round(time.Millisecond))
+		default:
+			log.Info("saved tags checked against the database", "took", took.Round(time.Millisecond))
+		}
+	})
 
 	// The GPU that decodes videos (media.HWAccel): looked for now, so the log says which one.
 	media.HWLog = func(msg string) { log.Warn(msg) }
@@ -363,6 +379,13 @@ func cmdServe(ctx context.Context, args []string, stdout, stderr io.Writer) erro
 	}
 	if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, context.DeadlineExceeded) {
 		return err
+	}
+	// The tags' files for the next start (library/indexsave.go): it reads them instead of every file-tag link.
+	t0 := time.Now()
+	if n, err := lib.SaveIndex(context.Background(), indexSavePath(c)); err != nil {
+		log.Warn("index not saved (the next start reads the database)", "err", err)
+	} else {
+		log.Info("index saved for the next start", "bytes", n, "took", time.Since(t0).Round(time.Millisecond))
 	}
 	return nil
 }

@@ -21,6 +21,11 @@ func LoadTrash(ctx context.Context, db *sql.DB) (*Index, error) {
 }
 
 func load(ctx context.Context, db *sql.DB, trash bool) (*Index, error) {
+	return loadWith(ctx, db, trash, (*Index).loadFileTags)
+}
+
+// loadWith is load with the tags' files read by fileTags (from file_tags, or from a saved copy - saved.go).
+func loadWith(ctx context.Context, db *sql.DB, trash bool, fileTags func(*Index, context.Context, *sql.Tx) error) (*Index, error) {
 	ix := New()
 	ix.trash = trash
 	ix.mu.Lock()
@@ -40,7 +45,7 @@ func load(ctx context.Context, db *sql.DB, trash bool) (*Index, error) {
 		{"namespaces", ix.loadNamespaces},
 		{"tags", ix.loadTags},
 		{"files", ix.loadFiles},
-		{"file tags", ix.loadFileTags},
+		{"file tags", func(ctx context.Context, tx *sql.Tx) error { return fileTags(ix, ctx, tx) }},
 		{"relations", ix.loadRelations},
 		{"sites", ix.loadSites},
 		{"found by", ix.loadFoundBy},
@@ -266,7 +271,12 @@ func (ix *Index) loadFileTags(ctx context.Context, tx *sql.Tx) error {
 		return err
 	}
 
-	// Per-file tag counts.
+	ix.countTags()
+	return nil
+}
+
+// countTags sets each file's tag count from the tags' files (and run-optimizes those).
+func (ix *Index) countTags() {
 	for _, bm := range ix.raw {
 		if bm == nil {
 			continue
@@ -279,7 +289,6 @@ func (ix *Index) loadFileTags(ctx context.Context, tx *sql.Tx) error {
 			return true
 		})
 	}
-	return nil
 }
 
 func (ix *Index) loadRelations(ctx context.Context, tx *sql.Tx) error {

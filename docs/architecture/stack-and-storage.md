@@ -112,6 +112,22 @@ fast storage (SSD), **search index** in RAM.
 - **In-memory index**: built from `meta.db` at start or loaded from a snapshot file (checked against a DB generation
   counter) for instant start-up. At ~100k files / 85k tags / 5M mappings: tens of MB, microsecond-to-millisecond
   searches.
+- **The saved tags, as built (2026-11-14)** (the user asked what base system could make Vitrine much faster - the
+  language, the database; then "do it" to measuring, "Yes, build it" to this). Measured on a copy of a real library
+  (1.16 M files, 361 k tags, 54 M file-tag links), on 4 cores: a start took 24.7 s, ~20 s of it reading file_tags row by
+  row (SQLite reading the rows ~16 s of that; a C SQLite driver, mattn/go-sqlite3, read them in ~13 s - not worth a C
+  compiler in every build). Go, SQLite and the pure-Go driver stay. Instead the server saves the tags' files as it
+  stops (`index-tags.bin` beside meta.db: each tag's files in roaring's portable format, a token, a CRC; ~91 MB, ~1 s,
+  under the library's lock so the index and the database agree - `library.SaveIndex`, `index.SaveTags`) and the next
+  start reads them instead of file_tags (`index.LoadSaved`): **5.1-5.4 s** instead of 24.7 s. Everything else (files,
+  tags, sites, relations...) is still read from the database. Used only while the token saved with it is in meta: triggers
+  on file_tags, hidden_tags and files (deleted, comic page or not) take it away on any change, whatever program makes it
+  (migration 0056); a token from another schema, a damaged or missing file: the database is read. After a start from
+  the save, the same read runs in the background against the database as it was at load (a read transaction opened
+  first) and compares each tag's checksum (`index.CheckTags`, ~20 s, nothing waits): a difference throws the save away
+  and says so in the log, so the next start reads the database - a restart still heals any difference between the index
+  and the database, as before. Measured on the real copy: 0 tags differing. Not in a backup (regenerable). Log lines:
+  "library loaded ... from=saved tags", "saved tags checked against the database", "index saved for the next start".
 - **Write order**: original (temp -> fsync -> rename) -> DB transaction -> index -> notify clients. On start, originals
   without a DB row (crash between steps) are cleaned. Delete: `deleted_at` + tombstone first; the original is purged
   after the undo window.

@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Improved
+
+- **Starting up**: Vitrine starts several times faster on a big library. It saves part of its search index when it stops and reads it back at the next start instead of rebuilding it; a library of over a million files started in about 5 seconds instead of 25. Anything changed in between is noticed, and the index is rebuilt as before.
+
 ## 1.1.0 - 2026-11-14
 
 ### Improved
