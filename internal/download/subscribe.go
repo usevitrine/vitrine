@@ -301,7 +301,7 @@ var ErrNoSubscription = errors.New("no such subscription")
 // is running").
 
 // checkOrder puts the check a subscription shows first: a running one, then a regular check, then the first check.
-const checkOrder = " ORDER BY s.state = 'running' DESC, s.stop_id > 0 DESC, s.id"
+const checkOrder = " ORDER BY s.state = 'running' DESC, s.stop_id != 0 DESC, s.id"
 
 // checks returns every subscription's check in progress (the one it shows: see checkOrder), by subscription.
 func (d *Downloader) checks(ctx context.Context) (map[int64]Search, error) {
@@ -497,12 +497,21 @@ func (d *Downloader) startCheck(ctx context.Context, sub Subscription, now bool)
 	if _, ok := d.all()[sub.Site]; !ok {
 		return fmt.Errorf("%w: %q", ErrUnknownSite, sub.Site)
 	}
+	// Its first check: none has finished yet (and none has reached a post). After that every check is one for what's
+	// new - also when no check has found a post yet (it has nothing to stop at: stop -1, the whole search, which for
+	// such a subscription is short). Before 2026-11-13 "first" was "no post seen", so a search that found nothing had
+	// a first check every time.
+	first := sub.highID == 0 && sub.Checks == 0
+	stop := sub.highID
+	if !first && stop == 0 {
+		stop = -1
+	}
 	pos := "(SELECT coalesce(max(position), 0) + 1 FROM searches WHERE site_id = ?)"
-	if now && sub.highID != 0 { // (a first check may be the whole search: always last)
+	if now && !first { // (a first check may be the whole search: always last)
 		pos = "(SELECT coalesce(min(position), 1) - 1 FROM searches WHERE site_id = ?)"
 	}
 	maxPosts := 0
-	if sub.highID == 0 {
+	if first {
 		maxPosts = sub.InitialMax // the first check: up to the subscription's first-check limit
 	}
 	depth := 0
@@ -512,12 +521,12 @@ func (d *Downloader) startCheck(ctx context.Context, sub Subscription, now bool)
 	_, err := d.db.W.ExecContext(ctx, `
 		INSERT INTO searches (site_id, query, max_posts, stop_id, subscription_id, position, created_at, favorite, stop_depth)
 		SELECT ?, ?, ?, ?, ?, `+pos+`, ?, (SELECT favorite FROM subscriptions WHERE id = ?), ?
-		WHERE NOT EXISTS (SELECT 1 FROM searches WHERE subscription_id = ? AND (?4 = 0 OR stop_id > 0))`,
-		sub.siteID, sub.Query, maxPosts, sub.highID, sub.ID, sub.siteID, d.now().UnixMilli(), sub.ID, depth, sub.ID)
+		WHERE NOT EXISTS (SELECT 1 FROM searches WHERE subscription_id = ? AND (?4 = 0 OR stop_id != 0))`,
+		sub.siteID, sub.Query, maxPosts, stop, sub.ID, sub.siteID, d.now().UnixMilli(), sub.ID, depth, sub.ID)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
-	if sub.highID == 0 {
+	if first {
 		// The first check: the next regular check (beside it, if it's still going) is an interval away.
 		if _, err := d.db.W.ExecContext(ctx, "UPDATE subscriptions SET next_check_at = ? + interval_s * 1000 WHERE id = ?",
 			d.now().UnixMilli(), sub.ID); err != nil {

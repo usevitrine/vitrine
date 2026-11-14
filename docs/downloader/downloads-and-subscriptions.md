@@ -103,6 +103,12 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   `running_since` and `run_now` (its time at that answer, from the run's start and its time before - run_ms already
   holds the part up to the last post). A subscription's check keeps its own while it runs (its row goes when it's
   done). Test: `TestRunTime`.
+- **Only the first check is a first check (2026-11-13)** (the user: "if a sub has no previous downloads subsequent checks
+  are still counted as initial"): "first" was "no post seen yet" (`stop_id` 0), so a search that found nothing had a
+  first check every time - capped at its first-check limit, queued last, worded as the first download. Now a check is
+  the first only while the subscription has no finished check; a later one with no post seen yet has `stop_id` -1 (a
+  check for what's new with nothing to stop at: the whole search, short for such a search). `checkSQL` / `isCheck`:
+  `stop_id != 0`.
 - **Regular checks beside a first check** (2026-10-28, the user: a subscription "should still check hourly while the
   massive initial download is running"): a subscription has one check in progress, or two while its first check is
   going. Queuing the first check moves `next_check_at` an interval on. When the subscription is due and its first

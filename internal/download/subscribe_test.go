@@ -1019,3 +1019,44 @@ func TestGallerySubs(t *testing.T) {
 		t.Fatalf("GallerySubs = %v, want the address without its last / -> %d", got, id)
 	}
 }
+
+// A subscription whose first check found nothing: its next checks are checks for what's new, not first checks again
+// (2026-11-13, the user: "if a sub has no previous downloads subsequent checks are still counted as initial") - not
+// held to the first-check limit, queued like any check; once posts come, later checks stop at the newest seen.
+func TestSubscriptionNothingFoundYet(t *testing.T) {
+	e := newEnv(t, 0)
+	ctx := context.Background()
+	advance := e.clock()
+	id, err := e.dl.Subscribe(ctx, "fake", "common", time.Hour, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.runDue(t)
+	if s := e.sub(t, id); s.Checks != 1 || s.highID != 0 || s.Downloaded != 0 {
+		t.Fatalf("after the first check: %+v", s)
+	}
+	advance(time.Hour)
+	if err := e.dl.StartDue(ctx); err != nil {
+		t.Fatal(err)
+	}
+	checks, err := e.dl.subChecks(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(checks) != 1 || checks[0].FirstCheck || !checks[0].isCheck() || checks[0].MaxPosts != 0 {
+		t.Fatalf("the second check: %+v (want a check for what's new, not a first check)", checks)
+	}
+	e.fb.upload(8)
+	if err := e.dl.RunQueue(ctx, "fake"); err != nil {
+		t.Fatal(err)
+	}
+	if s := e.sub(t, id); s.Downloaded != 8 || s.highID != 8 || s.Checks != 2 {
+		t.Fatalf("after the second check: %+v (all 8 new posts, not the first-check limit of 5)", s)
+	}
+	advance(time.Hour)
+	e.fb.upload(2)
+	e.runDue(t)
+	if s := e.sub(t, id); s.LastNew != 2 || s.Downloaded != 10 || s.highID != 10 {
+		t.Fatalf("after the third check: %+v", s)
+	}
+}

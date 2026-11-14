@@ -223,12 +223,15 @@ type Search struct {
 	// downloaded comic's); "" = the query.
 	Label string `json:"label,omitempty"`
 	// Pages: pages it brought in for galleries (a gallery site: one gallery's counts are by page).
-	Pages       int    `json:"pages,omitempty"`
-	State       string `json:"state"`
-	MaxPosts    int    `json:"max_posts"`
-	LowID       int64  `json:"-"`
-	HighID      int64  `json:"-"`
-	StopID      int64  `json:"-"` // done on reaching a post at or below this ID (subscription checks)
+	Pages    int    `json:"pages,omitempty"`
+	State    string `json:"state"`
+	MaxPosts int    `json:"max_posts"`
+	LowID    int64  `json:"-"`
+	HighID   int64  `json:"-"`
+	// StopID: a subscription check is done on reaching a post at or below this ID; 0: its first check (the whole search,
+	// or initial_max posts); -1: a check for what's new before any post was ever seen (nothing to stop at - 2026-11-13,
+	// the user: "if a sub has no previous downloads subsequent checks are still counted as initial").
+	StopID      int64  `json:"-"`
 	StopDepth   int    `json:"-"` // ... and this many posts past it (the check depth)
 	pastStop    int    // posts at or below StopID gone through so far (this run)
 	runFrom     int64  // when this run of it began (Unix ms; a resumed search's earlier posts are from before)
@@ -380,10 +383,10 @@ func (d *Downloader) Get(ctx context.Context, id int64) (Search, error) {
 // checkSQL: a subscription's check for what's new (it stops at the newest post the last one saw) - not its first
 // check, which takes everything at once like a download (2026-10-23, the user: "initial downloads that i put in a
 // sub group" are bulk downloads: they don't go first, and they step aside for checks).
-const checkSQL = "(s.subscription_id IS NOT NULL AND s.stop_id > 0)"
+const checkSQL = "(s.subscription_id IS NOT NULL AND s.stop_id != 0)"
 
 // isCheck: a subscription's check for what's new (see checkSQL).
-func (s Search) isCheck() bool { return s.SubscriptionID != 0 && s.StopID > 0 }
+func (s Search) isCheck() bool { return s.SubscriptionID != 0 && s.StopID != 0 }
 
 // next returns the site's first unfinished search: subscription checks first (unless turned off), then an
 // interrupted running one, then queued ones in order.
