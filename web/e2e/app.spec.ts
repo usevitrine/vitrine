@@ -11366,13 +11366,26 @@ test('grid: the hover card\'s pictures fill it exactly - the bigger copy lands w
   }
 });
 
-test('grid: the hover card has the page\'s color behind its picture (see-through pictures don\'t show the tiles under it)', async ({ page }) => {
+test('grid: the hover card has the tile\'s color behind its picture (see-through pictures don\'t show the tiles under it)', async ({ page }) => {
   test.skip(isPhone(page), 'a mouse');
   await page.goto('/');
   await expect(page.locator('.tile img.in').first()).toBeVisible();
   await page.locator('.tile').nth(1).hover();
   const card = page.locator('.tile.zoomed');
   await expect(card).toHaveCount(1);
-  const [face, body] = await card.evaluate((el) => [getComputedStyle(el.querySelector('.face')!).backgroundColor, getComputedStyle(document.body).backgroundColor]);
-  expect(face).toBe(body);
+  const got = await card.evaluate((el) => {
+    const face = el.querySelector('.face')!;
+    const under = getComputedStyle(face, '::before');
+    const probe = document.createElement('span');
+    probe.style.background = 'var(--surface0)';
+    document.body.append(probe);
+    const tile = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    // (what's drawn at the card's middle is its picture, not the background over it)
+    const r = el.getBoundingClientRect();
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return { color: under.backgroundColor, tile, inset: under.inset, picture: !!top?.closest('.tile.zoomed') && top?.tagName };
+  });
+  expect(got.color, JSON.stringify(got)).toBe(got.tile);
+  expect(got.inset).toBe('1px');
 });

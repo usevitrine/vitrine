@@ -600,6 +600,7 @@ pictures fill it exactly"; motion recordings `d-grid-hover-N` (`e2e/motion.spec.
 
 ## The hover card's background (2026-11-14)
 The user: "some images have transparent backgrounds ... and when i hover to zoom it doesnt have a background" (a PNG
-cut-out showed the tiles under the card through it). The card's face has the page's color (`--base`) behind its
-picture while it's a card (zoomed, shrinking back) - as the picture looks at rest, on the page. Test: "the hover card has
-the page's color behind its picture".
+cut-out showed the tiles under the card through it) - "give it the same background color as when its not zoomed": the
+tile's own grey, `--surface0` (sampled from their screenshot), behind its picture while it's a card (zoomed, shrinking
+back): the face's `::before`, a pixel inside the edge (clipped round with the picture, a background showed a light rim
+at the rounded corners). Test: "the hover card has the tile's color behind its picture".
