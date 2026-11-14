@@ -174,6 +174,7 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.handle("POST /api/downloads/single", s.checkSingle)
 	s.handle("POST /api/downloads/clear", s.signal(s.clearDownloads))
 	s.handle("POST /api/downloads/reorder", s.signal(s.reorderDownloads))
+	s.handle("POST /api/downloads/count", s.signal(s.countDownloads))
 	s.handle("POST /api/downloads/{id}/{action}", s.signal(s.changeDownload))
 	s.handle("GET /api/settings", s.getSettings)
 	s.handle("POST /api/settings", s.setSettings)

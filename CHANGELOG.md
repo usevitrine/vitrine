@@ -5,6 +5,10 @@ shows this too (Settings > Help & about).
 
 ## Unreleased
 
+### New
+
+- **Downloads queue**: show all, only downloads or only subscription checks. Order the queue by file count, most or fewest first: Vitrine asks each site how many posts every waiting search has, and shows the count on its card. A download that made way for a subscription check now says which one; tap it to see the check.
+
 ### Improved
 
 - **Starting up**: Vitrine starts several times faster on a big library. It saves part of its search index when it stops and reads it back at the next start instead of rebuilding it; a library of over a million files started in about 5 seconds instead of 25. Anything changed in between is noticed, and the index is rebuilt as before.

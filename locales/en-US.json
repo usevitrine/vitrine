@@ -1563,7 +1563,37 @@
     "newestFiles": "The newest files it found",
     "openComic": "Open the comic",
     "nextRing": "Next check: {when}",
-    "subsShort": "Subs"
+    "subsShort": "Subs",
+    "queueHintSorted": "One queue per site. Shown by file count - the queue keeps its own order.",
+    "kinds": {
+      "label": "Show",
+      "all": "All",
+      "downloads": "Downloads",
+      "checks": "Checks",
+      "none": {
+        "downloads": "No downloads waiting",
+        "checks": "No subscription checks waiting"
+      }
+    },
+    "queueSort": {
+      "label": "Order the queue",
+      "queue": "Queue order",
+      "files": "File count - most first",
+      "filesAsc": "File count - fewest first"
+    },
+    "onSite": {
+      "one": "{n} on the site",
+      "other": "{n} on the site"
+    },
+    "noCount": "The site doesn't say how many",
+    "counting": "Counting…",
+    "notCounted": "Not counted yet",
+    "afterCheck": "After {name}'s check",
+    "afterChecks": {
+      "one": "After {name}'s check and {n} more",
+      "other": "After {name}'s check and {n} more"
+    },
+    "madeWayTitle": "Made way for a subscription check - show it"
   },
   "setup": {
     "skipAll": "Skip setup",

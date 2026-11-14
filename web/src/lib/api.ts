@@ -660,7 +660,7 @@ export const api = {
   rankings: (period: string) => get<Rankings>(`/api/rankings?period=${period}&tz=${-new Date().getTimezoneOffset()}`),
   stats: (days = 0) => get<LibraryStats>(`/api/stats?days=${days}&tz=${-new Date().getTimezoneOffset()}`),
   downloads: () =>
-    get<{ sites: string[]; sites_off?: string[]; sites_paused?: Record<string, SitePause>; searches: DownloadSearch[]; subscriptions: Subscription[]; groups: SubGroup[]; refresh: RefreshStatus[]; retries?: RetryJob[] }>(
+    get<{ sites: string[]; sites_off?: string[]; sites_paused?: Record<string, SitePause>; searches: DownloadSearch[]; subscriptions: Subscription[]; groups: SubGroup[]; refresh: RefreshStatus[]; retries?: RetryJob[]; counting?: string[] }>(
       '/api/downloads',
     ),
   /** Only what's going on now (running, waiting, paused) and the paused sites: the top bar's downloads menu. */
@@ -693,6 +693,8 @@ export const api = {
   removeDownload: (id: number) => post<{ ok: boolean }>(`/api/downloads/${id}/remove`, {}),
   clearDownloads: () => post<{ removed: number }>('/api/downloads/clear', {}),
   reorderDownloads: (site: string, ids: number[]) => post<{ ok: boolean }>('/api/downloads/reorder', { site, ids }),
+  /** Asks the sites how many posts these waiting searches have (site_total; -2: the site doesn't say). In the background. */
+  countDownloads: (ids: number[]) => post<{ counting: number }>('/api/downloads/count', { ids }),
   // site: only the tags of its files, counted by them ('' = every file).
   tagList: (q: string, ns: string, site: string, sort: 'count' | 'name', offset: number, limit: number) =>
     get<{ total: number; tags: BrowsedTag[] }>(

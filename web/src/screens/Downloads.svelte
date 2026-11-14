@@ -10,6 +10,7 @@
   import { bringIntoView } from '../lib/bringIntoView';
   import { overlayScroll } from '../lib/overlayScroll';
   import { onMount, tick, untrack } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import { slide } from 'svelte/transition';
   import { live } from '../lib/live.svelte';
   import { formatSize } from '../lib/results.svelte';
@@ -343,6 +344,7 @@
     refreshStatus = res.refresh;
     failedPosts = failed;
     retries = res.retries ?? [];
+    countingSites = res.counting ?? [];
   }
 
   async function refresh() {
@@ -594,17 +596,88 @@
   // the one now ahead of it after its file in flight; retries first, so the searches' rows stay together while dragging)
   type QueueEntry = { kind: 'search'; s: DownloadSearch; wi: number } | { kind: 'retry'; r: RetryJob };
   const entryKey = (e: QueueEntry) => (e.kind === 'search' ? 's' + e.s.id : 'r' + postKey(e.r));
+  // ---- The queue's kinds and its order (2026-11-14, the user picked a mock-up: pills "All / Downloads / Checks", and
+  // "a sort icon dropdown that by default is set to in order of added, with another option for sort by > file count >
+  // most/least ... styled like other sort menus" - "if they pick sort by file count, it gets the counts first
+  // automatically", "the reorder grabber shouldnt be visible", "animated beautifully").
+  // Downloads: one-off downloads and subscriptions' first checks (bulk); checks: the regular ones.
+  type QueueKind = 'all' | 'downloads' | 'checks';
+  type QueueSort = 'queue' | 'files' | 'files_asc';
+  const isCheck = (s: DownloadSearch) => !!s.subscription_id && !s.first_check;
+  let queueKind = $state<QueueKind>(((v) => (v === 'downloads' || v === 'checks' ? v : 'all'))(read('vitrine.queueKind')));
+  let queueSort = $state<QueueSort>(((v) => (v === 'files' || v === 'files_asc' ? v : 'queue'))(read('vitrine.queueSort')));
+  function setQueueKind(v: QueueKind) {
+    queueKind = v;
+    write('vitrine.queueKind', v);
+  }
+  function setQueueSort(v: string) {
+    queueSort = v as QueueSort;
+    write('vitrine.queueSort', v);
+  }
+  const queueSortOptions = $derived([
+    { value: 'queue', label: t('downloads.queueSort.queue') },
+    { value: 'files', label: t('downloads.queueSort.files') },
+    { value: 'files_asc', label: t('downloads.queueSort.filesAsc') },
+  ]);
+  const shownKind = (s: DownloadSearch) => queueKind === 'all' || (queueKind === 'checks') === isCheck(s);
+  /** A site's list by its searches' counts on the site (the running one first; not counted yet last, in queue order). */
+  function byCount(list: DownloadSearch[]): DownloadSearch[] {
+    const dir = queueSort === 'files' ? -1 : 1;
+    const known = (s: DownloadSearch) => s.site_total >= 0;
+    return [...list].sort(
+      (a, b) =>
+        Number(b.state === 'running') - Number(a.state === 'running') ||
+        Number(known(b)) - Number(known(a)) ||
+        (known(a) && known(b) ? dir * (a.site_total - b.site_total) : 0),
+    );
+  }
+  let kindCounts = $derived.by(() => {
+    const all = queues.flatMap((q) => q.list);
+    const checks = all.filter(isCheck).length;
+    return { all: all.length + retriesShown.length, downloads: all.length - checks + retriesShown.length, checks };
+  });
+  // The sites counting their searches now (the server's), and the searches asked about already (once each).
+  let countingSites = $state<string[]>([]);
+  const countAsked = new Set<number>();
+  // (just asked: shown as counting until the server says which sites count - a moment)
+  const countPending = new SvelteSet<number>();
+  $effect(() => {
+    if (tab !== 'queue' || queueSort === 'queue') return;
+    const want = searches.filter((s) => (s.state === 'queued' || s.state === 'paused') && s.site_total === -1 && !countAsked.has(s.id)).map((s) => s.id);
+    if (!want.length) return;
+    for (const id of want) {
+      countAsked.add(id);
+      countPending.add(id);
+    }
+    setTimeout(() => want.forEach((id) => countPending.delete(id)), 4000);
+    untrack(() => api.countDownloads(want).catch(() => {}));
+  });
+  /** The checks a started download made way for (they go first: Settings > Sites > Queue order), the running one first. */
+  function madeWayFor(s: DownloadSearch): DownloadSearch[] {
+    if (!settings.checksFirst || isCheck(s) || s.state !== 'queued' || !s.handled) return [];
+    const checks = (queues.find((q) => q.site === s.site)?.list ?? []).filter(isCheck);
+    return checks.sort((a, b) => Number(b.state === 'running') - Number(a.state === 'running'));
+  }
+  /** The check a chip names: shown (all kinds, if only downloads were), scrolled to and lit. */
+  function showCheck(id: number) {
+    if (queueKind === 'downloads') setQueueKind('all');
+    router.focus = 'dl:' + id;
+  }
+
   let queueSites = $derived.by(() => {
     const order = [...new Set([...queues.map((q) => q.site), ...retriesShown.map((r) => r.site)])];
-    return order.map((site) => {
-      const list = queues.find((q) => q.site === site)?.list ?? [];
-      const rs = retriesShown.filter((r) => r.site === site);
-      const entries: QueueEntry[] = [
-        ...rs.map((r) => ({ kind: 'retry' as const, r })),
-        ...list.map((s, wi) => ({ kind: 'search' as const, s, wi })),
-      ];
-      return { site, list, entries };
-    });
+    return order
+      .map((site) => {
+        let list = (queues.find((q) => q.site === site)?.list ?? []).filter(shownKind);
+        if (queueSort !== 'queue') list = byCount(list);
+        const rs = queueKind === 'checks' ? [] : retriesShown.filter((r) => r.site === site);
+        const entries: QueueEntry[] = [
+          ...rs.map((r) => ({ kind: 'retry' as const, r })),
+          ...list.map((s, wi) => ({ kind: 'search' as const, s, wi })),
+        ];
+        return { site, list, entries };
+      })
+      .filter((q) => q.entries.length);
   });
   /** A list grouped by site, the sites in the order their first item comes. */
   function bySite<X extends { site: string }>(list: X[]): { site: string; list: X[] }[] {
@@ -699,6 +772,29 @@
   }
 
   // The lit tab's pill glides from tab to tab (measured: the tabs are as wide as their names and counts).
+  let kindsEl = $state<HTMLElement>();
+  let kindPill = $state<{ x: number; w: number } | null>(null);
+  let kindPillReady = $state(false);
+  function placeKindPill() {
+    const b = kindsEl?.querySelector<HTMLElement>('.kind.on');
+    if (!b) return;
+    kindPill = { x: b.offsetLeft, w: b.offsetWidth };
+    if (!kindPillReady) requestAnimationFrame(() => (kindPillReady = true));
+  }
+  $effect(() => {
+    void queueKind;
+    void kindCounts.all;
+    void kindCounts.downloads;
+    void kindCounts.checks;
+    tick().then(placeKindPill);
+  });
+  $effect(() => {
+    if (!kindsEl) return;
+    const ro = new ResizeObserver(() => placeKindPill());
+    ro.observe(kindsEl);
+    for (const b of kindsEl.querySelectorAll('.kind')) ro.observe(b);
+    return () => ro.disconnect();
+  });
   let tabsEl = $state<HTMLElement>();
   let pill = $state<{ x: number; w: number } | null>(null);
   let pillReady = $state(false); // (no glide in from nowhere at the start)
@@ -848,7 +944,11 @@
     const id = Number(f.slice(3));
     const q = queueSites.find((g) => g.entries.some((e) => e.kind === 'search' && e.s.id === id));
     const done = q ? undefined : finished.find((s) => s.id === id);
-    if (!q && !done) return; // (not loaded yet: the lists come in a moment)
+    if (!q && !done) {
+      // (waiting, but another kind is shown: all of them - this runs again with it)
+      if (queueKind !== 'all' && searches.some((s) => s.id === id && active(s))) setQueueKind('all');
+      return; // (not loaded yet: the lists come in a moment)
+    }
     router.focus = null;
     let key: string;
     if (q) {
@@ -1226,9 +1326,15 @@
 
   /** Moves a site's download from one place in its queue to another (the running one too: see queueSites). */
   async function move(site: string, from: number, to: number) {
-    const ids = (queues.find((q) => q.site === site)?.list ?? []).map((s) => s.id);
-    const [id] = ids.splice(from, 1);
-    ids.splice(to, 0, id);
+    // (from, to: places among the cards shown - one kind only: they swap among the places theirs have in the whole
+    // queue, the others stay where they are)
+    const full = (queues.find((q) => q.site === site)?.list ?? []).map((s) => s.id);
+    const shownIds = (queueSites.find((q) => q.site === site)?.list ?? []).map((s) => s.id);
+    const [id] = shownIds.splice(from, 1);
+    shownIds.splice(to, 0, id);
+    const isShown = new Set(shownIds);
+    let k = 0;
+    const ids = full.map((x) => (isShown.has(x) ? shownIds[k++] : x));
     // Show the new order at once, then save it (what's asked for until it's saved has the old order).
     const pos = new Map(ids.map((x, k) => [x, k]));
     changed();
@@ -1259,6 +1365,10 @@
   const measurable = (s: DownloadSearch) => measurableOf(s, live.files);
   const progress = (s: DownloadSearch) => progressOf(s, live.files, isGallery(s));
 </script>
+
+{#snippet queueSortIcon()}
+  <Icon name="sort" size={19} />{#if queueSort !== 'queue'}<span class="sort-dot" transition:pop></span>{/if}
+{/snippet}
 
 {#snippet sortIcon()}
   <Icon name="sort" size={19} />{#if subSort !== 'next'}<span class="sort-dot" transition:pop></span>{/if}
@@ -1375,6 +1485,7 @@
   {@const gal = isGallery(s)}
   {@const g = s.state === 'running' && gal ? galleryNow(s) : null}
   {@const sum = summaryOf(s)}
+  {@const way = finishedRow ? [] : madeWayFor(s)}
   <div class="qhead">
     <!-- The search: on one line, sliding to its end and back when it's long (the app's marquee); the card open, all of
          it, on as many lines as it takes (2026-11-14, the user). -->
@@ -1399,7 +1510,21 @@
     </button>
     </div>
     {#if st === 'running' || s.handled}{@render bar(s)}{/if}
+    {#if way.length}
+      <!-- It made way for a subscription's check (checks go first): which one - tapped, that check. -->
+      <button class="madeway" title={t('downloads.madeWayTitle')} onclick={() => showCheck(way[0].id)} transition:reveal
+        ><Icon name="bell" size={13} /><span class="madeway-text">{way.length > 1 ? t('downloads.afterChecks', { name: named(way[0]) || t('push.everything'), n: way.length - 1 }) : t('downloads.afterCheck', { name: named(way[0]) || t('push.everything') })}</span></button>
+    {/if}
     {#if !open && sum}<span class="qsum" transition:reveal>{sum}</span>{/if}
+    {#if !finishedRow && queueSort !== 'queue' && s.state !== 'running'}
+      <!-- Ordered by file count: its count on the site (asked for as the order was picked). -->
+      <span class="qcount" transition:reveal>
+        {#if s.site_total >= 0}<Icon name="stack" size={12} />{t('downloads.onSite', { n: num(s.site_total) })}
+        {:else if s.site_total === -2}{t('downloads.noCount')}
+        {:else if countingSites.includes(s.site) || countPending.has(s.id)}<span class="spinner small" aria-hidden="true"></span>{t('downloads.counting')}
+        {:else}{t('downloads.notCounted')}{/if}
+      </span>
+    {/if}
   </div>
   {#if open}
     <div class="qbody" transition:reveal>
@@ -1713,8 +1838,23 @@
         <section class="card">
           <div class="card-head">
             <h2>{t('downloads.queue')}</h2>
-            {#if queueSites.length}<p class="hint" transition:reveal>{t('downloads.queueHint')}</p>{/if}
+            {#if queueSites.length}<p class="hint" transition:reveal>{queueSort === 'queue' ? t('downloads.queueHint') : t('downloads.queueHintSorted')}</p>{/if}
           </div>
+          {#if kindCounts.all}
+            <div class="queue-tools" transition:reveal>
+              <div class="kinds" role="group" aria-label={t('downloads.kinds.label')} bind:this={kindsEl}>
+                {#if kindPill}<span class="kind-pill" class:ready={kindPillReady} style:width="{kindPill.w}px" style:transform="translateX({kindPill.x}px)" aria-hidden="true"></span>{/if}
+                {#each [{ k: 'all', label: t('downloads.kinds.all'), n: kindCounts.all }, { k: 'downloads', label: t('downloads.kinds.downloads'), n: kindCounts.downloads }, { k: 'checks', label: t('downloads.kinds.checks'), n: kindCounts.checks }] as x (x.k)}
+                  <button class="kind" class:on={queueKind === x.k} aria-pressed={queueKind === x.k} onclick={() => setQueueKind(x.k as QueueKind)}
+                    >{x.label}<span class="kind-n" use:easeWidth>{num(x.n)}</span></button>
+                {/each}
+              </div>
+              <span class="sub-sort queue-sort">
+                <Dropdown value={queueSort} options={queueSortOptions} onchange={setQueueSort} label={t('downloads.queueSort.label')} heading={t('sort.by')}
+                  align="end" trigger={queueSortIcon} triggerClass="icon sub-sort-button" />
+              </span>
+            </div>
+          {/if}
           {#each queueSites as q (q.site)}
             {@const key = 'queue:' + q.site}
             <div class="site-block queue-site" animate:moved transition:reveal>
@@ -1737,10 +1877,13 @@
                     {@render retryCard(e.r)}
                   {:else}
                     {@const grips = c.open && q.list.length > 1}
-                    <div class="row qrow" class:has-grip={grips} class:flash={flashDl === e.s.id} data-dl={e.s.id} data-wi={e.wi >= 0 ? e.wi : undefined}>
+                    <div class="row qrow" class:has-grip={grips} class:grip-off={grips && queueSort !== 'queue'} class:flash={flashDl === e.s.id} data-dl={e.s.id} data-wi={e.wi >= 0 ? e.wi : undefined}>
                       {#if grips}
                         <button
                           class="icon grip"
+                          disabled={queueSort !== 'queue'}
+                          aria-hidden={queueSort !== 'queue' ? 'true' : undefined}
+                          tabindex={queueSort !== 'queue' ? -1 : undefined}
                           aria-label={t('saved.reorder', { name: nameOf(e.s) })}
                           title={t('saved.dragToReorder')}
                           onpointerdown={(ev) => dragStart(ev, q.site, e.wi, e.s.id)}
@@ -1756,7 +1899,7 @@
               </Stack>
             </div>
           {:else}
-            <p class="quiet-empty" transition:reveal>{loaded ? t('downloads.nothingWaiting') : t('common.loading')}</p>
+            <p class="quiet-empty" transition:reveal>{!loaded ? t('common.loading') : kindCounts.all && queueKind !== 'all' ? queueKind === 'checks' ? t('downloads.kinds.none.checks') : t('downloads.kinds.none.downloads') : t('downloads.nothingWaiting')}</p>
           {/each}
         </section>
 
@@ -3652,5 +3795,176 @@
   .site-fold :global(.site-icon),
   .site-fold > :global(span:has(img)) {
     flex: none;
+  }
+
+  /* ---- The queue's kinds and order (2026-11-14): pills with a highlight that glides between them (as the tabs'), the
+     order an icon menu beside them (as the subscriptions'). */
+  .queue-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -2px 0 12px;
+  }
+  .kinds {
+    position: relative;
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--mantle);
+    border: 1px solid var(--surface0);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .kinds::-webkit-scrollbar {
+    display: none;
+  }
+  .kind-pill {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--mauve) 22%, var(--surface0));
+    pointer-events: none;
+  }
+  .kind-pill.ready {
+    transition:
+      transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+      width 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .kinds .kind,
+  .kinds .kind:hover:not(:disabled) {
+    position: relative; /* (over the highlight) */
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: calc(var(--control-h) - 10px);
+    height: auto;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--subtext);
+    font-weight: 600;
+    font-size: var(--font-small);
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+  .kinds .kind.on {
+    color: var(--text);
+  }
+  @media (hover: hover) {
+    .kinds .kind:not(.on):hover {
+      color: var(--text);
+    }
+  }
+  .kind-n {
+    display: inline-block;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+    color: var(--overlay1);
+    transition: color 0.2s;
+  }
+  .kinds .kind.on .kind-n {
+    color: var(--mauve);
+  }
+  .queue-tools .queue-sort {
+    position: static;
+    margin-left: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .kind-pill.ready {
+      transition: none;
+    }
+  }
+  /* A download that made way for a check: which one, on a chip (tapped: that check). Over the card's own button. */
+  .madeway,
+  .madeway:hover:not(:disabled) {
+    position: relative;
+    z-index: 1;
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    min-height: 0;
+    height: auto;
+    padding: 3px 10px;
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--mauve) 16%, var(--surface0));
+    color: var(--text);
+    font: inherit;
+    font-size: var(--font-small);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .madeway :global(svg) {
+    flex: none;
+    color: var(--mauve);
+  }
+  .madeway-text {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  @media (hover: hover) {
+    .madeway:hover {
+      background: color-mix(in srgb, var(--mauve) 26%, var(--surface0));
+    }
+  }
+  /* Ordered by file count: each waiting card's count on its site. */
+  .qcount {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .qcount :global(svg) {
+    color: var(--overlay1);
+  }
+  /* The grip folds away while the queue is ordered by count (it's the queue's order it moves), and comes back. */
+  .qrow.has-grip {
+    transition: grid-template-columns 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .qrow.has-grip .qhead,
+  .qrow.has-grip .qbody {
+    transition: padding-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .qrow.grip-off {
+    grid-template-columns: 0px minmax(0, 1fr);
+  }
+  .qrow.grip-off .qhead,
+  .qrow.grip-off .qbody {
+    padding-left: 14px;
+  }
+  .qrow .grip {
+    overflow: hidden;
+    transition:
+      opacity 0.2s,
+      width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .qrow.grip-off .grip {
+    width: 0;
+    opacity: 0;
+    visibility: hidden; /* (once faded: its hover fill painted a line at the card's edge) */
+    pointer-events: none;
+    transition:
+      opacity 0.2s,
+      width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+      visibility 0s 0.28s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qrow.has-grip,
+    .qrow.has-grip .qhead,
+    .qrow.has-grip .qbody {
+      transition: none;
+    }
   }
 </style>

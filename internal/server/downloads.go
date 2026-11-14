@@ -97,7 +97,28 @@ func (s *Server) listDownloads(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"sites": on, "sites_off": off, "sites_paused": paused, "searches": orEmpty(list), "subscriptions": orEmpty(subs),
-		"groups": groups, "refresh": orEmpty(refresh), "retries": s.dl.Retries()})
+		"groups": groups, "refresh": orEmpty(refresh), "retries": s.dl.Retries(), "counting": orEmpty(s.dl.Counting())})
+}
+
+// countDownloads: POST /api/downloads/count {ids?} -> {counting: n} - asks the sites how many posts the waiting
+// searches have (the Queue tab's file-count order; none given: every waiting one not counted yet). In the background:
+// the page hears of each count.
+func (s *Server) countDownloads(w http.ResponseWriter, r *http.Request) {
+	if !s.needDL(w) {
+		return
+	}
+	var req struct {
+		IDs []int64 `json:"ids"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	n, err := s.dl.CountSearches(r.Context(), req.IDs)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"counting": n})
 }
 
 func (s *Server) addDownload(w http.ResponseWriter, r *http.Request) {

@@ -11408,3 +11408,72 @@ test('grid: back from the viewer, the box under the picture fades back in with i
   // ... then it's gone.
   await expect(page.locator('.hole')).toHaveCount(0);
 });
+
+test('downloads queue: All / Downloads / Checks; a download that made way names its check; ordered by file count (counted first, no grips)', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    localStorage.setItem('vitrine.queueKind', JSON.stringify('all'));
+    localStorage.setItem('vitrine.queueSort', JSON.stringify('queue'));
+  });
+  const base = { site: 'safebooru', max_posts: 0, handled: 0, downloaded: 0, already: 0, deleted: 0, skipped: 0, blacklisted: 0, failed: 0, created_at: Date.now() };
+  const mine = [
+    { ...base, id: 99601, query: 'some_artist', state: 'running', position: 1, site_total: 40, subscription_id: 1 },
+    { ...base, id: 99602, query: 'blue_sky', state: 'queued', position: 2, site_total: 120, handled: 30, downloaded: 30 },
+    { ...base, id: 99603, query: 'landscape', state: 'queued', position: 3, site_total: 900 },
+    { ...base, id: 99604, query: 'sunset', state: 'queued', position: 4, site_total: 15 },
+    { ...base, id: 99605, query: 'river', state: 'queued', position: 5, site_total: -1 },
+  ];
+  await page.route('**/api/downloads', async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    body.searches = [...body.searches.filter((s: { state: string }) => s.state !== 'queued' && s.state !== 'running' && s.state !== 'paused'), ...mine];
+    await r.fulfill({ response: res, json: body });
+  });
+  const counted: number[][] = [];
+  await page.route('**/api/downloads/count', (r) => {
+    counted.push(r.request().postDataJSON().ids);
+    return r.fulfill({ json: { counting: 1 } });
+  });
+  await page.goto('/downloads?focus=dl:99603');
+  const card = (id: number) => page.locator(`[data-dl="${id}"]`);
+  await expect(card(99605)).toBeVisible();
+  const kinds = page.getByRole('group', { name: 'Show' });
+  await expect(kinds.getByRole('button', { name: /^All/ })).toContainText('5');
+  await expect(kinds.getByRole('button', { name: /^Downloads/ })).toContainText('4');
+  await expect(kinds.getByRole('button', { name: /^Checks/ })).toContainText('1');
+
+  // The download that made way names the check; tapped, the check is shown and lit.
+  const chip = card(99602).locator('.madeway');
+  await expect(chip).toHaveText("After some_artist's check");
+  await kinds.getByRole('button', { name: /^Downloads/ }).click();
+  await expect(card(99601)).toHaveCount(0);
+  await chip.click();
+  await expect(kinds.getByRole('button', { name: /^All/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(card(99601)).toHaveClass(/flash/);
+  await kinds.getByRole('button', { name: /^Checks/ }).click();
+  await expect(card(99602)).toHaveCount(0);
+  await expect(card(99601)).toBeVisible();
+  await kinds.getByRole('button', { name: /^All/ }).click();
+
+  // Queue order: grips. File count, most first: the one not counted is asked for, the cards ordered, no grips.
+  const order = () => page.locator('.queue-site [data-dl]').evaluateAll((els) =>
+    els.map((e) => ({ id: Number((e as HTMLElement).dataset.dl), y: e.getBoundingClientRect().top })).sort((a, b) => a.y - b.y).map((x) => x.id));
+  await expect(card(99603).locator('.grip')).toBeEnabled();
+  const sortBy = async (name: string) => {
+    await page.getByRole('button', { name: 'Order the queue' }).click();
+    await page.getByRole('option', { name }).click();
+  };
+  await sortBy('File count - most first');
+  await expect.poll(() => counted.flat()).toEqual([99605]);
+  await expect(card(99605).locator('.qcount')).toHaveText('Counting…'); // (asked: counting, not "not counted yet")
+  await expect.poll(order).toEqual([99601, 99603, 99602, 99604, 99605]); // (the running one first; not counted last)
+  await expect(card(99603).locator('.qcount')).toHaveText('900 on the site');
+  await expect(card(99603).locator('.grip')).toBeDisabled();
+  await expect(card(99603).locator('.grip')).toHaveCSS('opacity', '0');
+  await sortBy('File count - fewest first');
+  await expect.poll(order).toEqual([99601, 99604, 99602, 99603, 99605]);
+  await sortBy('Queue order');
+  await expect.poll(order).toEqual([99601, 99602, 99603, 99604, 99605]);
+  await expect(card(99603).locator('.grip')).toBeEnabled();
+  await expect(card(99603).locator('.qcount')).toHaveCount(0);
+});

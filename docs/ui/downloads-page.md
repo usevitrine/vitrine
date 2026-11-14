@@ -304,3 +304,37 @@ if i click to expand it, it should show the entire query on multiple lines if ne
   slides by itself") - a block, so a button doesn't center a search wider than itself (it showed its middle). Open: all
   of it, wrapped on as many lines as it takes, the state and the arrow beside its first line.
 - Test: "a queue card's state and arrow sit at its right edge; a long search slides on one line, all of it open".
+
+## The queue's kinds, its order by file count, the made-way chip (2026-11-14)
+The user: a button to count each download's files on its site and sort most or fewest first ("Queue tab", asked); then
+"the queue page should have initial downloads and subscriptions sub tabs. and a chip that indicates that an initial
+download has made way for a subscription" - mock-ups A (sub-tabs), B (sections), C (filter pills, the chip naming the
+check): "i like c, but instead of the two buttons, maybe just a sort icon dropdown that by default is set to in order of
+added, with another option for sort by > file count > most/least. styled like other sort menus" - "if they pick sort by
+file count, it gets the counts first automatically" - "the reorder grabber shouldnt be visible" - "make sure this is all
+animated beautifully".
+- **Pills** under the Queue card's title: All / Downloads / Checks, each with its count; a highlight glides between them
+  (as the tabs'). Downloads: one-off downloads and subscriptions' first checks (bulk); Checks: the regular ones
+  (`subscription_id` and not `first_check`). Remembered per device (`vitrine.queueKind`). A download shown elsewhere
+  (the Downloads menu, a notice) switches to All. Nothing of a kind: "No downloads waiting" / "No subscription checks
+  waiting".
+- **Order** (an icon menu beside them, as the subscriptions': the shared Dropdown, "Sort by", a dot when not the default):
+  Queue order (the default: the queue as it runs - as added, or as dragged), File count - most first, fewest first.
+  Remembered (`vitrine.queueSort`). By file count it's a view: each site's cards by their search's count on the site
+  (the running one first, ones not counted last), the queue itself unchanged ("Shown by file count - the queue keeps its
+  own order"), so the grips fold away (their column glides to nothing, then they're hidden) and come back with Queue
+  order. Cards glide to their new places (the stack places them by transform).
+- **Counting**: picking File count asks the server (`POST /api/downloads/count {ids}`) for every waiting search not
+  counted yet (once each per page). `download.CountSearches`: one request per search for its first page, in the site's
+  turn (foreground: someone's waiting), with the login - the total its engine reads (Gelbooru's API and Danbooru exact,
+  Gelbooru HTML and Shimmie estimated from the page count); stored in `searches.site_total` (the search's own first
+  page sets it again when it runs); -2 when the site doesn't say (Mastodon); favorites lists left out (their total is
+  the whole list, read whole). Each count reaches the page at once (Changed); `/api/downloads` says which sites are
+  counting (`counting`). A card shows "N on the site", "Counting..." (its site counting, or just asked), "The site
+  doesn't say how many" or "Not counted yet".
+- **The chip** "After some_artist's check" (+ "and N more"): on a download that has started and waits while a check of
+  its site goes first (Settings > Sites > Queue order: checks first). Tapped: that check, shown and lit (All if only
+  downloads were shown).
+- **Dragging with one kind shown**: the cards swap among the places theirs hold in the whole queue; the others stay.
+- Test: "downloads queue: All / Downloads / Checks; a download that made way names its check; ordered by file count";
+  Go: `TestCountSearches`.
