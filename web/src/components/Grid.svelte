@@ -2563,6 +2563,12 @@
       border-radius 0.34s,
       box-shadow 0.34s;
   }
+  /* Behind its picture: the page's color, as at rest - a picture with see-through parts (a PNG cut-out) showed the tiles
+     under the card through them (2026-11-14, the user: "when i hover to zoom it doesnt have a background"). On the
+     face, clipped round with it. */
+  .tile:is(.zoomed, .shrinking) .face {
+    background: var(--base);
+  }
   .tile.zoomed {
     border-radius: 10px;
     --r: 10px;

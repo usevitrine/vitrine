@@ -597,3 +597,9 @@ Chromium (thumbnail only, then the bigger copy, the card still): half a pixel le
 now fill it (`object-fit: fill`, a stretch under a pixel); a comic's card (in its tile's shape) still covers. Ruled out
 on the way: the thumbnails' own framing (vipsthumbnail centers within 0.02 px of exact). Tests: "the hover card's
 pictures fill it exactly"; motion recordings `d-grid-hover-N` (`e2e/motion.spec.ts`).
+
+## The hover card's background (2026-11-14)
+The user: "some images have transparent backgrounds ... and when i hover to zoom it doesnt have a background" (a PNG
+cut-out showed the tiles under the card through it). The card's face has the page's color (`--base`) behind its
+picture while it's a card (zoomed, shrinking back) - as the picture looks at rest, on the page. Test: "the hover card has
+the page's color behind its picture".

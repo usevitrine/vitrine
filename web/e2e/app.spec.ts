@@ -11365,3 +11365,14 @@ test('grid: the hover card\'s pictures fill it exactly - the bigger copy lands w
     for (const a of got.shapes) expect(Math.abs(got.h * a - got.w), JSON.stringify(got)).toBeLessThanOrEqual(1.5);
   }
 });
+
+test('grid: the hover card has the page\'s color behind its picture (see-through pictures don\'t show the tiles under it)', async ({ page }) => {
+  test.skip(isPhone(page), 'a mouse');
+  await page.goto('/');
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  await page.locator('.tile').nth(1).hover();
+  const card = page.locator('.tile.zoomed');
+  await expect(card).toHaveCount(1);
+  const [face, body] = await card.evaluate((el) => [getComputedStyle(el.querySelector('.face')!).backgroundColor, getComputedStyle(document.body).backgroundColor]);
+  expect(face).toBe(body);
+});

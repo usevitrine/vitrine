@@ -12,7 +12,7 @@ shows this too (Settings > Help & about).
 ### Fixed
 
 - **Selecting files**: the purple band around a selected thumbnail is the same width on every side, on tall and wide thumbnails alike.
-- **Hover previews**: the picture in an enlarged thumbnail no longer jumps a pixel when its sharper copy appears.
+- **Hover previews**: the picture in an enlarged thumbnail no longer jumps a pixel when its sharper copy appears. A picture with a see-through background has the page's color behind it when enlarged, instead of showing the thumbnails underneath.
 - **Downloads queue**: on each card the state (or progress and speed) and the arrow stay at the right edge, whatever the search's length. A long search slides along its line like other long names, and opening the card shows all of it.
 - **Subscriptions**: a subscription whose first check found nothing no longer treats every later check as its first. They're regular checks: no first-download limit, and they don't wait behind downloads.
 - **Source links**: refreshing a file's tags no longer adds a source link it already had, written with `&amp;` instead of `&`. For the ones already in your library, the fixes menu (the wrench) offers "Source links listed twice" after you update.
