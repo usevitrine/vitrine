@@ -604,3 +604,11 @@ cut-out showed the tiles under the card through it) - "give it the same backgrou
 tile's own grey, `--surface0` (sampled from their screenshot), behind its picture while it's a card (zoomed, shrinking
 back): the face's `::before`, a pixel inside the edge (clipped round with the picture, a background showed a light rim
 at the rounded corners). Test: "the hover card has the tile's color behind its picture".
+
+## Back from the viewer: the box under the picture fades in (2026-11-14)
+The user: "when i open one of those transparent images in the viewer and close it, the lighter background doesnt animate
+back in, its instant". The grey behind a see-through picture at rest is its box in the bands (the tiles' shapes drawn
+under the grid ahead of time); while its file is open a hole in the page's color covers it. The hole went the moment
+the picture landed, so the box popped in while the tile's overlays faded. Now the landed tile's hole stays for the
+fade (`.hole.leaving`: opacity to 0 in 0.3 s, as `overlay-land`; at once with reduced motion), then goes. Test: "back
+from the viewer, the box under the picture fades back in".

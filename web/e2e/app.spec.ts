@@ -11389,3 +11389,22 @@ test('grid: the hover card has the tile\'s color behind its picture (see-through
   expect(got.color, JSON.stringify(got)).toBe(got.tile);
   expect(got.inset).toBe('1px');
 });
+
+test('grid: back from the viewer, the box under the picture fades back in with its overlays - not at once', async ({ page }) => {
+  test.skip(isPhone(page), 'one layout is enough');
+  await page.addInitScript(() => localStorage.setItem('vitrine.gridLayout', JSON.stringify('masonry')));
+  await page.goto('/?q=system:type%3Dimage');
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  const t = page.locator('.tile').nth(2);
+  await t.click();
+  await expect(page.locator('.viewer')).toHaveCount(1);
+  // While it's open: its place is a hole in the page's color (no grey box where the picture was).
+  await expect(page.locator('.hole')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  // Landed: the hole fades (the grey box under a see-through picture comes back gradually) ...
+  await expect(page.locator('.hole.leaving')).toHaveCount(1);
+  const mid = await page.locator('.hole.leaving').evaluate((h) => h.getAnimations().map((a) => a.animationName ?? (a as CSSAnimation).animationName));
+  expect(mid.join()).toContain('hole-out');
+  // ... then it's gone.
+  await expect(page.locator('.hole')).toHaveCount(0);
+});

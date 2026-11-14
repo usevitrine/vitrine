@@ -719,10 +719,12 @@
   });
   // A tile away from its place - its file open (hideId: the picture is its tile), zoomed by hovering, or shrinking
   // back - leaves the page there, not its box under it (bands; the user: "there shouldn't be anything, just empty space").
+  // The picture back from the viewer (landed): its hole fades as its overlays do, so the box under a see-through picture
+  // comes back with them, not at once (2026-11-14, the user: "the lighter background doesnt animate back in, its instant").
   const holes = $derived(
     tiles
-      .filter((t) => hover?.i === t.i || shrinking.some((s) => s.i === t.i) || (hideId !== undefined && results.idAt(t.i) === hideId))
-      .map((t) => t.p),
+      .filter((t) => hover?.i === t.i || shrinking.some((s) => s.i === t.i) || (hideId !== undefined && results.idAt(t.i) === hideId) || (landedId !== undefined && results.idAt(t.i) === landedId))
+      .map((t) => ({ ...t.p, leaving: hover?.i !== t.i && !shrinking.some((s) => s.i === t.i) && landedId !== undefined && results.idAt(t.i) === landedId })),
   );
 
   // Phones: the fast scroller goes to the side the thumb scrolls on (each
@@ -2133,7 +2135,7 @@
     {/each}
     {#if !clearedView && holeColor}
       {#each holes as p (`${p.x} ${p.y}`)}
-        <div class="hole" aria-hidden="true" style:transform="translate({p.x}px, {p.y}px)" style:width="{p.w}px" style:height="{p.h}px" style:background={holeColor}></div>
+        <div class="hole" class:leaving={p.leaving} aria-hidden="true" style:transform="translate({p.x}px, {p.y}px)" style:width="{p.w}px" style:height="{p.h}px" style:background={holeColor}></div>
       {/each}
     {/if}
     {#each tiles as tile (tile.i)}
@@ -3039,6 +3041,21 @@
     left: 0;
     z-index: -2;
     pointer-events: none;
+  }
+  /* (as the landed tile's overlays: overlay-land) */
+  .hole.leaving {
+    animation: hole-out 0.3s ease-out both;
+  }
+  @keyframes hole-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hole.leaving {
+      animation: none;
+      opacity: 0;
+    }
   }
   /* Scrubbing the hover card's video: a sideways cursor wherever the pointer goes. */
   .scrubbing,
