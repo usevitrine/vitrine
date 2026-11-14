@@ -1,6 +1,8 @@
 <script lang="ts" module>
   import type { ComponentProps } from 'svelte';
   import { place } from '../lib/place';
+  import { swallowPress } from '../lib/outside';
+  import { menuOpened } from '../lib/menuOpen.svelte';
   import type IconType from './Icon.svelte';
 
   export interface MenuChoice {
@@ -51,6 +53,10 @@
   }: { label: string; title?: string; items: MenuItem[]; current?: string; icon?: ComponentProps<typeof IconType>['name']; quiet?: boolean; disabled?: boolean; text?: string } = $props();
 
   let open = $state(false);
+  // (open: the grid's tiles take no hover or press meanwhile)
+  $effect(() => {
+    if (open) return menuOpened();
+  });
   let page = $state<MenuChoice | null>(null);
   let trigger = $state<HTMLButtonElement>();
   let menu = $state<HTMLDivElement>();
@@ -172,7 +178,7 @@
       in:shade
       out:shade={{ out: true }}
       onpointerdown={(e) => {
-        e.preventDefault();
+        swallowPress(e); // (and its click: with the backdrop gone, it reached the tile under it)
         close();
       }}>
     </div>

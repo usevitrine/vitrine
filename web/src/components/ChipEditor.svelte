@@ -8,6 +8,8 @@
   // Like a tag's menu in the details: a menu under the chip, a sheet along the
   // bottom on phones. Edits apply on Enter and on closing.
   import { backClose } from '../lib/backClose';
+  import { swallowPress } from '../lib/outside';
+  import { menuOpened } from '../lib/menuOpen.svelte';
   import { reveal, nudge } from '../lib/motion';
   import { phone } from '../lib/media';
   import { kindOf, titleTerm,type Atom, type Chip } from '../lib/query';
@@ -137,6 +139,8 @@
     if (sheet) document.body.appendChild(node);
     return { destroy: () => sheet && node.remove() };
   }
+  // (open: the grid's tiles take no hover or press meanwhile)
+  $effect(() => menuOpened());
 </script>
 
 {#snippet item(icon: ComponentProps<typeof Icon>['name'], text: string, run: () => void, cls = '')}
@@ -151,7 +155,7 @@
     out:shade|global={{ out: true }}
     role="presentation"
     onpointerdown={(e) => {
-      e.preventDefault();
+      swallowPress(e); // (and its click: with the backdrop gone, it reached the tile under it)
       close();
     }}>
   </div>

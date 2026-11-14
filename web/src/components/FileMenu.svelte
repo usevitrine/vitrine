@@ -4,6 +4,8 @@
   // kept on screen. An extra item can open a small page of choices in its place (Mark as > Read / Unread;
   // back with the arrow, Left or Escape).
   import { backClose } from '../lib/backClose';
+  import { swallowPress } from '../lib/outside';
+  import { menuOpened } from '../lib/menuOpen.svelte';
   import { place, atPoint } from '../lib/place';
   import Icon from './Icon.svelte';
   import type { ComponentProps } from 'svelte';
@@ -80,6 +82,8 @@
     fn();
     onclose();
   }
+  // (open: the grid's tiles take no hover or press meanwhile)
+  $effect(() => menuOpened());
 </script>
 
 <!-- A transparent backdrop closes the menu on any tap outside it. -->
@@ -87,7 +91,7 @@
   class="backdrop"
   role="presentation"
   onpointerdown={(e) => {
-    e.preventDefault();
+    swallowPress(e); // (and its click: with the backdrop gone, it reached the tile under it)
     onclose();
   }}
   oncontextmenu={(e) => e.preventDefault()}>

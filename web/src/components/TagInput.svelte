@@ -8,6 +8,7 @@
   import { api, type Suggestion, type RecentSearch } from '../lib/api';
   import type { Snippet } from 'svelte';
   import { pop, moved, nudge, reduced, onPixels } from '../lib/motion';
+  import { menuOpened } from '../lib/menuOpen.svelte';
   import { cubicOut } from 'svelte/easing';
   import { splitTag, tagColor, nsLabel } from '../lib/namespaces.svelte';
   import SubMark from './SubMark.svelte';
@@ -310,6 +311,10 @@
     window.setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 600);
     inputEl?.blur();
   }
+  // (the search bar's list open: the grid's tiles take no hover or press meanwhile)
+  $effect(() => {
+    if (zone && listShown) return menuOpened();
+  });
   const swallow = (c: Event) => {
     c.stopPropagation();
     c.preventDefault();

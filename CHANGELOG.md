@@ -11,6 +11,7 @@ shows this too (Settings > Help & about).
 
 ### Improved
 
+- **Menus**: while any menu or dropdown is open, thumbnails don't react: no hover preview, and clicking one only closes the menu. Clicking a button right after closing a menu no longer does nothing.
 - **Starting up**: Vitrine starts several times faster on a big library. It saves part of its search index when it stops and reads it back at the next start instead of rebuilding it; a library of over a million files started in about 5 seconds instead of 25. Anything changed in between is noticed, and the index is rebuilt as before.
 
 ## 1.1.0 - 2026-11-14

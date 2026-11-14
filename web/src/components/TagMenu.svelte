@@ -7,6 +7,8 @@
   // check, a new one by name), remove it from the file. A menu next to the tag, kept on screen; Escape or a tap
   // outside closes it.
   import { backClose } from '../lib/backClose';
+  import { swallowPress } from '../lib/outside';
+  import { menuOpened } from '../lib/menuOpen.svelte';
   import { place } from '../lib/place';
   import { tick } from 'svelte';
   import Icon from './Icon.svelte';
@@ -114,6 +116,8 @@
     document.body.appendChild(node);
     return { destroy: () => node.remove() };
   }
+  // (open: the grid's tiles take no hover or press meanwhile)
+  $effect(() => menuOpened());
 </script>
 
 <div use:toBody>
@@ -124,7 +128,7 @@
     out:shade={{ out: true }}
     role="presentation"
     onpointerdown={(e) => {
-      e.preventDefault();
+      swallowPress(e); // (and its click: with the backdrop gone, it reached the tile under it)
       onclose();
     }}>
   </div>

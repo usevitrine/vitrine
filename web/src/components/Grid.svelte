@@ -36,6 +36,7 @@
   import { openSiteDownload } from '../lib/newDownload.svelte';
   import { siteOn } from '../lib/sections';
   import { router } from '../lib/router.svelte';
+  import { menus } from '../lib/menuOpen.svelte';
 
   // pad: room at the top of the list for the bars floating over it; inset: how much of
   // the grid they cover now (less once they've slid away).
@@ -171,8 +172,18 @@
     hoverWas = { id: results.idAt(i) ?? -1, lead };
     openHover(i, lastMove.x, lastMove.y);
   }
+  // A menu, dropdown or popover open anywhere (2026-11-14, the user: "the thumbnails shouldn't be interactable at all,
+  // including hover to zoom"): the card closes, none opens, the tiles take no press (.menu-open) until it's closed.
+  $effect(() => {
+    if (!menus.open) return;
+    untrack(() => {
+      clearTimeout(hoverTimer);
+      hoverAt = -1;
+      endHover();
+    });
+  });
   function hoverTile(e: PointerEvent) {
-    if (!canHover || e.pointerType !== 'mouse' || noHover || scrubbing) return; // (scrubbing: the card stays)
+    if (!canHover || e.pointerType !== 'mouse' || noHover || scrubbing || menus.open) return; // (scrubbing: the card stays)
     const now = e.timeStamp;
     const dt = now - lastMove.t;
     const v = dt > 0 && dt < 100 ? Math.hypot(e.clientX - lastMove.x, e.clientY - lastMove.y) / dt : 0;
@@ -2083,6 +2094,7 @@
   id={scrollerId}
   class:fast-on={showFast}
   class:comics
+  class:menu-open={menus.open > 0}
   style:padding-top="{pad}px"
   style:padding-bottom="calc({GAP}px + var(--bottom-room))"
   class:selecting={selection.active}
@@ -2557,6 +2569,10 @@
      has a frame), lifting off the grid; it shrinks back when the mouse moves.
      It's laid out as the card at once and drawn there by a transform (fly): place
      and size in one go, on the compositor, never snapped to pixels. */
+  /* A menu open anywhere: the tiles take no hover or press (menuOpen). */
+  .menu-open .tile {
+    pointer-events: none;
+  }
   .tile.zoomed,
   .tile.shrinking {
     z-index: 5;

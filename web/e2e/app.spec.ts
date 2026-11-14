@@ -11205,9 +11205,11 @@ test('search bar: with its suggestions open, a press elsewhere only closes them;
   await box.click();
   await box.pressSequentially('blue');
   await expect(list).toBeVisible();
-  // A file pressed: the list closes, the file doesn't open.
+  // A file pressed: the list closes, the file doesn't open. (Its tiles take no pointer meanwhile - menuOpen: pressed
+  // where it is, as a hand would.)
   const tile = page.locator('.tile').nth(2);
-  await tile.click();
+  const tb = (await tile.boundingBox())!;
+  await page.mouse.click(tb.x + tb.width / 2, tb.y + tb.height / 2);
   await expect(list).toHaveCount(0);
   await page.waitForTimeout(400);
   await expect(page.locator('.viewer')).toHaveCount(0);
@@ -11476,4 +11478,47 @@ test('downloads queue: All / Downloads / Checks; a download that made way names 
   await expect.poll(order).toEqual([99601, 99602, 99603, 99604, 99605]);
   await expect(card(99603).locator('.grip')).toBeEnabled();
   await expect(card(99603).locator('.qcount')).toHaveCount(0);
+});
+
+test('grid: while a menu is open the tiles take no hover and no press - a click off it only closes it', async ({ page }) => {
+  test.skip(isPhone(page), 'a mouse');
+  await page.goto('/?q=system:type%3Dimage');
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  const card = page.locator('.tile.zoomed');
+  const viewer = page.locator('.viewer');
+  const hoverTile = async (n: number) => {
+    await page.mouse.move(2, 700);
+    const b = (await page.locator('.tile').nth(n).boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 4 });
+    await page.waitForTimeout(400);
+  };
+  // The filter menu (pressOutside): no card on hover; a click on a tile closes it and nothing else.
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Sort by/ })).toBeVisible();
+  await hoverTile(1);
+  await expect(card).toHaveCount(0);
+  await page.locator('.tile').nth(1).click({ force: true });
+  await expect(page.getByRole('button', { name: /^Sort by/ })).toHaveCount(0);
+  await page.waitForTimeout(400);
+  await expect(viewer).toHaveCount(0);
+  // Closed: hovering zooms again.
+  await hoverTile(2);
+  await expect(card).toHaveCount(1);
+  await page.mouse.move(2, 700);
+  await expect(card).toHaveCount(0);
+  // A tile's own menu (a backdrop): a click on another tile closes it, the viewer doesn't open.
+  await page.locator('.tile').nth(0).click({ button: 'right' });
+  await expect(page.getByRole('menu')).toBeVisible();
+  await hoverTile(3);
+  await expect(card).toHaveCount(0);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.getByRole('menu')).toHaveCount(0);
+  await page.waitForTimeout(400);
+  await expect(viewer).toHaveCount(0);
+  // A dropdown (Sort by, in the filter menu's page): the same.
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
+  await page.getByRole('button', { name: /^Sort by/ }).click();
+  await hoverTile(2);
+  await expect(card).toHaveCount(0);
 });
