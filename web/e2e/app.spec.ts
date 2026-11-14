@@ -11337,3 +11337,31 @@ test('downloads: a queue card\'s state and arrow sit at its right edge; a long s
   expect(Math.abs(open.chevRight - right)).toBeLessThanOrEqual(1);
   expect(open.chevTop - open.nameTop).toBeLessThan(20); // (beside its first line, not halfway down the search)
 });
+
+test('grid: the hover card\'s pictures fill it exactly - the bigger copy lands where the thumbnail was', async ({ page }) => {
+  test.skip(isPhone(page), 'a mouse');
+  await page.addInitScript(() => localStorage.setItem('vitrine.gridLayout', JSON.stringify('masonry')));
+  await page.goto('/?q=system:type%3Dimage');
+  await expect(page.locator('.tile img.in').first()).toBeVisible();
+  for (let n = 0; n < 4; n++) {
+    await page.mouse.move(2, 700);
+    await page.waitForTimeout(300);
+    await page.locator('.tile').nth(n).hover();
+    const card = page.locator('.tile.zoomed');
+    await expect(card.locator('.zoom-media.ready')).toHaveCount(1);
+    const got = await card.evaluate((el) => {
+      const pics = [...el.querySelectorAll<HTMLImageElement>('.fit > img')];
+      return {
+        w: el.offsetWidth,
+        h: el.offsetHeight,
+        fits: pics.map((p) => getComputedStyle(p).objectFit),
+        shapes: pics.map((p) => p.naturalWidth / p.naturalHeight),
+      };
+    });
+    // Filled, not covered: no fraction of a pixel cropped off either picture (each was snapped its own way: a jump).
+    expect(got.fits.length, JSON.stringify(got)).toBe(2);
+    for (const f of got.fits) expect(f, JSON.stringify(got)).toBe('fill');
+    // ... and the card is the picture's shape to within a pixel, so filling it stretches nothing you'd see.
+    for (const a of got.shapes) expect(Math.abs(got.h * a - got.w), JSON.stringify(got)).toBeLessThanOrEqual(1.5);
+  }
+});

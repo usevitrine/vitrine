@@ -2604,6 +2604,16 @@
   .tile .zoom-media.ready {
     opacity: 1;
   }
+  /* The hover card is in its file's own shape (to the pixel): its pictures - the thumbnail, then the bigger copy - fill
+     it exactly rather than cover it. Covered, a card a hair narrower or wider than the picture cropped a fraction of a
+     pixel off each side, a little more or less for each picture as their own shapes differ by a hair: drawn on whole
+     pixels, the bigger one landed a pixel off the thumbnail (2026-11-14, the user: "after they enlarge the thumbnail
+     shifts slightly to the left"; measured: half a pixel left on a 550x310 card). The stretch is under a pixel. Not a
+     comic's card: it's in its tile's shape, its cover cropped as there. */
+  .grid-scroller:not(.comics) .tile:is(.zoomed, .shrinking) .fit > img,
+  .grid-scroller:not(.comics) .tile:is(.zoomed, .shrinking) .fit > .zoom-media {
+    object-fit: fill;
+  }
   .preview-line {
     position: absolute;
     left: 0;

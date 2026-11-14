@@ -58,6 +58,20 @@ test('motion', async ({ page, browser, baseURL }, info) => {
   const settle = () => page.waitForTimeout(600);
 
   // ---- desktop
+  // The grid's hover card on pictures of several shapes (rows layout): it grows, then its bigger picture fades in over
+  // the thumbnail - nothing in it may move then (2026-11-14, the user: "after they enlarge the thumbnail shifts
+  // slightly to the left").
+  await page.evaluate(() => localStorage.setItem('vitrine.gridLayout', JSON.stringify('masonry')));
+  await page.goto('/?q=system:type%3Dimage');
+  await page.getByText(/^\d+ files?/).waitFor();
+  await settle();
+  for (let n = 0; n < 6; n++) {
+    const t = page.locator('.tile').nth(n);
+    if (!(await t.count())) break;
+    await record(page, `d-grid-hover-${n}`, () => t.hover(), { still: 900 });
+    await record(page, `d-grid-unhover-${n}`, () => page.mouse.move(2, 600), { still: 600 });
+  }
+  await page.evaluate(() => localStorage.setItem('vitrine.gridLayout', JSON.stringify('squares')));
   await page.goto('/');
   await page.getByText(/^\d+ files/).waitFor();
   await settle();

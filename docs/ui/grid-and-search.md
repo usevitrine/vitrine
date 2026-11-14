@@ -587,3 +587,13 @@ library itself on purpose (docs/ui/downloads-page.md).
     a frame every ~16 ms (none dropped). Rows resizing and collections' morphs, many tiles at once, stay on the
     compositor (holdInside). At rest the card's foot is pixel-identical before and after a zoom at 100%, 125% and 150%
     display scaling.
+
+## The hover card's picture doesn't move when the bigger copy comes (2026-11-14)
+The user: "certain thumbnails when i hover over them to enlarge them, after they enlarge the thumbnail shifts slightly to
+the left" - "the thumbnail itself doesnt shift, just the image inside it". The card is in its file's shape to the pixel,
+but a hair narrower or wider: covered (`object-fit: cover`), the thumbnail and the bigger copy - their own shapes a hair
+apart too - each had a fraction of a pixel cropped off its sides, snapped to whole pixels each its own way. Measured in
+Chromium (thumbnail only, then the bigger copy, the card still): half a pixel left on a 550x310 card. The card's pictures
+now fill it (`object-fit: fill`, a stretch under a pixel); a comic's card (in its tile's shape) still covers. Ruled out
+on the way: the thumbnails' own framing (vipsthumbnail centers within 0.02 px of exact). Tests: "the hover card's
+pictures fill it exactly"; motion recordings `d-grid-hover-N` (`e2e/motion.spec.ts`).
