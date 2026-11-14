@@ -615,11 +615,11 @@ from the viewer, the box under the picture fades back in".
 
 ## A menu open: the tiles take nothing (2026-11-14)
 The user: "every instance where a dropdown/menu is open and you click off to close it, the thumbnails shouldn't be
-interactable at all, including hover to zoom". : each open menu counts itself in -  for
-the menus it closes (dropdowns, the filter menu, saved searches, the top bar's popovers), the menus with a backdrop of
-their own (a file's menu, a tag's, the action menus, a chip's editor) from an , the search bar's suggestions
-while open. While any is: the grid's tiles take no pointer (), no hover card opens and an open one
-closes. The backdrops' closing press is swallowed with its click too (: with the backdrop gone, the
-click reached the tile under it and opened it). The swallow's guard now ends as the press does (just after its click,
-or at once if it makes none - the target gone meanwhile): it ate the next click instead, a menu's button pressed right
-after closing another did nothing. Test: "while a menu is open the tiles take no hover and no press".
+interactable at all, including hover to zoom". `lib/menuOpen`: each open menu counts itself in - `pressOutside` for the
+menus it closes (dropdowns, the filter menu, saved searches, the top bar's popovers), the menus with a backdrop of their
+own (a file's menu, a tag's, the action menus, a chip's editor) from an `$effect`, the search bar's suggestions while
+open. While any is: the grid's tiles take no pointer (`.menu-open .tile`), no hover card opens and an open one closes.
+The backdrops' closing press is swallowed with its click too (`swallowPress`: with the backdrop gone, the click reached
+the tile under it and opened it). The swallow's guard now ends as the press does (just after its click, or at once if it
+makes none - the target gone meanwhile): it ate the next click instead, so a menu's button pressed right after closing
+another did nothing. Test: "while a menu is open the tiles take no hover and no press".
