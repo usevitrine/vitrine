@@ -293,3 +293,14 @@ New download form, the queue and its stacks per site, subscriptions and groups, 
   tab, scroll to the download, and flash highlight it"): `router.focus = 'dl:<id>'`; Downloads opens the Queue (finished
   meanwhile: History, its Earlier part opened if it's there), its site unfolded and its stack spread out, scrolls it to
   the middle and flashes it (`data-dl`, the subscriptions' `flash`). "All" and "+N more" still just open the page.
+
+## A queue card's first line (2026-11-14)
+The user: "the expand arrow and status chip should be fixed to the right side of the card, and there's some overlap if
+a query is a certain length. It's sloppy" - then: "the single line carousel should have the new standardized carousel,
+if i click to expand it, it should show the entire query on multiple lines if necessary".
+- How far and how fast (or its state) and the arrow keep their width at the card's right edge, the same place on every
+  card. (They followed the search, and a long one pushed them over each other and past the edge.)
+- The search, closed: one line, the app's sliding line when it's too long (`lib/marquee`, the design rule "Text that
+  slides by itself") - a block, so a button doesn't center a search wider than itself (it showed its middle). Open: all
+  of it, wrapped on as many lines as it takes, the state and the arrow beside its first line.
+- Test: "a queue card's state and arrow sit at its right edge; a long search slides on one line, all of it open".

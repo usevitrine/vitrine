@@ -11277,3 +11277,63 @@ test('grid: a picked tile\'s band is as wide on every side, tall tile or wide', 
   expect(bands.some((b) => b.shape > 1.1) || bands.some((b) => b.shape < 0.9)).toBe(true); // (not all square)
   for (const b of bands) expect(Math.max(...b.sides) - Math.min(...b.sides), JSON.stringify(b)).toBeLessThanOrEqual(0.5);
 });
+
+test('downloads: a queue card\'s state and arrow sit at its right edge; a long search slides on one line, all of it open', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' }); // (measured at rest: a sliding line moves)
+  const base = { site: 'safebooru', max_posts: 0, site_total: 0, handled: 0, downloaded: 0, already: 0, deleted: 0, skipped: 0, blacklisted: 0, failed: 0, created_at: Date.now(), state: 'queued' };
+  const mine = [
+    { ...base, id: 99501, query: 'sky', position: 1 },
+    { ...base, id: 99502, query: 'blue_sky landscape some_artist', position: 2 },
+    { ...base, id: 99503, query: '( blue_sky ~ landscape ~ sunset ~ mountains ~ river ~ lake ~ forest ~ meadow ~ clouds ~ night_sky ) some_artist_with_a_long_name another_artist_with_a_long_name -rating:explicit -low_quality', position: 3 },
+  ];
+  await page.route('**/api/downloads', async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    body.searches = [...body.searches.filter((s: { state: string }) => s.state !== 'queued' && s.state !== 'running'), ...mine];
+    await r.fulfill({ response: res, json: body });
+  });
+  await page.goto('/downloads?focus=dl:99503');
+  for (const s of mine) await expect(page.locator(`[data-dl="${s.id}"]`)).toBeVisible();
+  const lines = await page.evaluate((ids) =>
+    ids.map((id) => {
+      const card = document.querySelector(`[data-dl="${id}"]`)!;
+      const r = (sel: string) => card.querySelector(sel)!.getBoundingClientRect();
+      const name = card.querySelector<HTMLElement>('.qname')!;
+      // (where its first letter is drawn: at its start, not the middle of a long search centered in the button)
+      const range = document.createRange();
+      const text = name.firstElementChild!.firstChild!; // (the marquee's line)
+      range.setStart(text, 0);
+      range.setEnd(text, 1);
+      const first = range.getBoundingClientRect().left;
+      return { id, card: r('.qhead'), name: r('.qname'), chip: r('.qtoggle .state'), chev: r('.qtoggle .chev'), cut: name.scrollWidth > name.clientWidth, first };
+    }), mine.map((s) => s.id));
+  const right = lines[0].chev.right;
+  for (const l of lines) {
+    const at = JSON.stringify({ id: l.id, name: l.name.right, chip: [l.chip.left, l.chip.right], chev: [l.chev.left, l.chev.right], card: l.card.right });
+    expect(Math.abs(l.chev.right - right), at).toBeLessThanOrEqual(1); // (the arrow: at the same place on every card)
+    expect(l.chev.right, at).toBeLessThanOrEqual(l.card.right); // (inside the card)
+    expect(l.chip.right, at).toBeLessThanOrEqual(l.chev.left); // (the state before the arrow)
+    expect(l.name.right, at).toBeLessThanOrEqual(l.chip.left); // (the search before the state)
+    expect(Math.abs(l.first - l.name.left), at).toBeLessThanOrEqual(2); // (its start shown)
+  }
+  expect(lines[2].cut).toBe(true); // (the long search: on one line, longer than it)
+  expect(lines[0].cut).toBe(false);
+  // The app's sliding line (lib/marquee) where it's too long.
+  await expect(page.locator('[data-dl="99503"] .qname')).toHaveClass(/\bmarquee\b/);
+  await expect(page.locator('[data-dl="99503"] .qname')).toHaveClass(/\blong\b/);
+  await expect(page.locator('[data-dl="99501"] .qname')).not.toHaveClass(/\blong\b/);
+  // Opened: all of it, on several lines; the state and the arrow still at the right, beside its first line.
+  const long = page.locator('[data-dl="99503"]');
+  await long.locator('.qtoggle').click();
+  await expect(long.locator('.qname')).not.toHaveClass(/\bmarquee\b/);
+  const open = await long.evaluate((card) => {
+    const name = card.querySelector<HTMLElement>('.qname')!;
+    const n = name.getBoundingClientRect();
+    const c = card.querySelector('.qtoggle .chev')!.getBoundingClientRect();
+    return { lines: n.height / parseFloat(getComputedStyle(name).lineHeight), cut: name.scrollWidth > name.clientWidth, chevRight: c.right, chevTop: c.top, nameTop: n.top };
+  });
+  expect(open.lines, JSON.stringify(open)).toBeGreaterThan(1.5);
+  expect(open.cut).toBe(false);
+  expect(Math.abs(open.chevRight - right)).toBeLessThanOrEqual(1);
+  expect(open.chevTop - open.nameTop).toBeLessThan(20); // (beside its first line, not halfway down the search)
+});

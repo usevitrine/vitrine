@@ -1,5 +1,6 @@
 <script lang="ts" module>
   import type { DownloadsAnswer, FailedPost as Failed } from '../lib/api';
+  import { marquee } from '../lib/marquee';
   // The page's last answer this session: shown at once when the page opens again while the next comes (2026-10-31,
   // the user: "sometimes for several seconds it shows that I have no queue or subs until they load in").
   let kept: { res: DownloadsAnswer; failed: Failed[] } | null = null;
@@ -1375,12 +1376,14 @@
   {@const g = s.state === 'running' && gal ? galleryNow(s) : null}
   {@const sum = summaryOf(s)}
   <div class="qhead">
-    <div class="qline">
+    <!-- The search: on one line, sliding to its end and back when it's long (the app's marquee); the card open, all of
+         it, on as many lines as it takes (2026-11-14, the user). -->
+    <div class="qline" class:open>
     {#if gal}
-      <span class="query one-line qname" title={s.query || t('push.everything')}>{named(s) || t('push.everything')}</span>
+      <span class="query qname" class:open class:marquee={!open} class:sliding={!open} title={s.query || t('push.everything')} {@attach marquee}><span>{named(s) || t('push.everything')}</span></span>
     {:else}
       <!-- Tapped: the library with this search, newest imported first (the user, 2026-11-12); the rest of the line opens the details. -->
-      <button class="qlink query one-line qname" onclick={() => openQuery(s.query)} title={t('downloads.searchLibrary', { query: s.query || t('push.everything') })}>{named(s) || t('push.everything')}</button>
+      <button class="qlink query qname" class:open class:marquee={!open} class:sliding={!open} onclick={() => openQuery(s.query)} title={t('downloads.searchLibrary', { query: s.query || t('push.everything') })} {@attach marquee}><span>{named(s) || t('push.everything')}</span></button>
     {/if}
     <button class="qtoggle" aria-expanded={open} aria-label={detailsLabel(s)} onclick={() => (qopen[s.id] = !open)}>
       {#if st === 'running'}
@@ -2169,13 +2172,30 @@
   }
   /* (the same sizes hovered or not: the toggle's hover rule is 100% wide - it pushed the link out from under the
      pointer between the press and the release, and the click went to neither) */
+  /* The search takes what's left and ends in "..."; the rest of the line - how far and how fast, or its state, and the
+     arrow - keeps its width and sits at the card's right edge, whatever the search's length (2026-11-14, the user: "the
+     expand arrow and status chip should be fixed to the right side of the card, and there's some overlap if a query
+     is a certain length" - they followed the search, and a long one pushed them over each other and past the edge). */
   .qhead .qline .qtoggle.qtoggle,
   .qhead .qline .qtoggle.qtoggle:hover:not(:disabled) {
-    flex: 1 1 0;
+    flex: 1 0 auto;
     width: auto;
+    justify-content: flex-end;
   }
-  .qhead .qline > .qlink.qlink {
+  .qhead .qline > .qname.qname,
+  .qhead .qline > .qname.qname:hover:not(:disabled) {
     flex: 0 1 auto;
+    min-width: 0;
+    /* (a block, so a button doesn't center a search wider than itself - it showed its middle) */
+    display: block;
+  }
+  /* Open: the whole search, wrapped; the state and the arrow stay beside its first line. */
+  .qhead .qline.open {
+    align-items: flex-start;
+  }
+  .qhead .qline > .qname.open {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   /* A search's words as a link to the library (over the line's own toggle, which covers the card's head). */
   .qlink,
