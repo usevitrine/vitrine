@@ -15,6 +15,10 @@ shows this too (Settings > Help & about).
 - **Menus**: while any menu or dropdown is open, thumbnails don't react: no hover preview, and clicking one only closes the menu. Clicking a button right after closing a menu no longer does nothing.
 - **Starting up**: Vitrine starts several times faster on a big library. It saves part of its search index when it stops and reads it back at the next start instead of rebuilding it; a library of over a million files started in about 5 seconds instead of 25. Anything changed in between is noticed, and the index is rebuilt as before.
 
+### Fixed
+
+- **Download counts**: a post whose file you deleted before now counts as "deleted before" instead of "already have".
+
 ## 1.1.0 - 2026-11-14
 
 ### Improved
@@ -23,7 +27,6 @@ shows this too (Settings > Help & about).
 
 ### Fixed
 
-- **Download counts**: a post whose file you deleted before now counts as "deleted before" instead of "already have".
 - **Selecting files**: the purple band around a selected thumbnail is the same width on every side, on tall and wide thumbnails alike.
 - **Hover previews**: the picture in an enlarged thumbnail no longer jumps a pixel when its sharper copy appears. A picture with a see-through background has the same grey behind it when enlarged as at rest, and that grey fades back in when you close it in the viewer, instead of showing the thumbnails underneath.
 - **Downloads queue**: on each card the state (or progress and speed) and the arrow stay at the right edge, whatever the search's length. A long search slides along its line like other long names, and opening the card shows all of it.
