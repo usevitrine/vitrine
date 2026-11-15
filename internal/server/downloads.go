@@ -185,9 +185,32 @@ func (s *Server) checkSingle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// forceDownload: POST /api/downloads/{id}/anyway -> {id} - that search's one post again, "anyway" (download.AddForced):
+// whatever the download rules, the blacklist or a deletion record say. Only a one-post download.
+func (s *Server) forceDownload(w http.ResponseWriter, r *http.Request) {
+	if !s.needDL(w) {
+		return
+	}
+	id, ok := pathID(w, r, "download")
+	if !ok {
+		return
+	}
+	src, err := s.dl.Get(r.Context(), int64(id))
+	if err != nil {
+		downloadError(w, download.ErrNoSearch)
+		return
+	}
+	n, err := s.dl.AddForced(r.Context(), src.Site, src.Query)
+	if err != nil {
+		downloadError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int64{"id": n})
+}
+
 func downloadError(w http.ResponseWriter, err error) {
 	switch {
-	case plugin.IsPostRef(err), errors.Is(err, download.ErrSinglePost):
+	case plugin.IsPostRef(err), errors.Is(err, download.ErrSinglePost), errors.Is(err, download.ErrNotOnePost):
 		writeError(w, http.StatusBadRequest, err)
 	case errors.Is(err, download.ErrNoSearch), errors.Is(err, download.ErrNoSubscription), errors.Is(err, download.ErrNoGroup):
 		writeError(w, http.StatusNotFound, err)

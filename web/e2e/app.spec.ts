@@ -11522,3 +11522,29 @@ test('grid: while a menu is open the tiles take no hover and no press - a click 
   await hoverTile(2);
   await expect(card).toHaveCount(0);
 });
+
+test('downloads: a one-post download that downloaded nothing can be run again anyway', async ({ page }) => {
+  const base = { site: 'safebooru', max_posts: 0, site_total: 1, handled: 1, downloaded: 0, already: 0, deleted: 0, skipped: 0, blacklisted: 0, failed: 0, created_at: Date.now(), finished_at: Date.now(), state: 'done', position: 0 };
+  const mine = [
+    { ...base, id: 99701, query: 'id:739747', already: 1 },
+    { ...base, id: 99702, query: 'id:5', downloaded: 1 },
+  ];
+  await page.route('**/api/downloads', async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    body.searches = [...body.searches, ...mine];
+    await r.fulfill({ response: res, json: body });
+  });
+  const asked: string[] = [];
+  await page.route('**/api/downloads/*/anyway', (r) => {
+    asked.push(new URL(r.request().url()).pathname);
+    return r.fulfill({ json: { id: 99799 } });
+  });
+  await page.goto('/downloads?focus=dl:99701');
+  const skipped = page.locator('[data-dl="99701"]');
+  await expect(skipped).toBeVisible();
+  await expect(page.locator('[data-dl="99702"] .anyway')).toHaveCount(0); // (it downloaded: nothing to take anyway)
+  await skipped.getByRole('button', { name: 'Download anyway' }).click();
+  await expect.poll(() => asked).toEqual(['/api/downloads/99701/anyway']);
+  await expect(page.locator('.toast', { hasText: 'anyway' })).toBeVisible();
+});

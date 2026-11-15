@@ -29,6 +29,15 @@ import (
 // tag, ...) - the caller's mistake, not a failure.
 var ErrInvalid = errors.New("invalid")
 
+type forceKey struct{}
+
+// WithForce marks an import "anyway" (a post downloaded whatever its deletion record says - download.AddForced): a file
+// deleted before comes back - from the trash if it's still there (with its tags), or as new once its record is cleared.
+func WithForce(ctx context.Context) context.Context { return context.WithValue(ctx, forceKey{}, true) }
+
+// Forced says whether ctx is marked by WithForce.
+func Forced(ctx context.Context) bool { b, _ := ctx.Value(forceKey{}).(bool); return b }
+
 // ErrDeleted means the file was deleted from the library before; deleted
 // files are never imported again.
 var ErrDeleted = errors.New("file was deleted from the library before")
@@ -170,6 +179,15 @@ func (l *Library) ImportPosted(ctx context.Context, r io.Reader, bulk bool, post
 	l.mu.Lock()
 	var now int64
 	f.ID, f.New, now, err = l.addRow(ctx, res, bulk, posted)
+	var trashed uint32
+	if errors.Is(err, ErrDeleted) && Forced(ctx) {
+		// "Anyway": still in the trash - back from it (below, without the lock: Undelete takes it); gone for good - its
+		// record cleared, then in as new.
+		trashed, err = l.forgetDeletion(ctx, res.SHA256[:])
+		if err == nil && trashed == 0 {
+			f.ID, f.New, now, err = l.addRow(ctx, res, bulk, posted)
+		}
+	}
 	if errors.Is(err, ErrDeleted) && !res.Existed {
 		// Don't keep a copy of a deleted file we just wrote.
 		if rmErr := l.store.Remove(res.SHA256, res.Type); rmErr != nil {
@@ -184,6 +202,10 @@ func (l *Library) ImportPosted(ctx context.Context, r io.Reader, bulk bool, post
 		err = l.ix.AddFile(in, nil)
 	}
 	l.mu.Unlock()
+	if err == nil && trashed != 0 {
+		f.ID, f.New = trashed, false
+		err = l.Undelete(ctx, []uint32{trashed})
+	}
 	if err == nil && !f.New && l.isComicOnly(ctx, f.ID) {
 		err = l.joinLibrary(ctx, f.ID) // (a comic had it: now the library too)
 	}
@@ -198,6 +220,23 @@ func (l *Library) ImportFile(ctx context.Context, path string) (File, error) {
 	}
 	defer fh.Close()
 	return l.Import(ctx, fh)
+}
+
+// forgetDeletion, for an import "anyway": the file with this sha256 if it's in the trash (Undelete brings it back), or
+// - gone for good - its deletion record removed (so it can come in again). The library lock is held.
+func (l *Library) forgetDeletion(ctx context.Context, sha []byte) (uint32, error) {
+	var id uint32
+	err := l.db.W.QueryRowContext(ctx, "SELECT id FROM files WHERE sha256 = ? AND deleted_at IS NOT NULL", sha).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("library: %w", err)
+	}
+	if _, err := l.db.W.ExecContext(ctx, "DELETE FROM tombstones WHERE sha256 = ?", sha); err != nil {
+		return 0, fmt.Errorf("library: %w", err)
+	}
+	return 0, nil
 }
 
 // addRow records a stored file. The tombstone check runs inside the write

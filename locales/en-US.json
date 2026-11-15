@@ -1593,7 +1593,10 @@
       "one": "After {name}'s check and {n} more",
       "other": "After {name}'s check and {n} more"
     },
-    "madeWayTitle": "Made way for a subscription check - show it"
+    "madeWayTitle": "Made way for a subscription check - show it",
+    "anyway": "Download anyway",
+    "anywayHint": "Past your download rules, the blacklist and deleted files - for this post only",
+    "anywayStarted": "Downloading {query} anyway"
   },
   "setup": {
     "skipAll": "Skip setup",

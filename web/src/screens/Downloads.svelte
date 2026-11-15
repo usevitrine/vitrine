@@ -160,9 +160,24 @@
       });
   }
 
+  // ---- One post "anyway" (2026-11-15, the user: "yes i want a download anyway" - a post kept out by their download
+  // rules and an earlier delete): a one-post download that ended with nothing downloaded can be run again past the
+  // rules, the blacklist and deletion records (a deleted file still in the trash comes back from it).
+  const onePost = (s: DownloadSearch) => /^id:\d+$/.test(s.query);
+  const anywayFits = (s: DownloadSearch) => onePost(s) && !s.subscription_id && s.state === 'done' && !s.downloaded && !s.force;
+  async function downloadAnyway(s: DownloadSearch) {
+    await attempt(async () => {
+      await api.downloadAnyway(s.id);
+      toasts.show(t('downloads.anywayStarted', { query: named(s) }), { cat: 'downloadsStarted', kind: 'info' });
+      changed();
+      refresh();
+    });
+  }
+
   /** A queued or finished search's ⋯ menu. */
   function searchItems(s: DownloadSearch, finishedRow: boolean): MenuItem[] {
     const items: MenuItem[] = [];
+    if (finishedRow && anywayFits(s)) items.push({ label: t('downloads.anyway'), icon: 'download', hint: t('downloads.anywayHint'), run: () => downloadAnyway(s) });
     if (finishedRow) {
       if (s.state === 'failed') items.push({ label: t('downloads.retry'), icon: 'retry', hint: t('downloads.whereStopped'), run: () => act(s, 'resume') });
     } else if (s.state === 'paused') {
@@ -1516,6 +1531,11 @@
         ><Icon name="bell" size={13} /><span class="madeway-text">{way.length > 1 ? t('downloads.afterChecks', { name: named(way[0]) || t('push.everything'), n: way.length - 1 }) : t('downloads.afterCheck', { name: named(way[0]) || t('push.everything') })}</span></button>
     {/if}
     {#if !open && sum}<span class="qsum" transition:reveal>{sum}</span>{/if}
+    {#if finishedRow && anywayFits(s)}
+      <!-- Nothing came of one post (seen, deleted before, a rule, the blacklist): it can be taken anyway. -->
+      <button class="anyway" title={t('downloads.anywayHint')} onclick={() => downloadAnyway(s)} transition:reveal
+        ><Icon name="download" size={13} />{t('downloads.anyway')}</button>
+    {/if}
     {#if !finishedRow && queueSort !== 'queue' && s.state !== 'running'}
       <!-- Ordered by file count: its count on the site (asked for as the order was picked). -->
       <span class="qcount" transition:reveal>
@@ -3965,6 +3985,36 @@
     .qrow.has-grip .qhead,
     .qrow.has-grip .qbody {
       transition: none;
+    }
+  }
+
+  /* "Download anyway" on a one-post download that downloaded nothing: as the made-way chip, quieter. */
+  .anyway,
+  .anyway:hover:not(:disabled) {
+    position: relative;
+    z-index: 1;
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 0;
+    height: auto;
+    padding: 3px 10px;
+    border: 1px solid var(--surface1);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: var(--font-small);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .anyway :global(svg) {
+    color: var(--mauve);
+  }
+  @media (hover: hover) {
+    .anyway:hover {
+      background: var(--surface0);
     }
   }
 </style>

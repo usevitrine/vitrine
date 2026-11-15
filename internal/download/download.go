@@ -260,7 +260,9 @@ type Search struct {
 	// SubscriptionID is set on a subscription's check.
 	SubscriptionID int64 `json:"subscription_id,omitempty"`
 	FirstCheck     bool  `json:"first_check,omitempty"` // a subscription's first check: a bulk download, not one of its checks
-	siteID         uint32
+	// Force: one post taken whatever the download rules, the blacklist and deletion records say (AddForced).
+	Force  bool `json:"force,omitempty"`
+	siteID uint32
 }
 
 // ErrUnknownSite means no plugin has that ID.
@@ -300,6 +302,40 @@ func (d *Downloader) AddTo(ctx context.Context, site, query string, maxPosts int
 	return id, nil
 }
 
+// AddForced queues one post "anyway" (2026-11-15, the user: a post their download rules and an earlier delete kept out
+// - "yes i want a download anyway"): taken whatever the download rules, the blacklist, an earlier sighting or a deletion
+// record say - one deleted and still in the trash comes back from it. Only one post's link or ID (never a whole search:
+// that would take every post the rules keep out). At the front of its site's queue.
+func (d *Downloader) AddForced(ctx context.Context, site, query string) (int64, error) {
+	s, ok := d.all()[site]
+	if !ok {
+		return 0, fmt.Errorf("%w: %q", ErrUnknownSite, site)
+	}
+	if d.IsOff(site) {
+		return 0, fmt.Errorf("%w: %s", ErrSiteOff, site)
+	}
+	post, single, err := plugin.SinglePost(s.Client.Manifest(), query)
+	if err != nil {
+		return 0, err
+	}
+	if !single {
+		return 0, ErrNotOnePost
+	}
+	var id int64
+	err = d.db.W.QueryRowContext(ctx, `
+		INSERT INTO searches (site_id, query, max_posts, position, created_at, force)
+		VALUES (?, ?, 0, (SELECT coalesce(min(position), 1) - 1 FROM searches WHERE site_id = ?), ?, 1)
+		RETURNING id`, s.ID, singleQuery(post), s.ID, d.now().UnixMilli()).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("download: %w", err)
+	}
+	d.wake(site)
+	return id, nil
+}
+
+// ErrNotOnePost: only one post can be downloaded anyway.
+var ErrNotOnePost = errors.New("only one post's link can be downloaded anyway")
+
 // LabelSearch names a search (a gallery's title for its link).
 func (d *Downloader) LabelSearch(ctx context.Context, id int64, label string) error {
 	if _, err := d.db.W.ExecContext(ctx, "UPDATE searches SET label = nullif(?, '') WHERE id = ?", strings.TrimSpace(label), id); err != nil {
@@ -320,13 +356,13 @@ func (d *Downloader) wake(site string) {
 const searchColumns = `s.id, si.name, s.site_id, s.query, s.state, s.max_posts, s.low_id, s.site_total, s.handled,
 	s.downloaded, s.already, s.deleted, s.skipped, s.blacklisted, s.failed, coalesce(s.error, ''), s.position, s.created_at,
 	coalesce(s.finished_at, 0), s.high_id, s.stop_id, coalesce(s.subscription_id, 0), s.attempts, coalesce(s.retry_at, 0),
-	s.stop_depth, s.pages, s.run_ms, coalesce(s.label, (SELECT label FROM subscriptions WHERE id = s.subscription_id), (SELECT title FROM comics c WHERE rtrim(c.url, '/') = rtrim(s.query, '/') AND c.deleted_at IS NULL LIMIT 1), '')`
+	s.stop_depth, s.pages, s.run_ms, s.force, coalesce(s.label, (SELECT label FROM subscriptions WHERE id = s.subscription_id), (SELECT title FROM comics c WHERE rtrim(c.url, '/') = rtrim(s.query, '/') AND c.deleted_at IS NULL LIMIT 1), '')`
 
 func scanSearch(row interface{ Scan(...any) error }) (Search, error) {
 	var s Search
 	err := row.Scan(&s.ID, &s.Site, &s.siteID, &s.Query, &s.State, &s.MaxPosts, &s.LowID, &s.SiteTotal, &s.Handled,
 		&s.Downloaded, &s.Already, &s.Deleted, &s.Skipped, &s.Blacklisted, &s.Failed, &s.Error, &s.Position, &s.CreatedAt, &s.FinishedAt,
-		&s.HighID, &s.StopID, &s.SubscriptionID, &s.Attempts, &s.RetryAt, &s.StopDepth, &s.Pages, &s.RunMS, &s.Label)
+		&s.HighID, &s.StopID, &s.SubscriptionID, &s.Attempts, &s.RetryAt, &s.StopDepth, &s.Pages, &s.RunMS, &s.Force, &s.Label)
 	s.FirstCheck = s.SubscriptionID != 0 && s.StopID == 0
 	return s, err
 }
@@ -795,11 +831,17 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 			}
 			d.freshLists(ctx, lists)
 			bl, rules := lists.bl, lists.rules
+			if s.Force { // (one post "anyway": no rules, no blacklist, past a deletion record - library.WithForce)
+				bl, rules = nil, library.DownloadRules{}
+			}
 			inflight++
 			next := slices.Clone(posts[i+1 : min(i+4, len(posts))]) // (the posts after it: one may have its page opened ahead)
 			go func(i int, p plugin.Post) {
 				pctx, untrack := d.trackPost(ctx, s.ID, p.ID)
 				pctx = withAhead(pctx, pf, next)
+				if s.Force {
+					pctx = library.WithForce(pctx)
+				}
 				postStart := d.now()
 				outcome, fileID, err := d.handle(pctx, st, p, bl, rules, bulk)
 				untrack()
@@ -1284,7 +1326,8 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 	if err == nil && prev == TooOld && p.Partial && rules.UploadedBefore > 0 {
 		return TooOld, 0, nil
 	}
-	if err == nil && prev != Failed && prev != Blacklisted && prev != TooBig && prev != TooOld {
+	forced := library.Forced(ctx) // (one post "anyway": not passed as seen, nor as deleted)
+	if err == nil && !forced && prev != Failed && prev != Blacklisted && prev != TooBig && prev != TooOld {
 		// Refresh what the site says now (tags, links, upload time): running a
 		// search again updates posts the library already has. (A partial post
 		// isn't opened for that: the tag refresh does it at its own pace.)
@@ -1311,7 +1354,7 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 			}
 			return Already, m.FileID, d.setSitePost(ctx, st, m.FileID, sitePost(fp), bl)
 		}
-		if m.Deleted {
+		if m.Deleted && !forced {
 			return Deleted, 0, nil
 		}
 	}

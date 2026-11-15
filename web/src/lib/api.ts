@@ -328,6 +328,7 @@ export interface DownloadSearch {
   finished_at?: number;
   subscription_id?: number; // set on a subscription's check
   first_check?: boolean; // its first check: a bulk download (it doesn't go first)
+  force?: boolean; // one post "anyway" (past the rules, the blacklist and deletion records)
   run_ms?: number; // how long it has worked (waiting of any kind doesn't count)
   run_now?: number; // working now: that at the server's answer (count on from when it came)
 }
@@ -695,6 +696,8 @@ export const api = {
   reorderDownloads: (site: string, ids: number[]) => post<{ ok: boolean }>('/api/downloads/reorder', { site, ids }),
   /** Asks the sites how many posts these waiting searches have (site_total; -2: the site doesn't say). In the background. */
   countDownloads: (ids: number[]) => post<{ counting: number }>('/api/downloads/count', { ids }),
+  /** That one-post download again, whatever the download rules, the blacklist or a deletion record say. */
+  downloadAnyway: (id: number) => post<{ id: number }>(`/api/downloads/${id}/anyway`, {}),
   // site: only the tags of its files, counted by them ('' = every file).
   tagList: (q: string, ns: string, site: string, sort: 'count' | 'name', offset: number, limit: number) =>
     get<{ total: number; tags: BrowsedTag[] }>(

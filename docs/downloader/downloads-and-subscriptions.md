@@ -310,3 +310,13 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   (`handled`: new, had, blacklisted, skipped, deleted before, failed) reach it - what the Downloads page counts against
   it. Before, it counted the files that ended up in the library (new + had), so blacklisted posts didn't use it up
   (the user changed it: the page's count and the limit should be the same thing). `TestMaxPostsCountsPosts`.
+- **One post "anyway" (2026-11-15)** (the user asked why realbooru post 739747 wouldn't download: uploaded in July 2020,
+  under their rule "skip files uploaded in or before 2020", and its file among the 308,677 they deleted with "delete files
+  uploaded in or before 2020" on 2026-11-03 - seen_posts kept it as handled, its file link emptied by the purge; then
+  "yes i want a download anyway"). A one-post download (`id:N`) that ended with nothing downloaded has **Download
+  anyway** (a button on its card, and in its menu): `POST /api/downloads/{id}/anyway` -> `download.AddForced`, a new
+  search with `searches.force` (migration 0057), at the front of its site's queue - only one post, never a whole search
+  (`ErrNotOnePost`). Forced (`library.WithForce`): not passed as seen, nor as deleted (the md5 lookup), no download
+  rules (year, sizes), no blacklist; the import past the file's deletion record (`library.forgetDeletion`): still in the
+  trash - back from it with its tags (Undelete); gone for good - its record removed and the file in as new. Tests:
+  `TestForcedPost`; "a one-post download that downloaded nothing can be run again anyway".
