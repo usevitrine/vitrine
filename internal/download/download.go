@@ -1328,6 +1328,23 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 	}
 	forced := library.Forced(ctx) // (one post "anyway": not passed as seen, nor as deleted)
 	if err == nil && !forced && prev != Failed && prev != Blacklisted && prev != TooBig && prev != TooOld {
+		// Its file deleted since (purged: the link emptied), or recorded as deleted: "deleted before", not "already
+		// had" - those counts said the library had files it didn't (2026-11-15: 311k such posts on the user's
+		// library, after deleting every file uploaded in or before 2020).
+		// (skipped before - a type Vitrine can't keep, gone from the site: no file either - stays skipped)
+		noFile := !prevFile.Valid || prevFile.Int64 <= 0
+		if !noFile && (prev == Downloaded || prev == Already) {
+			var gone bool // (in the trash: deleted as well)
+			if d.db.R.QueryRowContext(ctx, "SELECT deleted_at IS NOT NULL AND flags & 64 = 0 FROM files WHERE id = ?", prevFile.Int64).Scan(&gone) == nil && gone {
+				noFile = true
+			}
+		}
+		switch {
+		case prev == Deleted || (noFile && (prev == Downloaded || prev == Already)):
+			return Deleted, 0, nil
+		case prev == Skipped:
+			return Skipped, 0, nil
+		}
 		// Refresh what the site says now (tags, links, upload time): running a
 		// search again updates posts the library already has. (A partial post
 		// isn't opened for that: the tag refresh does it at its own pace.)

@@ -320,3 +320,8 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   rules (year, sizes), no blacklist; the import past the file's deletion record (`library.forgetDeletion`): still in the
   trash - back from it with its tags (Undelete); gone for good - its record removed and the file in as new. Tests:
   `TestForcedPost`; "a one-post download that downloaded nothing can be run again anyway".
+- **A seen post whose file is gone counts as deleted before (2026-11-15)** (the user, "yes" to it): a post seen before whose
+  file was deleted since - in the trash, or purged (its link emptied) - or that was recorded as deleted, counted as
+  "already had": the Downloads page said the library had files it didn't (311k such posts on the user's library). Now
+  "deleted before" (and recorded so); one skipped before (a type Vitrine can't keep, gone from the site) counts as skipped.
+  Test: TestSeenPostFileGoneCountsDeleted.

@@ -65,3 +65,35 @@ func TestForcedPost(t *testing.T) {
 		t.Fatalf("a whole search anyway: %v", err)
 	}
 }
+
+// A post seen before whose file is gone (deleted, purged: its link emptied) counts as "deleted before", not "already
+// had" - the library doesn't have it.
+func TestSeenPostFileGoneCountsDeleted(t *testing.T) {
+	e := newEnv(t, 8)
+	ctx := context.Background()
+	run := func(id int64) Search {
+		t.Helper()
+		if err := e.dl.RunQueue(ctx, "fake"); err != nil {
+			t.Fatal(err)
+		}
+		s, _ := e.dl.Get(ctx, id)
+		return s
+	}
+	id, _ := e.dl.Add(ctx, "fake", "id:5", 0)
+	run(id)
+	files := e.lib.Index().Search(mustParse(t, ""), e.dl.now()).IDs
+	if err := e.lib.Delete(ctx, files, ""); err != nil {
+		t.Fatal(err)
+	}
+	id, _ = e.dl.Add(ctx, "fake", "id:5", 0)
+	if s := run(id); s.Deleted != 1 || s.Already != 0 {
+		t.Fatalf("in the trash: %+v (want deleted before)", s)
+	}
+	if _, err := e.lib.EmptyTrash(ctx); err != nil {
+		t.Fatal(err)
+	}
+	id, _ = e.dl.Add(ctx, "fake", "id:5", 0)
+	if s := run(id); s.Deleted != 1 || s.Already != 0 || s.Downloaded != 0 {
+		t.Fatalf("gone for good: %+v (want deleted before)", s)
+	}
+}

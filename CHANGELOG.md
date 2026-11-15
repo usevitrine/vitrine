@@ -23,6 +23,7 @@ shows this too (Settings > Help & about).
 
 ### Fixed
 
+- **Download counts**: a post whose file you deleted before now counts as "deleted before" instead of "already have".
 - **Selecting files**: the purple band around a selected thumbnail is the same width on every side, on tall and wide thumbnails alike.
 - **Hover previews**: the picture in an enlarged thumbnail no longer jumps a pixel when its sharper copy appears. A picture with a see-through background has the same grey behind it when enlarged as at rest, and that grey fades back in when you close it in the viewer, instead of showing the thumbnails underneath.
 - **Downloads queue**: on each card the state (or progress and speed) and the arrow stay at the right edge, whatever the search's length. A long search slides along its line like other long names, and opening the card shows all of it.
