@@ -1227,7 +1227,8 @@
       let engaged = false;
       let id = -1;
       const down = (e: PointerEvent) => {
-        if (subSelecting || e.pointerType === 'mouse' || (e.target as HTMLElement).closest('button, a, input')) return;
+        // (the chips: a row of their own that a finger scrolls sideways - not the card's swipe)
+        if (subSelecting || e.pointerType === 'mouse' || (e.target as HTMLElement).closest('button, a, input, .qlink')) return;
         const chips = (e.target as HTMLElement).closest<HTMLElement>('.qchips');
         if (chips && chips.scrollWidth > chips.clientWidth) return; // (sideways there scrolls the chips)
         id = e.pointerId;
@@ -1736,7 +1737,11 @@
             {@render subQuery()}
           {:else}
             <!-- Tapped: the library with this search, newest imported first (the user, 2026-11-12). -->
-            <button class="qlink" onclick={() => openQuery(s.query)} title={t('downloads.searchLibrary', { query: s.query || t('push.everything') })}>{@render subQuery()}</button>
+            <!-- (not a button: a phone's Safari doesn't scroll what's inside a button under a finger, and the chips are a row a
+                 finger scrolls sideways - the user: "Make those a manual carousel"; a swipe scrolls, a tap opens the search) -->
+            <div class="qlink" role="link" tabindex="0" onclick={() => openQuery(s.query)}
+              onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), openQuery(s.query))}
+              title={t('downloads.searchLibrary', { query: s.query || t('push.everything') })}>{@render subQuery()}</div>
           {/if}
           {#if st === 'paused' || st === 'failed'}<span class="state {st}" transition:nudge>{stateLabel(st)}</span>{/if}
           {#if fresh}
@@ -2129,6 +2134,9 @@
                 {@render siteHead('subs:' + site.site, site.site, site.loose.length + site.groups.reduce((n, x) => n + x.subs.length, 0), t('downloads.notChecked2'))}
               {/if}
               {#if !sFolded}
+                <!-- (one box for the site's groups and subscriptions: folding the site slides it shut and open - what's in it
+                     only animated when added on its own) -->
+                <div class="site-body" transition:reveal>
                 {#each site.groups as { g, subs: members } (g.id)}
                   {@const gs = groupStats(g)}
                   {@const open = expanded.includes(g.id) || filtering}
@@ -2216,6 +2224,7 @@
                     {#each site.loose as s (s.id)}{@render subRow(s)}{/each}
                   </ul>
                 {/if}
+                </div>
               {/if}
             {/each}
           {:else}
@@ -2537,6 +2546,11 @@
     font-weight: 600;
     text-align: left;
     cursor: pointer;
+  }
+  .qlink:focus-visible {
+    outline: 2px solid var(--mauve);
+    outline-offset: 2px;
+    border-radius: 6px;
   }
   .head > .qlink,
   .head > .qlink:hover:not(:disabled) {
@@ -4321,5 +4335,11 @@
     .sub-bar :global(.bar-act) {
       padding: 0 10px;
     }
+  }
+
+  /* A site's groups and subscriptions in Subscriptions, as one box (its fold animates). */
+  .site-body {
+    display: grid;
+    gap: inherit;
   }
 </style>

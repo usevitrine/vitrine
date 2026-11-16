@@ -11742,3 +11742,29 @@ test("subscriptions: a comic's long title stays on one line, sliding to its end 
   await page.screenshot({ path: test.info().outputPath('long-title.png') });
   await page.evaluate((id) => fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), sub.id);
 });
+
+test("subscriptions: a search's chips are a row a finger scrolls (not inside a button); a tap or Enter still opens the library", async ({ page }) => {
+  test.skip(test.info().project.name === 'desktop-chromium', 'the phone and one desktop');
+  const tag = 'qchip_row_' + test.info().project.name.replace(/\W/g, '');
+  const q = `${tag} creator:some_artist_name series:a_series_name character:a_character general_tag_x another_tag_y`;
+  await page.goto('/downloads');
+  const sub = await page.evaluate((q) => fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: 'test-down', query: q, interval: 604800, initial_max: 0 }) }).then((r) => r.json()), q);
+  await page.reload();
+  await dlTab(page, 'Subscriptions');
+  const row = page.locator('li[data-sub] .qchips').filter({ hasText: tag });
+  await row.scrollIntoViewIfNeeded();
+  // (Safari on a phone doesn't scroll what's inside a button under a finger)
+  expect(await row.evaluate((el) => !el.closest('button') && el.scrollWidth > el.clientWidth + 20)).toBe(true);
+  await row.evaluate((el) => el.scrollTo({ left: 120 }));
+  await expect.poll(() => row.evaluate((el) => el.scrollLeft)).toBeGreaterThan(100);
+  await expect(row).toHaveClass(/fade-l/);
+  const link = page.getByRole('link').filter({ hasText: tag }); // (named by its chips)
+  await link.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`q=${tag}`));
+  await page.goto('/downloads');
+  await dlTab(page, 'Subscriptions');
+  await page.locator('li[data-sub] .qchips').filter({ hasText: tag }).click();
+  await expect(page).toHaveURL(new RegExp(`q=${tag}`));
+  await page.evaluate((id) => fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), sub.id);
+});

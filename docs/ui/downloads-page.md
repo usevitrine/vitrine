@@ -358,3 +358,11 @@ animated beautifully".
   multiple lines"): a subscription with a title of its own (a comic's label) shows it as the app's marquee, like a
   group's name - one line, sliding to its end and back by itself when it's long. Test: "subscriptions: a comic's long
   title stays on one line".
+- **A search's chips a finger scrolls (2026-11-16)** (the user: "Do the sub tag chips also carousel?" - "Make those a
+  manual carousel"): a subscription's search (its chips) was inside a button, and Safari on a phone doesn't scroll what's
+  inside a button under a finger; it is a `div role="link"` now (tabindex 0, Enter opens it) - a swipe scrolls the chips
+  sideways (soft edges where more are hidden), a tap opens the library with the search. The card's own swipe (its
+  actions) doesn't start on it. Test: "subscriptions: a search's chips are a row a finger scrolls".
+- **Folds animate (2026-11-16)** (the user: "do all the sub collapsibles animate open and closed? If they don't they
+  should"): a group's list already slid; a site's section in Subscriptions (several sites) snapped - its groups and
+  subscriptions are one box now (`.site-body`, `reveal`), so folding a site slides it shut and open.

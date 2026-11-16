@@ -10,6 +10,7 @@ shows this too (Settings > Help & about).
 - **Select subscriptions**: Select is now an icon in the top right corner of the Subscriptions card.
 - **Subscription groups**: a long group name stays on one line and slides to show the rest, instead of breaking onto the next line.
 - **Comic subscriptions**: a long comic title stays on one line and slides to show the rest.
+- **Subscriptions on a phone**: a subscription's tags scroll sideways under your finger, and folding a site's subscriptions slides open and shut.
 
 ### Fixed
 
