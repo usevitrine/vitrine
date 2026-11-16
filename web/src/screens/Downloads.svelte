@@ -447,6 +447,12 @@
   // known yet).
   let loaded = $state(kept !== null);
 
+  // The sites counting their searches now (the server's). Declared before show(): a return to the page shows the
+  // answer it kept at once, while the script is still running - set before this line, it threw, the page never came and
+  // Svelte looped (2026-11-16, the user: "if I change pages while the sub multi selector is active, I can't navigate
+  // back to the downloads page until I restart the app" - any tab, 1.2.0 on).
+  let countingSites = $state<string[]>([]);
+
   function show(res: DownloadsAnswer, failed: FailedPost[]) {
     sites = res.sites;
     sitesOff = res.sites_off ?? [];
@@ -751,8 +757,7 @@
     const checks = all.filter(isCheck).length;
     return { all: all.length + retriesShown.length, downloads: all.length - checks + retriesShown.length, checks };
   });
-  // The sites counting their searches now (the server's), and the searches asked about already (once each).
-  let countingSites = $state<string[]>([]);
+  // The searches asked about already (once each). (countingSites: before show(), which a return to the page runs at once.)
   const countAsked = new Set<number>();
   // (just asked: shown as counting until the server says which sites count - a moment)
   const countPending = new SvelteSet<number>();
@@ -1709,6 +1714,9 @@
     <div class="row">
       <div class="main">
         <div class="head">
+          <!-- Picking: its round check first on the line (the user: "the multi select check dot should be on individual subs
+               too.. the dot should be on the far left of the first line"); it grows in, the line glides over. -->
+          {#if subSelecting}<span class="pick-check" class:on={subPicked.has(s.id)} aria-hidden="true" transition:nudge><Icon name="check" size={13} /></span>{/if}
           <!-- Its health at a glance (working, checking, paused, failing, quiet for months) in the middle of a ring
                filling up to the next check (turning while it checks). -->
           <span class="status" title={t(`downloads.health.${h}`) + (s.paused ? '' : ' · ' + cap(nextCheck(s) || lastCheck(s)))}>

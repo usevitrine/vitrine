@@ -380,3 +380,12 @@ animated beautifully".
   one off; a row a finger scrolls) with Clear, and cards of rows saying what they do: MOVE TO GROUP - No group, every
   group all their sites have, New group... (asks a name); SUBSCRIPTIONS - Check now, Pause (some not paused), Resume
   (some paused), Unsubscribe (asks first). Test: "subscriptions: pick several as tags are picked".
+- **Each card's round check again (2026-11-16)** (the user: "the multi select check dot should be on individual subs too..
+  the dot should be on the far left of the first line"): while picking, every subscription has its round check first on
+  its first line (filled when picked; it grows in, the line glides over), besides its ring and tint.
+- **Back to Downloads stuck (2026-11-16, 1.2.0's; the user: "if I change pages while the sub multi selector is active, I
+  can't navigate back to the downloads page until I restart the app")**: two faults. A return to the page shows the
+  answer it kept at once, while its script still runs, and that set `countingSites` (the Queue's counting, 1.2.0) before
+  its line - a ReferenceError, the page never came (any tab, not only picking). And `menuOpened()` (2026-11-14) read the
+  count it raised inside the opening menu's $effect - every menu that opened looped until Svelte stopped it
+  (effect_update_depth_exceeded); now untracked. Test: "downloads: left while picking subscriptions and come back to".

@@ -11590,6 +11590,13 @@ test('subscriptions: pick several as tags are picked (hold one, tap more; the ro
   };
   await pick('bulk_a', 'bulk_b');
   await expect(row('bulk_a')).toHaveClass(/picked/);
+  // Each card has its round check while picking - filled when picked - first on its first line.
+  await expect(row('bulk_a').locator('.pick-check.on')).toBeVisible();
+  await expect(row('bulk_c').locator('.pick-check:not(.on)')).toBeVisible();
+  await page.waitForTimeout(300); // (grown in)
+  const dot = (await row('bulk_a').locator('.pick-check').boundingBox())!;
+  const ring = (await row('bulk_a').locator('.ring').boundingBox())!;
+  expect(dot.x + dot.width).toBeLessThanOrEqual(ring.x);
   await page.screenshot({ path: test.info().outputPath('picked.png') });
   // Unpicking in the card; the last one off ends picking.
   await fab(2).click();
@@ -11846,4 +11853,33 @@ test("details: with a mouse, the picked tags' card stays inside the details pane
     await page.screenshot({ path: test.info().outputPath(`card-${width}.png`) });
     await page.keyboard.press('Escape');
   }
+});
+
+test('downloads: left while picking subscriptions and come back to - it shows again; opening a menu never loops (it stuck)', async ({ page }) => {
+  test.skip(test.info().project.name === 'desktop-chromium', 'the phone and one desktop');
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/downloads');
+  const ids: number[] = await page.evaluate(async () => {
+    const out: number[] = [];
+    for (const q of ['leave_a', 'leave_b']) out.push((await (await fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: 'test-down', query: q, interval: 604800, initial_max: 0 }) })).json()).id);
+    return out;
+  });
+  await page.reload();
+  await dlTab(page, 'Subscriptions');
+  const card = page.locator('section.card', { has: page.getByRole('heading', { name: 'Subscriptions' }) });
+  await card.getByRole('button', { name: 'Select subscriptions' }).click();
+  await card.getByRole('button', { name: 'Select leave_a' }).click();
+  await expect(page.getByRole('button', { name: 'Use the picked subscription' })).toBeVisible();
+  // Away (the library), then back by the downloads menu: the page again, as it was kept.
+  await page.getByRole('button', { name: 'Media' }).click();
+  await expect(page).not.toHaveURL(/\/downloads$/);
+  await page.locator('header.topbar').getByRole('button', { name: /^Downloads/ }).click();
+  const menu = page.getByRole('dialog', { name: 'Downloads' });
+  await menu.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(page).toHaveURL(/\/downloads$/);
+  await expect(page.getByRole('heading', { name: 'Downloads', level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Use the picked subscription' })).toHaveCount(0); // (picking ended with the page)
+  expect(errors).toEqual([]);
+  await page.evaluate(async (ids) => { for (const id of ids) await fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); }, ids);
 });

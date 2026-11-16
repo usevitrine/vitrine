@@ -17,6 +17,7 @@ shows this too (Settings > Help & about).
 
 ### Fixed
 
+- **Coming back to Downloads**: after leaving the Downloads page, going back to it could show nothing until the app was restarted. Opening a menu also made the app loop briefly in the background. Both fixed.
 - **Picked subscriptions**: the ring around a picked subscription (and the flash of a just-added one) is no longer cut off at the corners.
 
 ## 1.2.0 - 2026-11-16
