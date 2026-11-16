@@ -1991,8 +1991,8 @@
               <button class="act" onclick={() => use(() => bulkMove(o.value))}>
                 <Icon name={o.value === 'new' ? 'plus' : o.value === '0' ? 'minus' : 'folder'} size={20} />
                 <span class="txt"
-                  ><span class="lbl">{o.label}</span><span class="sub"
-                    >{o.value === 'new' ? t('downloads.newGroupHint') : o.value === '0' ? t('downloads.noGroupHint') : t('downloads.intoGroupHint')}</span
+                  ><span class="lbl marquee sliding" {@attach marquee}><span>{o.label}</span></span><span class="sub marquee sliding" {@attach marquee}
+                    ><span>{o.value === 'new' ? t('downloads.newGroupHint') : o.value === '0' ? t('downloads.noGroupHint') : t('downloads.intoGroupHint')}</span></span
                   ></span>
               </button>
             {/each}
@@ -2001,23 +2001,23 @@
           <div class="group">
             <button class="act" onclick={() => use(() => bulkAct('check'))}>
               <Icon name="retry" size={20} />
-              <span class="txt"><span class="lbl">{t('downloads.checkNow')}</span><span class="sub">{t('downloads.checkNowHint')}</span></span>
+              <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('downloads.checkNow')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{t('downloads.checkNowHint')}</span></span></span>
             </button>
             {#if pickedSubs.some((x) => !x.paused)}
               <button class="act" onclick={() => use(() => bulkAct('pause'))}>
                 <Icon name="pause" size={20} />
-                <span class="txt"><span class="lbl">{t('video.pause')}</span><span class="sub">{t('downloads.pauseHint')}</span></span>
+                <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('video.pause')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{t('downloads.pauseHint')}</span></span></span>
               </button>
             {/if}
             {#if pickedSubs.some((x) => x.paused)}
               <button class="act" onclick={() => use(() => bulkAct('resume'))}>
                 <Icon name="play" size={20} />
-                <span class="txt"><span class="lbl">{t('downloads.resume')}</span><span class="sub">{t('downloads.resumeHint')}</span></span>
+                <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('downloads.resume')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{t('downloads.resumeHint')}</span></span></span>
               </button>
             {/if}
             <button class="act danger" onclick={() => use(() => bulkAct('remove'))}>
               <Icon name="close" size={20} />
-              <span class="txt"><span class="lbl">{t('downloads.unsubscribe')}</span><span class="sub">{t('downloads.unsubHint')}</span></span>
+              <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('downloads.unsubscribe')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{t('downloads.unsubHint')}</span></span></span>
             </button>
           </div>
         {/snippet}

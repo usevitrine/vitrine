@@ -11710,6 +11710,11 @@ test("details: the picked tags' card - its chips scroll sideways when they don't
   await expect(box).toHaveClass(/fade-l/);
   await expect(box).not.toHaveClass(/fade-r/); // (at its end)
   await page.screenshot({ path: test.info().outputPath('chips-end.png') });
+  // A row's long line (all five, OR between them) slides to its end and back by itself, as the app's other long lines.
+  const anyLine = card.getByRole('button', { name: /Files with any of them/ }).locator('.sub');
+  await expect(anyLine).toHaveClass(/long/);
+  await page.waitForTimeout(2500);
+  expect(await anyLine.locator('span').evaluate((el) => getComputedStyle(el).transform)).not.toBe('none');
   // The last chip's × still takes it off.
   await card.getByRole('button', { name: 'Unpick blue_sky' }).click();
   await expect(page.getByRole('dialog', { name: '4 tags picked' })).toBeVisible();

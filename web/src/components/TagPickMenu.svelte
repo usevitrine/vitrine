@@ -8,6 +8,7 @@
   import PickMenu from './PickMenu.svelte';
   import Icon from './Icon.svelte';
   import { nudge } from '../lib/motion';
+  import { marquee } from '../lib/marquee';
   import { splitTag } from '../lib/namespaces.svelte';
   import { t } from '../lib/i18n.svelte';
 
@@ -47,17 +48,17 @@
     <div class="group">
       <button class="act" onclick={() => use(() => onuse('all'))}>
         <Icon name="search" size={20} />
-        <span class="txt"><span class="lbl">{many ? t('details.filesAll') : t('details.filesWith')}</span><span class="sub">{names(' ')}</span></span>
+        <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{many ? t('details.filesAll') : t('details.filesWith')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{names(' ')}</span></span></span>
       </button>
       {#if many}
         <button class="act" onclick={() => use(() => onuse('any'))} transition:nudge>
           <Icon name="or" size={20} />
-          <span class="txt"><span class="lbl">{t('details.filesAny')}</span><span class="sub">{names(' OR ')}</span></span>
+          <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('details.filesAny')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{names(' OR ')}</span></span></span>
         </button>
       {/if}
       <button class="act" onclick={() => use(() => onuse('add'))}>
         <Icon name="plus" size={20} />
-        <span class="txt"><span class="lbl">{t('details.addToSearch')}</span></span>
+        <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('details.addToSearch')}</span></span></span>
       </button>
     </div>
 
@@ -65,19 +66,19 @@
     <div class="group">
       <button class="act" onclick={() => use(() => onuse('download'))}>
         <Icon name="download" size={20} />
-        <span class="txt"><span class="lbl">{many ? t('details.dlAll') : t('details.dlIt')}</span><span class="sub">{t('details.dlHint', { n: chosen.length })}</span></span>
+        <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{many ? t('details.dlAll') : t('details.dlIt')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{t('details.dlHint', { n: chosen.length })}</span></span></span>
       </button>
       {#if many}
         <button class="act" onclick={() => use(() => onuse('download-any'))} transition:nudge>
           <Icon name="or" size={20} />
-          <span class="txt"><span class="lbl">{t('details.dlAny')}</span><span class="sub">{t('details.dlAnyHint')}</span></span>
+          <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('details.dlAny')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{t('details.dlAnyHint')}</span></span></span>
         </button>
       {/if}
       <button class="act danger" disabled={allOut} onclick={() => use(() => onuse('blacklist'))}>
         <Icon name="eyeoff" size={20} />
         <span class="txt"
-          ><span class="lbl">{allOut ? t('details.allBlacklisted') : many ? t('details.blacklistThem') : t('details.blacklistIt')}</span><span class="sub"
-            >{t('details.blHint', { n: chosen.length })}</span
+          ><span class="lbl marquee sliding" {@attach marquee}><span>{allOut ? t('details.allBlacklisted') : many ? t('details.blacklistThem') : t('details.blacklistIt')}</span></span><span class="sub marquee sliding" {@attach marquee}
+            ><span>{t('details.blHint', { n: chosen.length })}</span></span
           ></span>
       </button>
     </div>

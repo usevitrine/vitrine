@@ -19,6 +19,8 @@ export function measure(box: HTMLElement) {
 export function marquee(box: HTMLElement) {
   const ro = new ResizeObserver(() => measure(box));
   ro.observe(box);
+  // (and as its text changes - a picked tag taken off shortens "a OR b OR c" - its box stays as wide)
+  if (box.firstElementChild) ro.observe(box.firstElementChild);
   measure(box);
   return () => ro.disconnect();
 }

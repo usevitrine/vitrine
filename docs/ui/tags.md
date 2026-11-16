@@ -146,3 +146,7 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   one-post check (id:N, a post's link) only with one site. Test: "new download from tags: several sites at once".
 - **Shared with the subscriptions (2026-11-16)**: the round button and its card are `PickMenu` (title, chips, Clear,
   and the caller's rows); the tags' rows are `TagPickMenu`; the Downloads page's Subscriptions use it too. With a mouse the card stays inside the details panel (`within`: no wider than it, its left edge not past it - the user: "On desktop the multi select menu on the details panel hangs over the edge of the details panel"; test: "details: with a mouse, the picked tags' card stays inside the details panel").
+- **Long lines in the card slide (2026-11-16)** (the user: "some of the items that can have long lines should be auto
+  carousels too"): each row's title and second line (e.g. "a OR b OR c") is the app's marquee - one line, sliding to its
+  end and back by itself when it doesn't fit (the subscriptions' card too); `lib/marquee` measures again when the text
+  changes (a tag taken off), not only when its box does.
