@@ -1708,7 +1708,7 @@
     <div class="row">
       <div class="main">
         <div class="head">
-          {#if subSelecting}<span class="pick-check" class:on={subPicked.has(s.id)} aria-hidden="true" transition:pop><Icon name="check" size={13} /></span>{/if}
+          {#if subSelecting}<span class="pick-check" class:on={subPicked.has(s.id)} aria-hidden="true" transition:nudge><Icon name="check" size={13} /></span>{/if}
           <!-- Its health at a glance (working, checking, paused, failing, quiet for months) in the middle of a ring
                filling up to the next check (turning while it checks). -->
           <span class="status" title={t(`downloads.health.${h}`) + (s.paused ? '' : ' · ' + cap(nextCheck(s) || lastCheck(s)))}>
@@ -2156,7 +2156,7 @@
                             {#if subSelecting}
                               {@const all = members.length > 0 && members.every((x) => subPicked.has(x.id))}
                               <button class="pick-check group-pick" class:on={all} aria-pressed={all} aria-label={t('downloads.pickGroup', { name: g.name })}
-                                onclick={() => pickGroup(members)} transition:pop><Icon name="check" size={13} /></button>
+                                onclick={() => pickGroup(members)} transition:nudge><Icon name="check" size={13} /></button>
                             {/if}
                             <button class="group-title" class:open aria-expanded={open} aria-label={t(open ? 'downloads.foldName' : 'downloads.unfoldName', { name: g.name })} onclick={() => toggleGroup(g.id)}>
                               <Icon name="right" size={16} />

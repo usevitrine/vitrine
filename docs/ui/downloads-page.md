@@ -353,7 +353,7 @@ animated beautifully".
 - **Select as an icon (2026-11-16)** (the user: "I don't [like] the select button in the subs section. It should just be
   an icon in the top right of the card"): Select is the two-checks icon in the Subscriptions card's top right corner
   (beside the title, like New download's settings icon), with two or more subscriptions; while selecting it is a lit ×
-  (Done selecting). Labels: "Select subscriptions" / "Done selecting".
+  (Done selecting). Labels: "Select subscriptions" / "Done selecting". The round checks grow in and out (`nudge`: their width slides), so the titles beside them glide over instead of jumping (the user: "the text next to it doesn't neatly animate into position").
 - **A subscription's title on one line (2026-11-16)** (the user: "comic titles in subscriptions are also breaking onto
   multiple lines"): a subscription with a title of its own (a comic's label) shows it as the app's marquee, like a
   group's name - one line, sliding to its end and back by itself when it's long. Test: "subscriptions: a comic's long
