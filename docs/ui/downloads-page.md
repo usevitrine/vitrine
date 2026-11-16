@@ -354,3 +354,7 @@ animated beautifully".
   an icon in the top right of the card"): Select is the two-checks icon in the Subscriptions card's top right corner
   (beside the title, like New download's settings icon), with two or more subscriptions; while selecting it is a lit ×
   (Done selecting). Labels: "Select subscriptions" / "Done selecting".
+- **A subscription's title on one line (2026-11-16)** (the user: "comic titles in subscriptions are also breaking onto
+  multiple lines"): a subscription with a title of its own (a comic's label) shows it as the app's marquee, like a
+  group's name - one line, sliding to its end and back by itself when it's long. Test: "subscriptions: a comic's long
+  title stays on one line".

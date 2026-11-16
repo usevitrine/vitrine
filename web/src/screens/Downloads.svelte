@@ -1721,7 +1721,9 @@
           </span>
           {#snippet subQuery()}
             {#if s.label}
-              <span class="query" title={s.query}>{s.label}</span>
+              <!-- A title (a comic's): one line, sliding to its end and back when it's long (the app's marquee - the user:
+                   "comic titles in subscriptions are also breaking onto multiple lines"). -->
+              {#key s.label}<span class="query marquee sliding" title={s.query} {@attach marquee}><span>{s.label}</span></span>{/key}
             {:else}
               <!-- The search as chips (excluded terms marked, a namespace's color). -->
               <span class="query qchips" title={s.query} {@attach edgeFades}
@@ -3169,6 +3171,10 @@
     justify-content: space-between;
     gap: 8px;
     margin: -6px -6px -6px 0; /* the button's own room, not the title's */
+  }
+  /* (no button in it - Subscriptions with one: no Select - the title keeps its usual room) */
+  .title-row:not(:has(button)) {
+    margin: 0;
   }
   .title-row button.manage {
     flex: none;

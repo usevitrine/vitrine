@@ -11717,3 +11717,28 @@ test('subscription groups: a long name stays on one line, sliding to its end and
     for (const g of groups ?? []) if (g.id === sub.group_id) await fetch(`/api/sub-groups/${g.id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   }, sub);
 });
+
+test("subscriptions: a comic's long title stays on one line, sliding to its end and back", async ({ page }) => {
+  test.skip(test.info().project.name === 'desktop-chromium', 'the phone and one desktop');
+  const label = 'A Rather Long Comic Title That Goes On And On Past The Edge ' + test.info().project.name;
+  await page.goto('/downloads');
+  const sub = await page.evaluate(
+    (label) =>
+      fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: 'test-down', query: 'long_title_' + label.length, interval: 604800, initial_max: 0, label }) }).then((r) => r.json()),
+    label,
+  );
+  await page.reload();
+  await dlTab(page, 'Subscriptions');
+  const title = page.locator('li[data-sub] .query', { hasText: label });
+  await expect(title).toBeVisible();
+  await title.scrollIntoViewIfNeeded();
+  const lineH = await title.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || 24);
+  expect((await title.boundingBox())!.height).toBeLessThan(lineH * 1.5); // one line
+  if (test.info().project.name === 'iphone') {
+    await expect(title).toHaveClass(/long/);
+    await page.waitForTimeout(2500);
+    expect(await title.locator('span').evaluate((el) => getComputedStyle(el).transform)).not.toBe('none'); // moving
+  }
+  await page.screenshot({ path: test.info().outputPath('long-title.png') });
+  await page.evaluate((id) => fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), sub.id);
+});
