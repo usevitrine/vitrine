@@ -319,6 +319,21 @@ func TestGalleryDownload(t *testing.T) {
 	if c := comics()[0]; c.Have != 6 || c.Cover == 0 {
 		t.Fatalf("downloaded again: %+v", c)
 	}
+	// A subscription to the gallery: the Downloads page shows its comic's cover, then its last 3 pages (not the cover).
+	sub, err := e.dl.Subscribe(ctx, "galleries", strings.TrimSuffix(list[0].URL, "/"), time.Hour, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	looks, err := e.dl.SubscriptionLooks(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := looks[sub]; l == nil || l.Comic != list[0].ID || l.Cover == 0 || len(l.Recent) != 3 || containsID(l.Recent, l.Cover) {
+		t.Fatalf("the gallery subscription's look: %+v", l)
+	}
+	if err := e.dl.Unsubscribe(ctx, sub); err != nil {
+		t.Fatal(err)
+	}
 
 	// A newer version with a page added at the start (302): the pages move along by their keys - only the new
 	// picture is asked for.
@@ -363,4 +378,13 @@ func TestGalleryDownload(t *testing.T) {
 	if other.ID == 0 || served != 1 || len(k) != 2 || k[0].File != after[3].File || k[1].Key != "0000000077" {
 		t.Fatalf("another gallery: %d picture pages fetched (want 1); pages %+v", served, k)
 	}
+}
+
+func containsID(list []uint32, id uint32) bool {
+	for _, x := range list {
+		if x == id {
+			return true
+		}
+	}
+	return false
 }

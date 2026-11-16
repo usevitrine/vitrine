@@ -366,3 +366,7 @@ animated beautifully".
 - **Folds animate (2026-11-16)** (the user: "do all the sub collapsibles animate open and closed? If they don't they
   should"): a group's list already slid; a site's section in Subscriptions (several sites) snapped - its groups and
   subscriptions are one box now (`.site-body`, `reveal`), so folding a site slides it shut and open.
+- **A comic subscription's pictures (2026-11-16)** (the user: "for comic subs, it only shows the cover thumbnail"): a
+  subscription to one gallery the library has shows the row of four the others have - its comic's cover first (a soft
+  mauve ring), then its last pages (`SubscriptionLooks`: a gallery's Recent is its last 3 pages, the cover left out);
+  a tap on the row opens the comic. (Before: the cover alone, "its pages aren't library files".)

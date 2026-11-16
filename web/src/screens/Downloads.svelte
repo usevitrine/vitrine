@@ -1752,9 +1752,11 @@
           {@render bar(s.check)}
         {/if}
         {#if look?.cover}
-          <!-- A gallery: its comic's cover (it opens the comic). -->
-          <button class="pics cover-pic" onclick={() => router.go('comics', String(look.comic))} aria-label={t('downloads.openComic')} title={t('downloads.openComic')}>
-            <img src={look.cover.thumb} alt="" loading="lazy" use:fadeImg />
+          <!-- A gallery: its comic's cover, then its last pages, in the row the others have (2026-11-16, the user: "for
+               comic subs, it only shows the cover thumbnail"); a tap opens the comic. -->
+          <button class="pics comic-pics" onclick={() => router.go('comics', String(look.comic))} aria-label={t('downloads.openComic')} title={t('downloads.openComic')}>
+            <span class="pic cover"><img src={look.cover.thumb} alt="" loading="lazy" use:fadeImg /></span>
+            {#each look.recent ?? [] as p (p.id)}<span class="pic"><img src={p.thumb} alt="" loading="lazy" use:fadeImg /></span>{/each}
           </button>
         {:else if look?.recent?.length}
           <!-- The newest files it found. -->
@@ -3927,24 +3929,35 @@
     border-radius: 7px;
     background: var(--surface0);
   }
-  .pic img,
-  .cover-pic img {
+  .pic img {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
-  .cover-pic {
-    display: block;
-    width: 66px;
+  .comic-pics,
+  .comic-pics:hover:not(:disabled) {
+    width: 100%;
     height: auto;
     min-height: 0;
-    aspect-ratio: 0.7;
     padding: 0;
-    overflow: hidden;
-    border-radius: 8px;
-    background: var(--surface0);
+    border: 0;
+    background: none;
+    cursor: pointer;
   }
+  /* (the cover: marked as the comic's own - a ring in its color) */
+  .comic-pics .cover {
+    position: relative;
+  }
+  .comic-pics .cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mauve) 55%, transparent);
+    pointer-events: none;
+  }
+
   .facts {
     display: flex;
     flex-wrap: wrap;

@@ -764,7 +764,7 @@ func (d *Downloader) readLastFound(ctx context.Context) (map[int64]int64, error)
 // (still in the library), or for a gallery the library has, its comic and cover; and how many files it downloaded
 // since a time (the page's "new since you last looked").
 type SubLook struct {
-	Recent []uint32 // its newest posts in the library (downloaded by it or not), newest first, at most 4
+	Recent []uint32 // its newest posts in the library (downloaded by it or not), newest first, at most 4; a gallery's: its last pages, at most 3
 	Comic  int64    // a gallery subscription's comic (0: none)
 	Cover  uint32   // ... its cover file
 	Pages  int      // ... its pages
@@ -774,6 +774,9 @@ type SubLook struct {
 // Each a few steps into an index per subscription (file_sources_sub_recent, file_sources_sub_found - their conditions
 // repeated) - not a pass over all its files: 6-7 s for the page's 260 subscriptions on ~600k files before (2026-10-31).
 const (
+	// A gallery's comic: its last pages (the newest a growing gallery got), the cover left out - shown after it.
+	pagesSQL = `SELECT p.file_id FROM comic_pages p JOIN files f ON f.id = p.file_id AND f.deleted_at IS NULL
+	WHERE p.comic_id = ? AND p.file_id != ? ORDER BY p.page DESC LIMIT 3`
 	recentSQL = `SELECT fs.file_id FROM file_sources fs JOIN files f ON f.id = fs.file_id AND f.deleted_at IS NULL
 	WHERE fs.subscription_id = ? AND fs.subscription_id IS NOT NULL ORDER BY fs.sort_at DESC, fs.file_id DESC LIMIT 4`
 	freshSQL = `SELECT count(*) FROM file_sources fs JOIN files f ON f.id = fs.file_id AND f.deleted_at IS NULL
@@ -831,7 +834,20 @@ func (d *Downloader) SubscriptionLooks(ctx context.Context, since int64) (map[in
 			}
 		}
 		if l.Comic != 0 {
-			continue // (a gallery: its cover - its pages aren't library files)
+			// A gallery: its cover, then its last pages (2026-11-16, the user: "for comic subs, it only shows the cover
+			// thumbnail").
+			r, err := d.db.R.QueryContext(ctx, pagesSQL, l.Comic, l.Cover)
+			if err != nil {
+				return nil, fmt.Errorf("download: %w", err)
+			}
+			for r.Next() {
+				var f uint32
+				if err := r.Scan(&f); err == nil {
+					l.Recent = append(l.Recent, f)
+				}
+			}
+			r.Close()
+			continue
 		}
 		// Its newest posts in the library - the ones it met that were there already too (2026-10-23: a subscription
 		// whose posts another download had got first showed none). Down file_sources_sub_recent (migration 0047).
