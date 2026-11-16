@@ -130,7 +130,7 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   panel I just don't like the experience of. How it looks, how cramped the popup menu is with the buttons"; picked from
   mockups: "For the floating pill I like 4. For the sheet I like 3"): picking still starts by holding a tag (right-click,
   the context-menu key) and taps pick more; instead of the bar under the tags, a **round mauve button with the count**
-  floats at the bottom right (`TagPickMenu`, on top of the page, above the keyboard). The picked chips are one line sliding to its end and back when they don't fit (the app's marquee, `lib/marquee`; held still under a finger or the pointer so an × is easy to hit - the user: "The tag chips here should be a scrollable carousel"). It opens a card - a sheet on
+  floats at the bottom right (`TagPickMenu`, on top of the page, above the keyboard). The picked chips are one line a finger (or a wheel) scrolls sideways when they don't fit, as the search bar's, out to the card's edges, soft edges only where more are hidden (the user: "The tag chips here should be a scrollable carousel" - "I wanna be able to scroll with my finger"; for a moment it slid by itself, the app's marquee). It opens a card - a sheet on
   phones, above the button with a mouse: "N tags picked" and **Clear** (ends picking), the picked tags as chips (× takes
   one off; the last one off ends picking), then cards whose rows say what they do: SEARCH - Files with all of them (the
   tags under it), Files with any of them ("a OR b", two or more), Add to the current search; DOWNLOAD - Download all of

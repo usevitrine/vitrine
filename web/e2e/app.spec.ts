@@ -11651,3 +11651,37 @@ test('new download from tags: several sites at once - checked beside each, a sea
   await expect(page.getByText(/Downloading .blue_sky. from safebooru\.org, test-down\.invalid/)).toBeVisible();
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
+
+test("details: the picked tags' card - its chips scroll sideways when they don't fit, soft edges only where more are hidden", async ({ page }) => {
+  test.skip(test.info().project.name === 'desktop-chromium', 'the phone and one desktop');
+  const names = ['a_rather_long_example_tag', 'one_girl', 'arms_between_legs', 'school_uniform_long', 'blue_sky'];
+  await page.route('**/api/files/*/tags', async (r) => {
+    const j = await (await r.fetch()).json();
+    j.tags = names.map((tag) => ({ tag, origins: ['user'] }));
+    await r.fulfill({ json: j });
+  });
+  await page.goto('/?q=blue_sky');
+  await page.locator('.tile[data-i="0"]').click();
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  const tags = page.getByRole('region', { name: 'Tags' });
+  await tags.getByRole('button', { name: names[0], exact: true }).waitFor();
+  await page.waitForTimeout(500);
+  await tags.getByRole('button', { name: names[0], exact: true }).click({ button: 'right' });
+  for (const n of names.slice(1)) await tags.getByRole('button', { name: n, exact: true }).click();
+  await page.getByRole('button', { name: 'Use the 5 picked tags' }).click();
+  const card = page.getByRole('dialog', { name: '5 tags picked' });
+  const row = card.getByRole('list', { name: 'Picked tags' });
+  const box = card.locator('.chips-box');
+  await expect(box).toHaveClass(/fade-r/);
+  await expect(box).not.toHaveClass(/fade-l/); // (at its start: nothing hidden before it)
+  expect(await row.evaluate((el) => el.scrollWidth > el.clientWidth + 20)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('chips-start.png') });
+  await row.evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
+  await expect(box).toHaveClass(/fade-l/);
+  await expect(box).not.toHaveClass(/fade-r/); // (at its end)
+  await page.screenshot({ path: test.info().outputPath('chips-end.png') });
+  // The last chip's × still takes it off.
+  await card.getByRole('button', { name: 'Unpick blue_sky' }).click();
+  await expect(page.getByRole('dialog', { name: '4 tags picked' })).toBeVisible();
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});

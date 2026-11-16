@@ -21,7 +21,6 @@
   import { phone } from '../lib/media';
   import { pop, nudge } from '../lib/motion';
   import { splitTag } from '../lib/namespaces.svelte';
-  import { marquee, measure } from '../lib/marquee';
   import { t } from '../lib/i18n.svelte';
 
 
@@ -72,14 +71,26 @@
   // (the last one taken off ends picking - the component goes with it)
   const names = (sep: string) => chosen.map((x) => splitTag(x).name).join(sep);
   const many = $derived(chosen.length > 1);
-  // The chips: one line sliding to its end and back when they don't fit (the app's marquee, as a download's search -
-  // the user: "The tag chips here should be a scrollable carousel"); held still under a finger or the pointer, so
-  // an × is easy to hit; measured again when one goes.
-  let chipsBox = $state<HTMLElement>();
+  // The chips: one line a finger (or a wheel) scrolls sideways when they don't fit, as the search bar's (the user:
+  // "The tag chips here should be a scrollable carousel" - "I wanna be able to scroll with my finger"); soft edges
+  // only where more are out of view (the app's rule), checked again when one goes.
+  let chipsEl = $state<HTMLElement>();
+  let fadeL = $state(false);
+  let fadeR = $state(false);
+  function edges() {
+    if (!chipsEl) return;
+    fadeL = chipsEl.scrollLeft > 2;
+    fadeR = chipsEl.scrollLeft + chipsEl.clientWidth < chipsEl.scrollWidth - 2;
+  }
   $effect(() => {
     void chosen.length;
-    if (chipsBox) requestAnimationFrame(() => chipsBox && measure(chipsBox));
+    requestAnimationFrame(edges);
   });
+  const watchChips = (el: HTMLElement) => {
+    const ro = new ResizeObserver(edges);
+    ro.observe(el);
+    return () => ro.disconnect();
+  };
   const allOut = $derived(chosen.length > 0 && chosen.every(blacklisted));
 
   function keydown(e: KeyboardEvent) {
@@ -147,8 +158,8 @@
         <span class="title">{t('details.tagsPicked', { n: chosen.length })}</span>
         <button class="clear" onclick={() => (close(), onclear())}>{t('details.clearPicked')}</button>
       </div>
-      <div class="chips-box marquee sliding" bind:this={chipsBox} {@attach marquee}>
-      <ul class="chips" aria-label={t('details.picked')}>
+      <div class="chips-box" class:fade-l={fadeL} class:fade-r={fadeR}>
+      <ul class="chips" aria-label={t('details.picked')} bind:this={chipsEl} onscroll={edges} {@attach watchChips}>
         {#each chosen as tag (tag)}
           <li transition:pop>
             <span>{splitTag(tag).name}</span>
@@ -301,19 +312,55 @@
     color: var(--subtext);
     font-weight: 600;
   }
+  /* Soft edges where more chips are out of view: overlays in the card's color, eased in and out. */
   .chips-box {
-    margin: 2px 0 4px;
+    position: relative;
+    margin: 2px -16px 4px; /* (to the card's edges: chips scroll out under its padding, not cut short of it) */
   }
-  .chips-box:is(:hover, :active, :focus-within),
-  .chips-box:is(:hover, :active, :focus-within) > :global(*) {
-    animation-play-state: paused;
+  .card:not(.sheet) .chips-box {
+    margin-inline: -12px;
+  }
+  .chips-box::before,
+  .chips-box::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    width: 28px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .chips-box::before {
+    left: 0;
+    background: linear-gradient(to right, var(--mantle), transparent);
+  }
+  .chips-box::after {
+    right: 0;
+    background: linear-gradient(to left, var(--mantle), transparent);
+  }
+  .chips-box.fade-l::before,
+  .chips-box.fade-r::after {
+    opacity: 1;
   }
   .chips {
-    display: inline-flex !important; /* (the marquee's one line: as wide as its chips) */
+    display: flex;
     gap: 6px;
     margin: 0;
-    padding: 0;
+    padding: 0 16px;
     list-style: none;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    scroll-padding-inline: 16px;
+    touch-action: pan-x; /* (a sideways swipe is the row's; the sheet's drag-to-close stays vertical) */
+  }
+  .card:not(.sheet) .chips {
+    padding-inline: 12px;
+  }
+  .chips::-webkit-scrollbar {
+    display: none;
   }
   .chips li {
     flex: none;
