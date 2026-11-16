@@ -786,7 +786,9 @@
     color: transparent;
     transition: background-color 0.15s, border-color 0.15s, color 0.15s;
   }
-  .site-check.on {
+  /* (its hover look too: a phone keeps a tapped button "hovered", and the check only showed after the next tap) */
+  .site-check.on,
+  .site-check.on:hover:not(:disabled) {
     border-color: var(--mauve);
     background: var(--mauve);
     color: var(--crust);

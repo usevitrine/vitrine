@@ -11629,7 +11629,12 @@ test('new download from tags: several sites at once - checked beside each, a sea
   await page.getByRole('menuitem', { name: 'New download' }).click();
   const dlg = newDl(page);
   // A tap on a site still goes on with it alone; its check picks it among others.
-  await dlg.locator('.pick-row', { hasText: 'safebooru.org' }).getByRole('button', { name: 'Pick several sites' }).click();
+  const check = dlg.locator('.pick-row', { hasText: 'safebooru.org' }).getByRole('button', { name: 'Pick several sites' });
+  await check.click();
+  // Filled at once, still under the pointer (a phone keeps a tapped button "hovered": it showed only after another tap).
+  await check.hover(); // (as a phone leaves it)
+  await page.waitForTimeout(300); // (its fill fades in)
+  expect(await check.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
   await expect(dlg.getByText('1 site picked')).toBeVisible();
   await dlg.getByRole('button', { name: 'test-down.invalid', exact: true }).click(); // (picking now: a tap picks)
   await expect(dlg.getByText('2 sites picked')).toBeVisible();
