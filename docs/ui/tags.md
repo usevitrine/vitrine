@@ -144,3 +144,5 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   none, a group every one of the sites has (by name - `group_name`, so each site's own) or a new one (made on each
   site). One download (or subscription) per site and search; the toast names the search once and the sites. The
   one-post check (id:N, a post's link) only with one site. Test: "new download from tags: several sites at once".
+- **Shared with the subscriptions (2026-11-16)**: the round button and its card are `PickMenu` (title, chips, Clear,
+  and the caller's rows); the tags' rows are `TagPickMenu`; the Downloads page's Subscriptions use it too. With a mouse the card stays inside the details panel (`within`: no wider than it, its left edge not past it - the user: "On desktop the multi select menu on the details panel hangs over the edge of the details panel"; test: "details: with a mouse, the picked tags' card stays inside the details panel").

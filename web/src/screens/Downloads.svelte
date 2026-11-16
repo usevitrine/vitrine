@@ -28,10 +28,11 @@
   import { settings } from '../lib/settings.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
   import { askText } from '../lib/prompt.svelte';
-  import { cubicOut } from 'svelte/easing';
   import Icon from '../components/Icon.svelte';
   import Dropdown from '../components/Dropdown.svelte';
   import ActionMenu, { type MenuItem } from '../components/ActionMenu.svelte';
+  import PickMenu from '../components/PickMenu.svelte';
+  import { longPress } from '../lib/longPress';
   import TagInput from '../components/TagInput.svelte';
   import { router } from '../lib/router.svelte';
   import { depthChoice, depthLabel, siteDepth } from '../lib/depth';
@@ -309,6 +310,14 @@
   function pickSub(id: number) {
     if (subPicked.has(id)) subPicked.delete(id);
     else subPicked.add(id);
+    if (!subPicked.size) setSubSelecting(false); // (the last one unpicked: done, as the tags)
+  }
+  /** A subscription held (right-clicked with a mouse): picking starts with it - as tags in the details (2026-11-16, the
+   *  user: "change the multi select in subs to look feel and act like the tag multi select in the details panel"). */
+  function holdSub(id: number) {
+    if (subSelecting) return pickSub(id);
+    setSubSelecting(true);
+    subPicked.add(id);
   }
   /** A group's subscriptions: all picked, or (all of them already) none. */
   function pickGroup(members: Subscription[]) {
@@ -381,11 +390,6 @@
   $effect(() => {
     if (tab !== 'subs') untrack(() => subSelecting && setSubSelecting(false));
   });
-
-  function barSlide(node: Element) {
-    if (reduced()) return { duration: 0 };
-    return { duration: 260, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translate(-50%, ${(1 - k) * 24}px)` };
-  }
 
   async function moveTo(s: Subscription, v: string) {
     if (v === 'new') {
@@ -1482,10 +1486,6 @@
   <Icon name="sort" size={19} />{#if queueSort !== 'queue'}<span class="sort-dot" transition:pop></span>{/if}
 {/snippet}
 
-{#snippet moveTrigger()}
-  <Icon name="folder" size={15} /><span class="bar-label">{t('downloads.moveToGroup')}</span>
-{/snippet}
-
 {#snippet sortIcon()}
   <Icon name="sort" size={19} />{#if subSort !== 'next'}<span class="sort-dot" transition:pop></span>{/if}
 {/snippet}
@@ -1691,7 +1691,7 @@
   {@const fresh = look?.fresh ?? 0}
   {@const gallery = siteInfo.engines[s.site] === 'ehentai'}
   {@const gNow = s.check && gallery ? galleryNow(s.check) : null}
-  <li data-sub={s.id} class:flash={flashSub === s.id} class:swiping={dragging === s.id} class:picking={subSelecting} class:picked={subPicked.has(s.id)} {@attach swipe(s)} transition:reveal>
+  <li data-sub={s.id} class:flash={flashSub === s.id} class:swiping={dragging === s.id} class:picking={subSelecting} class:picked={subPicked.has(s.id)} {@attach swipe(s)} {@attach longPress(() => holdSub(s.id))} transition:reveal>
     {#if subSelecting}
       <!-- Selecting: the whole card picks it (its own buttons wait). -->
       <button class="pick-cover" aria-pressed={subPicked.has(s.id)} aria-label={t('downloads.pickSub', { query: named(s) })} onclick={() => pickSub(s.id)}></button>
@@ -1709,7 +1709,6 @@
     <div class="row">
       <div class="main">
         <div class="head">
-          {#if subSelecting}<span class="pick-check" class:on={subPicked.has(s.id)} aria-hidden="true" transition:nudge><Icon name="check" size={13} /></span>{/if}
           <!-- Its health at a glance (working, checking, paused, failing, quiet for months) in the middle of a ring
                filling up to the next check (turning while it checks). -->
           <span class="status" title={t(`downloads.health.${h}`) + (s.paused ? '' : ' · ' + cap(nextCheck(s) || lastCheck(s)))}>
@@ -1966,22 +1965,55 @@
       {/each}
     </div>
 
-    <!-- Several subscriptions picked: what to do to all of them (slides up while selecting). -->
-    {#if subSelecting && tab === 'subs'}
-      <div class="sub-bar" role="toolbar" aria-label={t('downloads.bulkLabel')} transition:barSlide>
-        <span class="sub-bar-count" aria-live="polite">{pickedSubs.length ? t('downloads.nPicked', { n: pickedSubs.length }) : t('downloads.pickSome')}</span>
-        <div class="sub-bar-acts">
-          <Dropdown value="" options={bulkMoveOptions} onchange={bulkMove} label={t('downloads.moveToGroup')} heading={t('downloads.moveToGroup')}
-            align="end" floating trigger={moveTrigger} triggerClass="bar-act" disabled={!pickedSubs.length} />
-          <button class="bar-act" disabled={!pickedSubs.length} onclick={() => bulkAct('check')}><Icon name="retry" size={15} /><span class="bar-label">{t('downloads.checkNow')}</span></button>
-          {#if pickedSubs.some((x) => !x.paused) || !pickedSubs.length}
-            <button class="bar-act" disabled={!pickedSubs.length} onclick={() => bulkAct('pause')}><Icon name="pause" size={15} /><span class="bar-label">{t('video.pause')}</span></button>
-          {:else}
-            <button class="bar-act" onclick={() => bulkAct('resume')}><Icon name="play" size={15} /><span class="bar-label">{t('downloads.resume')}</span></button>
-          {/if}
-          <button class="bar-act danger" disabled={!pickedSubs.length} onclick={() => bulkAct('remove')}><Icon name="close" size={15} /><span class="bar-label">{t('downloads.unsubscribe')}</span></button>
-        </div>
-      </div>
+    <!-- Several subscriptions picked: the round button with their count, and the card of what to do to all of them - the
+         tags' picker (PickMenu). -->
+    {#if subSelecting && tab === 'subs' && pickedSubs.length}
+      <PickMenu
+        title={t('downloads.subsPicked', { n: pickedSubs.length })}
+        fabLabel={t('downloads.useSubs', { n: pickedSubs.length })}
+        chips={pickedSubs.map((x) => ({ key: x.id, label: named(x) }))}
+        chipsLabel={t('downloads.bulkLabel')}
+        unpickLabel={(name) => t('downloads.unpickSub', { query: name })}
+        onunpick={(k) => pickSub(Number(k))}
+        onclear={() => setSubSelecting(false)}>
+        {#snippet actions(use)}
+          <h4>{t('downloads.moveToGroup')}</h4>
+          <div class="group">
+            {#each bulkMoveOptions as o (o.value)}
+              <button class="act" onclick={() => use(() => bulkMove(o.value))}>
+                <Icon name={o.value === 'new' ? 'plus' : o.value === '0' ? 'minus' : 'folder'} size={20} />
+                <span class="txt"
+                  ><span class="lbl">{o.label}</span><span class="sub"
+                    >{o.value === 'new' ? t('downloads.newGroupHint') : o.value === '0' ? t('downloads.noGroupHint') : t('downloads.intoGroupHint')}</span
+                  ></span>
+              </button>
+            {/each}
+          </div>
+          <h4>{t('stats.subscriptions')}</h4>
+          <div class="group">
+            <button class="act" onclick={() => use(() => bulkAct('check'))}>
+              <Icon name="retry" size={20} />
+              <span class="txt"><span class="lbl">{t('downloads.checkNow')}</span><span class="sub">{t('downloads.checkNowHint')}</span></span>
+            </button>
+            {#if pickedSubs.some((x) => !x.paused)}
+              <button class="act" onclick={() => use(() => bulkAct('pause'))}>
+                <Icon name="pause" size={20} />
+                <span class="txt"><span class="lbl">{t('video.pause')}</span><span class="sub">{t('downloads.pauseHint')}</span></span>
+              </button>
+            {/if}
+            {#if pickedSubs.some((x) => x.paused)}
+              <button class="act" onclick={() => use(() => bulkAct('resume'))}>
+                <Icon name="play" size={20} />
+                <span class="txt"><span class="lbl">{t('downloads.resume')}</span><span class="sub">{t('downloads.resumeHint')}</span></span>
+              </button>
+            {/if}
+            <button class="act danger" onclick={() => use(() => bulkAct('remove'))}>
+              <Icon name="close" size={20} />
+              <span class="txt"><span class="lbl">{t('downloads.unsubscribe')}</span><span class="sub">{t('downloads.unsubHint')}</span></span>
+            </button>
+          </div>
+        {/snippet}
+      </PickMenu>
     {/if}
 
     <div class="panels" bind:this={panelsEl}>
@@ -4291,73 +4323,6 @@
     z-index: 1;
     cursor: pointer;
   }
-  .sub-bar {
-    position: fixed;
-    left: 50%;
-    bottom: calc(14px + env(safe-area-inset-bottom));
-    z-index: 30;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: max-content;
-    max-width: calc(100vw - 24px);
-    padding: 8px 8px 8px 16px;
-    border-radius: 999px;
-    border: 1px solid var(--surface1);
-    background: color-mix(in srgb, var(--mantle) 92%, transparent);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
-  }
-  .sub-bar-count {
-    font-weight: 600;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-  .sub-bar-acts {
-    display: flex;
-    gap: 4px;
-  }
-  .sub-bar :global(.bar-act),
-  .sub-bar :global(.bar-act:hover:not(:disabled)) {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 34px;
-    height: 34px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--text);
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  @media (hover: hover) {
-    .sub-bar :global(.bar-act:hover:not(:disabled)) {
-      background: var(--surface0);
-    }
-  }
-  .sub-bar :global(.bar-act:disabled) {
-    opacity: 0.4;
-  }
-  .sub-bar .bar-act.danger {
-    color: var(--red);
-  }
-  @media (max-width: 640px) {
-    /* (a phone: icons only, the count stays) */
-    .sub-bar .bar-label {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-    }
-    .sub-bar :global(.bar-act) {
-      padding: 0 10px;
-    }
-  }
-
   /* A site's groups and subscriptions in Subscriptions, as one box (its fold animates). */
   .site-body {
     display: grid;

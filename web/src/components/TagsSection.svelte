@@ -174,6 +174,7 @@
   // ---- Several tags at once: picked (pressing and holding one starts it), then searched for
   // all together, any of them (an OR group), added to the search, or downloaded
   // (the form writes each the site's way).
+  let sectionEl = $state<HTMLElement>();
   let selecting = $state(false);
   let chosen = $state<string[]>([]);
   function toggleChosen(tag: string) {
@@ -248,7 +249,7 @@
   }
 </script>
 
-<section aria-label={t('tags.title')}>
+<section aria-label={t('tags.title')} bind:this={sectionEl}>
   <div class="head">
     <h3>{t('tags.title')}{#if tags.length}<span class="n" transition:nudge>{tags.length}</span>{/if}</h3>
     {#if refresh}
@@ -326,7 +327,8 @@
     <p class="none muted" transition:reveal>{t('details.noTags')}</p>
   {/each}
   {#if selecting && chosen.length}
-    <TagPickMenu {chosen} {blacklisted} onuse={useChosen} onunpick={toggleChosen} onclear={endSelecting} />
+    <!-- (with a mouse its card stays inside the details panel) -->
+    <TagPickMenu {chosen} {blacklisted} onuse={useChosen} onunpick={toggleChosen} onclear={endSelecting} within={() => sectionEl?.closest('aside')} />
   {/if}
 </section>
 {#if picked}

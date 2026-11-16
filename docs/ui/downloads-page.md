@@ -370,3 +370,13 @@ animated beautifully".
   subscription to one gallery the library has shows the row of four the others have - its comic's cover first (a soft
   mauve ring), then its last pages (`SubscriptionLooks`: a gallery's Recent is its last 3 pages, the cover left out);
   a tap on the row opens the comic. (Before: the cover alone, "its pages aren't library files".)
+- **Picking subscriptions as tags are picked (2026-11-16, replaces the bottom bar and the round checks)** (the user:
+  "change the multi select in subs to look feel and act like the tag multi select in the details panel"): press and
+  hold a subscription (right-click with a mouse; `lib/longPress`) - picking starts with it; taps pick more; the last one
+  unpicked ends it. A picked card has its ring and tint (no round check any more). The corner icon still starts
+  picking (with nothing picked yet), and a group's heading still has its check (all of the group). While some are
+  picked, the tags' **round button with the count** floats at the bottom right (`PickMenu`, shared with the details'
+  tags since the same day: `TagPickMenu` is PickMenu with the tags' rows); it opens the picked ones as chips (× takes
+  one off; a row a finger scrolls) with Clear, and cards of rows saying what they do: MOVE TO GROUP - No group, every
+  group all their sites have, New group... (asks a name); SUBSCRIPTIONS - Check now, Pause (some not paused), Resume
+  (some paused), Unsubscribe (asks first). Test: "subscriptions: pick several as tags are picked".

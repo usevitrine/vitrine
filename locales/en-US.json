@@ -1602,11 +1602,6 @@
     "pickSub": "Select {query}",
     "pickGroup": "Select all in {name}",
     "bulkLabel": "Selected subscriptions",
-    "nPicked": {
-      "one": "{n} selected",
-      "other": "{n} selected"
-    },
-    "pickSome": "Select subscriptions",
     "bulkMoved": {
       "one": "Moved {n} subscription to {name}",
       "other": "Moved {n} subscriptions to {name}"
@@ -1634,7 +1629,23 @@
     "bulkUnsubTitle": {
       "one": "Unsubscribe from {n} search?",
       "other": "Unsubscribe from {n} searches?"
-    }
+    },
+    "subsPicked": {
+      "one": "{n} subscription picked",
+      "other": "{n} subscriptions picked"
+    },
+    "useSubs": {
+      "one": "Use the picked subscription",
+      "other": "Use the {n} picked subscriptions"
+    },
+    "unpickSub": "Unpick {query}",
+    "newGroupHint": "Name a new group and move them into it",
+    "noGroupHint": "Take them out of their groups",
+    "intoGroupHint": "Move them into this group",
+    "checkNowHint": "Look for new posts now",
+    "pauseHint": "No checks until resumed",
+    "resumeHint": "Checked on their schedule again",
+    "unsubHint": "Their files stay in the library"
   },
   "setup": {
     "skipAll": "Skip setup",

@@ -3392,7 +3392,7 @@ test('downloads: the menu opens a download on its tab, highlighted; a search tap
   await page.getByRole('tab', { name: /Subscriptions/ }).click();
   const subRow = page.locator(`li[data-sub="${sub.id}"]`);
   if (!(await subRow.isVisible())) await page.getByRole('button', { name: /^Unfold test-down/ }).first().click();
-  await subRow.locator('button.qlink').click();
+  await subRow.locator('.qlink').click();
   await expect(page.locator('.bar .chip')).toHaveText([/red/]);
   await page.evaluate((id) => fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), sub.id);
 });
@@ -11558,7 +11558,7 @@ test('downloads: a one-post download that downloaded nothing can be run again an
   await expect(page.locator('.toast', { hasText: 'anyway' })).toBeVisible();
 });
 
-test('subscriptions: select several, move them to a new or no group, pause and unsubscribe them together', async ({ page }) => {
+test('subscriptions: pick several as tags are picked (hold one, tap more; the round button\'s card) - move to a new or no group, pause, unsubscribe', async ({ page }) => {
   test.skip(test.info().project.name === 'desktop-chromium', 'subscriptions are on the server: the phone and one desktop');
   await page.goto('/downloads');
   const tag = test.info().project.name.replace(/\W/g, '');
@@ -11571,40 +11571,63 @@ test('subscriptions: select several, move them to a new or no group, pause and u
   await page.reload();
   await dlTab(page, 'Subscriptions');
   const card = page.locator('section.card', { has: page.getByRole('heading', { name: 'Subscriptions' }) });
-  const bar = page.getByRole('toolbar', { name: 'Selected subscriptions' });
-  await card.getByRole('button', { name: 'Select subscriptions' }).click();
-  await expect(bar).toBeVisible();
-  await expect(bar.getByText('Select subscriptions')).toBeVisible();
-  await card.getByRole('button', { name: `Select bulk_a_${tag}` }).click();
-  await card.getByRole('button', { name: `Select bulk_b_${tag}` }).click();
-  await expect(bar.getByText('2 selected')).toBeVisible();
-  await page.screenshot({ path: test.info().outputPath('bulk-bar.png') });
+  const row = (q: string) => card.locator('li[data-sub]', { hasText: `${q}_${tag}` });
+  const fab = (n: number) => page.getByRole('button', { name: n === 1 ? 'Use the picked subscription' : `Use the ${n} picked subscriptions` });
+  const menu = () => page.getByRole('dialog', { name: /subscriptions? picked/ });
+  // Pressing and holding one starts picking with it (as a tag in the details); taps pick more.
+  const hold = async (q: string) => {
+    await row(q).scrollIntoViewIfNeeded();
+    const b = (await row(q).locator('.facts').boundingBox())!;
+    await page.mouse.move(b.x + 10, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(650);
+    await page.mouse.up();
+  };
+  const pick = async (...qs: string[]) => {
+    await hold(qs[0]);
+    for (const q of qs.slice(1)) await card.getByRole('button', { name: `Select ${q}_${tag}` }).click();
+    await expect(fab(qs.length)).toBeVisible();
+  };
+  await pick('bulk_a', 'bulk_b');
+  await expect(row('bulk_a')).toHaveClass(/picked/);
+  await page.screenshot({ path: test.info().outputPath('picked.png') });
+  // Unpicking in the card; the last one off ends picking.
+  await fab(2).click();
+  await expect(menu()).toHaveAccessibleName('2 subscriptions picked');
+  await page.waitForTimeout(500); // (the sheet in)
+  await page.screenshot({ path: test.info().outputPath('card.png') });
+  await menu().getByRole('button', { name: `Unpick bulk_b_${tag}` }).click();
+  await expect(menu()).toHaveAccessibleName('1 subscription picked');
+  await menu().getByRole('button', { name: `Unpick bulk_a_${tag}` }).click();
+  await expect(fab(1)).toHaveCount(0);
+  await expect(row('bulk_a')).not.toHaveClass(/picked/);
   // Into a new group (made on their site).
   const name = 'Bulk ' + tag;
-  await bar.getByRole('button', { name: 'Move to group' }).click();
-  await page.getByRole('option', { name: 'New group…' }).click();
+  await pick('bulk_a', 'bulk_b');
+  await fab(2).click();
+  await menu().getByRole('button', { name: /New group…/ }).click();
   await page.getByRole('dialog').getByRole('textbox').fill(name);
   await page.getByRole('dialog').getByRole('button', { name: 'Create and move' }).click();
   await expect(page.getByText(`Moved 2 subscriptions to ${name}`)).toBeVisible();
-  await expect(bar).toHaveCount(0);
+  await expect(fab(2)).toHaveCount(0);
   const group = card.getByRole('region', { name: 'Group ' + name });
   await expect(group.locator('.count')).toHaveText('2');
-  // The group's check picks all of it; out of the group again.
+  // The corner icon starts picking too; a group's check picks all of it; out of the group again.
   await card.getByRole('button', { name: 'Select subscriptions' }).click();
   await group.getByRole('button', { name: 'Select all in ' + name }).click();
-  await expect(bar.getByText('2 selected')).toBeVisible();
-  await bar.getByRole('button', { name: 'Move to group' }).click();
-  await page.getByRole('option', { name: 'No group' }).click();
+  await fab(2).click();
+  await menu().getByRole('button', { name: /No group/ }).click();
   await expect(page.getByText('2 subscriptions are in no group now')).toBeVisible();
   // Pause, then unsubscribe, all three.
-  await card.getByRole('button', { name: 'Select subscriptions' }).click();
-  for (const q of ['bulk_a', 'bulk_b', 'bulk_c']) await card.getByRole('button', { name: `Select ${q}_${tag}` }).click();
-  await bar.getByRole('button', { name: 'Pause' }).click();
+  await pick('bulk_a', 'bulk_b', 'bulk_c');
+  await fab(3).click();
+  await menu().getByRole('button', { name: /^Pause/ }).click();
   await expect(page.getByText('Paused 3 subscriptions')).toBeVisible();
-  await card.getByRole('button', { name: 'Select subscriptions' }).click();
-  for (const q of ['bulk_a', 'bulk_b', 'bulk_c']) await card.getByRole('button', { name: `Select ${q}_${tag}` }).click();
-  await expect(bar.getByRole('button', { name: 'Resume' })).toBeVisible();
-  await bar.getByRole('button', { name: 'Unsubscribe' }).click();
+  await pick('bulk_a', 'bulk_b', 'bulk_c');
+  await fab(3).click();
+  await expect(menu().getByRole('button', { name: /^Resume/ })).toBeVisible();
+  await expect(menu().getByRole('button', { name: /^Pause/ })).toHaveCount(0);
+  await menu().getByRole('button', { name: /^Unsubscribe/ }).click();
   await page.getByRole('alertdialog', { name: 'Unsubscribe from 3 searches?' }).getByRole('button', { name: 'Unsubscribe' }).click();
   await expect(page.getByText('Unsubscribed from 3 searches')).toBeVisible();
   await expect(card.locator('li .query', { hasText: tag })).toHaveCount(0);
@@ -11798,4 +11821,29 @@ test('subscription groups: folding one slides it open and shut (it snapped)', as
     const { groups } = await (await fetch('/api/downloads')).json();
     for (const g of groups ?? []) if (g.name === 'GFold') await fetch(`/api/sub-groups/${g.id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   }, sub);
+});
+
+test("details: with a mouse, the picked tags' card stays inside the details panel (it hung over its edge)", async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-webkit', 'a mouse, one run');
+  for (const width of [1400, 900]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/?q=blue_sky');
+    await page.locator('.tile[data-i="0"]').click();
+    await page.getByRole('button', { name: 'Details', exact: true }).click();
+    const tags = page.getByRole('region', { name: 'Tags' });
+    await tags.getByRole('button', { name: 'blue_sky', exact: true }).waitFor();
+    await page.waitForTimeout(500);
+    await tags.getByRole('button', { name: 'blue_sky', exact: true }).click({ button: 'right' });
+    await tags.getByRole('button', { name: 'landscape', exact: true }).click();
+    await page.getByRole('button', { name: 'Use the 2 picked tags' }).click();
+    const card = page.getByRole('dialog', { name: '2 tags picked' });
+    await expect(card).toBeVisible();
+    await page.waitForTimeout(400);
+    const panel = (await page.locator('aside').filter({ has: tags }).boundingBox())!;
+    const box = (await card.boundingBox())!;
+    expect(box.x, `window ${width}: card ${box.x}-${box.x + box.width}, panel ${panel.x}-${panel.x + panel.width}`).toBeGreaterThanOrEqual(panel.x);
+    expect(box.x + box.width).toBeLessThanOrEqual(panel.x + panel.width + 1);
+    await page.screenshot({ path: test.info().outputPath(`card-${width}.png`) });
+    await page.keyboard.press('Escape');
+  }
 });
