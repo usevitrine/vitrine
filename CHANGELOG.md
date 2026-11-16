@@ -11,7 +11,8 @@ shows this too (Settings > Help & about).
 - **Subscription groups**: a long group name stays on one line and slides to show the rest, instead of breaking onto the next line.
 - **Comic subscriptions**: a long comic title stays on one line and slides to show the rest.
 - **Comic subscriptions**: show the comic's cover and its latest pages, like other subscriptions show their newest files.
-- **Subscriptions on a phone**: a subscription's tags scroll sideways under your finger, and folding a site's subscriptions slides open and shut.
+- **Subscriptions on a phone**: a subscription's tags scroll sideways under your finger.
+- **Folding**: subscription groups, a site's subscriptions and History's Earlier slide open and shut instead of snapping.
 
 ### Fixed
 

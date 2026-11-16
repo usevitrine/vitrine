@@ -11768,3 +11768,34 @@ test("subscriptions: a search's chips are a row a finger scrolls (not inside a b
   await expect(page).toHaveURL(new RegExp(`q=${tag}`));
   await page.evaluate((id) => fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), sub.id);
 });
+
+test('subscription groups: folding one slides it open and shut (it snapped)', async ({ page }) => {
+  test.skip(test.info().project.name !== 'iphone', 'one run is enough');
+  await page.goto('/downloads');
+  const sub = await page.evaluate(() => fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: 'test-down', query: 'gfold_a', interval: 604800, initial_max: 0, group_name: 'GFold' }) }).then((r) => r.json()));
+  await page.reload();
+  await dlTab(page, 'Subscriptions');
+  // Its height each frame after a tap on its title: several steps between folded and open, not one jump.
+  const heights = (label: string) =>
+    page.evaluate(async (label) => {
+      const sec = document.querySelector('section[aria-label^="Group GFold"]')!;
+      const btn = [...sec.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === label)!;
+      const out: number[] = [];
+      btn.click();
+      for (let i = 0; i < 20; i++) {
+        out.push(Math.round(sec.getBoundingClientRect().height));
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+      return out;
+    }, label);
+  for (const label of ['Unfold GFold', 'Fold GFold']) {
+    const h = await heights(label);
+    const steps = new Set(h).size;
+    expect(steps, `${label}: ${h.join(' ')}`).toBeGreaterThan(5);
+  }
+  await page.evaluate(async (sub) => {
+    await fetch(`/api/subscriptions/${sub.id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const { groups } = await (await fetch('/api/downloads')).json();
+    for (const g of groups ?? []) if (g.name === 'GFold') await fetch(`/api/sub-groups/${g.id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  }, sub);
+});

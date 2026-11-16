@@ -365,7 +365,7 @@ animated beautifully".
   actions) doesn't start on it. Test: "subscriptions: a search's chips are a row a finger scrolls".
 - **Folds animate (2026-11-16)** (the user: "do all the sub collapsibles animate open and closed? If they don't they
   should"): a group's list already slid; a site's section in Subscriptions (several sites) snapped - its groups and
-  subscriptions are one box now (`.site-body`, `reveal`), so folding a site slides it shut and open.
+  subscriptions are one box now (`.site-body`, `reveal`), so folding a site slides it shut and open. **Correction (same day)**: a group's list did NOT slide either (measured: 58 -> 232 px in one frame) - its `reveal` sat on the list inside a block of its own (`{#if members.length}`), and a local transition only plays when its own block changes; the fold's box is `.group-body` now (test: "subscription groups: folding one slides it open and shut"). History's Earlier had the same (`.earlier-body`). The rule: put the slide on the element the `{#if}` adds itself, not deeper.
 - **A comic subscription's pictures (2026-11-16)** (the user: "for comic subs, it only shows the cover thumbnail"): a
   subscription to one gallery the library has shows the row of four the others have - its comic's cover first (a soft
   mauve ring), then its last pages (`SubscriptionLooks`: a gallery's Recent is its last 3 pages, the cover left out);

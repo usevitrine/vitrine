@@ -2210,13 +2210,18 @@
                       </div>
                     {/if}
                     {#if open}
-                      {#if members.length}
-                        <ul class="list in-group sub-cards" transition:reveal>
-                          {#each members as s (s.id)}{@render subRow(s)}{/each}
-                        </ul>
-                      {:else}
-                        <p class="hint small group-empty" transition:reveal>{t('downloads.noSubs')}</p>
-                      {/if}
+                      <!-- (the slide on the box the fold adds and takes away: on the list inside it - a block of its own - it
+                           never played, the group snapped open and shut; the user: "subscription groups don't collapse and
+                           open with an animation") -->
+                      <div class="group-body" transition:reveal>
+                        {#if members.length}
+                          <ul class="list in-group sub-cards" transition:reveal>
+                            {#each members as s (s.id)}{@render subRow(s)}{/each}
+                          </ul>
+                        {:else}
+                          <p class="hint small group-empty" transition:reveal>{t('downloads.noSubs')}</p>
+                        {/if}
+                      </div>
                     {/if}
                   </section>
                 {/each}
@@ -2325,9 +2330,12 @@
                 <span class="count">{num(finishedEarlier.length)}</span>
               </button>
               {#if earlierOpen}
-                {#each earlierSites as g (g.site)}
-                  {@render finishedSite(g, 'earlier:')}
-                {/each}
+                <!-- (one box the fold slides: the sites inside only animated when added on their own - it snapped) -->
+                <div class="earlier-body" transition:reveal>
+                  {#each earlierSites as g (g.site)}
+                    {@render finishedSite(g, 'earlier:')}
+                  {/each}
+                </div>
               {/if}
             {/if}
           {:else}
@@ -4352,6 +4360,16 @@
 
   /* A site's groups and subscriptions in Subscriptions, as one box (its fold animates). */
   .site-body {
+    display: grid;
+    gap: inherit;
+  }
+
+  /* A group's subscriptions, the box its fold slides open and shut. */
+  .group-body {
+    display: grid;
+  }
+
+  .earlier-body {
     display: grid;
     gap: inherit;
   }
