@@ -11572,7 +11572,7 @@ test('subscriptions: select several, move them to a new or no group, pause and u
   await dlTab(page, 'Subscriptions');
   const card = page.locator('section.card', { has: page.getByRole('heading', { name: 'Subscriptions' }) });
   const bar = page.getByRole('toolbar', { name: 'Selected subscriptions' });
-  await card.getByRole('button', { name: 'Select', exact: true }).click();
+  await card.getByRole('button', { name: 'Select subscriptions' }).click();
   await expect(bar).toBeVisible();
   await expect(bar.getByText('Select subscriptions')).toBeVisible();
   await card.getByRole('button', { name: `Select bulk_a_${tag}` }).click();
@@ -11590,18 +11590,18 @@ test('subscriptions: select several, move them to a new or no group, pause and u
   const group = card.getByRole('region', { name: 'Group ' + name });
   await expect(group.locator('.count')).toHaveText('2');
   // The group's check picks all of it; out of the group again.
-  await card.getByRole('button', { name: 'Select', exact: true }).click();
+  await card.getByRole('button', { name: 'Select subscriptions' }).click();
   await group.getByRole('button', { name: 'Select all in ' + name }).click();
   await expect(bar.getByText('2 selected')).toBeVisible();
   await bar.getByRole('button', { name: 'Move to group' }).click();
   await page.getByRole('option', { name: 'No group' }).click();
   await expect(page.getByText('2 subscriptions are in no group now')).toBeVisible();
   // Pause, then unsubscribe, all three.
-  await card.getByRole('button', { name: 'Select', exact: true }).click();
+  await card.getByRole('button', { name: 'Select subscriptions' }).click();
   for (const q of ['bulk_a', 'bulk_b', 'bulk_c']) await card.getByRole('button', { name: `Select ${q}_${tag}` }).click();
   await bar.getByRole('button', { name: 'Pause' }).click();
   await expect(page.getByText('Paused 3 subscriptions')).toBeVisible();
-  await card.getByRole('button', { name: 'Select', exact: true }).click();
+  await card.getByRole('button', { name: 'Select subscriptions' }).click();
   for (const q of ['bulk_a', 'bulk_b', 'bulk_c']) await card.getByRole('button', { name: `Select ${q}_${tag}` }).click();
   await expect(bar.getByRole('button', { name: 'Resume' })).toBeVisible();
   await bar.getByRole('button', { name: 'Unsubscribe' }).click();

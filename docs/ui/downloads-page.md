@@ -350,3 +350,7 @@ animated beautifully".
   them to a carousel so they stay on one line. Auto scrolling carousel not manual"): the name in a group's heading is
   the app's marquee (`lib/marquee`, as a download's search) - when it doesn't fit it slides to its end and back by
   itself; measured again on a rename. Test: "subscription groups: a long name stays on one line".
+- **Select as an icon (2026-11-16)** (the user: "I don't [like] the select button in the subs section. It should just be
+  an icon in the top right of the card"): Select is the two-checks icon in the Subscriptions card's top right corner
+  (beside the title, like New download's settings icon), with two or more subscriptions; while selecting it is a lit ×
+  (Done selecting). Labels: "Select subscriptions" / "Done selecting".

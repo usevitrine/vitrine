@@ -7,6 +7,7 @@ shows this too (Settings > Help & about).
 
 ### Improved
 
+- **Select subscriptions**: Select is now an icon in the top right corner of the Subscriptions card.
 - **Subscription groups**: a long group name stays on one line and slides to show the rest, instead of breaking onto the next line.
 
 ## 1.2.0 - 2026-11-16

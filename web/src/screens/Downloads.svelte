@@ -2077,10 +2077,18 @@
       <div class="panel" id="panel-subs" role="tabpanel" aria-labelledby="tab-subs" in:panelIn out:panelOut>
         <section class="card">
           <div class="card-head">
-            <h2>{t('stats.subscriptions')}</h2>
+            <!-- Select: an icon in the card's corner (the user: "It should just be an icon in the top right of the card"). -->
+            <div class="title-row">
+              <h2>{t('stats.subscriptions')}</h2>
+              {#if subs.length > 1}
+                <button type="button" class="icon manage select-icon" class:on={subSelecting} aria-pressed={subSelecting}
+                  aria-label={subSelecting ? t('downloads.selectDone') : t('downloads.selectSubs')} title={subSelecting ? t('downloads.selectDone') : t('downloads.selectSubs')}
+                  onclick={() => setSubSelecting(!subSelecting)} transition:nudge>{#key subSelecting}<span class="swap-icon" in:pop><Icon name={subSelecting ? 'close' : 'checks'} size={18} /></span>{/key}</button>
+              {/if}
+            </div>
             {#if subs.length}<p class="hint" transition:reveal>{t('downloads.subsHint')}</p>{/if}
           </div>
-          {#if subs.length >= SUB_TOOLS_FROM || attentionCount || subs.length > 1}
+          {#if subs.length >= SUB_TOOLS_FROM || attentionCount}
             <div class="sub-tools" transition:reveal>
               {#if subs.length >= SUB_TOOLS_FROM}
                 <!-- The order is an icon inside the filter, as in the library's search bar (2026-10-29, the user: the
@@ -2100,10 +2108,6 @@
                       align="end" trigger={sortIcon} triggerClass="icon sub-sort-button" />
                   </span>
                 </div>
-              {/if}
-              {#if subs.length > 1}
-                <button class="select-toggle" class:on={subSelecting} aria-pressed={subSelecting} onclick={() => setSubSelecting(!subSelecting)}
-                  ><Icon name={subSelecting ? 'close' : 'checks'} size={15} />{subSelecting ? t('downloads.selectDone') : t('downloads.selectSubs')}</button>
               {/if}
               {#if attentionCount}
                 <button class="attention-toggle" class:on={attentionOnly} aria-pressed={attentionOnly} onclick={() => (attentionOnly = !attentionOnly)}
@@ -4154,20 +4158,13 @@
 
   /* ---- Several subscriptions at once (2026-11-16): a check on each card and group, the whole card picks it; a bar
      below with what to do to them all. */
-  .select-toggle {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid var(--surface0);
-    background: var(--base);
-    color: var(--subtext);
-    font-weight: 600;
+  /* (selecting: the corner icon lit, as a pressed toggle) */
+  .title-row button.select-icon.on {
+    color: var(--mauve);
+    background: color-mix(in srgb, var(--mauve) 14%, transparent);
   }
-  .select-toggle.on {
-    border-color: color-mix(in srgb, var(--mauve) 45%, var(--surface0));
-    background: color-mix(in srgb, var(--mauve) 14%, var(--base));
-    color: var(--text);
+  .swap-icon {
+    display: grid;
   }
   li.picking {
     position: relative;
