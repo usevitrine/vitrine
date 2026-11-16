@@ -7,6 +7,7 @@ shows this too (Settings > Help & about).
 
 ### Improved
 
+- **Several sites in one go**: each site now gets its own choice of once or subscribe, how often, its group and how many posts.
 - **Picking subscriptions**: works like picking tags - press and hold a subscription, tap more, then the round button with the count opens what to do with them (move to a group, check, pause, resume, unsubscribe). You can also start from the icon in the top right corner of the Subscriptions card.
 - **Subscription groups**: a long group name stays on one line and slides to show the rest, instead of breaking onto the next line.
 - **Comic subscriptions**: a long comic title stays on one line and slides to show the rest.

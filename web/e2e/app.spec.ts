@@ -11645,9 +11645,13 @@ test('subscriptions: pick several as tags are picked (hold one, tap more; the ro
   }, { ids, name });
 });
 
-test('new download from tags: several sites at once - checked beside each, a search box for each, one download each', async ({ page }) => {
+test('new download from tags: several sites at once - checked beside each, a search box for each, then each site its own way (once, or a subscription with its group)', async ({ page }) => {
   test.skip(test.info().project.name === 'desktop-chromium', 'the phone and one desktop');
   const sent: { site: string; query: string }[] = [];
+  const subs: { site: string; query: string; interval: number; group_name?: string }[] = [];
+  await page.route('**/api/subscriptions', (r) =>
+    r.request().method() === 'POST' ? (subs.push(r.request().postDataJSON()), r.fulfill({ json: { id: 900 + subs.length } })) : r.continue(),
+  );
   await page.route('**/api/downloads', (r) =>
     r.request().method() === 'POST' ? (sent.push(r.request().postDataJSON()), r.fulfill({ json: { id: sent.length } })) : r.continue(),
   );
@@ -11675,10 +11679,26 @@ test('new download from tags: several sites at once - checked beside each, a sea
   await expect(dlg.getByRole('combobox', { name: 'Search on test-down.invalid' })).toHaveValue('blue_sky');
   await page.screenshot({ path: test.info().outputPath('searches.png') });
   await dlg.getByRole('button', { name: 'Next' }).click();
+  // Each site its own way: safebooru a subscription every day into a new group, test-down once.
+  const sb = dlg.getByRole('region', { name: 'safebooru.org' });
+  const td = dlg.getByRole('region', { name: 'test-down.invalid' });
+  await expect(sb).toBeVisible();
+  await expect(td).toBeVisible();
+  await expect(dlg.getByRole('button', { name: 'Download', exact: true })).toBeVisible(); // (all once: Download)
+  await sb.getByRole('tab', { name: 'Subscribe' }).click();
+  await expect(dlg.getByRole('button', { name: 'Start', exact: true })).toBeVisible(); // (some of each: Start)
+  await sb.getByRole('button', { name: 'Repeat on safebooru.org' }).click();
+  await page.getByRole('option', { name: 'Every day' }).click();
+  await sb.getByRole('button', { name: 'Group on safebooru.org' }).click();
+  await page.getByRole('option', { name: 'New group…' }).click();
+  await sb.getByRole('textbox', { name: 'New group name on safebooru.org' }).fill('Sky');
+  await expect(td.getByRole('tab', { name: 'Once' })).toHaveAttribute('aria-selected', 'true');
+  await page.waitForTimeout(300);
   await page.screenshot({ path: test.info().outputPath('how.png') });
-  await dlg.getByRole('button', { name: 'Download', exact: true }).click();
-  await expect.poll(() => sent.map((x) => x.site + ':' + x.query).sort()).toEqual(['safebooru:blue_sky', 'test-down:blue_sky']);
-  await expect(page.getByText(/Downloading .blue_sky. from safebooru\.org, test-down\.invalid/)).toBeVisible();
+  await dlg.getByRole('button', { name: 'Start', exact: true }).click();
+  await expect.poll(() => sent.map((x) => x.site + ':' + x.query)).toEqual(['test-down:blue_sky']);
+  await expect.poll(() => subs.map((x) => `${x.site}:${x.query}:${x.interval}:${x.group_name}`)).toEqual(['safebooru:blue_sky:86400:Sky']);
+  await expect(page.getByText(/Started .blue_sky. on safebooru\.org, test-down\.invalid/)).toBeVisible();
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 

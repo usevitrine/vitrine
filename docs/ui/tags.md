@@ -150,3 +150,9 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   carousels too"): each row's title and second line (e.g. "a OR b OR c") is the app's marquee - one line, sliding to its
   end and back by itself when it doesn't fit (the subscriptions' card too); `lib/marquee` measures again when the text
   changes (a tag taken off), not only when its box does.
+- **Each site its own way (2026-11-16)** (the user: "I start a download and check multiple sites, if I wanna subscribe to
+  the downloads it's not as expected. I should be able to set a subscription/group/frequency per site"): with several
+  sites the last page has a framed section per site (its name and search): Once or Subscribe, Repeat, Group (that
+  site's groups, or a new one named there) and how many posts - each its own (`Entry.how`). The button says Download
+  (all once), Subscribe (all subscriptions) or Start (some of each); the toast "Started \"x\" on a, b". One site: as
+  before. (Before this, one setting for all, a group matched by name on every site.)

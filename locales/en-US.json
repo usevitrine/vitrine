@@ -2895,7 +2895,13 @@
       "one": "The search on {n} site",
       "other": "The search on {n} sites"
     },
-    "searchOn": "Search on {site}"
+    "searchOn": "Search on {site}",
+    "howOn": "Once or subscribe on {site}",
+    "repeatOn": "Repeat on {site}",
+    "groupOn": "Group on {site}",
+    "newGroupOn": "New group name on {site}",
+    "startAll": "Start",
+    "startedOn": "Started \"{query}\" on {sites}"
   },
   "tour": {
     "of": "{n} of {total}",

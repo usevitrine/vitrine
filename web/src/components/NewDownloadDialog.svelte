@@ -146,11 +146,15 @@
   // Each site picked, with its search written its way (2026-11-16, the user: "when i start a download and it asks me to
   // pick a site, I wanna be able to select multiple sites"): a tap on a site goes on with it alone; its check picks
   // it among others (then a tap on a row picks or unpicks it), and Next goes on with all of them - a search box for
-  // each, then one "once or subscribe" for all (a group: one of that name on each site, made where it's missing).
-  // split: OR groups a site has no OR search for - a search for each combination.
-  type Entry = { site: string; text: string; left: Chip[]; split: Chip[] };
+  // each, then for each site its own "once or subscribe" - how often, its group, how many (2026-11-16, the user: "if I
+  // wanna subscribe to the downloads it's not as expected. I should be able to set a subscription/group/frequency per
+  // site"). split: OR groups a site has no OR search for - a search for each combination.
+  type How = { repeat: string; max: number | undefined; group: string; groupName: string }; // repeat: seconds, '0' = once
   // svelte-ignore state_referenced_locally
-  let entries = $state<Entry[]>(presetSite ? [{ site: presetSite, text: presetText, left: [], split: [] }] : []);
+  const newHow = (): How => ({ repeat: subscribe ? String(DEFAULT_INTERVAL) : '0', max: undefined, group: '', groupName: '' });
+  type Entry = { site: string; text: string; left: Chip[]; split: Chip[]; how: How };
+  // svelte-ignore state_referenced_locally
+  let entries = $state<Entry[]>(presetSite ? [{ site: presetSite, text: presetText, left: [], split: [], how: newHow() }] : []);
   const site = $derived(entries[0]?.site ?? '');
   const multi = $derived(entries.length > 1);
   let boxes = $state<HTMLInputElement[]>([]); // (the suggestions sit under each, over the dialog)
@@ -168,14 +172,13 @@
   }
   function pickSites(list: string[]) {
     entries = list.map((s) => {
-      if (!useSearch) return { site: s, text: '', left: [], split: [] };
+      if (!useSearch) return { site: s, text: '', left: [], split: [], how: newHow() };
       const w = siteSearch(s, query);
-      return { site: s, text: w.query, left: w.left, split: w.split };
+      const how = newHow();
+      // (several subscriptions from one search: together in a group named after it, to start with)
+      if (w.split.length) Object.assign(how, { group: 'new', groupName: searchWords(parse(query)).slice(0, 60) });
+      return { site: s, text: w.query, left: w.left, split: w.split, how };
     });
-    // (several subscriptions from one search: together in a group named after it, to start with)
-    const split = entries.some((e) => e.split.length);
-    formGroup = split ? 'new' : '';
-    newGroupName = split ? searchWords(parse(query)).slice(0, 60) : '';
     go('search');
   }
   // One post (its link, or id:N): asked about first - the site says whether it has it, here in the dialog - and then
@@ -195,7 +198,7 @@
         const res = await api.checkSingle(site, searches[0]);
         if (res.single) {
           single = { query: res.query ?? searches[0], files: res.files ?? 1 };
-          repeat = '0';
+          entries[0].how.repeat = '0';
         }
       } catch (err) {
         refError = err instanceof Error ? err.message : String(err);
@@ -207,70 +210,59 @@
     go('how');
   }
 
-  // svelte-ignore state_referenced_locally
-  let repeat = $state(subscribe ? String(DEFAULT_INTERVAL) : '0'); // seconds between checks; '0' = download once
-  let maxPosts = $state<number | undefined>(undefined);
-  let formGroup = $state(''); // a group's ID, 'new' or '' (none)
-  let newGroupName = $state('');
   let busy = $state(false);
-  const siteGroups = $derived(groups.filter((g) => g.site === site));
-  // Several sites: a group every one of them has (by name; 'name:' values), or a new one on each.
-  const commonGroups = $derived.by(() => {
-    if (!multi) return [];
-    const per = entries.map((e) => new Set(groups.filter((g) => g.site === e.site).map((g) => g.name)));
-    return [...per[0]].filter((n) => per.every((x) => x.has(n))).sort((a, b) => a.localeCompare(b));
-  });
-  const groupOptions = $derived([
+  const cur = $derived(entries[0]?.how ?? newHow()); // (one site: its way)
+  const favSearch = $derived(favoritesSearch(entries[0]?.text ?? '')); // (its files favorites: no group)
+  const groupOptionsFor = (siteId: string) => [
     { value: '', label: t('downloads.noGroup') },
-    ...(multi ? commonGroups.map((n) => ({ value: 'name:' + n, label: n })) : siteGroups.map((g) => ({ value: String(g.id), label: g.name }))),
+    ...groups.filter((g) => g.site === siteId).map((g) => ({ value: String(g.id), label: g.name })),
     { value: 'new', label: t('downloads.newGroup') },
-  ]);
-  const favSearch = $derived(entries.some((e) => favoritesSearch(e.text)));
+  ];
   const intervalOptions = $derived(intervals.map((v) => ({ value: String(v), label: cap(every(v)) })));
-  function pickGroup(v: string) {
-    formGroup = v;
-    const g = v.startsWith('name:') ? groups.find((x) => x.site === site && x.name === v.slice(5)) : groups.find((x) => String(x.id) === v);
-    if (g?.interval) repeat = String(g.interval); // the group's usual schedule
+  function pickGroup(h: How, v: string) {
+    h.group = v;
+    const g = groups.find((x) => String(x.id) === v);
+    if (g?.interval) h.repeat = String(g.interval); // the group's usual schedule
   }
+  // The submit button: Download (all once), Subscribe (all subscriptions), Start (some of each).
+  const allOnce = $derived(entries.every((e) => e.how.repeat === '0'));
+  const allSubs = $derived(entries.every((e) => e.how.repeat !== '0'));
 
   async function start(e: SubmitEvent) {
     e.preventDefault();
     if (!ready || busy) return;
     await attempt(async () => {
+      for (const x of entries) {
+        if (x.how.repeat !== '0' && !favoritesSearch(x.text) && x.how.group === 'new' && !x.how.groupName.trim()) throw new Error(t('downloads.nameGroupFirst'));
+      }
       let subId: number | undefined;
+      let subscribed = false;
       const uniq = [...new Set(searches)]; // (the same search on several sites: named once)
       const q = uniq.length > 1 ? t('newDl.searches', { n: searches.length }) : uniq[0];
-      const where = entries.map((e) => siteLabel(e.site)).join(', ');
-      if (repeat !== '0') {
-        if (!favSearch && formGroup === 'new' && !newGroupName.trim()) throw new Error(t('downloads.nameGroupFirst'));
-        const group = favSearch
-          ? {}
-          : formGroup === 'new'
-            ? { group_name: newGroupName.trim() }
-            : formGroup.startsWith('name:')
-              ? { group_name: formGroup.slice(5) }
-              : formGroup
-                ? { group_id: +formGroup }
-                : {};
-        // (a split search: each combination its own subscription - a group's name finds the group of that name on
-        // its site, made by the first one where there's none)
-        for (const j of jobs) subId = (await api.subscribe(j.site, j.q, +repeat, maxPosts ?? 0, group, ownFavorites(j.text), label)).id; // (label: a gallery's title - its name in the lists)
-        const gName = favSearch
-          ? t('menu.favorites')
-          : formGroup === 'new'
-            ? newGroupName.trim()
-            : formGroup.startsWith('name:')
-              ? formGroup.slice(5)
-              : siteGroups.find((x) => String(x.id) === formGroup)?.name;
-        toasts.show(gName ? t('downloads.subscribedIn', { query: label || q, name: gName, every: every(+repeat) }) : t('downloads.subscribed', { query: label || q, every: every(+repeat) }), {
+      for (const x of entries) {
+        const h = x.how;
+        const fav = favoritesSearch(x.text);
+        if (h.repeat !== '0') {
+          const group = fav ? {} : h.group === 'new' ? { group_name: h.groupName.trim() } : h.group ? { group_id: +h.group } : {};
+          // (a split search: each combination its own subscription - a new group's name finds the group the first made)
+          for (const s of searchesOf(x)) subId = (await api.subscribe(x.site, s, +h.repeat, h.max ?? 0, group, ownFavorites(x.text), label)).id; // (label: a gallery's title - its name in the lists)
+          subscribed = true;
+        } else {
+          for (const s of searchesOf(x)) await api.addDownload(x.site, s, h.max ?? 0, ownFavorites(x.text), label);
+        }
+      }
+      if (multi) {
+        toasts.show(t('newDl.startedOn', { query: label || q, sites: entries.map((x) => siteLabel(x.site)).join(', ') }), { cat: 'downloadsStarted', kind: 'info' });
+      } else if (cur.repeat !== '0') {
+        const gName = favSearch ? t('menu.favorites') : cur.group === 'new' ? cur.groupName.trim() : groups.find((x) => String(x.id) === cur.group)?.name;
+        toasts.show(gName ? t('downloads.subscribedIn', { query: label || q, name: gName, every: every(+cur.repeat) }) : t('downloads.subscribed', { query: label || q, every: every(+cur.repeat) }), {
           cat: 'downloadsStarted',
         });
       } else {
-        for (const j of jobs) await api.addDownload(j.site, j.q, maxPosts ?? 0, ownFavorites(j.text), label);
-        toasts.show(t('downloads.downloading', { query: label || q, site: where }), { cat: 'downloadsStarted', kind: 'info' });
+        toasts.show(t('downloads.downloading', { query: label || q, site: siteLabel(site) }), { cat: 'downloadsStarted', kind: 'info' });
       }
       write('vitrine.lastSite', site);
-      ondone?.(repeat !== '0', subId);
+      ondone?.(subscribed, subId);
       onclose();
     }, (b) => (busy = b));
   }
@@ -435,12 +427,19 @@
                 </div>
               </form>
             {:else}
-              <!-- Once, or a subscription. -->
+              <!-- Once, or a subscription - for each site its own when there are several. -->
               <form class="form" onsubmit={start}>
                 {#if multi}
-                  <ul class="split-list sites-list" {@attach overlayScroll}>
-                    {#each jobs as j (j.site + ' ' + j.q)}<li><SiteIcon host={siteInfo.hosts[j.site] ?? ''} /> <span>{label || j.q}</span></li>{/each}
-                  </ul>
+                  {#each entries as x, i (x.site)}
+                    <section class="site-how" aria-label={siteLabel(x.site)}>
+                      <p class="what" title={label || searchesOf(x).join('\n')}>
+                        <SiteIcon host={siteInfo.hosts[x.site] ?? ''} />
+                        <span class="site-how-name">{siteLabel(x.site)}</span>
+                        <span class="site-how-q">{label || (searchesOf(x).length > 1 ? t('newDl.searches', { n: searchesOf(x).length }) : searchesOf(x)[0])}</span>
+                      </p>
+                      {@render howControls(x.how, x.site, favoritesSearch(x.text), i === 0)}
+                    </section>
+                  {/each}
                 {:else}
                   <p class="what" title={label || searches.join('\n')}>
                     <SiteIcon host={siteInfo.hosts[site] ?? ''} /> <span>{label || (searches.length > 1 ? t('newDl.searches', { n: searches.length }) : searches[0])}</span>
@@ -450,55 +449,16 @@
                       {#each searches as s (s)}<li>{s}</li>{/each}
                     </ul>
                   {/if}
+                  {#if !single}{@render howControls(cur, site, favSearch, true)}{/if}
+                  <p class="hint">
+                    {#if single}{t('newDl.singleHint', { n: single.files })}
+                    {:else if cur.repeat === '0'}{cur.max ? t('downloads.noteOnce', { n: Number(cur.max) }) : t('newDl.onceHint')}
+                    {:else}{t('downloads.noteSub', { every: every(+cur.repeat), first: cur.max ? t('downloads.newestN', { n: Number(cur.max) }) : t('downloads.everyPost') })}.{/if}
+                  </p>
                 {/if}
-                {#if !single}
-                <div class="segmented" role="tablist" aria-label={t('newDl.how')}>
-                  <button type="button" role="tab" aria-selected={repeat === '0'} onclick={() => (repeat = '0')} data-autofocus><Icon name="download" size={16} /> {t('downloads.once')}</button>
-                  <button type="button" role="tab" aria-selected={repeat !== '0'} onclick={() => repeat === '0' && (repeat = String(DEFAULT_INTERVAL))}><Icon name="bell" size={16} /> {t('downloads.subscribe')}</button>
-                </div>
-                <div class="rows">
-                  {#if repeat !== '0'}
-                    <div class="row" transition:reveal>
-                      <span class="row-label">{t('downloads.repeat')}</span>
-                      <Dropdown floating value={repeat} options={intervalOptions} onchange={(v) => (repeat = v)} label={t('downloads.repeat')} heading={t('downloads.repeat')} />
-                    </div>
-                    {#if !favSearch}
-                      <div class="row" transition:reveal>
-                        <span class="row-label">{t('downloads.group')}</span>
-                        <Dropdown
-                          floating
-                          value={formGroup}
-                          options={groupOptions}
-                          onchange={pickGroup}
-                          label={t('downloads.group')}
-                          heading={t('downloads.addToGroup')} />
-                      </div>
-                      {#if formGroup === 'new'}
-                        <input class="new-group" bind:value={newGroupName} placeholder={t('downloads.newGroupExample')} aria-label={t('downloads.newGroupLabel')} maxlength="60"  transition:reveal/>
-                      {/if}
-                    {/if}
-                  {/if}
-                  <label class="row">
-                    <span class="row-label">{repeat === '0' ? t('downloads.files') : t('downloads.firstCheck')}</span>
-                    <input
-                      class="max"
-                      bind:value={maxPosts}
-                      type="number"
-                      min="1"
-                      inputmode="numeric"
-                      placeholder={t('downloads.all')}
-                      aria-label={repeat === '0' ? t('downloads.maxFiles') : t('downloads.maxFirst')} />
-                  </label>
-                </div>
-                {/if}
-                <p class="hint">
-                  {#if single}{t('newDl.singleHint', { n: single.files })}
-                  {:else if repeat === '0'}{maxPosts ? t('downloads.noteOnce', { n: Number(maxPosts) }) : t('newDl.onceHint')}
-                  {:else}{t('downloads.noteSub', { every: every(+repeat), first: maxPosts ? t('downloads.newestN', { n: Number(maxPosts) }) : t('downloads.everyPost') })}.{/if}
-                </p>
                 <div class="foot">
                   <button type="submit" class="go" disabled={busy}>
-                    {#if repeat === '0'}<Icon name="download" size={18} /> {t('backups.download')}{:else}<Icon name="bell" size={18} /> {t('downloads.subscribe')}{/if}
+                    {#if allOnce}<Icon name="download" size={18} /> {t('backups.download')}{:else if allSubs}<Icon name="bell" size={18} /> {t('downloads.subscribe')}{:else}<Icon name="right" size={18} /> {t('newDl.startAll')}{/if}
                   </button>
                 </div>
               </form>
@@ -509,6 +469,45 @@
     </div>
   {/if}
 </div>
+
+{#snippet howControls(h: How, siteId: string, fav: boolean, first: boolean)}
+  <div class="segmented" role="tablist" aria-label={multi ? t('newDl.howOn', { site: siteLabel(siteId) }) : t('newDl.how')}>
+    <button type="button" role="tab" aria-selected={h.repeat === '0'} onclick={() => (h.repeat = '0')} data-autofocus={first ? true : undefined}
+      ><Icon name="download" size={16} /> {t('downloads.once')}</button>
+    <button type="button" role="tab" aria-selected={h.repeat !== '0'} onclick={() => h.repeat === '0' && (h.repeat = String(DEFAULT_INTERVAL))}
+      ><Icon name="bell" size={16} /> {t('downloads.subscribe')}</button>
+  </div>
+  <div class="rows">
+    {#if h.repeat !== '0'}
+      <div class="row" transition:reveal>
+        <span class="row-label">{t('downloads.repeat')}</span>
+        <Dropdown floating value={h.repeat} options={intervalOptions} onchange={(v) => (h.repeat = v)} label={multi ? t('newDl.repeatOn', { site: siteLabel(siteId) }) : t('downloads.repeat')} heading={t('downloads.repeat')} />
+      </div>
+      {#if !fav}
+        <div class="row" transition:reveal>
+          <span class="row-label">{t('downloads.group')}</span>
+          <Dropdown floating value={h.group} options={groupOptionsFor(siteId)} onchange={(v) => pickGroup(h, v)} label={multi ? t('newDl.groupOn', { site: siteLabel(siteId) }) : t('downloads.group')} heading={t('downloads.addToGroup')} />
+        </div>
+        {#if h.group === 'new'}
+          <input class="new-group" value={h.groupName} oninput={(e) => (h.groupName = e.currentTarget.value)} placeholder={t('downloads.newGroupExample')}
+            aria-label={multi ? t('newDl.newGroupOn', { site: siteLabel(siteId) }) : t('downloads.newGroupLabel')} maxlength="60" transition:reveal />
+        {/if}
+      {/if}
+    {/if}
+    <label class="row">
+      <span class="row-label">{h.repeat === '0' ? t('downloads.files') : t('downloads.firstCheck')}</span>
+      <input
+        class="max"
+        value={h.max ?? ''}
+        oninput={(e) => (h.max = e.currentTarget.value ? Number(e.currentTarget.value) : undefined)}
+        type="number"
+        min="1"
+        inputmode="numeric"
+        placeholder={t('downloads.all')}
+        aria-label={h.repeat === '0' ? t('downloads.maxFiles') : t('downloads.maxFirst')} />
+    </label>
+  </div>
+{/snippet}
 
 <style>
   .backdrop {
@@ -810,15 +809,29 @@
     font-weight: 600;
     color: var(--subtext);
   }
-  .sites-list li {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+
+
+  /* Several sites: each its own way, in a framed section. */
+  .site-how {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--surface0);
+    background: var(--crust);
   }
-  .sites-list li span {
+  .site-how .what {
+    min-width: 0;
+  }
+  .site-how-name {
+    flex: none;
+  }
+  .site-how-q {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--subtext);
+    font-weight: 500;
   }
 </style>
