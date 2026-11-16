@@ -346,3 +346,7 @@ animated beautifully".
   makes the group on each of their sites), Check now, Pause (Resume when all are paused), Unsubscribe (a confirm).
   Done, another tab or any action ends selecting. One subscription's ⋯ › Move to group stays. Test: "select several,
   move them to a new or no group, pause and unsubscribe them together".
+- **A group's name on one line (2026-11-16)** (the user: "Long subscription group names break to the next line. Change
+  them to a carousel so they stay on one line. Auto scrolling carousel not manual"): the name in a group's heading is
+  the app's marquee (`lib/marquee`, as a download's search) - when it doesn't fit it slides to its end and back by
+  itself; measured again on a rename. Test: "subscription groups: a long name stays on one line".

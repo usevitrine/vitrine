@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Improved
+
+- **Subscription groups**: a long group name stays on one line and slides to show the rest, instead of breaking onto the next line.
+
 ## 1.2.0 - 2026-11-16
 
 ### New

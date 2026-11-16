@@ -2154,7 +2154,8 @@
                             {/if}
                             <button class="group-title" class:open aria-expanded={open} aria-label={t(open ? 'downloads.foldName' : 'downloads.unfoldName', { name: g.name })} onclick={() => toggleGroup(g.id)}>
                               <Icon name="right" size={16} />
-                              <span class="group-name">{g.name}</span>
+                              <!-- One line, sliding to its end and back when it's long (the app's marquee; measured again on a rename). -->
+                              {#key g.name}<span class="group-name marquee sliding" title={g.name} {@attach marquee}><span>{g.name}</span></span>{/key}
                               <span class="count">{gs.count}</span>
                             </button>
                             {#if gs.allPaused && gs.count}<span class="state paused" transition:nudge>{t('downloads.state.paused')}</span>{/if}
@@ -2987,10 +2988,11 @@
   .group-title.open > :global(svg) {
     rotate: 90deg;
   }
+  /* (one line - the user: "Long subscription group names break to the next line... Auto scrolling carousel") */
   .group-name {
+    flex: 0 1 auto;
     min-width: 0;
     font-weight: 700;
-    overflow-wrap: anywhere;
   }
   .count {
     flex: none;

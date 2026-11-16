@@ -11685,3 +11685,35 @@ test("details: the picked tags' card - its chips scroll sideways when they don't
   await expect(page.getByRole('dialog', { name: '4 tags picked' })).toBeVisible();
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
+
+test('subscription groups: a long name stays on one line, sliding to its end and back', async ({ page }) => {
+  test.skip(test.info().project.name === 'desktop-chromium', 'the phone and one desktop');
+  const name = 'Long group name of artists to follow ' + test.info().project.name; // (60 at most)
+  await page.goto('/downloads');
+  const sub = await page.evaluate(
+    (name) =>
+      fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: 'test-down', query: 'long_group_' + name.length, interval: 604800, initial_max: 0, group_name: name }) }).then((r) => r.json()),
+    name,
+  );
+  await page.reload();
+  await dlTab(page, 'Subscriptions');
+  const title = page.locator('.group-name', { hasText: name });
+  await expect(title).toBeVisible();
+  await title.scrollIntoViewIfNeeded();
+  const phone = test.info().project.name === 'iphone'; // (on a desktop it fits)
+  if (phone) await expect(title).toHaveClass(/long/); // (too long: it slides)
+  const lineH = await title.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || 24);
+  expect((await title.boundingBox())!.height).toBeLessThan(lineH * 1.5); // one line
+  const head = (await title.locator('xpath=ancestor::button[1]').boundingBox())!;
+  expect((await title.boundingBox())!.x + (await title.boundingBox())!.width).toBeLessThanOrEqual(head.x + head.width + 1);
+  if (phone) {
+    await page.waitForTimeout(2500);
+    expect(await title.locator('span').evaluate((el) => getComputedStyle(el).transform)).not.toBe('none'); // moving
+  }
+  await page.screenshot({ path: test.info().outputPath('long-group.png') });
+  await page.evaluate(async (sub) => {
+    await fetch(`/api/subscriptions/${sub.id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const { groups } = await (await fetch('/api/downloads')).json();
+    for (const g of groups ?? []) if (g.id === sub.group_id) await fetch(`/api/sub-groups/${g.id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  }, sub);
+});
