@@ -11908,3 +11908,33 @@ test('downloads: left while picking subscriptions and come back to - it shows ag
   expect(errors).toEqual([]);
   await page.evaluate(async (ids) => { for (const id of ids) await fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); }, ids);
 });
+
+test("subscriptions: picked across sites, the card has no Move to group (a group is one site's)", async ({ page }) => {
+  test.skip(test.info().project.name !== 'iphone', 'one run is enough');
+  await page.goto('/downloads');
+  const ids: number[] = await page.evaluate(async () => {
+    const out: number[] = [];
+    for (const [site, q] of [['test-down', 'cross_a'], ['test-down', 'cross_b'], ['test-slow', 'cross_c']])
+      out.push((await (await fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site, query: q, interval: 604800, initial_max: 0 }) })).json()).id);
+    return out;
+  });
+  await page.reload();
+  await dlTab(page, 'Subscriptions');
+  const card = page.locator('section.card', { has: page.getByRole('heading', { name: 'Subscriptions' }) });
+  for (const name of ['Unfold test-down.invalid', 'Unfold test-slow.invalid']) {
+    const b = card.getByRole('button', { name });
+    if (await b.count()) await b.click();
+  }
+  await card.getByRole('button', { name: 'Select subscriptions' }).click();
+  await card.getByRole('button', { name: 'Select cross_a' }).click();
+  await card.getByRole('button', { name: 'Select cross_b' }).click();
+  await page.getByRole('button', { name: 'Use the 2 picked subscriptions' }).click();
+  const menu = page.getByRole('dialog', { name: /subscriptions? picked/ });
+  await expect(menu.getByRole('heading', { name: 'Move to group' })).toBeVisible(); // (one site)
+  // (the sheet still up) A third, on another site: the card follows, without Move to group.
+  await card.getByRole('button', { name: 'Select cross_c' }).dispatchEvent('click'); // (its site's check keeps the card moving; the sheet sits over it)
+  await expect(menu).toHaveAccessibleName('3 subscriptions picked');
+  await expect(menu.getByRole('button', { name: /^Check now/ })).toBeVisible();
+  await expect(menu.getByRole('heading', { name: 'Move to group' })).toHaveCount(0); // (two sites)
+  await page.evaluate(async (ids) => { for (const id of ids) await fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); }, ids);
+});

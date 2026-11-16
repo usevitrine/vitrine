@@ -1985,6 +1985,9 @@
         onunpick={(k) => pickSub(Number(k))}
         onclear={() => setSubSelecting(false)}>
         {#snippet actions(use)}
+          <!-- (all on one site: groups are a site's own - picked across sites, no moving them; the user: "If I select multiple
+               subs across different sites maybe the change group button shouldn't appear") -->
+          {#if pickedSites.length === 1}
           <h4>{t('downloads.moveToGroup')}</h4>
           <div class="group">
             {#each bulkMoveOptions as o (o.value)}
@@ -1997,6 +2000,7 @@
               </button>
             {/each}
           </div>
+          {/if}
           <h4>{t('stats.subscriptions')}</h4>
           <div class="group">
             <button class="act" onclick={() => use(() => bulkAct('check'))}>

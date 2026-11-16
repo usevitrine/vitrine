@@ -389,3 +389,7 @@ animated beautifully".
   its line - a ReferenceError, the page never came (any tab, not only picking). And `menuOpened()` (2026-11-14) read the
   count it raised inside the opening menu's $effect - every menu that opened looped until Svelte stopped it
   (effect_update_depth_exceeded); now untracked. Test: "downloads: left while picking subscriptions and come back to".
+- **Move to group only on one site (2026-11-16)** (the user: "If I select multiple subs across different sites maybe the
+  change group button shouldn't appear"): a group is one site's, so the pick card's MOVE TO GROUP shows only while the
+  picked subscriptions are all on one site (a single one's ⋯ › Move to group as before). Test: "subscriptions: picked
+  across sites, the card has no Move to group".
