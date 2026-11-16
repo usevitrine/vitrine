@@ -21,6 +21,7 @@
   import { phone } from '../lib/media';
   import { pop, nudge } from '../lib/motion';
   import { splitTag } from '../lib/namespaces.svelte';
+  import { marquee, measure } from '../lib/marquee';
   import { t } from '../lib/i18n.svelte';
 
 
@@ -71,6 +72,14 @@
   // (the last one taken off ends picking - the component goes with it)
   const names = (sep: string) => chosen.map((x) => splitTag(x).name).join(sep);
   const many = $derived(chosen.length > 1);
+  // The chips: one line sliding to its end and back when they don't fit (the app's marquee, as a download's search -
+  // the user: "The tag chips here should be a scrollable carousel"); held still under a finger or the pointer, so
+  // an × is easy to hit; measured again when one goes.
+  let chipsBox = $state<HTMLElement>();
+  $effect(() => {
+    void chosen.length;
+    if (chipsBox) requestAnimationFrame(() => chipsBox && measure(chipsBox));
+  });
   const allOut = $derived(chosen.length > 0 && chosen.every(blacklisted));
 
   function keydown(e: KeyboardEvent) {
@@ -138,6 +147,7 @@
         <span class="title">{t('details.tagsPicked', { n: chosen.length })}</span>
         <button class="clear" onclick={() => (close(), onclear())}>{t('details.clearPicked')}</button>
       </div>
+      <div class="chips-box marquee sliding" bind:this={chipsBox} {@attach marquee}>
       <ul class="chips" aria-label={t('details.picked')}>
         {#each chosen as tag (tag)}
           <li transition:pop>
@@ -146,6 +156,7 @@
           </li>
         {/each}
       </ul>
+      </div>
 
       <h4>{t('tagMenu.search')}</h4>
       <div class="group">
@@ -290,15 +301,22 @@
     color: var(--subtext);
     font-weight: 600;
   }
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+  .chips-box {
     margin: 2px 0 4px;
+  }
+  .chips-box:is(:hover, :active, :focus-within),
+  .chips-box:is(:hover, :active, :focus-within) > :global(*) {
+    animation-play-state: paused;
+  }
+  .chips {
+    display: inline-flex !important; /* (the marquee's one line: as wide as its chips) */
+    gap: 6px;
+    margin: 0;
     padding: 0;
     list-style: none;
   }
   .chips li {
+    flex: none;
     display: inline-flex;
     align-items: center;
     gap: 2px;
@@ -308,7 +326,6 @@
     background: var(--blue);
     color: var(--crust);
     font-weight: 500;
-    max-width: 100%;
   }
   .chips li span {
     min-width: 0;
@@ -366,8 +383,10 @@
     text-align: left;
     font-weight: 500;
   }
-  .act + .act {
-    border-top: 1px solid var(--surface0);
+  /* (a line drawn inside, not a border: the hover look takes the border off, and a phone keeps the row that opened
+     under the finger "hovered" - its line was missing) */
+  .act:not(:first-child) {
+    box-shadow: inset 0 1px 0 var(--surface0);
   }
   @media (hover: hover) {
     .act:hover:not(:disabled) {
