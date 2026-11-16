@@ -7621,7 +7621,7 @@ test('the menu scrolls when it is taller than the window', async ({ page }) => {
   await expect(page).toHaveURL(/\/settings\/account/);
 });
 
-test('details: pick several tags, then search all of them, any of them, add them to the search, start a new download or blacklist them (the usual menu); a tag menu blacklists it', async ({ page }) => {
+test('details: pick several tags, then search all of them, any of them, add them to the search, start a new download or blacklist them (the round button\'s card); a tag menu blacklists it', async ({ page }) => {
   const openPanel = async (q: string) => {
     await page.goto('/?q=' + encodeURIComponent(q));
     await page.locator('.tile[data-i="0"]').click();
@@ -7638,46 +7638,55 @@ test('details: pick several tags, then search all of them, any of them, add them
     await page.waitForTimeout(650);
     await page.mouse.up();
   };
+  // While tags are picked, a round button with their count; it opens them and what to do with them, in cards.
+  const fab = (n: number) => page.getByRole('button', { name: n === 1 ? 'Use the picked tag' : `Use the ${n} picked tags` });
   const pick = async (tags: ReturnType<typeof page.getByRole>) => {
     await hold(tags.getByRole('button', { name: 'blue_sky', exact: true }));
     await expect(page.getByRole('menu')).toHaveCount(0); // (the hold isn't also a tap: no tag menu)
     await tags.getByRole('button', { name: 'landscape', exact: true }).click();
-    await expect(tags.getByText('2 picked')).toBeVisible();
+    await expect(fab(2)).toBeVisible();
     await expect(tags.getByRole('button', { name: 'blue_sky', exact: true })).toHaveAttribute('aria-pressed', 'true');
   };
-  // The bar: Search and Download open the usual menu (a sheet on phones) with their ways; Blacklist adds them at once.
-  const use = async (tags: ReturnType<typeof page.getByRole>, item: string) => {
-    if (item === 'Add them to the blacklist') return tags.getByRole('button', { name: item }).click();
-    await tags.getByRole('button', { name: item.startsWith('Download') ? 'Download the picked tags' : 'Search with the picked tags' }).click();
-    await page.getByRole('menuitem', { name: item }).click();
+  const card = () => page.getByRole('dialog', { name: /tags? picked/ });
+  const use = async (_tags: ReturnType<typeof page.getByRole>, item: string) => {
+    await fab(2).click();
+    await card().getByRole('button', { name: item }).click();
   };
-  // The bar's × ends picking (the tags open their menus again); so does unpicking the last one; a right-click starts it too.
+  // Unpicking the last one ends picking (the tags open their menus again); a right-click starts it too; the card's
+  // Clear ends it, and a picked tag can be taken off there.
   let tags = await openPanel('blue_sky');
   await pick(tags);
   await tags.getByRole('button', { name: 'landscape', exact: true }).click();
   await tags.getByRole('button', { name: 'blue_sky', exact: true }).click();
-  await expect(tags.getByRole('toolbar', { name: 'Picked tags' })).toHaveCount(0);
+  await expect(fab(1)).toHaveCount(0);
+  await expect(fab(2)).toHaveCount(0);
   await tags.getByRole('button', { name: 'landscape', exact: true }).click({ button: 'right' });
-  await expect(tags.getByText('1 picked')).toBeVisible();
-  await tags.getByRole('button', { name: 'Stop picking' }).click();
-  await expect(tags.getByRole('toolbar', { name: 'Picked tags' })).toHaveCount(0);
+  await expect(fab(1)).toBeVisible();
+  await fab(1).click();
+  await expect(card()).toHaveAccessibleName('1 tag picked');
+  await card().getByRole('button', { name: 'Clear' }).click();
+  await expect(fab(1)).toHaveCount(0);
   await pick(tags);
-  await tags.getByRole('button', { name: 'Stop picking' }).click();
-  await expect(tags.getByRole('toolbar', { name: 'Picked tags' })).toHaveCount(0);
+  await fab(2).click();
+  await card().getByRole('button', { name: 'Unpick landscape' }).click();
+  await expect(card()).toHaveAccessibleName('1 tag picked');
+  await expect(card().getByRole('button', { name: /any of them/ })).toHaveCount(0); // (one tag: no "any")
+  await card().getByRole('button', { name: 'Clear' }).click();
+  await expect(card()).toHaveCount(0);
   await expect(tags.getByRole('button', { name: 'blue_sky', exact: true })).not.toHaveAttribute('aria-pressed');
   // Any of them: one OR group.
   await pick(tags);
-  await use(tags, 'Search any of them');
+  await use(tags, 'Files with any of them');
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('( blue_sky ~ landscape )');
   // All of them, as a new search.
   tags = await openPanel('blue_sky');
   await pick(tags);
-  await use(tags, 'Search all of them');
+  await use(tags, 'Files with all of them');
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('blue_sky landscape');
   // Added to the current search (blue_sky, already a chip there, is replaced - not doubled).
   tags = await openPanel('system:type=image blue_sky');
   await pick(tags);
-  await use(tags, 'Add them to the search');
+  await use(tags, 'Add to the current search');
   await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('system:type=image blue_sky landscape');
   // A new download: both, written the site's way (the form is filled in; nothing starts).
   tags = await openPanel('blue_sky');
@@ -11604,4 +11613,36 @@ test('subscriptions: select several, move them to a new or no group, pause and u
     const { groups } = await (await fetch('/api/downloads')).json();
     for (const g of groups ?? []) if (g.name === name) await fetch(`/api/sub-groups/${g.id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   }, { ids, name });
+});
+
+test('new download from tags: several sites at once - checked beside each, a search box for each, one download each', async ({ page }) => {
+  test.skip(test.info().project.name === 'desktop-chromium', 'the phone and one desktop');
+  const sent: { site: string; query: string }[] = [];
+  await page.route('**/api/downloads', (r) =>
+    r.request().method() === 'POST' ? (sent.push(r.request().postDataJSON()), r.fulfill({ json: { id: sent.length } })) : r.continue(),
+  );
+  await page.goto('/?q=blue_sky');
+  await page.locator('.tile[data-i="0"]').click();
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  const tags = page.getByRole('region', { name: 'Tags' });
+  await tags.getByRole('button', { name: 'blue_sky', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'New download' }).click();
+  const dlg = newDl(page);
+  // A tap on a site still goes on with it alone; its check picks it among others.
+  await dlg.locator('.pick-row', { hasText: 'safebooru.org' }).getByRole('button', { name: 'Pick several sites' }).click();
+  await expect(dlg.getByText('1 site picked')).toBeVisible();
+  await dlg.getByRole('button', { name: 'test-down.invalid', exact: true }).click(); // (picking now: a tap picks)
+  await expect(dlg.getByText('2 sites picked')).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('sites.png') });
+  await dlg.getByRole('button', { name: 'Next' }).click();
+  await expect(dlg.getByRole('heading', { name: 'The search on 2 sites' })).toBeVisible();
+  await expect(dlg.getByRole('combobox', { name: 'Search on safebooru.org' })).toHaveValue('blue_sky');
+  await expect(dlg.getByRole('combobox', { name: 'Search on test-down.invalid' })).toHaveValue('blue_sky');
+  await page.screenshot({ path: test.info().outputPath('searches.png') });
+  await dlg.getByRole('button', { name: 'Next' }).click();
+  await page.screenshot({ path: test.info().outputPath('how.png') });
+  await dlg.getByRole('button', { name: 'Download', exact: true }).click();
+  await expect.poll(() => sent.map((x) => x.site + ':' + x.query).sort()).toEqual(['safebooru:blue_sky', 'test-down:blue_sky']);
+  await expect(page.getByText(/Downloading .blue_sky. from safebooru\.org, test-down\.invalid/)).toBeVisible();
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 });

@@ -10,9 +10,11 @@ shows this too (Settings > Help & about).
 - **Downloads queue**: show all, only downloads or only subscription checks. Order the queue by file count, most or fewest first: Vitrine asks each site how many posts every waiting search has, and shows the count on its card. A download that made way for a subscription check now says which one; tap it to see the check.
 - **Download anyway**: a single post that didn't download - because of your download rules, the blacklist, or because you deleted its file before - can be downloaded anyway from its card on the Downloads page. A file still in the trash comes back from there.
 - **Select subscriptions**: pick several subscriptions (or a whole group) and move them to another group, a new group or out of their groups, check, pause, resume or unsubscribe them all at once.
+- **Several sites in one go**: a new download can go to several sites at once - check them on "Which site?", and each gets its search written its own way.
 
 ### Improved
 
+- **Picking several tags**: the cramped bar under the tags is now a round button with the count; it opens the picked tags (each can be taken off) and roomy cards saying what each action does.
 - **Menus**: while any menu or dropdown is open, thumbnails don't react: no hover preview, and clicking one only closes the menu. Clicking a button right after closing a menu no longer does nothing.
 - **Starting up**: Vitrine starts several times faster on a big library. It saves part of its search index when it stops and reads it back at the next start instead of rebuilding it; a library of over a million files started in about 5 seconds instead of 25. Anything changed in between is noticed, and the index is rebuilt as before.
 

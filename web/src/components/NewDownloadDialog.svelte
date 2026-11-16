@@ -143,26 +143,39 @@
     if (search) origins = usable(await from);
     go('site');
   }
+  // Each site picked, with its search written its way (2026-11-16, the user: "when i start a download and it asks me to
+  // pick a site, I wanna be able to select multiple sites"): a tap on a site goes on with it alone; its check picks
+  // it among others (then a tap on a row picks or unpicks it), and Next goes on with all of them - a search box for
+  // each, then one "once or subscribe" for all (a group: one of that name on each site, made where it's missing).
+  // split: OR groups a site has no OR search for - a search for each combination.
+  type Entry = { site: string; text: string; left: Chip[]; split: Chip[] };
   // svelte-ignore state_referenced_locally
-  let site = $state(presetSite);
-  // svelte-ignore state_referenced_locally
-  let text = $state(presetText);
-  let searchBox = $state<HTMLInputElement>(); // (the suggestions sit under it, over the dialog)
-  let left = $state<Chip[]>([]);
-  let split = $state<Chip[]>([]); // (OR groups the site has no OR search for: a search for each combination)
-  const searches = $derived(splitSearches(site, text, split));
-  const ready = $derived(searches.every((q) => q !== ''));
-  function pickSite(s: string) {
-    site = s;
-    if (useSearch) ({ query: text, left, split } = siteSearch(s, query));
-    else {
-      text = '';
-      left = [];
-      split = [];
-    }
+  let entries = $state<Entry[]>(presetSite ? [{ site: presetSite, text: presetText, left: [], split: [] }] : []);
+  const site = $derived(entries[0]?.site ?? '');
+  const multi = $derived(entries.length > 1);
+  let boxes = $state<HTMLInputElement[]>([]); // (the suggestions sit under each, over the dialog)
+  const searchesOf = (e: Entry) => splitSearches(e.site, e.text, e.split);
+  const jobs = $derived(entries.flatMap((e) => searchesOf(e).map((q) => ({ site: e.site, q, text: e.text }))));
+  const searches = $derived(jobs.map((j) => j.q));
+  const ready = $derived(jobs.length > 0 && jobs.every((j) => j.q !== ''));
+  let sitePicks = $state<string[]>([]); // checked on the site page (several at once)
+  function togglePick(s: string) {
+    sitePicks = sitePicks.includes(s) ? sitePicks.filter((x) => x !== s) : [...sitePicks, s];
+  }
+  function siteTap(s: string) {
+    if (sitePicks.length) togglePick(s);
+    else pickSites([s]);
+  }
+  function pickSites(list: string[]) {
+    entries = list.map((s) => {
+      if (!useSearch) return { site: s, text: '', left: [], split: [] };
+      const w = siteSearch(s, query);
+      return { site: s, text: w.query, left: w.left, split: w.split };
+    });
     // (several subscriptions from one search: together in a group named after it, to start with)
-    formGroup = split.length ? 'new' : '';
-    newGroupName = split.length ? searchWords(parse(query)).slice(0, 60) : '';
+    const split = entries.some((e) => e.split.length);
+    formGroup = split ? 'new' : '';
+    newGroupName = split ? searchWords(parse(query)).slice(0, 60) : '';
     go('search');
   }
   // One post (its link, or id:N): asked about first - the site says whether it has it, here in the dialog - and then
@@ -176,7 +189,7 @@
     if (!ready || checking) return;
     single = null;
     refError = '';
-    if (searches.length === 1 && mayBeSingle(searches[0])) {
+    if (jobs.length === 1 && mayBeSingle(searches[0])) {
       checking = true;
       try {
         const res = await api.checkSingle(site, searches[0]);
@@ -201,12 +214,22 @@
   let newGroupName = $state('');
   let busy = $state(false);
   const siteGroups = $derived(groups.filter((g) => g.site === site));
-  const ownFavs = $derived(ownFavorites(text)); // (its files become favorites here too, as on the Downloads page)
-  const favSearch = $derived(favoritesSearch(text));
+  // Several sites: a group every one of them has (by name; 'name:' values), or a new one on each.
+  const commonGroups = $derived.by(() => {
+    if (!multi) return [];
+    const per = entries.map((e) => new Set(groups.filter((g) => g.site === e.site).map((g) => g.name)));
+    return [...per[0]].filter((n) => per.every((x) => x.has(n))).sort((a, b) => a.localeCompare(b));
+  });
+  const groupOptions = $derived([
+    { value: '', label: t('downloads.noGroup') },
+    ...(multi ? commonGroups.map((n) => ({ value: 'name:' + n, label: n })) : siteGroups.map((g) => ({ value: String(g.id), label: g.name }))),
+    { value: 'new', label: t('downloads.newGroup') },
+  ]);
+  const favSearch = $derived(entries.some((e) => favoritesSearch(e.text)));
   const intervalOptions = $derived(intervals.map((v) => ({ value: String(v), label: cap(every(v)) })));
   function pickGroup(v: string) {
     formGroup = v;
-    const g = groups.find((x) => String(x.id) === v);
+    const g = v.startsWith('name:') ? groups.find((x) => x.site === site && x.name === v.slice(5)) : groups.find((x) => String(x.id) === v);
     if (g?.interval) repeat = String(g.interval); // the group's usual schedule
   }
 
@@ -215,19 +238,36 @@
     if (!ready || busy) return;
     await attempt(async () => {
       let subId: number | undefined;
-      const q = searches.length > 1 ? t('newDl.searches', { n: searches.length }) : searches[0];
+      const uniq = [...new Set(searches)]; // (the same search on several sites: named once)
+      const q = uniq.length > 1 ? t('newDl.searches', { n: searches.length }) : uniq[0];
+      const where = entries.map((e) => siteLabel(e.site)).join(', ');
       if (repeat !== '0') {
         if (!favSearch && formGroup === 'new' && !newGroupName.trim()) throw new Error(t('downloads.nameGroupFirst'));
-        const group = favSearch ? {} : formGroup === 'new' ? { group_name: newGroupName.trim() } : formGroup ? { group_id: +formGroup } : {};
-        // (a split search: each combination its own subscription - a new group's name finds the group the first one made)
-        for (const s of searches) subId = (await api.subscribe(site, s, +repeat, maxPosts ?? 0, group, ownFavs, label)).id; // (label: a gallery's title - its name in the lists)
-        const gName = favSearch ? t('menu.favorites') : formGroup === 'new' ? newGroupName.trim() : siteGroups.find((x) => String(x.id) === formGroup)?.name;
+        const group = favSearch
+          ? {}
+          : formGroup === 'new'
+            ? { group_name: newGroupName.trim() }
+            : formGroup.startsWith('name:')
+              ? { group_name: formGroup.slice(5) }
+              : formGroup
+                ? { group_id: +formGroup }
+                : {};
+        // (a split search: each combination its own subscription - a group's name finds the group of that name on
+        // its site, made by the first one where there's none)
+        for (const j of jobs) subId = (await api.subscribe(j.site, j.q, +repeat, maxPosts ?? 0, group, ownFavorites(j.text), label)).id; // (label: a gallery's title - its name in the lists)
+        const gName = favSearch
+          ? t('menu.favorites')
+          : formGroup === 'new'
+            ? newGroupName.trim()
+            : formGroup.startsWith('name:')
+              ? formGroup.slice(5)
+              : siteGroups.find((x) => String(x.id) === formGroup)?.name;
         toasts.show(gName ? t('downloads.subscribedIn', { query: label || q, name: gName, every: every(+repeat) }) : t('downloads.subscribed', { query: label || q, every: every(+repeat) }), {
           cat: 'downloadsStarted',
         });
       } else {
-        for (const s of searches) await api.addDownload(site, s, maxPosts ?? 0, ownFavs, label);
-        toasts.show(t('downloads.downloading', { query: label || q, site: siteLabel(site) }), { cat: 'downloadsStarted', kind: 'info' });
+        for (const j of jobs) await api.addDownload(j.site, j.q, maxPosts ?? 0, ownFavorites(j.text), label);
+        toasts.show(t('downloads.downloading', { query: label || q, site: where }), { cat: 'downloadsStarted', kind: 'info' });
       }
       write('vitrine.lastSite', site);
       ondone?.(repeat !== '0', subId);
@@ -238,7 +278,7 @@
   const titles: Record<Page, () => string> = {
     what: () => t('tagMenu.newDownload'),
     site: () => t('newDl.site'),
-    search: () => t('newDl.search', { site: siteLabel(site) }),
+    search: () => (multi ? t('newDl.searchSites', { n: entries.length }) : t('newDl.search', { site: siteLabel(site) })),
     how: () => t('newDl.how'),
   };
 
@@ -327,11 +367,16 @@
                   <h3 transition:reveal>{t('sitePicker.from')}</h3>
                   <div class="items">
                     {#each origins as c, k (c.site)}
-                      <button class="item site" onclick={() => pickSite(c.site)} data-autofocus={k === 0 ? true : undefined}>
+                    {@const on = sitePicks.includes(c.site)}
+                    <div class="pick-row" class:on>
+                      <button class="item site" aria-pressed={sitePicks.length ? on : undefined} onclick={() => siteTap(c.site)} data-autofocus={k === 0 ? true : undefined}>
                         <SiteIcon host={siteInfo.hosts[c.site] ?? ''} />
                         <span class="item-text"><span class="item-label">{siteLabel(c.site)}</span></span>
                         <span class="meta">{c.tags < tags.length ? t('sitePicker.someTags', { count: c.tags, n: tags.length }) : t('common.files', { n: c.files })}</span>
                       </button>
+                      <button class="site-check" class:on aria-pressed={on} aria-label={t('newDl.severalSites')} onclick={() => togglePick(c.site)}
+                        ><Icon name="check" size={14} /></button>
+                    </div>
                     {/each}
                   </div>
                 {/if}
@@ -339,11 +384,22 @@
                   {#if useSearch && origins.length}<h3 transition:reveal>{t('sitePicker.others')}</h3>{/if}
                   <div class="items">
                     {#each others as s, k (s)}
-                      <button class="item site" onclick={() => pickSite(s)} data-autofocus={k === 0 && !(useSearch && origins.length) ? true : undefined}>
+                    {@const on = sitePicks.includes(s)}
+                    <div class="pick-row" class:on>
+                      <button class="item site" aria-pressed={sitePicks.length ? on : undefined} onclick={() => siteTap(s)} data-autofocus={k === 0 && !(useSearch && origins.length) ? true : undefined}>
                         <SiteIcon host={siteInfo.hosts[s] ?? ''} />
                         <span class="item-text"><span class="item-label">{siteLabel(s)}</span></span>
                       </button>
+                      <button class="site-check" class:on aria-pressed={on} aria-label={t('newDl.severalSites')} onclick={() => togglePick(s)}
+                        ><Icon name="check" size={14} /></button>
+                    </div>
                     {/each}
+                  </div>
+                {/if}
+                {#if sitePicks.length}
+                  <div class="foot picks-foot" transition:reveal>
+                    <span class="hint">{t('newDl.nSites', { n: sitePicks.length })}</span>
+                    <button type="button" onclick={() => pickSites(sitePicks)}>{t('newDl.next')} <Icon name="right" size={16} /></button>
                   </div>
                 {/if}
                 </div>
@@ -351,24 +407,29 @@
             {:else if page === 'search'}
               <!-- What to search for on the site (the library's search written its way, or a new one). -->
               <form class="form" onsubmit={toHow}>
-                <TagInput
-                  anchor={sheet ? undefined : searchBox}
-                  above={sheet}
-                  bind:inputEl={searchBox}
-                  bind:value={text}
-                  multi
-                  comics={siteInfo.engines[site] === 'ehentai' ? site : undefined}
-                  sites={site}
-                  format={(tg) => tagQuery(site, tg)}
-                  anyOf={(tags) => (canOr(site, tags) ? tagsQuery(site, tags, true) : null)}
-                  label={t('downloads.searchOnSite')}
-                  placeholder={siteInfo.hints[site] ?? t('downloads.searchSite', { site: siteLabel(site) })}
-                  autofocus={!touch()}
-                  onenter={() => toHow()} />
-                {#if split.length}<p class="hint left" transition:reveal>{t('newDl.split', { site: siteLabel(site), n: searches.length })}</p>{/if}
-                {#if left.length}<p class="hint left" transition:reveal>{t('newDl.leftOut', { what: searchWords(left) })}</p>{/if}
+                {#each entries as e, i (e.site)}
+                  <div class="site-search">
+                    {#if multi}<p class="site-name"><SiteIcon host={siteInfo.hosts[e.site] ?? ''} /> {siteLabel(e.site)}</p>{/if}
+                    <TagInput
+                      anchor={sheet ? undefined : boxes[i]}
+                      above={sheet}
+                      bind:inputEl={boxes[i]}
+                      bind:value={e.text}
+                      multi
+                      comics={siteInfo.engines[e.site] === 'ehentai' ? e.site : undefined}
+                      sites={e.site}
+                      format={(tg) => tagQuery(e.site, tg)}
+                      anyOf={(tags) => (canOr(e.site, tags) ? tagsQuery(e.site, tags, true) : null)}
+                      label={multi ? t('newDl.searchOn', { site: siteLabel(e.site) }) : t('downloads.searchOnSite')}
+                      placeholder={siteInfo.hints[e.site] ?? t('downloads.searchSite', { site: siteLabel(e.site) })}
+                      autofocus={i === 0 && !touch()}
+                      onenter={() => toHow()} />
+                    {#if e.split.length}<p class="hint left" transition:reveal>{t('newDl.split', { site: siteLabel(e.site), n: searchesOf(e).length })}</p>{/if}
+                    {#if e.left.length}<p class="hint left" transition:reveal>{t('newDl.leftOut', { what: searchWords(e.left) })}</p>{/if}
+                  </div>
+                {/each}
                 {#if refError}<p class="hint left ref-error" role="alert" transition:reveal>{refError}</p>
-                {:else if siteInfo.single[site]}<p class="hint left">{t('newDl.singleTip')}</p>{/if}
+                {:else if !multi && siteInfo.single[site]}<p class="hint left">{t('newDl.singleTip')}</p>{/if}
                 <div class="foot">
                   <button type="submit" disabled={!ready || checking}>{t('newDl.next')} <Icon name="right" size={16} /></button>
                 </div>
@@ -376,13 +437,19 @@
             {:else}
               <!-- Once, or a subscription. -->
               <form class="form" onsubmit={start}>
-                <p class="what" title={label || searches.join('\n')}>
-                  <SiteIcon host={siteInfo.hosts[site] ?? ''} /> <span>{label || (searches.length > 1 ? t('newDl.searches', { n: searches.length }) : searches[0])}</span>
-                </p>
-                {#if searches.length > 1}
-                  <ul class="split-list" {@attach overlayScroll} transition:reveal>
-                    {#each searches as s (s)}<li>{s}</li>{/each}
+                {#if multi}
+                  <ul class="split-list sites-list" {@attach overlayScroll}>
+                    {#each jobs as j (j.site + ' ' + j.q)}<li><SiteIcon host={siteInfo.hosts[j.site] ?? ''} /> <span>{label || j.q}</span></li>{/each}
                   </ul>
+                {:else}
+                  <p class="what" title={label || searches.join('\n')}>
+                    <SiteIcon host={siteInfo.hosts[site] ?? ''} /> <span>{label || (searches.length > 1 ? t('newDl.searches', { n: searches.length }) : searches[0])}</span>
+                  </p>
+                  {#if searches.length > 1}
+                    <ul class="split-list" {@attach overlayScroll} transition:reveal>
+                      {#each searches as s (s)}<li>{s}</li>{/each}
+                    </ul>
+                  {/if}
                 {/if}
                 {#if !single}
                 <div class="segmented" role="tablist" aria-label={t('newDl.how')}>
@@ -401,7 +468,7 @@
                         <Dropdown
                           floating
                           value={formGroup}
-                          options={[{ value: '', label: t('downloads.noGroup') }, ...siteGroups.map((g) => ({ value: String(g.id), label: g.name })), { value: 'new', label: t('downloads.newGroup') }]}
+                          options={groupOptions}
                           onchange={pickGroup}
                           label={t('downloads.group')}
                           heading={t('downloads.addToGroup')} />
@@ -686,5 +753,70 @@
     background: var(--mauve);
     color: var(--crust);
     border-color: transparent;
+  }
+
+  /* Several sites (2026-11-16): a check beside each site; Next once some are checked. */
+  .pick-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 10px;
+    transition: background-color 0.15s;
+  }
+  .pick-row.on {
+    background: color-mix(in srgb, var(--mauve) 12%, transparent);
+  }
+  .pick-row .item {
+    flex: 1;
+    min-width: 0;
+  }
+  .site-check,
+  .site-check:hover:not(:disabled) {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    min-height: 0;
+    margin: 0 10px 0 4px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid var(--overlay0);
+    background: transparent;
+    color: transparent;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .site-check.on {
+    border-color: var(--mauve);
+    background: var(--mauve);
+    color: var(--crust);
+  }
+  .picks-foot {
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 4px;
+  }
+  .site-search {
+    display: grid;
+    gap: 6px;
+  }
+  .site-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-weight: 600;
+    color: var(--subtext);
+  }
+  .sites-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sites-list li span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

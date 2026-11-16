@@ -126,3 +126,21 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   soft edges) when the panel is too narrow, as the selection bar's; the count stays whole; the Tags section never
   grows wider than the panel (`minmax(0, 1fr)`). A picked tag keeps its weight (bolder text was wider, and a tag at a
   row's end jumped to the next line - the user).
+- **The picked tags' round button (2026-11-16, replaced the pick bar)** (the user: "The multi select tags in the details
+  panel I just don't like the experience of. How it looks, how cramped the popup menu is with the buttons"; picked from
+  mockups: "For the floating pill I like 4. For the sheet I like 3"): picking still starts by holding a tag (right-click,
+  the context-menu key) and taps pick more; instead of the bar under the tags, a **round mauve button with the count**
+  floats at the bottom right (`TagPickMenu`, on top of the page, above the keyboard). It opens a card - a sheet on
+  phones, above the button with a mouse: "N tags picked" and **Clear** (ends picking), the picked tags as chips (× takes
+  one off; the last one off ends picking), then cards whose rows say what they do: SEARCH - Files with all of them (the
+  tags under it), Files with any of them ("a OR b", two or more), Add to the current search; DOWNLOAD - Download all of
+  them, Download any of them (where the site can), Add them to the blacklist (dimmed when all are on it). Test: "details:
+  pick several tags...".
+- **Several sites for one new download (2026-11-16)** (the user: "when i start a download and it asks me to pick a site,
+  I wanna be able to select multiple sites"): on "Which site?" each site has a round check; a tap on a row still goes on
+  with that site alone, a check picks it among others (from then on a tap on a row picks or unpicks it) and "N sites
+  picked · Next" appears. Next: "The search on N sites" - a search box for each site, each written its way (OR groups
+  split per site as before); then one "once or subscribe" for all of them: a list of site + search, the group either
+  none, a group every one of the sites has (by name - `group_name`, so each site's own) or a new one (made on each
+  site). One download (or subscription) per site and search; the toast names the search once and the sites. The
+  one-post check (id:N, a post's link) only with one site. Test: "new download from tags: several sites at once".

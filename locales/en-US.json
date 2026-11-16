@@ -2419,15 +2419,8 @@
     "removeTag": "Remove {tag}",
     "noTags": "No tags yet",
     "picked": "Picked tags",
-    "nPicked": "{n} picked",
-    "tapToPick": "Tap tags to pick them",
-    "stopPicking": "Stop picking",
-    "searchAll": "Search all of them",
     "allOfThem": "All of them",
-    "searchAny": "Search any of them",
     "anyOfThem": "Any of them",
-    "addThem": "Add them to the search",
-    "downloadAll": "Download all of them",
     "downloadAny": "Download any of them",
     "refreshQueued": "Its site isn’t answering: the refresh is queued for when it does",
     "blacklistThem": "Add them to the blacklist",
@@ -2444,9 +2437,34 @@
       "other": "{n} more sources"
     },
     "fewerSources": "Show fewer",
-    "searchThem": "Search with the picked tags",
-    "downloadThem": "Download the picked tags",
-    "blacklist": "Blacklist"
+    "useThem": {
+      "one": "Use the picked tag",
+      "other": "Use the {n} picked tags"
+    },
+    "clearPicked": "Clear",
+    "unpick": "Unpick {tag}",
+    "filesWith": "Files with it",
+    "filesAll": "Files with all of them",
+    "filesAny": "Files with any of them",
+    "addToSearch": "Add to the current search",
+    "dlIt": "Download it",
+    "dlAll": "Download all of them",
+    "dlHint": {
+      "one": "A new download on the site it came from",
+      "other": "A new download on the site they came from"
+    },
+    "dlAny": "Download any of them",
+    "dlAnyHint": "Posts with any of them, where the site can",
+    "allBlacklisted": "On the blacklist already",
+    "blHint": {
+      "one": "Posts with it won't be downloaded",
+      "other": "Posts with any of them won't be downloaded"
+    },
+    "tagsPicked": {
+      "one": "{n} tag picked",
+      "other": "{n} tags picked"
+    },
+    "blacklistIt": "Add it to the blacklist"
   },
   "viewer": {
     "countedFirst": "You Came to {what} for the first time",
@@ -2856,7 +2874,17 @@
       "other": "Just this post: {n} files, once."
     },
     "split": "{site} has no OR search: {n} searches, one for each combination.",
-    "searches": "{n} searches"
+    "searches": "{n} searches",
+    "severalSites": "Pick several sites",
+    "nSites": {
+      "one": "{n} site picked",
+      "other": "{n} sites picked"
+    },
+    "searchSites": {
+      "one": "The search on {n} site",
+      "other": "The search on {n} sites"
+    },
+    "searchOn": "Search on {site}"
   },
   "tour": {
     "of": "{n} of {total}",
