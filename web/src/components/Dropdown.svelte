@@ -24,6 +24,7 @@
     trigger,
     triggerClass = '',
     floating = false,
+    disabled = false,
   }: {
     value: T;
     options: { value: T; label: string; meta?: string }[]; // meta: a muted note on the right (e.g. a count)
@@ -34,6 +35,7 @@
     trigger?: Snippet; // custom trigger content (e.g. an icon); default: the current label + chevron
     triggerClass?: string;
     floating?: boolean; // the menu floats over the page (the trigger sits in a scrolling or clipping row)
+    disabled?: boolean;
   } = $props();
 
   let open = $state(false);
@@ -176,6 +178,7 @@
     aria-expanded={open}
     aria-controls={id}
     data-value={value}
+    {disabled}
     title={trigger ? `${label}: ${current?.label ?? value}` : (current?.label ?? value)}
     onclick={() => (open ? hide() : show())}
     onkeydown={onTriggerKey}>

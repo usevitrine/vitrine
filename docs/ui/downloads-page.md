@@ -338,3 +338,11 @@ animated beautifully".
 - **Dragging with one kind shown**: the cards swap among the places theirs hold in the whole queue; the others stay.
 - Test: "downloads queue: All / Downloads / Checks; a download that made way names its check; ordered by file count";
   Go: `TestCountSearches`.
+- **Several subscriptions at once (2026-11-16)** (the user: "i wanna be able to move and bulk move subs to other
+  groups/create new group"): **Select** in the Subscriptions card's tools (whenever there are two or more) turns on
+  selecting - a round check on every card and group heading; a tap anywhere on a card picks it (its own buttons and
+  swipes wait), a group's check picks its whole list. A bar floats at the bottom ("N selected", on phones icons only):
+  **Move to group** (No group, the groups every picked subscription's site has by name, New group... - asks a name and
+  makes the group on each of their sites), Check now, Pause (Resume when all are paused), Unsubscribe (a confirm).
+  Done, another tab or any action ends selecting. One subscription's ⋯ › Move to group stays. Test: "select several,
+  move them to a new or no group, pause and unsubscribe them together".

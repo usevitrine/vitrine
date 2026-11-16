@@ -27,6 +27,8 @@
   import { toasts, attempt } from '../lib/toast.svelte';
   import { settings } from '../lib/settings.svelte';
   import { confirmAction } from '../lib/confirm.svelte';
+  import { askText } from '../lib/prompt.svelte';
+  import { cubicOut } from 'svelte/easing';
   import Icon from '../components/Icon.svelte';
   import Dropdown from '../components/Dropdown.svelte';
   import ActionMenu, { type MenuItem } from '../components/ActionMenu.svelte';
@@ -291,6 +293,100 @@
     if (v === 'rename') renaming = { id: g.id, name: g.name };
     if (v === 'delete') deleteGroup(g);
   }
+  // ---- Several subscriptions at once (2026-11-16, the user: "i wanna be able to move and bulk move subs to other
+  // groups/create new group"): Select picks them (a tap on each, or a group's whole list), a bar below does it to all -
+  // Move to group (a group of that name on each of their sites; New group... makes it on each), Pause, Resume, Check now,
+  // Unsubscribe.
+  let subSelecting = $state(false);
+  const subPicked = new SvelteSet<number>();
+  const pickedSubs = $derived(subs.filter((s) => subPicked.has(s.id)));
+  const pickedSites = $derived([...new Set(pickedSubs.map((s) => s.site))]);
+  function setSubSelecting(on: boolean) {
+    subSelecting = on;
+    subPicked.clear();
+    swiped = null;
+  }
+  function pickSub(id: number) {
+    if (subPicked.has(id)) subPicked.delete(id);
+    else subPicked.add(id);
+  }
+  /** A group's subscriptions: all picked, or (all of them already) none. */
+  function pickGroup(members: Subscription[]) {
+    const all = members.length > 0 && members.every((s) => subPicked.has(s.id));
+    for (const s of members) {
+      if (all) subPicked.delete(s.id);
+      else subPicked.add(s.id);
+    }
+  }
+  // Where they can go: no group, a group every one of their sites has (by name), or a new one.
+  const bulkMoveOptions = $derived.by(() => {
+    const names = pickedSites.map((site) => new Set(siteGroups(site).map((g) => g.name)));
+    const common = names.length ? [...names[0]].filter((n) => names.every((x) => x.has(n))).sort((a, b) => a.localeCompare(b)) : [];
+    return [
+      { value: '0', label: t('downloads.noGroup') },
+      ...common.map((n) => ({ value: 'name:' + n, label: n })),
+      { value: 'new', label: t('downloads.newGroup') },
+    ];
+  });
+  async function bulkMove(v: string) {
+    const list = pickedSubs;
+    if (!list.length) return;
+    let name = v.startsWith('name:') ? v.slice(5) : '';
+    if (v === 'new') {
+      const typed = await askText({ title: t('downloads.newGroup'), label: t('downloads.newGroupName'), placeholder: t('downloads.newGroupName'), action: t('downloads.createMove') });
+      if (!typed) return;
+      name = typed;
+    }
+    await attempt(async () => {
+      const target = new Map<string, number>();
+      for (const site of new Set(list.map((s) => s.site))) {
+        if (v === '0') {
+          target.set(site, 0);
+          continue;
+        }
+        const g = siteGroups(site).find((x) => x.name === name) ?? (await api.addGroup(site, name));
+        target.set(site, g.id);
+      }
+      await Promise.all(list.map((s) => api.updateSubscription(s.id, { group_id: target.get(s.site)! })));
+      toasts.show(v === '0' ? t('downloads.bulkNoGroup', { n: list.length }) : t('downloads.bulkMoved', { n: list.length, name }), { cat: 'groups' });
+      setSubSelecting(false);
+      refresh();
+    });
+  }
+  async function bulkAct(action: 'check' | 'pause' | 'resume' | 'remove') {
+    const list = pickedSubs;
+    if (!list.length) return;
+    if (action === 'remove') {
+      const ok = await confirmAction({ title: t('downloads.bulkUnsubTitle', { n: list.length }), body: t('downloads.unsubBody'), action: t('downloads.unsubscribe'), icon: 'close' });
+      if (!ok) return;
+    }
+    await attempt(async () => {
+      await Promise.all(
+        list.map((s) =>
+          action === 'check' ? api.checkSubscription(s.id) : action === 'remove' ? api.removeSubscription(s.id) : api.updateSubscription(s.id, { paused: action === 'pause' }),
+        ),
+      );
+      const key = { check: 'downloads.bulkChecking', pause: 'downloads.bulkPaused', resume: 'downloads.bulkResumed', remove: 'downloads.bulkUnsubscribed' }[action];
+      toasts.show(t(key, { n: list.length }), { cat: action === 'remove' ? 'downloadsStarted' : 'downloadsControl', kind: action === 'remove' ? 'removed' : action === 'check' ? 'info' : 'done' });
+      if (action === 'remove') {
+        changed();
+        const gone = new Set(list.map((s) => s.id));
+        subs = subs.filter((x) => !gone.has(x.id));
+      }
+      setSubSelecting(false);
+      refresh();
+    });
+  }
+  // (another tab: the selection ends)
+  $effect(() => {
+    if (tab !== 'subs') untrack(() => subSelecting && setSubSelecting(false));
+  });
+
+  function barSlide(node: Element) {
+    if (reduced()) return { duration: 0 };
+    return { duration: 260, easing: cubicOut, css: (k: number) => `opacity: ${k}; transform: translate(-50%, ${(1 - k) * 24}px)` };
+  }
+
   async function moveTo(s: Subscription, v: string) {
     if (v === 'new') {
       moving = { sub: s.id, name: '' };
@@ -1131,7 +1227,7 @@
       let engaged = false;
       let id = -1;
       const down = (e: PointerEvent) => {
-        if (e.pointerType === 'mouse' || (e.target as HTMLElement).closest('button, a, input')) return;
+        if (subSelecting || e.pointerType === 'mouse' || (e.target as HTMLElement).closest('button, a, input')) return;
         const chips = (e.target as HTMLElement).closest<HTMLElement>('.qchips');
         if (chips && chips.scrollWidth > chips.clientWidth) return; // (sideways there scrolls the chips)
         id = e.pointerId;
@@ -1385,6 +1481,10 @@
   <Icon name="sort" size={19} />{#if queueSort !== 'queue'}<span class="sort-dot" transition:pop></span>{/if}
 {/snippet}
 
+{#snippet moveTrigger()}
+  <Icon name="folder" size={15} /><span class="bar-label">{t('downloads.moveToGroup')}</span>
+{/snippet}
+
 {#snippet sortIcon()}
   <Icon name="sort" size={19} />{#if subSort !== 'next'}<span class="sort-dot" transition:pop></span>{/if}
 {/snippet}
@@ -1590,7 +1690,11 @@
   {@const fresh = look?.fresh ?? 0}
   {@const gallery = siteInfo.engines[s.site] === 'ehentai'}
   {@const gNow = s.check && gallery ? galleryNow(s.check) : null}
-  <li data-sub={s.id} class:flash={flashSub === s.id} class:swiping={dragging === s.id} {@attach swipe(s)} transition:reveal>
+  <li data-sub={s.id} class:flash={flashSub === s.id} class:swiping={dragging === s.id} class:picking={subSelecting} class:picked={subPicked.has(s.id)} {@attach swipe(s)} transition:reveal>
+    {#if subSelecting}
+      <!-- Selecting: the whole card picks it (its own buttons wait). -->
+      <button class="pick-cover" aria-pressed={subPicked.has(s.id)} aria-label={t('downloads.pickSub', { query: named(s) })} onclick={() => pickSub(s.id)}></button>
+    {/if}
     <!-- Phones: behind the card, what a swipe to the left shows. -->
     <div class="swipe-acts" aria-hidden={swiped !== s.id} inert={swiped !== s.id}>
       <button class="swipe-act" onclick={() => swipeAct(s, 'check')}><Icon name="retry" size={18} />{t('downloads.checkNow')}</button>
@@ -1604,6 +1708,7 @@
     <div class="row">
       <div class="main">
         <div class="head">
+          {#if subSelecting}<span class="pick-check" class:on={subPicked.has(s.id)} aria-hidden="true" transition:pop><Icon name="check" size={13} /></span>{/if}
           <!-- Its health at a glance (working, checking, paused, failing, quiet for months) in the middle of a ring
                filling up to the next check (turning while it checks). -->
           <span class="status" title={t(`downloads.health.${h}`) + (s.paused ? '' : ' · ' + cap(nextCheck(s) || lastCheck(s)))}>
@@ -1852,6 +1957,24 @@
       {/each}
     </div>
 
+    <!-- Several subscriptions picked: what to do to all of them (slides up while selecting). -->
+    {#if subSelecting && tab === 'subs'}
+      <div class="sub-bar" role="toolbar" aria-label={t('downloads.bulkLabel')} transition:barSlide>
+        <span class="sub-bar-count" aria-live="polite">{pickedSubs.length ? t('downloads.nPicked', { n: pickedSubs.length }) : t('downloads.pickSome')}</span>
+        <div class="sub-bar-acts">
+          <Dropdown value="" options={bulkMoveOptions} onchange={bulkMove} label={t('downloads.moveToGroup')} heading={t('downloads.moveToGroup')}
+            align="end" floating trigger={moveTrigger} triggerClass="bar-act" disabled={!pickedSubs.length} />
+          <button class="bar-act" disabled={!pickedSubs.length} onclick={() => bulkAct('check')}><Icon name="retry" size={15} /><span class="bar-label">{t('downloads.checkNow')}</span></button>
+          {#if pickedSubs.some((x) => !x.paused) || !pickedSubs.length}
+            <button class="bar-act" disabled={!pickedSubs.length} onclick={() => bulkAct('pause')}><Icon name="pause" size={15} /><span class="bar-label">{t('video.pause')}</span></button>
+          {:else}
+            <button class="bar-act" onclick={() => bulkAct('resume')}><Icon name="play" size={15} /><span class="bar-label">{t('downloads.resume')}</span></button>
+          {/if}
+          <button class="bar-act danger" disabled={!pickedSubs.length} onclick={() => bulkAct('remove')}><Icon name="close" size={15} /><span class="bar-label">{t('downloads.unsubscribe')}</span></button>
+        </div>
+      </div>
+    {/if}
+
     <div class="panels" bind:this={panelsEl}>
     {#if tab === 'queue'}
       <div class="panel" id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" in:panelIn out:panelOut>
@@ -1957,7 +2080,7 @@
             <h2>{t('stats.subscriptions')}</h2>
             {#if subs.length}<p class="hint" transition:reveal>{t('downloads.subsHint')}</p>{/if}
           </div>
-          {#if subs.length >= SUB_TOOLS_FROM || attentionCount}
+          {#if subs.length >= SUB_TOOLS_FROM || attentionCount || subs.length > 1}
             <div class="sub-tools" transition:reveal>
               {#if subs.length >= SUB_TOOLS_FROM}
                 <!-- The order is an icon inside the filter, as in the library's search bar (2026-10-29, the user: the
@@ -1977,6 +2100,10 @@
                       align="end" trigger={sortIcon} triggerClass="icon sub-sort-button" />
                   </span>
                 </div>
+              {/if}
+              {#if subs.length > 1}
+                <button class="select-toggle" class:on={subSelecting} aria-pressed={subSelecting} onclick={() => setSubSelecting(!subSelecting)}
+                  ><Icon name={subSelecting ? 'close' : 'checks'} size={15} />{subSelecting ? t('downloads.selectDone') : t('downloads.selectSubs')}</button>
               {/if}
               {#if attentionCount}
                 <button class="attention-toggle" class:on={attentionOnly} aria-pressed={attentionOnly} onclick={() => (attentionOnly = !attentionOnly)}
@@ -2020,6 +2147,11 @@
                         {/if}
                         <div class="main">
                           <div class="head">
+                            {#if subSelecting}
+                              {@const all = members.length > 0 && members.every((x) => subPicked.has(x.id))}
+                              <button class="pick-check group-pick" class:on={all} aria-pressed={all} aria-label={t('downloads.pickGroup', { name: g.name })}
+                                onclick={() => pickGroup(members)} transition:pop><Icon name="check" size={13} /></button>
+                            {/if}
                             <button class="group-title" class:open aria-expanded={open} aria-label={t(open ? 'downloads.foldName' : 'downloads.unfoldName', { name: g.name })} onclick={() => toggleGroup(g.id)}>
                               <Icon name="right" size={16} />
                               <span class="group-name">{g.name}</span>
@@ -4015,6 +4147,135 @@
   @media (hover: hover) {
     .anyway:hover {
       background: var(--surface0);
+    }
+  }
+
+  /* ---- Several subscriptions at once (2026-11-16): a check on each card and group, the whole card picks it; a bar
+     below with what to do to them all. */
+  .select-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--surface0);
+    background: var(--base);
+    color: var(--subtext);
+    font-weight: 600;
+  }
+  .select-toggle.on {
+    border-color: color-mix(in srgb, var(--mauve) 45%, var(--surface0));
+    background: color-mix(in srgb, var(--mauve) 14%, var(--base));
+    color: var(--text);
+  }
+  li.picking {
+    position: relative;
+  }
+  .pick-cover,
+  .pick-cover:hover:not(:disabled) {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    min-height: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
+  li.picked > .card-body {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mauve) 70%, transparent);
+    background: color-mix(in srgb, var(--mauve) 7%, var(--crust)); /* (solid: the swipe actions sit behind) */
+    transition: box-shadow 0.18s, background-color 0.18s;
+  }
+  .pick-check {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    min-height: 0;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid var(--overlay0);
+    background: transparent;
+    color: transparent;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .pick-check.on {
+    border-color: var(--mauve);
+    background: var(--mauve);
+    color: var(--crust);
+  }
+  .group-pick {
+    position: relative;
+    z-index: 1;
+    cursor: pointer;
+  }
+  .sub-bar {
+    position: fixed;
+    left: 50%;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    z-index: 30;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: max-content;
+    max-width: calc(100vw - 24px);
+    padding: 8px 8px 8px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--surface1);
+    background: color-mix(in srgb, var(--mantle) 92%, transparent);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+  }
+  .sub-bar-count {
+    font-weight: 600;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .sub-bar-acts {
+    display: flex;
+    gap: 4px;
+  }
+  .sub-bar :global(.bar-act),
+  .sub-bar :global(.bar-act:hover:not(:disabled)) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    height: 34px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  @media (hover: hover) {
+    .sub-bar :global(.bar-act:hover:not(:disabled)) {
+      background: var(--surface0);
+    }
+  }
+  .sub-bar :global(.bar-act:disabled) {
+    opacity: 0.4;
+  }
+  .sub-bar .bar-act.danger {
+    color: var(--red);
+  }
+  @media (max-width: 640px) {
+    /* (a phone: icons only, the count stays) */
+    .sub-bar .bar-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+    .sub-bar :global(.bar-act) {
+      padding: 0 10px;
     }
   }
 </style>

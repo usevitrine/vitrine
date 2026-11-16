@@ -1596,7 +1596,45 @@
     "madeWayTitle": "Made way for a subscription check - show it",
     "anyway": "Download anyway",
     "anywayHint": "Past your download rules, the blacklist and deleted files - for this post only",
-    "anywayStarted": "Downloading {query} anyway"
+    "anywayStarted": "Downloading {query} anyway",
+    "selectSubs": "Select",
+    "selectDone": "Done",
+    "pickSub": "Select {query}",
+    "pickGroup": "Select all in {name}",
+    "bulkLabel": "Selected subscriptions",
+    "nPicked": {
+      "one": "{n} selected",
+      "other": "{n} selected"
+    },
+    "pickSome": "Select subscriptions",
+    "bulkMoved": {
+      "one": "Moved {n} subscription to {name}",
+      "other": "Moved {n} subscriptions to {name}"
+    },
+    "bulkNoGroup": {
+      "one": "{n} subscription is in no group now",
+      "other": "{n} subscriptions are in no group now"
+    },
+    "bulkChecking": {
+      "one": "Checking {n} subscription",
+      "other": "Checking {n} subscriptions"
+    },
+    "bulkPaused": {
+      "one": "Paused {n} subscription",
+      "other": "Paused {n} subscriptions"
+    },
+    "bulkResumed": {
+      "one": "Resumed {n} subscription",
+      "other": "Resumed {n} subscriptions"
+    },
+    "bulkUnsubscribed": {
+      "one": "Unsubscribed from {n} search",
+      "other": "Unsubscribed from {n} searches"
+    },
+    "bulkUnsubTitle": {
+      "one": "Unsubscribe from {n} search?",
+      "other": "Unsubscribe from {n} searches?"
+    }
   },
   "setup": {
     "skipAll": "Skip setup",

@@ -11548,3 +11548,60 @@ test('downloads: a one-post download that downloaded nothing can be run again an
   await expect.poll(() => asked).toEqual(['/api/downloads/99701/anyway']);
   await expect(page.locator('.toast', { hasText: 'anyway' })).toBeVisible();
 });
+
+test('subscriptions: select several, move them to a new or no group, pause and unsubscribe them together', async ({ page }) => {
+  test.skip(test.info().project.name === 'desktop-chromium', 'subscriptions are on the server: the phone and one desktop');
+  await page.goto('/downloads');
+  const tag = test.info().project.name.replace(/\W/g, '');
+  const ids: number[] = await page.evaluate(async (tag) => {
+    const out: number[] = [];
+    for (const q of ['bulk_a', 'bulk_b', 'bulk_c'])
+      out.push((await (await fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: 'test-down', query: q + '_' + tag, interval: 604800, initial_max: 0 }) })).json()).id);
+    return out;
+  }, tag);
+  await page.reload();
+  await dlTab(page, 'Subscriptions');
+  const card = page.locator('section.card', { has: page.getByRole('heading', { name: 'Subscriptions' }) });
+  const bar = page.getByRole('toolbar', { name: 'Selected subscriptions' });
+  await card.getByRole('button', { name: 'Select', exact: true }).click();
+  await expect(bar).toBeVisible();
+  await expect(bar.getByText('Select subscriptions')).toBeVisible();
+  await card.getByRole('button', { name: `Select bulk_a_${tag}` }).click();
+  await card.getByRole('button', { name: `Select bulk_b_${tag}` }).click();
+  await expect(bar.getByText('2 selected')).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('bulk-bar.png') });
+  // Into a new group (made on their site).
+  const name = 'Bulk ' + tag;
+  await bar.getByRole('button', { name: 'Move to group' }).click();
+  await page.getByRole('option', { name: 'New group…' }).click();
+  await page.getByRole('dialog').getByRole('textbox').fill(name);
+  await page.getByRole('dialog').getByRole('button', { name: 'Create and move' }).click();
+  await expect(page.getByText(`Moved 2 subscriptions to ${name}`)).toBeVisible();
+  await expect(bar).toHaveCount(0);
+  const group = card.getByRole('region', { name: 'Group ' + name });
+  await expect(group.locator('.count')).toHaveText('2');
+  // The group's check picks all of it; out of the group again.
+  await card.getByRole('button', { name: 'Select', exact: true }).click();
+  await group.getByRole('button', { name: 'Select all in ' + name }).click();
+  await expect(bar.getByText('2 selected')).toBeVisible();
+  await bar.getByRole('button', { name: 'Move to group' }).click();
+  await page.getByRole('option', { name: 'No group' }).click();
+  await expect(page.getByText('2 subscriptions are in no group now')).toBeVisible();
+  // Pause, then unsubscribe, all three.
+  await card.getByRole('button', { name: 'Select', exact: true }).click();
+  for (const q of ['bulk_a', 'bulk_b', 'bulk_c']) await card.getByRole('button', { name: `Select ${q}_${tag}` }).click();
+  await bar.getByRole('button', { name: 'Pause' }).click();
+  await expect(page.getByText('Paused 3 subscriptions')).toBeVisible();
+  await card.getByRole('button', { name: 'Select', exact: true }).click();
+  for (const q of ['bulk_a', 'bulk_b', 'bulk_c']) await card.getByRole('button', { name: `Select ${q}_${tag}` }).click();
+  await expect(bar.getByRole('button', { name: 'Resume' })).toBeVisible();
+  await bar.getByRole('button', { name: 'Unsubscribe' }).click();
+  await page.getByRole('alertdialog', { name: 'Unsubscribe from 3 searches?' }).getByRole('button', { name: 'Unsubscribe' }).click();
+  await expect(page.getByText('Unsubscribed from 3 searches')).toBeVisible();
+  await expect(card.locator('li .query', { hasText: tag })).toHaveCount(0);
+  await page.evaluate(async ({ ids, name }) => {
+    for (const id of ids) await fetch(`/api/subscriptions/${id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const { groups } = await (await fetch('/api/downloads')).json();
+    for (const g of groups ?? []) if (g.name === name) await fetch(`/api/sub-groups/${g.id}/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  }, { ids, name });
+});

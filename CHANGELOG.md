@@ -9,6 +9,7 @@ shows this too (Settings > Help & about).
 
 - **Downloads queue**: show all, only downloads or only subscription checks. Order the queue by file count, most or fewest first: Vitrine asks each site how many posts every waiting search has, and shows the count on its card. A download that made way for a subscription check now says which one; tap it to see the check.
 - **Download anyway**: a single post that didn't download - because of your download rules, the blacklist, or because you deleted its file before - can be downloaded anyway from its card on the Downloads page. A file still in the trash comes back from there.
+- **Select subscriptions**: pick several subscriptions (or a whole group) and move them to another group, a new group or out of their groups, check, pause, resume or unsubscribe them all at once.
 
 ### Improved
 
