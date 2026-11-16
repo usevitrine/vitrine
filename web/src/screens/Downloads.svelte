@@ -2378,7 +2378,29 @@
     0%,
     40% {
       background: color-mix(in srgb, var(--mauve) 14%, var(--crust));
+    }
+  }
+  /* (its ring on a layer over the row, with the row's own corners: under a card's body or inside its rounded edge it
+     was hidden or cut off at the corners) */
+  li.flash::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    pointer-events: none;
+    animation: flash-ring 2.2s ease-out both;
+  }
+  .sub-cards li.flash::before {
+    border-radius: 11px;
+  }
+  @keyframes flash-ring {
+    0%,
+    40% {
       box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mauve) 60%, transparent);
+    }
+    100% {
+      box-shadow: inset 0 0 0 2px transparent;
     }
   }
   .row {
@@ -4183,9 +4205,26 @@
     cursor: pointer;
   }
   li.picked > .card-body {
-    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mauve) 70%, transparent);
     background: color-mix(in srgb, var(--mauve) 7%, var(--crust)); /* (solid: the swipe actions sit behind) */
-    transition: box-shadow 0.18s, background-color 0.18s;
+    transition: background-color 0.18s;
+  }
+  /* The picked ring: the card's own border lit, and a line inside it on a layer of its own that follows the card's
+     rounded corners (2026-11-16, the user: "the selected border it cut off in the corners" - drawn on the square body
+     inside, the card's rounded edge cut its corners off). */
+  .sub-cards li {
+    transition: border-color 0.18s;
+  }
+  .sub-cards li.picked {
+    border-color: color-mix(in srgb, var(--mauve) 75%, transparent);
+  }
+  .sub-cards li.picked::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2; /* (over the body, under the press cover) */
+    border-radius: 11px; /* (the card's 12, less its border) */
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mauve) 75%, transparent);
+    pointer-events: none;
   }
   .pick-check {
     flex: none;

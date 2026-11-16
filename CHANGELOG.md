@@ -10,6 +10,10 @@ shows this too (Settings > Help & about).
 - **Select subscriptions**: Select is now an icon in the top right corner of the Subscriptions card.
 - **Subscription groups**: a long group name stays on one line and slides to show the rest, instead of breaking onto the next line.
 
+### Fixed
+
+- **Picked subscriptions**: the ring around a picked subscription (and the flash of a just-added one) is no longer cut off at the corners.
+
 ## 1.2.0 - 2026-11-16
 
 ### New

@@ -407,3 +407,8 @@ Palette: https://catppuccin.com/palette
 - **File sizes one way (2026-11-01)**: `formatSize` (lib/results) everywhere - one decimal below 10, none from
   there ("9.9 MB", "12 MB", "1.1 TB"), in units of 1024, written the language's way. Before, a second formatter
   (`bytes`, the Downloads page) and Settings' own wrote the same size "12.0 MB" and "12 MB"; found by a code audit.
+- **Rings follow the corners (rule, 2026-11-16)** (the user: "the selected border it cut off in the corners. I've noticed
+  this in other places too"): a ring that marks something (picked, just added) is drawn on a layer of its own over the
+  item - `::before`/`::after`, `inset: 0`, the item's own corner radius (less its border), an inset shadow - never on
+  a square layer inside a rounded, clipping box, whose edge cuts the ring's corners off (as a picked subscription's
+  and the Downloads flash ring were; the grid's focus and drop rings already were drawn so).
