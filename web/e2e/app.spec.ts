@@ -1013,7 +1013,7 @@ test('blacklist: add tags, see matching files, show them, delete and undo', asyn
   await panel.getByRole('button', { name: 'Delete them…' }).click();
   await expect(page.getByRole('alertdialog', { name: 'Delete 2 files with blacklisted tags?' })).toBeVisible();
   await confirmIn(page, 'Delete 2');
-  await expect(page.getByText('Deleted 2 files')).toBeVisible();
+  await expect(page.getByText('Moved 2 files to the trash')).toBeVisible();
   await expect(panel.getByText('No files in the library have these tags.')).toBeVisible();
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText('Restored 2 files')).toBeVisible();
@@ -5763,7 +5763,7 @@ test('notices go where their kind is set: Copied on screen (not the bell), a del
   await expect(page.getByRole('alertdialog', { name: 'Delete this file?' }).locator('.thumbs img')).toHaveCount(1);
   await confirmIn(page, 'Delete');
   // With Undo: it pops up (a bin) - and goes to the bell (its default).
-  const removed = page.locator('.toast.removed', { hasText: 'Deleted' });
+  const removed = page.locator('.toast.removed', { hasText: 'to the trash' });
   await expect(removed.locator('.badge svg')).toBeVisible();
   await removed.getByRole('button', { name: 'Undo' }).click(); // (the file comes back: covered by the delete tests)
   await expect(removed).toHaveCount(0);
@@ -5776,7 +5776,7 @@ test('notices go where their kind is set: Copied on screen (not the bell), a del
   await expect(bell).toBeVisible();
   await bell.click();
   const panel = page.getByRole('dialog', { name: 'Notifications' });
-  await expect(panel.locator('.row.removed', { hasText: 'Deleted' }).first().locator('.badge svg')).toBeVisible();
+  await expect(panel.locator('.row.removed', { hasText: 'to the trash' }).first().locator('.badge svg')).toBeVisible();
   await expect(panel.locator('li', { hasText: 'Copied' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible(); // (opened: read)
   await panel.getByRole('button', { name: 'Clear' }).click();

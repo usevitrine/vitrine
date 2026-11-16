@@ -480,8 +480,8 @@
     "undo": "Undo",
     "deleteN": "Delete {n}",
     "deletedFiles": {
-      "one": "Deleted {n} file",
-      "other": "Deleted {n} files"
+      "one": "Moved {n} file to the trash",
+      "other": "Moved {n} files to the trash"
     },
     "cancel": "Cancel",
     "copied": "Copied",
@@ -508,7 +508,7 @@
     "fileId": "file #{id}",
     "comicId": "comic #{id}",
     "pageOfComic": "page {page} of comic #{id}",
-    "deletedOne": "Deleted {what}"
+    "deletedOne": "Moved {what} to the trash"
   },
   "fileMenu": {
     "view": "View",
@@ -2527,8 +2527,8 @@
     "noneHint": "Comics live here, apart from Media. Import a folder of pages or a .cbz on the server: <c>vitrine import-comic /path/to/folder</c>",
     "imported": "Imported",
     "deletedN": {
-      "one": "Deleted {n} comic",
-      "other": "Deleted {n} comics"
+      "one": "Moved {n} comic to the trash",
+      "other": "Moved {n} comics to the trash"
     },
     "deleteTitleN": {
       "one": "Delete {n} comic?",
