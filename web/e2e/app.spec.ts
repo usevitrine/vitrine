@@ -6470,7 +6470,7 @@ test('an OR chip\'s download: the site\'s OR search with its tags, or a search f
   await expect(dlg.locator('.split-list li')).toHaveText(['blue_sky', 'landscape']);
   await dlg.getByRole('tab', { name: /Subscribe/ }).click();
   await expect(dlg.locator('.new-group')).toHaveValue('blue_sky or landscape');
-  await dlg.getByRole('button', { name: 'Subscribe', exact: true }).click();
+  await dlg.getByRole('button', { name: 'Subscribe to 2 searches', exact: true }).click();
   await expect.poll(() => subs).toMatchObject([
     { query: 'blue_sky', group_name: 'blue_sky or landscape' },
     { query: 'landscape', group_name: 'blue_sky or landscape' },
