@@ -22,6 +22,7 @@ func TestSinglePost(t *testing.T) {
 	dan := singleManifest("danbooru", "https://one.example.test", "https://one.example.test/posts/{id}")
 	e6 := singleManifest("e621", "https://example.test", "https://example.test/posts/{id}")
 	moe := singleManifest("moebooru", "https://example.test", "https://example.test/post/show/{id}")
+	rg := singleManifest("redgifs", "https://api.redgifs.com", "")
 	mast := singleManifest("mastodon", "https://example.test", "")
 	eh := singleManifest("ehentai", "https://e-hentai.org", "https://e-hentai.org/g/{id}/")
 	for _, c := range []struct {
@@ -60,6 +61,8 @@ func TestSinglePost(t *testing.T) {
 		{"mastodon profile stays a search", mast, "https://example.test/@some_artist", 0, false, ""},
 		{"mastodon tag stays a search", mast, "https://example.test/tags/blue_sky", 0, false, ""},
 		{"mastodon other server", mast, "https://other.test/@a/1", 0, false, "that link is for other.test"},
+		{"a clip's link is the engine's", rg, "https://www.redgifs.com/watch/happyfluffycat", 0, false, ""},
+		{"a clip by id", rg, "id:5", 0, false, "fetches a clip by its link"},
 		{"gallery link is the engine's", eh, "https://e-hentai.org/g/1/abcdef0123/", 0, false, ""},
 		{"exhentai link on e-hentai", eh, "https://exhentai.org/g/1/abcdef0123/", 0, false, ""},
 		{"gallery by id", eh, "id:1", 0, false, "by its link"},

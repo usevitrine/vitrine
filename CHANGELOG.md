@@ -9,6 +9,7 @@ shows this too (Settings > Help & about).
 
 - **Moebooru sites**: a new site engine for yande.re, Konachan and Sakugabooru. Install their plugins in Settings > Sites. Tag types become namespaces, and `fav:<name>` downloads someone's favorites.
 - **e621 and e926**: a new site engine for e621 and its safe-for-work side, e926. An account is optional (user name + API key); with one, `fav:me` downloads your favorites.
+- **RedGIFs**: a new site engine. Search by tags, `@user` for someone's clips (the user becomes the creator), or paste a clip's link. No account needed.
 
 ## 1.3.2 - 2026-11-17
 

@@ -63,7 +63,12 @@ type Client struct {
 	tune   *tuner  // files at once found by measuring (tune.go); nil: the plugin's number, fixed
 	// apiTimeout: how long an API request may take (tests: shorter).
 	apiTimeout time.Duration
+	// token: a bearer token the engine got itself (RedGIFs' temporary one), sent to the API's host only.
+	token atomic.Pointer[string]
 }
+
+// SetToken sets the bearer token sent with requests to the plugin's base host ("" = none).
+func (c *Client) SetToken(t string) { c.token.Store(&t) }
 
 // NewClient returns a client for a plugin with the user's credentials for
 // it (may be nil).
@@ -1066,6 +1071,11 @@ func (c *Client) send(ctx context.Context, u *url.URL, referer string) (*http.Re
 	}
 	if c.solver != nil {
 		c.solver.apply(req) // the clearance cookies and the browser's User-Agent
+	}
+	if t := c.token.Load(); t != nil && *t != "" {
+		if b, err := url.Parse(c.m.Base); err == nil && strings.EqualFold(b.Host, u.Host) {
+			req.Header.Set("Authorization", "Bearer "+*t)
+		}
 	}
 	if c.m.Auth.Login == "bearer" && len(c.m.Auth.Fields) == 1 {
 		c.credMu.RLock()

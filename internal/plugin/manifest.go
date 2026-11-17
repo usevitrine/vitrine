@@ -105,7 +105,7 @@ var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`)
 var nsPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}$`)
 
 // Engines are the built-in site engines.
-var Engines = map[string]bool{"gelbooru-v02": true, "gelbooru-v02-html": true, "shimmie2": true, "mastodon": true, "danbooru": true, "moebooru": true, "e621": true, "ehentai": true}
+var Engines = map[string]bool{"gelbooru-v02": true, "gelbooru-v02-html": true, "shimmie2": true, "mastodon": true, "danbooru": true, "moebooru": true, "e621": true, "redgifs": true, "ehentai": true}
 
 // Parse reads and checks a manifest, filling defaults.
 func Parse(data []byte) (Manifest, error) {
@@ -227,6 +227,7 @@ func (m Manifest) Rating(site string) media.Rating {
 // otherwise. Boorus: the plain tag. Mastodon: a hashtag, or the author's profile.
 var engineTagQueries = map[string]map[string]string{
 	"mastodon": {"creator": "@{tag}", "*": "#{tag}"},
+	"redgifs":  {"creator": "@{tag}"},
 	// E-Hentai's exact-tag syntax: namespace:"name with spaces$" (artist and parody are Vitrine's creator and series).
 	"ehentai": {"creator": `artist:"{name}$"`, "series": `parody:"{name}$"`, "": `"{name}$"`, "*": `{ns}:"{name}$"`},
 }

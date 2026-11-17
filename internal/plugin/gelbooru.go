@@ -72,6 +72,8 @@ func NewEngine(c *Client) (Engine, error) {
 		return &moebooru{c: c}, nil
 	case "e621":
 		return &e621{c: c}, nil
+	case "redgifs":
+		return &redgifs{c: c}, nil
 	case "ehentai":
 		e := &ehentai{c: c}
 		if e.exhentai() {

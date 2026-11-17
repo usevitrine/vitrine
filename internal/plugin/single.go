@@ -49,7 +49,8 @@ var (
 
 // CanSinglePost reports whether the site can fetch one post by its link or "id:N". (A gallery site's posts are
 // galleries, which need their token: a gallery's link is already a search of its own there.)
-func (m Manifest) CanSinglePost() bool { return m.Engine != "ehentai" }
+// (RedGIFs: a clip's word ID isn't a post number - its link is a search of its own there too.)
+func (m Manifest) CanSinglePost() bool { return m.Engine != "ehentai" && m.Engine != "redgifs" }
 
 // SinglePost reads a search as one post: its ID, or ok false for an ordinary search. A link or ID that can't name
 // a post on this site is a *PostRefError. Nothing is asked of the site.
@@ -63,7 +64,11 @@ func SinglePost(m Manifest, query string) (id int64, ok bool, err error) {
 	}
 	if mm := singleID.FindStringSubmatch(q); mm != nil {
 		if !m.CanSinglePost() {
-			return 0, false, &PostRefError{fmt.Sprintf("%s fetches a gallery by its link, not by an ID", m.Site)}
+			what := "a gallery"
+			if m.Engine == "redgifs" {
+				what = "a clip"
+			}
+			return 0, false, &PostRefError{fmt.Sprintf("%s fetches %s by its link, not by an ID", m.Site, what)}
 		}
 		return parsePostID(m, mm[1])
 	}

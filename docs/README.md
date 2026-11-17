@@ -32,7 +32,7 @@ Split by topic: open only the files a task needs. Each file starts with what it 
 - `downloader/downloads-and-subscriptions.md` - searches, the queue, blacklist, subscriptions and groups,
   retries, parallel downloads, download rules, favorites, check depth.
 - `downloader/plugins.md` - the plugin system, manifests, HTTP client, credentials, tag namespaces, install/update.
-- `downloader/engines.md` - gelbooru-v02 (+ html), Shimmie2, Mastodon, Danbooru, Moebooru, e621, ehentai.
+- `downloader/engines.md` - gelbooru-v02 (+ html), Shimmie2, Mastodon, Danbooru, Moebooru, e621, RedGIFs, ehentai.
 - `downloader/tag-refresh.md` - periodic tag refresh.
 - `downloader/reliability.md` - Cloudflare/FlareSolverr, stalls, a site that stops answering pauses by itself.
 - Per-site notes: the plugins repo's `docs/sites.md`.

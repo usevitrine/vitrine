@@ -11,7 +11,7 @@ matched against the site's own hosts (`post_url`, `base`), not all of `domains`:
 By engine: gelbooru-v02 the site's `id:N` search (it has the upload time); gelbooru-v02-html, shimmie2, danbooru,
 moebooru (`/post/show/<id>`) and e621 (`/posts/<id>`) `Lookup`; mastodon every file of the status (`/@name/<id>`, `/web/statuses/<id>`; `id:N` = the status ID; `/tags/` and
 profile links stay searches). **ehentai**: no - a gallery needs its token, so `id:N` is refused; a gallery's link was
-already one comic.
+already one comic. **redgifs**: no either - a clip's word ID isn't a post number; its link is a search of its own.
 
 ## Downloader behavior
 Lessons from self-hosted download setups built on gallery-dl and companion tools (problem in brackets).

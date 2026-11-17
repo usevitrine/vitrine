@@ -1,6 +1,6 @@
 # Engines
 
-The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, Danbooru, Moebooru, e621, and the ehentai gallery engine (comics).
+The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, Danbooru, Moebooru, e621, RedGIFs, and the ehentai gallery engine (comics).
 
 ## Shimmie2 engine (2026-10-16)
 - `engine: shimmie2` reads a Shimmie2 site's web pages (many have no API on). List pages `/post/list/<tags>/1`: tags
@@ -121,6 +121,26 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
   `fav:<name>`; OR `~a ~b`. The site wants a User-Agent naming the program (Vitrine's own; a browser's meets
   Cloudflare).
 - `TestE621Live` (VITRINE_LIVE=1) asks e926.net: search, the next page, a lookup - passed 2026-11-17.
+
+## RedGIFs engine (2026-11-17)
+
+- `engine: redgifs` (`internal/plugin/redgifs.go`): redgifs.com's API v2. No account: the site's temporary token
+  (`/v2/auth/temporary`), kept a day, fetched again on a 401; `Client.SetToken` sends it to the base host only (not
+  to the file CDN).
+- **Post IDs**: clips have word IDs ("happyfluffycat"), but the downloader needs numbers that fall with age (resuming
+  below a post, a check's stop at the newest one seen). A post's ID is `createDate << 20 | fnv32a(id) & 0xfffff`:
+  the same clip always gets the same number, newer clips higher ones. A number can't be turned back into the clip, so
+  `Lookup` is `ErrNoLookup` and `CanSinglePost` is false (`id:N` refused; a clip's link is the engine's own search,
+  as a gallery's is for ehentai). `post_url` is empty: each post carries its own `/watch/<id>` link.
+- **Paging**: the site pages by number (80 a page). After handing out a page the engine remembers which page follows
+  its last post (in memory, at most 1,000 entries); without that (after a restart) it finds the first page with a post
+  below `before` by halving the page range (each page's last clip says which side it's on) - about 7 requests for a
+  tag search's 125 pages. Posts at or above `before` are dropped (new uploads push clips down a page). Past a tag
+  search's last page the site answers 500: the end.
+- Searches: tags (all; `_` -> space), `@user`, `type:images`/`type:videos`, a clip's or user's link; `-tag`, `~`,
+  `fav:` and @user with tags are refused with a reason. Tags lower-cased with `_`; the user name is the creator
+  (tag type artist; `tag_query` creator -> `@{tag}`). Totals: the site's `total` (a tag search's is at most 10,000).
+- `TestRedgifsLive` (VITRINE_LIVE=1): a tag search, the next page found by halving, a clip's link - passed 2026-11-17.
 
 ## Gallery sites: the ehentai engine (2026-10-20)
 - Engine `ehentai` (plugins in the plugins repo: e-hentai.org, exhentai.org): each search result is a **gallery** post

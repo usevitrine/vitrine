@@ -77,6 +77,7 @@ export function engineLabel(engine: string): string {
     danbooru: 'Danbooru',
     moebooru: 'Moebooru',
     e621: 'e621',
+    redgifs: 'RedGIFs',
   };
   return known[engine] ?? (engine ? engine[0].toUpperCase() + engine.slice(1) : t('sites.engine.other'));
 }
