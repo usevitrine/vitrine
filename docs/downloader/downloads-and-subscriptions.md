@@ -232,6 +232,15 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   API: `GET/POST /api/blacklist`, `GET /api/blacklist/matches` (per-tag counts, total, size),
   `POST /api/blacklist/delete` (deletes matching library files the normal way - undoable, tombstoned; returns the
   IDs for Undo). Matching library files are found with a search per entry, so tag parents/siblings count too.
+- **Kept despite the blacklist (2026-11-17, the user: "what if an image has a blacklisted tag but i want to keep it"
+  -> "Yes, add Keep")**: a file in the library can be kept anyway (table `blacklist_kept`, migration `0058`; a bitmap
+  in the index, `system:kept`). `BlacklistedFiles` leaves kept files out of the total, the per-entry counts and the
+  IDs (so Delete them never takes one) and counts them apart (`kept`); a tag refresh giving a kept file a blacklisted
+  tag sends no notice. `POST /api/blacklist/keep {ids, on}`; the file JSON has `kept`. Downloads are unchanged (a post
+  not in the library yet is still skipped - Download anyway takes one). In the web app: the details' Tags section
+  says when a file has a blacklisted tag (Keep it) or is kept (Don't keep); the blacklist card's Show them searches
+  `... -system:kept`, and a line "N files kept anyway" links to `... system:kept`; on those pages the selection bar
+  has Keep / Don't keep. Test: `TestKeptDespiteBlacklist`, e2e "a file with a blacklisted tag kept anyway".
 - **Managing searches (decided 2026-10-14)**: pause/resume (pausing stops new starts, an
   in-flight file finishes; resume continues from `low_id`), remove (finished, failed or running - a running one stops
   at the next file boundary), drag to reorder (a search put ahead of the running one takes over after its post in flight - `Reorder` flags the

@@ -95,6 +95,7 @@ export function label(a: Atom, comics = false): string {
   }
   if (a.neg && text.toLowerCase() === 'system:has_audio') return t('chipLabel.noAudio');
   if (a.neg && isFavorite(text)) return t('chipLabel.notFavorite');
+  if (a.neg && text.toLowerCase() === 'system:kept') return t('chipLabel.notKept');
   if (k === 'system') {
     const words = describe(text, comics);
     if (words) return words;

@@ -224,6 +224,7 @@ func New(lib *library.Library, a *auth.Auth, log *slog.Logger) *Server {
 	s.handle("POST /api/blacklist", s.setBlacklist)
 	s.handle("GET /api/blacklist/matches", s.blacklistMatches)
 	s.handle("POST /api/blacklist/delete", s.deleteBlacklisted)
+	s.handle("POST /api/blacklist/keep", s.keepFiles)
 	s.handle("GET /api/dupes", s.listDupes)
 	s.handle("GET /api/flaresolverr", s.getFlareSolverr)
 	s.handle("POST /api/flaresolverr", s.setFlareSolverr)

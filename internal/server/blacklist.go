@@ -68,3 +68,20 @@ func (s *Server) deleteBlacklisted(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": len(ids), "ids": orEmpty(ids)})
 }
+
+// keepFiles: POST /api/blacklist/keep {ids, on} -> {changed}: files kept despite the blacklist (on), or not.
+func (s *Server) keepFiles(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IDs []uint32 `json:"ids"`
+		On  bool     `json:"on"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	n, err := s.lib.SetKept(r.Context(), req.IDs, req.On)
+	if err != nil {
+		libError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"changed": n})
+}

@@ -29,6 +29,7 @@
     ExternalLink,
     Eye,
     EyeOff,
+    ShieldCheck,
     Files,
     Folder,
     GalleryVerticalEnd,
@@ -118,6 +119,7 @@
     addbox: SquarePlus,
     eye: Eye,
     eyeoff: EyeOff,
+    kept: ShieldCheck, // kept despite the blacklist
     clock: Clock,
     recent: RotateCcwClock, // (recent searches: a clock with an arrow going back)
     bell: Bell,

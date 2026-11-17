@@ -2,7 +2,7 @@
   import { bringIntoView } from '../lib/bringIntoView';
   // The download blacklist: tags whose posts are never downloaded, and a
   // clean-up for library files that already have them (an undoable delete).
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { reveal, pop, moved } from '../lib/motion';
   import { api, type BlacklistMatches } from '../lib/api';
   import { blacklist } from '../lib/blacklist.svelte';
@@ -85,9 +85,23 @@
   /** The library search for all of them: one OR group. */
   let query = $derived(tags.length === 1 ? tags[0] : `( ${tags.join(' ~ ')} )`);
 
+  // (a page of their own: the library's search stays) - those kept despite the blacklist left out, or only them; a
+  // file kept or not from there leaves the page (lib/kept)
   function show() {
-    router.openResults(query); // (a page of their own: the library's search stays)
+    router.openResults(`${query} -system:kept`);
   }
+  function showKept() {
+    router.openResults(`${query} system:kept`);
+  }
+  // (back from such a page, where files were kept: counted again)
+  let away = false;
+  $effect(() => {
+    const here = router.screen === 'tags';
+    untrack(() => {
+      if (here && away) loadMatches();
+      away = !here;
+    });
+  });
 
   async function purge() {
     if (!matches) return;
@@ -157,7 +171,7 @@
       <!-- (the two states in one place: one fades and closes as the other opens, the box's height and color following) -->
       <div class="state">
         {#if matches.total === 0}
-          <p class="small all-clean" transition:reveal={{ quick: true }}><Icon name="check" size={16} /> {t('blacklist.clean')}</p>
+          <p class="small all-clean" transition:reveal={{ quick: true }}><Icon name="check" size={16} /> {matches.kept ? t('blacklist.cleanKept') : t('blacklist.clean')}</p>
         {:else}
           <div class="found" transition:reveal={{ quick: true }}>
             <div class="summary">
@@ -179,6 +193,12 @@
           </div>
         {/if}
       </div>
+      {#if matches.kept}
+        <p class="small kept-line" transition:reveal={{ quick: true }}>
+          <Icon name="kept" size={15} /> {t('blacklist.kept', { n: matches.kept })}
+          <button class="link" onclick={showKept}>{t('blacklist.showKept')}</button>
+        </p>
+      {/if}
     </div>
   {/if}
 </section>
@@ -248,6 +268,27 @@
     transition:
       background-color 0.22s ease-out,
       border-color 0.22s ease-out;
+  }
+  /* (files kept despite the blacklist: a line of their own under the rest, a link to them) */
+  .kept-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-top: 10px;
+    color: var(--subtext);
+  }
+  .kept-line > :global(svg) {
+    color: var(--green);
+  }
+  .kept-line .link {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    color: var(--mauve);
+    cursor: pointer;
   }
   .matches.clean {
     background: color-mix(in srgb, var(--green) 6%, var(--crust));

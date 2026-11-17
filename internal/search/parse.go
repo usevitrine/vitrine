@@ -150,6 +150,7 @@ var fieldAliases = map[string]Field{
 	"views": FieldViews, "view_count": FieldViews, "viewcount": FieldViews,
 	"viewtime": FieldViewTime, "view_time": FieldViewTime, "watched": FieldViewTime,
 	"viewed": FieldViewed, "last_viewed": FieldViewed,
+	"kept": FieldKept,
 }
 
 // readAliases are the comics' read-state filters (FieldRead).
@@ -186,7 +187,7 @@ func parseSystem(s string, loc *time.Location) (System, error) {
 		return System{}, fmt.Errorf("unknown system filter %q", "system:"+s)
 	}
 	sys := System{Field: f, Op: op}
-	if f == FieldHasAudio || f == FieldFavorite || f == FieldNew || f == FieldAnimated {
+	if f == FieldHasAudio || f == FieldFavorite || f == FieldNew || f == FieldAnimated || f == FieldKept {
 		if op != OpNone {
 			return sys, fmt.Errorf("system:%s takes no value (use -system:%s for files without)", fieldNames[f], fieldNames[f])
 		}

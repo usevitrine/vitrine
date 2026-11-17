@@ -71,6 +71,7 @@ type Index struct {
 	seen     *roaring.Bitmap // files opened in the viewer (File.Seen): not new, whenever they came
 	favorite *roaring.Bitmap // favorites (deleted ones too: they're favorites again on undo)
 	favAt    []int64         // when each became a favorite (Unix ms; 0 = not one)
+	kept     *roaring.Bitmap // kept despite the blacklist (deleted ones too)
 	climaxes []uint16        // times counted with the "I came" button
 	views    []uint32        // times viewed (system:views, sort:views)
 	viewMS   []int64         // how long, all views together (system:viewtime, sort:viewtime)
@@ -123,6 +124,7 @@ func New() *Index {
 		bulk:      roaring.New(),
 		seen:      roaring.New(),
 		favorite:  roaring.New(),
+		kept:      roaring.New(),
 		nsNames:   []string{""},
 		nsByName:  map[string]uint32{},
 		byName:    map[string][]uint32{},
@@ -444,6 +446,33 @@ func (ix *Index) Climaxes(id uint32) int {
 		return 0
 	}
 	return int(ix.climaxes[id])
+}
+
+// SetKept keeps files despite the blacklist, or not.
+func (ix *Index) SetKept(ids []uint32, on bool) {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	if on {
+		ix.kept.AddMany(ids)
+	} else {
+		for _, id := range ids {
+			ix.kept.Remove(id)
+		}
+	}
+}
+
+// IsKept tells whether a file is kept despite the blacklist.
+func (ix *Index) IsKept(id uint32) bool {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	return ix.kept.Contains(id)
+}
+
+// Kept is a copy of the files kept despite the blacklist (deleted ones too).
+func (ix *Index) Kept() *roaring.Bitmap {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	return ix.kept.Clone()
 }
 
 // IsFavorite tells whether a file is a favorite.

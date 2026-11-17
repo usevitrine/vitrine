@@ -14,6 +14,7 @@
   import TagInput from './TagInput.svelte';
   import Icon from './Icon.svelte';
   import { setFavorite } from '../lib/favorites';
+  import { setKept } from '../lib/kept';
   import { nsColor, nsLabel, nsRank, splitTag } from '../lib/namespaces.svelte';
   import { t, num } from '../lib/i18n.svelte';
   import { isRead, markComicsRead } from '../lib/comics';
@@ -124,6 +125,25 @@
     busy = true;
     try {
       await setFavorite(ids, !allFavorites, false, results);
+    } finally {
+      busy = false;
+    }
+  }
+
+  // The blacklist's Show them pages (system:kept in the search): the files picked kept despite it, or not (lib/kept).
+  const keepPage = $derived(!comics && /system:kept/i.test(results.query));
+  let allKept = $derived.by(() => {
+    void results.version;
+    const ids = [...selection.ids];
+    return ids.length > 0 && ids.every((id) => results.file(id)?.kept);
+  });
+  async function keepSelected() {
+    const ids = selection.list();
+    if (!ids.length) return;
+    busy = true;
+    try {
+      await setKept(ids, !allKept, results);
+      selection.clear();
     } finally {
       busy = false;
     }
@@ -377,6 +397,10 @@
           {/if}
           <button class="sq" class:wide aria-label={allRead ? t('comics.markUnread') : t('comics.markRead')} title={allRead ? t('comics.markUnread') : t('comics.markRead')} onclick={markRead} disabled={busy}
             ><Icon name={allRead ? 'book' : 'check'} size={18} />{@render lbl(allRead ? t('selection.short.unread') : t('selection.short.read'))}</button>
+        {/if}
+        {#if keepPage}
+          <button class="sq" class:wide aria-label={allKept ? t('selection.unkeepFiles') : t('selection.keepFiles')} title={allKept ? t('selection.unkeepFiles') : t('selection.keepFiles')} onclick={keepSelected} disabled={busy}
+            ><Icon name="kept" size={18} />{@render lbl(allKept ? t('selection.short.unkeep') : t('selection.short.keep'))}</button>
         {/if}
         <button class="sq" class:wide class:fav-on={allFavorites} aria-label={allFavorites ? t('selection.unfavorite') : t('selection.favorite')} title={allFavorites ? t('fileMenu.unfavorite') : t('fileMenu.favorite')} onclick={favoriteSelected} disabled={busy}
           ><Icon name="heart" size={18} filled={allFavorites} />{@render lbl(allFavorites ? t('selection.short.unfavorite') : t('selection.short.favorite'))}</button>

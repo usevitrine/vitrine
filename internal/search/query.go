@@ -81,6 +81,7 @@ const (
 	FieldTitle    // comics: sort only, by title
 	FieldViews    // times viewed in the viewer (system:views=0 never; sort:views)
 	FieldViewTime // how long viewed, all views together (system:viewtime>10m; sort:viewtime)
+	FieldKept     // kept despite the blacklist (system:kept)
 	FieldViewed   // when last viewed (system:viewed<7d - like imported; never viewed: 0, "long ago"; sort:viewed)
 	FieldRandom   // sort only; keep last (sizes per-field arrays)
 )
@@ -178,6 +179,7 @@ var fieldNames = map[Field]string{
 	FieldViews:    "views",
 	FieldViewTime: "viewtime",
 	FieldViewed:   "viewed",
+	FieldKept:     "kept",
 	FieldRandom:   "random",
 }
 
@@ -224,7 +226,7 @@ func (a Atom) String() string {
 func (s System) String() string {
 	name := "system:" + fieldNames[s.Field]
 	switch s.Field {
-	case FieldHasAudio, FieldFavorite, FieldNew, FieldAnimated:
+	case FieldHasAudio, FieldFavorite, FieldNew, FieldAnimated, FieldKept:
 		return name
 	case FieldRead:
 		return "system:" + readStates[s.Num]

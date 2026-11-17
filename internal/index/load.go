@@ -50,6 +50,7 @@ func loadWith(ctx context.Context, db *sql.DB, trash bool, fileTags func(*Index,
 		{"sites", ix.loadSites},
 		{"found by", ix.loadFoundBy},
 		{"favorites", ix.loadFavorites},
+		{"kept", ix.loadKept},
 		{"climaxes", ix.loadClimaxes},
 		{"views", ix.loadViews},
 	}
@@ -334,6 +335,22 @@ func (ix *Index) loadFavorites(ctx context.Context, tx *sql.Tx) error {
 		ix.growFiles(id)
 		ix.favAt[id] = at
 		ix.favorite.Add(id)
+	}
+	return rows.Err()
+}
+
+func (ix *Index) loadKept(ctx context.Context, tx *sql.Tx) error {
+	rows, err := tx.QueryContext(ctx, "SELECT file_id FROM blacklist_kept WHERE 1"+ix.only("file_id"))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uint32
+		if err := rows.Scan(&id); err != nil {
+			return err
+		}
+		ix.kept.Add(id)
 	}
 	return rows.Err()
 }

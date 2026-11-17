@@ -11,6 +11,8 @@
   import { settings } from '../lib/settings.svelte';
   import { copyText } from '../lib/clipboard';
   import TagsSection from './TagsSection.svelte';
+  import { setKept } from '../lib/kept';
+  import { useScope } from '../lib/scope.svelte';
   import '../lib/details.css';
   import Icon from './Icon.svelte';
   import SiteIcon from './SiteIcon.svelte';
@@ -18,6 +20,7 @@
   import { when, shortDate, fullDate, host } from '../lib/when';
 
   let { file, onsearch }: { file: FileInfo; onsearch: (q: string) => void } = $props();
+  const scope = useScope();
 
   /** How long a file was viewed in all, in words: "45 seconds", "8 minutes", "2 hours". */
   function viewTime(ms: number): string {
@@ -272,7 +275,9 @@
     {onsearch}
     save={(add, remove) => api.editTags([file.id], add, remove).then(() => {})}
     reload={() => load(file.id)}
-    refresh={posts.length ? refreshTags : undefined} />
+    refresh={posts.length ? refreshTags : undefined}
+    kept={file.kept}
+    onkeep={(on) => setKept([file.id], on, scope.results)} />
 </div>
 
 <style>

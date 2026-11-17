@@ -54,7 +54,8 @@ The text form (`internal/search`; every chip maps to one term, so text and chips
   seconds), `tags` (tag count), `has_audio` (no value; `-system:has_audio` for silent), `type` (`=video`,
   `=image`, `!=jpg,mp4`, any format name or extension), `rating` (`=general|sensitive|questionable|explicit`,
   `safe` = general, `!=` too), `views` (times viewed; `=0` never), `viewtime` (how long, all views: `>10m`),
-  `viewed` (when last, like `imported`; a file never viewed counts as long ago: `>30d` = not in the last 30 days).
+  `viewed` (when last, like `imported`; a file never viewed counts as long ago: `>30d` = not in the last 30 days),
+  `kept` (no value: kept despite the blacklist - see downloader/downloads-and-subscriptions.md).
   Operators: `< <= > >= = !=`.
 - `sort:` `imported` (default, newest first), `modified`, `size`, `width`, `height`, `duration`, `tags`, `views`,
   `viewtime`, `viewed`, `random`

@@ -373,6 +373,7 @@ const symbol: Record<string, string> = { '<': '<', '<=': '≤', '=': '=', '>=': 
 export function describe(text: string, comics = false): string | null {
   const low = text.toLowerCase();
   if (low === 'system:has_audio') return t('describe.hasAudio');
+  if (low === 'system:kept') return t('describe.kept');
   if (isFlag(low)) return t(`describe.${low.slice(7)}`);
   const state = readState(low);
   if (state) return t(`describe.${state}`);

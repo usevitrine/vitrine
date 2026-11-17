@@ -470,7 +470,8 @@
     "torrent": "has a torrent",
     "foundBy": "found by {name}",
     "notFoundBy": "not found by {name}",
-    "aSubscription": "a subscription"
+    "aSubscription": "a subscription",
+    "kept": "kept despite the blacklist"
   },
   "common": {
     "select": "Select",
@@ -584,7 +585,13 @@
       "other": "Delete {n} files with blacklisted tags?"
     },
     "deleteBody": "They won't download again. You can still undo it.",
-    "common": "Common:"
+    "common": "Common:",
+    "kept": {
+      "one": "{n} file kept anyway",
+      "other": "{n} files kept anyway"
+    },
+    "showKept": "Show",
+    "cleanKept": "No other files in the library have these tags."
   },
   "settings": {
     "section": {
@@ -1737,7 +1744,9 @@
       "read": "Read",
       "unread": "Unread",
       "favorite": "Favorite",
-      "unfavorite": "Unfavorite"
+      "unfavorite": "Unfavorite",
+      "keep": "Keep",
+      "unkeep": "Don't keep"
     },
     "addedTags": {
       "one": "added {n} tag",
@@ -1793,7 +1802,9 @@
     "favorite": "Add selected to favorites",
     "unfavorite": "Remove selected from favorites",
     "delete": "Delete selected",
-    "selectAllLabel": "Select all"
+    "selectAllLabel": "Select all",
+    "keepFiles": "Keep despite the blacklist",
+    "unkeepFiles": "Don't keep despite the blacklist"
   },
   "stats": {
     "kind": {
@@ -2319,7 +2330,8 @@
     "notFavorite": "not a favorite",
     "sort": "sort: {sort}",
     "first": "first {n}",
-    "title": "“{words}”"
+    "title": "“{words}”",
+    "notKept": "not kept"
   },
   "filterMenu": {
     "when": {
@@ -2475,7 +2487,11 @@
       "one": "{n} tag picked",
       "other": "{n} tags picked"
     },
-    "blacklistIt": "Add it to the blacklist"
+    "blacklistIt": "Add it to the blacklist",
+    "keepNote": "Has a blacklisted tag: the blacklist's Delete them would delete it.",
+    "keepIt": "Keep it",
+    "keptNote": "Kept despite the blacklist: Delete them leaves it.",
+    "unkeep": "Don't keep"
   },
   "viewer": {
     "countedFirst": "You Came to {what} for the first time",
@@ -3008,5 +3024,17 @@
     "stopping": "Vitrine is stopping…",
     "running": "Vitrine is running at {address}",
     "failed": "Vitrine couldn't start"
+  },
+  "kept": {
+    "added": "Kept {what} despite the blacklist",
+    "removed": "Stopped keeping {what} despite the blacklist",
+    "addedN": {
+      "one": "Kept {n} file despite the blacklist",
+      "other": "Kept {n} files despite the blacklist"
+    },
+    "removedN": {
+      "one": "Stopped keeping {n} file despite the blacklist",
+      "other": "Stopped keeping {n} files despite the blacklist"
+    }
   }
 }

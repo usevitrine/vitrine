@@ -147,12 +147,13 @@ type PatternCount struct {
 	Files   int    `json:"files"`
 }
 
-// BlacklistMatches are the library files with blacklisted tags.
+// BlacklistMatches are the library files with blacklisted tags - those kept despite it (SetKept) left out, only counted.
 type BlacklistMatches struct {
 	IDs    []uint32       `json:"-"`
 	Total  int            `json:"total"`
 	Size   int64          `json:"size"`
 	Counts []PatternCount `json:"tags"`
+	Kept   int            `json:"kept"` // files that match but are kept
 }
 
 // BlacklistedFiles finds the library's files matching the given entries
@@ -168,6 +169,7 @@ func (l *Library) BlacklistedFiles(ctx context.Context, patterns []string) (Blac
 		patterns = b.patterns
 	}
 	all := roaring.New()
+	kept := l.ix.Kept()
 	m.Counts = []PatternCount{}
 	for _, p := range patterns {
 		p = NormalizePattern(p)
@@ -179,9 +181,13 @@ func (l *Library) BlacklistedFiles(ctx context.Context, patterns []string) (Blac
 			return m, fmt.Errorf("library: %q: %w", p, err)
 		}
 		res := l.ix.Search(q, l.now())
-		m.Counts = append(m.Counts, PatternCount{Pattern: p, Files: len(res.IDs)})
+		files := roaring.BitmapOf(res.IDs...)
+		files.AndNot(kept)
+		m.Counts = append(m.Counts, PatternCount{Pattern: p, Files: int(files.GetCardinality())})
 		all.AddMany(res.IDs)
 	}
+	m.Kept = int(all.AndCardinality(kept))
+	all.AndNot(kept)
 	m.IDs = all.ToArray()
 	m.Total = len(m.IDs)
 	m.Size = l.ix.SizeOf(m.IDs)
@@ -189,7 +195,7 @@ func (l *Library) BlacklistedFiles(ctx context.Context, patterns []string) (Blac
 }
 
 // DeleteBlacklisted deletes the library's files matching the given entries
-// (all if nil), like Delete: undoable for a while, never downloaded again.
+// (all if nil), like Delete: undoable for a while, never downloaded again. Files kept despite the blacklist stay.
 func (l *Library) DeleteBlacklisted(ctx context.Context, patterns []string) ([]uint32, error) {
 	m, err := l.BlacklistedFiles(ctx, patterns)
 	if err != nil {
@@ -200,3 +206,39 @@ func (l *Library) DeleteBlacklisted(ctx context.Context, patterns []string) ([]u
 	}
 	return m.IDs, nil
 }
+
+// SetKept keeps files despite the blacklist (on), or not: the clean-up above and the notice of a file that got a
+// blacklisted tag leave a kept file alone; system:kept finds them (2026-11-17, the user: "what if an image has a
+// blacklisted tag but i want to keep it" -> "Yes, add Keep"). It returns how many changed.
+func (l *Library) SetKept(ctx context.Context, ids []uint32, on bool) (int, error) {
+	var changed []uint32
+	err := l.write(ctx, func(tx *sql.Tx) (func() error, error) {
+		now := l.now().UnixMilli()
+		for _, id := range ids {
+			if err := fileExists(ctx, tx, id); err != nil {
+				return nil, err
+			}
+			var res sql.Result
+			var err error
+			if on {
+				res, err = tx.ExecContext(ctx, "INSERT INTO blacklist_kept (file_id, added_at) VALUES (?, ?) ON CONFLICT DO NOTHING", id, now)
+			} else {
+				res, err = tx.ExecContext(ctx, "DELETE FROM blacklist_kept WHERE file_id = ?", id)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("library: %w", err)
+			}
+			if n, _ := res.RowsAffected(); n > 0 {
+				changed = append(changed, id)
+			}
+		}
+		return func() error {
+			l.ix.SetKept(changed, on)
+			return nil
+		}, nil
+	})
+	return len(changed), err
+}
+
+// IsKept tells whether a file is kept despite the blacklist.
+func (l *Library) IsKept(id uint32) bool { return l.ix.IsKept(id) }

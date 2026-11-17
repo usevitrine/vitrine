@@ -1002,7 +1002,8 @@ test('blacklist: add tags, see matching files, show them, delete and undo', asyn
 
   await panel.getByRole('button', { name: 'Show them' }).click();
   await expect(page.locator('header.topbar').getByText(/^2 files/)).toBeVisible(); // (the Tags page fades under the library a moment)
-  await expect(page.locator('.chip')).toContainText('OR');
+  await expect(page.locator('.chip').first()).toContainText('OR');
+  await expect(page.locator('.chip').nth(1)).toContainText('not kept'); // (those kept despite the blacklist left out)
   // On a page of their own (the library's search stays as it was); Back: the Tags page again.
   await expect(page).toHaveURL(/\/view\?q=/);
   await page.getByRole('button', { name: 'Back', exact: true }).click();
@@ -1025,6 +1026,58 @@ test('blacklist: add tags, see matching files, show them, delete and undo', asyn
   await panel.getByRole('button', { name: 'Remove red from the blacklist' }).click();
   await panel.getByRole('button', { name: 'Remove nothing_like_this from the blacklist' }).click();
   await expect(panel.locator('.pill')).toHaveCount(0);
+});
+
+// The user: "what if an image has a blacklisted tag but i want to keep it" -> "Yes, add Keep".
+test('blacklist: a file with a blacklisted tag kept anyway - from the details; system:kept finds it; the card counts it apart and shows it; not kept again', async ({ page }) => {
+  // (the blacklist and its counts answered here - the worker's server keeps none; the keep itself is real and taken
+  // off at the end)
+  await page.route('**/api/blacklist', (r) => r.fulfill({ json: { tags: ['blue_sky'] } }));
+  const kept = new Set<number>();
+  await page.route('**/api/blacklist/keep', async (r) => {
+    const { ids, on } = r.request().postDataJSON() as { ids: number[]; on: boolean };
+    for (const id of ids) on ? kept.add(id) : kept.delete(id);
+    await r.continue();
+  });
+  await page.route('**/api/blacklist/matches', (r) =>
+    r.fulfill({ json: { total: 3 - kept.size, size: 1000, tags: [{ tag: 'blue_sky', files: 3 - kept.size }], kept: kept.size } }),
+  );
+  const openPanel = async (q: string) => {
+    await page.goto('/?q=' + encodeURIComponent(q));
+    await page.locator('.tile[data-i="0"]').click();
+    await page.getByRole('button', { name: 'Details', exact: true }).click();
+    return page.getByRole('region', { name: 'Tags' });
+  };
+  try {
+    let tags = await openPanel('blue_sky');
+    await expect(tags.getByText("Has a blacklisted tag: the blacklist's Delete them would delete it.")).toBeVisible();
+    await tags.getByRole('button', { name: 'Keep it' }).click();
+    await expect(page.getByText(/^Kept file #\d+ despite the blacklist/)).toBeVisible();
+    await expect(tags.getByText('Kept despite the blacklist: Delete them leaves it.')).toBeVisible();
+    expect(kept.size).toBe(1);
+
+    // Found by system:kept (also after a reload: it's the server's), the chip in words.
+    await page.goto('/?q=' + encodeURIComponent('system:kept'));
+    await expect(page.getByText(/^1 file\b/)).toBeVisible();
+    await expect(page.locator('.chip')).toContainText('kept despite the blacklist');
+
+    // The blacklist's card: the rest to delete, the kept one on a line of its own with a link to it.
+    await page.goto('/tags/rules');
+    const panel = page.locator('.blacklist');
+    await expect(panel.getByText(/^2\s+files in the library have blacklisted tags/)).toBeVisible();
+    await expect(panel.getByText('1 file kept anyway')).toBeVisible();
+    await panel.getByRole('button', { name: 'Show', exact: true }).click();
+    await expect(page).toHaveURL(/system%3Akept/);
+    await expect(page.locator('header.topbar').getByText(/^1 file\b/)).toBeVisible();
+
+    // Not kept any more: the details say so, Undo is offered.
+    tags = await openPanel('system:kept');
+    await tags.getByRole('button', { name: "Don't keep" }).click();
+    await expect(page.getByText(/^Stopped keeping file #\d+ despite the blacklist/)).toBeVisible(); // (it leaves this page)
+    expect(kept.size).toBe(0);
+  } finally {
+    if (kept.size) await page.request.post('/api/blacklist/keep', { data: { ids: [...kept], on: false } });
+  }
 });
 
 // The user: the notice changing from red to green "looks weird" - the buttons vanished and its color snapped at once.

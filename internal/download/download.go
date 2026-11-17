@@ -1142,7 +1142,7 @@ func (d *Downloader) setSitePost(ctx context.Context, st *Site, file uint32, sp 
 	if err := d.lib.SetSitePost(ctx, file, st.ID, sp); err != nil {
 		return err
 	}
-	if before != "" || d.OnEvent == nil {
+	if before != "" || d.OnEvent == nil || d.lib.IsKept(file) { // (kept despite the blacklist: nothing to tell)
 		return nil
 	}
 	if now := d.blacklistedTag(ctx, file, bl); now != "" {

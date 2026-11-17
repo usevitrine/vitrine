@@ -35,7 +35,8 @@ type FileRow struct {
 	PostedAt    int64 // when posted on its site; 0 = unknown
 	Deleted     bool
 	Favorite    bool
-	Climaxes    int // times counted with the "I came" button
+	Kept        bool // kept despite the blacklist (SetKept)
+	Climaxes    int  // times counted with the "I came" button
 	Views       index.ViewStats
 	Flags       int // FlagProbed, FlagThumbnail, FlagMediaError
 	Placeholder []byte
@@ -74,6 +75,7 @@ func (l *Library) Files(ctx context.Context, ids []uint32) ([]FileRow, error) {
 			f.Type = media.Type(typ)
 			f.Path = l.store.Path(f.SHA256, f.Type)
 			f.Favorite = l.ix.IsFavorite(f.ID)
+			f.Kept = l.ix.IsKept(f.ID)
 			f.Climaxes = l.ix.Climaxes(f.ID)
 			f.Views = l.ix.Views(f.ID)
 			byID[f.ID] = f

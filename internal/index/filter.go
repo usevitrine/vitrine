@@ -117,6 +117,8 @@ func (ix *Index) matcher(s search.System, now time.Time) func(id uint32) bool {
 		return ix.hasAudio.Contains
 	case search.FieldFavorite:
 		return ix.favorite.Contains
+	case search.FieldKept:
+		return ix.kept.Contains
 	case search.FieldNew:
 		o := NewOpts{Since: s.Since, SkipBulk: s.SkipBulk}
 		return func(id uint32) bool { return o.Since > 0 && ix.isNew(id, o) }
@@ -164,6 +166,9 @@ func (ix *Index) sysBitmap(s search.System, now time.Time) *roaring.Bitmap {
 	}
 	if s.Field == search.FieldFavorite {
 		return roaring.And(ix.favorite, ix.alive)
+	}
+	if s.Field == search.FieldKept {
+		return roaring.And(ix.kept, ix.alive)
 	}
 	if s.Field == search.FieldSite || s.Field == search.FieldFoundBy {
 		out := ix.alive.Clone()

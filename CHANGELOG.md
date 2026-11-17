@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### New
+
+- **Keep a file despite the blacklist**: a file with a blacklisted tag can be kept. Its details say it has one, with **Keep it**; the blacklist's Delete them then leaves it alone and no notice comes when it gets one. The blacklist card counts kept files apart and shows them, and `system:kept` finds them. Several at once: select them on the card's Show them page.
+
 ## 1.4.0 - 2026-11-17
 
 ### New

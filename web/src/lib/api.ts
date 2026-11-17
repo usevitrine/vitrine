@@ -165,6 +165,7 @@ export interface FileInfo {
   duration_ms: number;
   has_audio: boolean;
   favorite?: boolean;
+  kept?: boolean; // kept despite the blacklist
   came?: number; // times counted with the "I came" button
   views?: number; // times viewed
   view_ms?: number; // how long, all views together
@@ -486,6 +487,7 @@ export interface BlacklistMatches {
   total: number;
   size: number;
   tags: { tag: string; files: number }[];
+  kept?: number; // files that match but are kept despite the blacklist (left out of the rest)
 }
 
 // ---- calls
@@ -753,6 +755,8 @@ export const api = {
   blacklistMatches: () => get<BlacklistMatches>('/api/blacklist/matches'),
   deleteBlacklisted: (tags: string[] = []) =>
     post<{ deleted: number; ids: number[] }>('/api/blacklist/delete', { tags }),
+  /** Keeps files despite the blacklist (on), or not. */
+  keepFiles: (ids: number[], on: boolean) => post<{ changed: number }>('/api/blacklist/keep', { ids, on }),
 };
 
 /** The Downloads page's answer (GET /api/downloads). */

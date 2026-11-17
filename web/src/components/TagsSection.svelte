@@ -32,6 +32,8 @@
     save,
     reload,
     refresh,
+    kept,
+    onkeep,
   }: {
     item: number; // whose tags (another one: editing and menus end)
     /** A comic's (its notices say "comic #56"), else a file's. */
@@ -45,6 +47,10 @@
     reload: () => void;
     /** Reads the tags from the site again (no button without it). */
     refresh?: () => Promise<void>;
+    /** Kept despite the blacklist (a library file's). */
+    kept?: boolean;
+    /** Keeps it despite the blacklist, or not (none: not offered). */
+    onkeep?: (on: boolean) => void;
   } = $props();
 
   const { results, kind } = useScope();
@@ -206,6 +212,9 @@
     });
   }
   const blacklisted = (tag: string) => !!bl.entryFor(tag);
+  // A file with a blacklisted tag can be kept despite it: the blacklist's Delete them and its notice leave it alone
+  // (lib/kept). Said under the heading while it has one, or is kept.
+  const keepShown = $derived(!!onkeep && (!!kept || tags.some((x) => blacklisted(x.tag))));
   /** Added as the site writes it: the bare name ("creator:x" -> "x") - sites send bare tags, the library files them
    *  under namespaces (the user: it added the namespace). */
   function blacklistAdd(list: string[]) {
@@ -269,6 +278,13 @@
       {/if}
     {/if}
   </div>
+  {#if keepShown}
+    <div class="keep" class:on={kept} transition:reveal>
+      <Icon name={kept ? 'kept' : 'eyeoff'} size={16} />
+      <p class="small">{kept ? t('details.keptNote') : t('details.keepNote')}</p>
+      <button class="quiet" onclick={() => onkeep?.(!kept)}>{kept ? t('details.unkeep') : t('details.keepIt')}</button>
+    </div>
+  {/if}
   {#if editing}
     <TagInput bind:value={adding} {comics} multi label={t('details.addTags')} placeholder={t('blacklist.addPlaceholder')} onenter={add} autofocus />
     {#if changed}
@@ -405,6 +421,34 @@
   .pending {
     margin: 0;
     color: var(--subtext);
+  }
+  /* A blacklisted tag on it: keep it anyway (or kept: stop). Red-tinted like the blacklisted tags' marks; green once kept. */
+  .keep {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px 6px 10px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--red) 10%, transparent);
+    color: var(--subtext);
+    transition: background-color 0.2s;
+  }
+  .keep.on {
+    background: color-mix(in srgb, var(--green) 10%, transparent);
+  }
+  .keep > :global(svg) {
+    flex: none;
+    color: var(--red);
+  }
+  .keep.on > :global(svg) {
+    color: var(--green);
+  }
+  .keep p {
+    flex: 1;
+    margin: 0;
+  }
+  .keep button {
+    flex: none;
   }
   /* Edit mode: a tag to be added (dashed), one to be removed (struck through). */
   .tags li.adding {
