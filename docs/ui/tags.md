@@ -156,3 +156,15 @@ The tag menu, tag actions in the details, the tag browser and Tags screens, the 
   site's groups, or a new one named there) and how many posts - each its own (`Entry.how`). The button says Download
   (all once), Subscribe (all subscriptions) or Start (some of each); the toast "Started \"x\" on a, b". One site: as
   before. (Before this, one setting for all, a group matched by name on every site.)
+- **Together or Separately (2026-11-17)** (the user: "when downloading tags, if i have more than 1 selected, i want the
+  option to download them all in separate queries"): when the search looks for two or more things (tags, OR groups),
+  "Which site?" starts with a Together / Separately switch (Together at first: one search, as before). Separately: a
+  search for each tag or OR group, the excluded tags in every one ("blue_sky cloud -rain": "blue_sky -rain", "cloud
+  -rain"; `separateSearches` in lib/siteSearch - an OR group the site can't search splits as before; filters are left
+  out and said). The search page then lists each site's searches with a check each instead of a search box (untick to
+  leave one out; a site needs one at least); a search that site has a subscription for already (`/api/downloads?sites=1`
+  now also sends `subscribed`, site -> queries) is marked "Subscribed already" and starts unticked. With more than one,
+  a site's subscriptions go in a new group named after the search at first (each site its own, as above). The button
+  counts them ("Subscribe to 6 searches", "Start 3 searches"); subscribing skips any subscribed to already (as with a
+  split OR search: the server refuses a second one, which stopped the rest) and a toast says how many. Test: "new
+  download: Together or Separately".

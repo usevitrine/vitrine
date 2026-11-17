@@ -2,7 +2,7 @@
 // way, an OR group as the site's OR search - where the site has none, split: one search for each combination
 // (2026-10-22, the user: "separating the or's into separate queries to get all combinations"); what the site can't
 // search - filters, wildcards, an OR group with an excluded tag, more combinations than MAX_SEARCHES - left out (and said).
-import { parse, label, kindOf, type Chip } from './query';
+import { parse, label, kindOf, chipText, type Chip } from './query';
 import { tagQuery, tagsQuery, canOr } from './sites.svelte';
 import { t } from './i18n.svelte';
 
@@ -62,4 +62,28 @@ export function splitSearches(site: string, base: string, split: Chip[]): string
   let all = [base.trim()];
   for (const c of split) all = all.flatMap((q) => c.atoms.map((a) => [q, tagQuery(site, a.text)].filter(Boolean).join(' ')));
   return all;
+}
+
+/** The chips a search looks for one by one with "Separately": its tags and OR groups (not the excluded tags - they go
+ *  in each search - nor an OR group with an excluded tag, which no site searches). */
+const lookedFor = (chips: Chip[]) => chips.filter((c) => tagChip(c) && !c.atoms.some((a) => a.neg));
+
+/** Whether a search has several things to look for apart (the dialog's Together / Separately). */
+export const separable = (q: string) => lookedFor(parse(q)).length > 1;
+
+/** "Separately" (2026-11-17, the user: "if i have more than 1 selected, i want the option to download them all in
+ *  separate queries"): a search on the site for each tag or OR group, the excluded tags in each (blue_sky cloud -rain:
+ *  "blue_sky -rain", "cloud -rain"); an OR group the site has no OR search for splits as above. Left: what the site
+ *  can't search (filters, an OR group with an excluded tag, one with too many combinations). */
+export function separateSearches(site: string, q: string): { searches: string[]; left: Chip[] } {
+  const chips = parse(q);
+  const shared = chips.filter((c) => tagChip(c) && c.atoms.length === 1 && c.atoms[0].neg).map(chipText).join(' ');
+  const left = chips.filter((c) => !tagChip(c) || (c.atoms.length > 1 && c.atoms.some((a) => a.neg)));
+  const searches: string[] = [];
+  for (const c of lookedFor(chips)) {
+    const w = siteSearch(site, [chipText(c), shared].join(' '));
+    if (w.left.length) left.push(c);
+    else for (const s of splitSearches(site, w.query, w.split)) if (s && !searches.includes(s)) searches.push(s);
+  }
+  return { searches, left };
 }

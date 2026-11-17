@@ -58,7 +58,7 @@ func (s *Server) listDownloads(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	// ?sites=1: only the sites to download from and the groups - the New download dialog's (the whole page's numbers
+	// ?sites=1: only the sites to download from, the groups and the subscribed searches - the New download dialog's (the whole page's numbers
 	// took 1-3 s on a big library, and the dialog's site page waited for them).
 	if r.URL.Query().Get("sites") == "1" {
 		on := []string{}
@@ -67,7 +67,12 @@ func (s *Server) listDownloads(w http.ResponseWriter, r *http.Request) {
 				on = append(on, id)
 			}
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"sites": on, "groups": groups})
+		subscribed, err := s.dl.Subscribed(r.Context()) // (its searches already: marked when several are started at once)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"sites": on, "groups": groups, "subscribed": subscribed})
 		return
 	}
 	subs, err := s.dl.Subscriptions(r.Context())

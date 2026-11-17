@@ -12,7 +12,8 @@
   import { read, write } from '../lib/storage';
   import { api, type SubGroup } from '../lib/api';
   import { siteLabel, tagQuery, tagsQuery, canOr, sites as siteInfo } from '../lib/sites.svelte';
-  import { searchTags, siteSearch, splitSearches, searchWords, ownFavorites, favoritesSearch } from '../lib/siteSearch';
+  import { searchTags, siteSearch, splitSearches, separateSearches, separable, searchWords, ownFavorites, favoritesSearch } from '../lib/siteSearch';
+  import { marquee } from '../lib/marquee';
   import { parse, type Chip } from '../lib/query';
   import { tagOrigins, type SiteChoice } from '../lib/newDownload.svelte';
   import { siteOn } from '../lib/sections';
@@ -63,6 +64,8 @@
   // ---- the sites (those that download now) and their subscription groups
   let downloadSites = $state<string[]>([]);
   let groups = $state<SubGroup[]>([]);
+  let subscribed = $state<Record<string, string[]>>({}); // each site's subscribed searches
+  const subscribedTo = (siteId: string, q: string) => !!subscribed[siteId]?.includes(q.trim());
   let origins = $state<SiteChoice[]>([]);
   let loaded = $state(false);
   let shown = $state(false); // (the dialog waits for its sites, a moment at most)
@@ -80,6 +83,7 @@
       await siteInfo.whenLoaded(); // (each site's OR search)
       sites = res.sites.filter(siteOn);
       groups = res.groups ?? [];
+      subscribed = res.subscribed ?? {};
       if (fromTags) origins = usable(await from, sites);
     });
     clearTimeout(slow);
@@ -152,16 +156,24 @@
   type How = { repeat: string; max: number | undefined; group: string; groupName: string }; // repeat: seconds, '0' = once
   // svelte-ignore state_referenced_locally
   const newHow = (): How => ({ repeat: subscribe ? String(DEFAULT_INTERVAL) : '0', max: undefined, group: '', groupName: '' });
-  type Entry = { site: string; text: string; left: Chip[]; split: Chip[]; how: How };
+  // sep: "Separately" - the site's search for each tag (each can be unticked; had: subscribed to it already).
+  type Sep = { q: string; on: boolean; had: boolean };
+  type Entry = { site: string; text: string; left: Chip[]; split: Chip[]; sep: Sep[] | null; how: How };
   // svelte-ignore state_referenced_locally
-  let entries = $state<Entry[]>(presetSite ? [{ site: presetSite, text: presetText, left: [], split: [], how: newHow() }] : []);
+  let entries = $state<Entry[]>(presetSite ? [{ site: presetSite, text: presetText, left: [], split: [], sep: null, how: newHow() }] : []);
+  // Together (one search with every tag) or Separately (a search for each - 2026-11-17, the user: "if i have more than
+  // 1 selected, i want the option to download them all in separate queries"): picked on the site page, so each site's
+  // searches are made from it.
+  let separate = $state(false);
+  // svelte-ignore state_referenced_locally
+  const canSeparate = separable(query);
   const site = $derived(entries[0]?.site ?? '');
   const multi = $derived(entries.length > 1);
   let boxes = $state<HTMLInputElement[]>([]); // (the suggestions sit under each, over the dialog)
-  const searchesOf = (e: Entry) => splitSearches(e.site, e.text, e.split);
+  const searchesOf = (e: Entry) => (e.sep ? e.sep.filter((x) => x.on).map((x) => x.q) : splitSearches(e.site, e.text, e.split));
   const jobs = $derived(entries.flatMap((e) => searchesOf(e).map((q) => ({ site: e.site, q, text: e.text }))));
   const searches = $derived(jobs.map((j) => j.q));
-  const ready = $derived(jobs.length > 0 && jobs.every((j) => j.q !== ''));
+  const ready = $derived(entries.length > 0 && entries.every((e) => searchesOf(e).length > 0) && jobs.every((j) => j.q !== ''));
   let sitePicks = $state<string[]>([]); // checked on the site page (several at once)
   function togglePick(s: string) {
     sitePicks = sitePicks.includes(s) ? sitePicks.filter((x) => x !== s) : [...sitePicks, s];
@@ -172,12 +184,20 @@
   }
   function pickSites(list: string[]) {
     entries = list.map((s) => {
-      if (!useSearch) return { site: s, text: '', left: [], split: [], how: newHow() };
-      const w = siteSearch(s, query);
+      if (!useSearch) return { site: s, text: '', left: [], split: [], sep: null, how: newHow() };
       const how = newHow();
+      const name = searchWords(parse(query)).slice(0, 60);
+      if (separate && canSeparate) {
+        // (the ones subscribed to already: unticked, and said)
+        const r = separateSearches(s, query);
+        const sep = r.searches.map((q) => ({ q, had: subscribedTo(s, q), on: !subscribedTo(s, q) }));
+        if (sep.length > 1) Object.assign(how, { group: 'new', groupName: name });
+        return { site: s, text: '', left: r.left, split: [], sep, how };
+      }
+      const w = siteSearch(s, query);
       // (several subscriptions from one search: together in a group named after it, to start with)
-      if (w.split.length) Object.assign(how, { group: 'new', groupName: searchWords(parse(query)).slice(0, 60) });
-      return { site: s, text: w.query, left: w.left, split: w.split, how };
+      if (w.split.length) Object.assign(how, { group: 'new', groupName: name });
+      return { site: s, text: w.query, left: w.left, split: w.split, sep: null, how };
     });
     go('search');
   }
@@ -236,22 +256,32 @@
         if (x.how.repeat !== '0' && !favoritesSearch(x.text) && x.how.group === 'new' && !x.how.groupName.trim()) throw new Error(t('downloads.nameGroupFirst'));
       }
       let subId: number | undefined;
-      let subscribed = false;
-      const uniq = [...new Set(searches)]; // (the same search on several sites: named once)
-      const q = uniq.length > 1 ? t('newDl.searches', { n: searches.length }) : uniq[0];
+      let subscribedNow = false;
+      let skipped = 0; // (subscribed to already: left as they are - one existing stopped the rest, ErrExists)
       for (const x of entries) {
         const h = x.how;
         const fav = favoritesSearch(x.text);
         if (h.repeat !== '0') {
           const group = fav ? {} : h.group === 'new' ? { group_name: h.groupName.trim() } : h.group ? { group_id: +h.group } : {};
           // (a split search: each combination its own subscription - a new group's name finds the group the first made)
-          for (const s of searchesOf(x)) subId = (await api.subscribe(x.site, s, +h.repeat, h.max ?? 0, group, ownFavorites(x.text), label)).id; // (label: a gallery's title - its name in the lists)
-          subscribed = true;
+          for (const s of searchesOf(x)) {
+            if (searchesOf(x).length > 1 && subscribedTo(x.site, s)) {
+              skipped++;
+              continue;
+            }
+            subId = (await api.subscribe(x.site, s, +h.repeat, h.max ?? 0, group, ownFavorites(x.text), label)).id; // (label: a gallery's title - its name in the lists)
+            subscribedNow = true;
+          }
         } else {
           for (const s of searchesOf(x)) await api.addDownload(x.site, s, h.max ?? 0, ownFavorites(x.text), label);
         }
       }
-      if (multi) {
+      const made = searches.length - skipped;
+      const uniq = [...new Set(searches)]; // (the same search on several sites: named once)
+      const q = uniq.length > 1 ? t('newDl.searches', { n: made }) : uniq[0];
+      if (!made) {
+        // (all of them subscribed to already: only that said)
+      } else if (multi) {
         toasts.show(t('newDl.startedOn', { query: label || q, sites: entries.map((x) => siteLabel(x.site)).join(', ') }), { cat: 'downloadsStarted', kind: 'info' });
       } else if (cur.repeat !== '0') {
         const gName = favSearch ? t('menu.favorites') : cur.group === 'new' ? cur.groupName.trim() : groups.find((x) => String(x.id) === cur.group)?.name;
@@ -261,8 +291,9 @@
       } else {
         toasts.show(t('downloads.downloading', { query: label || q, site: siteLabel(site) }), { cat: 'downloadsStarted', kind: 'info' });
       }
+      if (skipped) toasts.show(t('newDl.skipped', { n: skipped }), { cat: 'downloadsStarted', kind: 'info' });
       write('vitrine.lastSite', site);
-      ondone?.(subscribed, subId);
+      ondone?.(subscribedNow, subId);
       onclose();
     }, (b) => (busy = b));
   }
@@ -344,6 +375,13 @@
               </div>
             {:else if page === 'site'}
               {#if fromTags}<p class="what-tags" title={query}>{searchWords(parse(query))}</p>{/if}
+              {#if useSearch && canSeparate}
+                <div class="segmented apart" role="tablist" aria-label={t('newDl.apart')}>
+                  <button type="button" role="tab" aria-selected={!separate} onclick={() => (separate = false)}><Icon name="search" size={16} /> {t('newDl.together')}</button>
+                  <button type="button" role="tab" aria-selected={separate} onclick={() => (separate = true)}><Icon name="split" size={16} /> {t('newDl.separately')}</button>
+                </div>
+                <p class="hint left apart-hint">{separate ? t('newDl.separatelyHint') : t('newDl.togetherHint')}</p>
+              {/if}
               <!-- (Loading… goes at once and the list fades in as the height follows - Loading… closing after the list
                    had come moved the dialog again; Loading… itself only shows if the wait is long enough to see) -->
               {#if !loaded || !siteInfo.loaded}
@@ -402,6 +440,23 @@
                 {#each entries as e, i (e.site)}
                   <div class="site-search">
                     {#if multi}<p class="site-name"><SiteIcon host={siteInfo.hosts[e.site] ?? ''} /> {siteLabel(e.site)}</p>{/if}
+                    {#if e.sep}
+                      <!-- (each its own search: unticked ones left out; one subscribed to already starts unticked) -->
+                      <ul class="sep-list" aria-label={multi ? t('newDl.searchesOn', { site: siteLabel(e.site) }) : t('newDl.theSearches')} {@attach overlayScroll}>
+                        {#each e.sep as x, k (x.q)}
+                          <li>
+                            <button type="button" class="sep-row" class:on={x.on} aria-pressed={x.on} onclick={() => (x.on = !x.on)} data-autofocus={i === 0 && k === 0 ? true : undefined}>
+                              <span class="site-check" class:on={x.on} aria-hidden="true"><Icon name="check" size={14} /></span>
+                              <span class="sep-text">
+                                <span class="marquee sliding" {@attach marquee}><span>{x.q}</span></span>
+                                {#if x.had}<span class="sep-had">{t('newDl.subscribedAlready')}</span>{/if}
+                              </span>
+                            </button>
+                          </li>
+                        {/each}
+                      </ul>
+                      <p class="hint left">{searchesOf(e).length ? t('newDl.nPicked', { n: searchesOf(e).length, of: e.sep.length }) : t('newDl.nonePicked')}</p>
+                    {:else}
                     <TagInput
                       anchor={sheet ? undefined : boxes[i]}
                       above={sheet}
@@ -416,6 +471,7 @@
                       placeholder={siteInfo.hints[e.site] ?? t('downloads.searchSite', { site: siteLabel(e.site) })}
                       autofocus={i === 0 && !touch()}
                       onenter={() => toHow()} />
+                    {/if}
                     {#if e.split.length}<p class="hint left" transition:reveal>{t('newDl.split', { site: siteLabel(e.site), n: searchesOf(e).length })}</p>{/if}
                     {#if e.left.length}<p class="hint left" transition:reveal>{t('newDl.leftOut', { what: searchWords(e.left) })}</p>{/if}
                   </div>
@@ -458,7 +514,7 @@
                 {/if}
                 <div class="foot">
                   <button type="submit" class="go" disabled={busy}>
-                    {#if allOnce}<Icon name="download" size={18} /> {t('backups.download')}{:else if allSubs}<Icon name="bell" size={18} /> {t('downloads.subscribe')}{:else}<Icon name="right" size={18} /> {t('newDl.startAll')}{/if}
+                    {#if allOnce}<Icon name="download" size={18} /> {searches.length > 1 ? t('newDl.downloadN', { n: searches.length }) : t('backups.download')}{:else if allSubs}<Icon name="bell" size={18} /> {searches.length > 1 ? t('newDl.subscribeN', { n: searches.length }) : t('downloads.subscribe')}{:else}<Icon name="right" size={18} /> {t('newDl.startN', { n: searches.length })}{/if}
                   </button>
                 </div>
               </form>
@@ -712,6 +768,64 @@
   }
   .segmented {
     width: 100%;
+  }
+  /* Together / Separately, over the sites */
+  .apart {
+    margin-bottom: -2px;
+  }
+  .apart-hint {
+    margin: 0 0 4px;
+  }
+  /* "Separately": a site's searches, each with its check (unticked: left out); the list scrolls past a few */
+  .sep-list {
+    margin: 0;
+    padding: 4px;
+    max-height: 212px;
+    overflow: auto;
+    list-style: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr); /* (a long search slides inside its row, not past the list) */
+    gap: 2px;
+    border-radius: 12px;
+    background: var(--crust);
+  }
+  .sep-row,
+  .sep-row:hover:not(:disabled) {
+    width: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    padding: 6px 8px 6px 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--subtext);
+    text-align: left;
+    font-weight: 400;
+  }
+  .sep-row.on {
+    color: var(--text);
+  }
+  @media (hover: hover) {
+    .sep-row:hover:not(:disabled) {
+      background: var(--surface0);
+    }
+  }
+  .sep-text {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sep-text .marquee {
+    flex: 1;
+    min-width: 0;
+  }
+  .sep-had {
+    flex: none;
+    font-size: var(--font-small);
+    color: var(--overlay1);
   }
   .segmented button {
     flex: 1;

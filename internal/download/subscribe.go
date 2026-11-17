@@ -220,6 +220,25 @@ func scanSub(row interface{ Scan(...any) error }) (Subscription, error) {
 	return s, err
 }
 
+// Subscribed lists each site's subscribed searches (site -> queries): the New download dialog marks the ones that
+// exist already, so starting several at once skips them instead of failing on the first (ErrExists).
+func (d *Downloader) Subscribed(ctx context.Context) (map[string][]string, error) {
+	rows, err := d.db.R.QueryContext(ctx, "SELECT si.name, sub.query FROM subscriptions sub JOIN sites si ON si.id = sub.site_id")
+	if err != nil {
+		return nil, fmt.Errorf("download: %w", err)
+	}
+	defer rows.Close()
+	out := map[string][]string{}
+	for rows.Next() {
+		var site, query string
+		if err := rows.Scan(&site, &query); err != nil {
+			return nil, fmt.Errorf("download: %w", err)
+		}
+		out[site] = append(out[site], query)
+	}
+	return out, rows.Err()
+}
+
 // Subscriptions lists every subscription by site and search, each with its
 // check in progress, if any.
 func (d *Downloader) Subscriptions(ctx context.Context) ([]Subscription, error) {

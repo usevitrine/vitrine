@@ -1254,7 +1254,7 @@ func TestDownloadsActiveOnly(t *testing.T) {
 		t.Fatalf("active: %d %v", code, active)
 	}
 	var light map[string]json.RawMessage
-	if code := e.call("GET", "/api/downloads?sites=1", nil, &light); code != 200 || len(light) != 2 || light["sites"] == nil || light["groups"] == nil {
+	if code := e.call("GET", "/api/downloads?sites=1", nil, &light); code != 200 || len(light) != 3 || light["sites"] == nil || light["groups"] == nil || light["subscribed"] == nil {
 		t.Fatalf("sites: %d %v", code, light)
 	}
 }

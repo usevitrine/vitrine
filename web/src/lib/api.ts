@@ -666,7 +666,7 @@ export const api = {
     ),
   /** Only what's going on now (running, waiting, paused) and the paused sites: the top bar's downloads menu. */
   /** Only the sites to download from and the subscription groups (the New download dialog's). */
-  downloadSites: () => get<{ sites: string[]; groups: SubGroup[] }>('/api/downloads?sites=1'),
+  downloadSites: () => get<{ sites: string[]; groups: SubGroup[]; subscribed?: Record<string, string[]> }>('/api/downloads?sites=1'), // (subscribed: each site's searches)
   activeDownloads: () => get<{ searches: DownloadSearch[]; sites_paused?: Record<string, SitePause> }>('/api/downloads?active=1'),
   /** favorite: the files it brings in become favorites too (e.g. your own favorites on the site). */
   addDownload: (site: string, query: string, max_posts: number, favorite = false, label = '') =>

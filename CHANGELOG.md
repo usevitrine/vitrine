@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### New
+
+- **Download tags separately**: with two or more tags, the new download dialog can make a search for each tag instead of one search with all of them. Excluded tags go in every search. This works with several sites at once: each site lists its searches, you can untick any, and searches you're subscribed to already are marked and skipped. Subscriptions start in a new group named after the search, one per site.
+
 ## 1.2.1 - 2026-11-16
 
 ### Improved

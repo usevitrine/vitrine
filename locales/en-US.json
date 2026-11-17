@@ -2900,8 +2900,24 @@
     "repeatOn": "Repeat on {site}",
     "groupOn": "Group on {site}",
     "newGroupOn": "New group name on {site}",
-    "startAll": "Start",
-    "startedOn": "Started \"{query}\" on {sites}"
+    "startedOn": "Started \"{query}\" on {sites}",
+    "apart": "One search or one for each",
+    "together": "Together",
+    "separately": "Separately",
+    "togetherHint": "One search with all of them.",
+    "separatelyHint": "A search for each tag; excluded tags go in every one.",
+    "theSearches": "The searches",
+    "searchesOn": "The searches on {site}",
+    "subscribedAlready": "Subscribed already",
+    "nonePicked": "Pick at least one search.",
+    "downloadN": "Download {n} searches",
+    "subscribeN": "Subscribe to {n} searches",
+    "startN": "Start {n} searches",
+    "skipped": {
+      "one": "{n} search was subscribed to already - left as it is",
+      "other": "{n} searches were subscribed to already - left as they are"
+    },
+    "nPicked": "{n} of {of} searches picked."
   },
   "tour": {
     "of": "{n} of {total}",
