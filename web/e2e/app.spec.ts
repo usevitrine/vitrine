@@ -4956,7 +4956,9 @@ test('details: the post page and source links have copy buttons', async ({ page,
     body.urls = [
       { url: 'https://safebooru.org/index.php?page=post&s=view&id=1', kind: 'post', site: 'safebooru' },
       { url: 'https://example.test/some_artist/1', kind: 'source', site: 'safebooru' },
+      { url: 'https://www.gone.test/post/show/12345', kind: 'post', site: 'gone-site' }, // (a removed site)
     ];
+    body.sources = [{ site: 'gone-site', query: 'blue_sky', first_at: Date.now(), downloaded: true }];
     await route.fulfill({ response: res, json: body });
   });
   // Site icons (the server fetches them from the sites: answered here instead).
@@ -4973,19 +4975,23 @@ test('details: the post page and source links have copy buttons', async ({ page,
   const srcs = page.getByRole('region', { name: 'Sources' });
   // The post page's row shows its site's icon; the source's site (its own section) has none: the link icon.
   await expect(found.locator('li.row').nth(0).locator('.ic.site img.shown')).toBeVisible();
-  // Its whole address, not only the site's name (2026-11-17, the user).
-  await expect(found.locator('li.row').nth(0).locator('.sub')).toHaveText('safebooru.org/index.php?page=post&s=view&id=1');
+  // Each row names its site by its address - a removed one's too (from its post link), not its plugin's ID
+  // (2026-11-17, the user: "konachan.com", not "konachan"), the post page's row and the search's under it alike.
+  await expect(found.locator('li.row').nth(0).locator('.sub')).toHaveText('safebooru.org');
+  await expect(found.locator('li.row').nth(1).locator('.sub')).toHaveText('gone.test');
+  await expect(found.locator('li.row').nth(2).locator('.sub')).toContainText('gone.test');
+  await expect(found).not.toContainText('gone-site');
   await expect(srcs.locator('.row').nth(0).locator('.ic svg')).toBeVisible();
   await expect(srcs.locator('.row').nth(0).locator('.ic img')).toHaveCount(0);
   await expect(srcs.locator('.unfold')).toHaveCount(0); // (one source: nothing stacked)
   if (process.env.SHOT) await found.screenshot({ path: process.env.SHOT.replace('.png', '-icons.png') });
-  await found.getByRole('button', { name: 'Copy the post page link' }).click();
+  await found.getByRole('button', { name: 'Copy the post page link' }).first().click();
   await expect(page.getByText('Copied the post page link')).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('https://safebooru.org/index.php?page=post&s=view&id=1');
   await srcs.getByRole('button', { name: 'Copy the source link' }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('https://example.test/some_artist/1');
   // The links themselves still open the pages.
-  await expect(found.getByRole('link', { name: 'Open the post page' })).toHaveAttribute('href', /safebooru\.org/);
+  await expect(found.getByRole('link', { name: 'Open the post page' }).first()).toHaveAttribute('href', /safebooru\.org/);
   // Open looks and reacts like Copy: the same size, the same hover background.
   const open = srcs.getByRole('link', { name: 'Open the source' });
   const copy = srcs.getByRole('button', { name: 'Copy the source link' });

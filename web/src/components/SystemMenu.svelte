@@ -218,8 +218,7 @@
     siteParts.sites.map((s) => Object.entries(sites.names).find(([id, addr]) => id === s || addr === s)?.[0] ?? s),
   );
   let siteCounts = $state<Record<string, number>>({});
-  let siteAddresses = $state<Record<string, string>>({}); // (from the counts: a removed site's name too)
-  const fromName = (id: string) => sites.names[id] ?? siteAddresses[id] ?? id;
+  const fromName = siteLabel; // (a removed site by its address too: the counts give it)
   const fromLabel = $derived(
     currentSites.length === 0 ? t('filterMenu.allSites') : currentSites.length <= 2 ? currentSites.map(fromName).join(', ') : t('filterMenu.nSites', { n: currentSites.length }),
   );
@@ -234,7 +233,7 @@
       .then((res) => {
         if (g !== countsGen) return;
         siteCounts = Object.fromEntries(res.sites.map((s) => [s.site, s.count]));
-        siteAddresses = Object.fromEntries(res.sites.filter((s) => s.address).map((s) => [s.site, s.address!]));
+        for (const s of res.sites) if (s.address) sites.learn(s.site, s.address);
         siteTotal = res.total;
       })
       .catch(() => {

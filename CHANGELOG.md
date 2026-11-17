@@ -18,7 +18,7 @@ shows this too (Settings > Help & about).
 - **Show files from**: a removed site is still listed while the library has files from it.
 - **Empty trash**: the question shows at once, even with a lot in the trash.
 - **Downloads**: the "After ...'s check" chip no longer stretches across the card while it opens or closes, and the search no longer moves up when a card opens.
-- **Details**: a file's post page shows its whole address, not just the site's name.
+- **Removed sites** are named by their address everywhere (konachan.com, not konachan): Where it's from in the details, the search's site chip, Show files from.
 - **Site plugins**: the dates in a plugin's version history show again.
 
 ## 1.3.2 - 2026-11-17

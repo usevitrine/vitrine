@@ -7,6 +7,12 @@ import { noticeSites } from './notices.svelte';
 
 class Sites {
   names = $state<Record<string, string>>({});
+  /** Removed sites' addresses, as learned on the way (the site counts, a file's post links): a removed site is named
+   *  by its address too - "konachan.com", not its plugin's ID (2026-11-17, the user). */
+  gone = $state<Record<string, string>>({});
+  learn(id: string, address: string) {
+    if (address && !this.names[id] && this.gone[id] !== address) this.gone[id] = address;
+  }
   /** The new-download box's hint for sites with their own search syntax. */
   hints = $state<Record<string, string>>({});
   /** The sites that can fetch one post by its link or id:N. */
@@ -54,7 +60,7 @@ class Sites {
 export const sites = new Sites();
 
 /** A site's address for display ("safebooru" -> "safebooru.org"). */
-export const siteLabel = (id: string) => sites.names[id] ?? id;
+export const siteLabel = (id: string) => sites.names[id] ?? sites.gone[id] ?? id;
 noticeSites.label = siteLabel; // (a plugin update's notice names its site)
 
 /** A library tag as a site's search for it (a tag's "New download"): each
