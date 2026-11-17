@@ -8,8 +8,8 @@ other query parts such as `tags=` are ignored). It's queued as `id:N`, and can't
 The New download dialog asks first (`POST /api/downloads/single`, which also asks the site): a link for another site
 (400) or a post the site doesn't have (404) is said in the dialog; if the site has it, only Download is left. A link is
 matched against the site's own hosts (`post_url`, `base`), not all of `domains`: danbooru and safebooru.donmai.us share one.
-By engine: gelbooru-v02 the site's `id:N` search (it has the upload time); gelbooru-v02-html, shimmie2 and danbooru
-`Lookup`; mastodon every file of the status (`/@name/<id>`, `/web/statuses/<id>`; `id:N` = the status ID; `/tags/` and
+By engine: gelbooru-v02 the site's `id:N` search (it has the upload time); gelbooru-v02-html, shimmie2, danbooru,
+moebooru (`/post/show/<id>`) and e621 (`/posts/<id>`) `Lookup`; mastodon every file of the status (`/@name/<id>`, `/web/statuses/<id>`; `id:N` = the status ID; `/tags/` and
 profile links stay searches). **ehentai**: no - a gallery needs its token, so `id:N` is refused; a gallery's link was
 already one comic.
 

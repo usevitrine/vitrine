@@ -68,6 +68,10 @@ func NewEngine(c *Client) (Engine, error) {
 		return &mastodon{c: c}, nil
 	case "danbooru":
 		return &danbooru{c: c}, nil
+	case "moebooru":
+		return &moebooru{c: c}, nil
+	case "e621":
+		return &e621{c: c}, nil
 	case "ehentai":
 		e := &ehentai{c: c}
 		if e.exhentai() {

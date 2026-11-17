@@ -1,6 +1,6 @@
 # Engines
 
-The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, Danbooru, and the ehentai gallery engine (comics).
+The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, Danbooru, Moebooru, e621, and the ehentai gallery engine (comics).
 
 ## Shimmie2 engine (2026-10-16)
 - `engine: shimmie2` reads a Shimmie2 site's web pages (many have no API on). List pages `/post/list/<tags>/1`: tags
@@ -95,6 +95,32 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
 - Plugins (in the plugins repo): `danbooru` (adult content) and `safebooru-donmai` (Danbooru's safe-for-work mirror,
   rated general only). `TestDanbooruLive` (VITRINE_LIVE=1) asks safebooru.donmai.us: search, the next page, a lookup -
   passed 2026-10-20.
+
+## Moebooru engine (2026-11-17)
+
+- `engine: moebooru` (`internal/plugin/moebooru.go`): yande.re, konachan and sakugabooru (Danbooru 1's API).
+  `/post.json?api_version=2&include_tags=1` (up to 1000; the plugins ask 200) gives a page of posts and a `tags` map
+  of every tag's type, so `tags.types: post` needs no extra request. Newest first, resumed with `id:<N` added to the
+  search (the site has no `page=b`). The total: `/post.xml`'s `count` (first page only). Lookup: the search `id:N`.
+- No account: Moebooru signs in with a salted password hash, not an API key, so the engine doesn't. `fav:<name>` is the
+  site's `vote:3:<name>` (that user's favorites); `fav:me` is refused with a hint. OR: `~a ~b`. A post without
+  `file_url` is passed over, as on Danbooru. Post links: `/post/show/<id>(/<slug>)`.
+- `TestMoebooruLive` (VITRINE_LIVE=1) asks konachan.net: search, the next page, a lookup - passed 2026-11-17.
+
+## e621 engine (2026-11-17)
+
+- `engine: e621` (`internal/plugin/e621.go`): e621.net and e926.net (its safe-for-work side). Danbooru-like but its
+  own JSON: `/posts.json` gives `{"posts": [...]}` (up to 320), each with `file.url/md5/width/height`, `sources` (a
+  list) and `tags` by category (artist, contributor, copyright, character, species, general, meta, lore, invalid -
+  read in that order, so a post's tags keep one order). Resumed with `page=b<ID>`; lookup `/posts/<id>.json`
+  (`{"post": ...}`, 404 = gone).
+- No count endpoint: a one plain tag search's total is the tag's `post_count` (`/tags.json?search[name]=`); every
+  other search, and every search on e926 (its tag counts include posts it doesn't show), is -1.
+- Account optional: `login` + `api_key` in the query, a 401 (`SessionLoader::AuthenticationFailure`) explained as a
+  refused login. Without one the site hides some files (`file.url` null) - passed over. `fav:me` = the login's
+  `fav:<name>`; OR `~a ~b`. The site wants a User-Agent naming the program (Vitrine's own; a browser's meets
+  Cloudflare).
+- `TestE621Live` (VITRINE_LIVE=1) asks e926.net: search, the next page, a lookup - passed 2026-11-17.
 
 ## Gallery sites: the ehentai engine (2026-10-20)
 - Engine `ehentai` (plugins in the plugins repo: e-hentai.org, exhentai.org): each search result is a **gallery** post

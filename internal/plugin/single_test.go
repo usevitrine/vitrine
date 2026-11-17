@@ -20,6 +20,8 @@ func TestSinglePost(t *testing.T) {
 	html := singleManifest("gelbooru-v02-html", "https://example.test", "https://example.test/index.php?page=post&s=view&id={id}")
 	shm := singleManifest("shimmie2", "https://example.test", "https://example.test/post/view/{id}")
 	dan := singleManifest("danbooru", "https://one.example.test", "https://one.example.test/posts/{id}")
+	e6 := singleManifest("e621", "https://example.test", "https://example.test/posts/{id}")
+	moe := singleManifest("moebooru", "https://example.test", "https://example.test/post/show/{id}")
 	mast := singleManifest("mastodon", "https://example.test", "")
 	eh := singleManifest("ehentai", "https://e-hentai.org", "https://e-hentai.org/g/{id}/")
 	for _, c := range []struct {
@@ -47,6 +49,11 @@ func TestSinglePost(t *testing.T) {
 		{"shimmie list", shm, "https://example.test/post/list/blue_sky/1", 0, false, "isn't a post"},
 		{"danbooru", dan, "https://one.example.test/posts/8?q=blue_sky", 8, true, ""},
 		{"danbooru's sister site", dan, "https://two.example.test/posts/8", 0, false, "that link is for two.example.test"},
+		{"e621", e6, "https://example.test/posts/8?q=blue_sky", 8, true, ""},
+		{"e621 list", e6, "https://example.test/posts?tags=blue_sky", 0, false, "isn't a post"},
+		{"moebooru", moe, "https://example.test/post/show/12/blue_sky-some_artist", 12, true, ""},
+		{"moebooru bare", moe, "https://example.test/post/show/12", 12, true, ""},
+		{"moebooru list", moe, "https://example.test/post?tags=blue_sky", 0, false, "isn't a post"},
 		{"mastodon post", mast, "https://example.test/@some_artist/1234567", 1234567, true, ""},
 		{"mastodon web", mast, "https://example.test/web/statuses/99", 99, true, ""},
 		{"mastodon id", mast, "id:99", 99, true, ""},

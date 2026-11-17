@@ -3,6 +3,13 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### New
+
+- **Moebooru sites**: a new site engine for yande.re, Konachan and Sakugabooru. Install their plugins in Settings > Sites. Tag types become namespaces, and `fav:<name>` downloads someone's favorites.
+- **e621 and e926**: a new site engine for e621 and its safe-for-work side, e926. An account is optional (user name + API key); with one, `fav:me` downloads your favorites.
+
 ## 1.3.2 - 2026-11-17
 
 ### Fixed

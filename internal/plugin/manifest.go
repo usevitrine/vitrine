@@ -82,7 +82,7 @@ type Manifest struct {
 	Tags struct {
 		// Types: "tag_info" = gelbooru 0.2's JSON API with fields=tag_info
 		// (one extra request per page); "page" = read from each post's page
-		// (gelbooru-v02-html); "post" = they come with every post (danbooru);
+		// (gelbooru-v02-html); "post" = they come with every post (danbooru, moebooru, e621);
 		// empty = tag types aren't known.
 		Types string `yaml:"types"`
 		// Namespaces maps the site's tag types to Vitrine namespaces (e.g.
@@ -105,7 +105,7 @@ var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`)
 var nsPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}$`)
 
 // Engines are the built-in site engines.
-var Engines = map[string]bool{"gelbooru-v02": true, "gelbooru-v02-html": true, "shimmie2": true, "mastodon": true, "danbooru": true, "ehentai": true}
+var Engines = map[string]bool{"gelbooru-v02": true, "gelbooru-v02-html": true, "shimmie2": true, "mastodon": true, "danbooru": true, "moebooru": true, "e621": true, "ehentai": true}
 
 // Parse reads and checks a manifest, filling defaults.
 func Parse(data []byte) (Manifest, error) {
@@ -245,8 +245,8 @@ func (m Manifest) TagQueries() map[string]string {
 }
 
 // engineOr: OR searches an engine has without the plugin saying so - the
-// Mastodon engine's "either" hashtags (~#a ~#b; not for @profiles) and Danbooru's ~a ~b.
-var engineOr = map[string][2]string{"mastodon": {"~{tags}", " ~"}, "danbooru": {"~{tags}", " ~"}}
+// Mastodon engine's "either" hashtags (~#a ~#b; not for @profiles) and the ~a ~b of Danbooru, Moebooru and e621.
+var engineOr = map[string][2]string{"mastodon": {"~{tags}", " ~"}, "danbooru": {"~{tags}", " ~"}, "moebooru": {"~{tags}", " ~"}, "e621": {"~{tags}", " ~"}}
 
 // OrQuery is the site's OR search template and separator (the plugin's, else
 // its engine's; "" = none).

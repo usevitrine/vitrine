@@ -329,7 +329,7 @@ animated beautifully".
 - **Counting**: (since 2026-11-17 the server also counts by itself what's queued while the queue is sorted - see
   docs/downloader/downloads-and-subscriptions.md, "Counted in the background") picking File count asks the server (`POST /api/downloads/count {ids}`) for every waiting search not
   counted yet (once each per page). `download.CountSearches`: one request per search for its first page, in the site's
-  turn (foreground: someone's waiting), with the login - the total its engine reads (Gelbooru's API and Danbooru exact,
+  turn (foreground: someone's waiting), with the login - the total its engine reads (Gelbooru's API, Danbooru and Moebooru exact, e621 for a one-tag search only,
   Gelbooru HTML and Shimmie estimated from the page count); stored in `searches.site_total` (the search's own first
   page sets it again when it runs); -2 when the site doesn't say (Mastodon); favorites lists left out (their total is
   the whole list, read whole). Each count reaches the page at once (Changed); `/api/downloads` says which sites are

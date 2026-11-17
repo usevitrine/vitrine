@@ -60,8 +60,8 @@ Accounts under **`usevitrine`** (a GitHub user account; `ghcr.io/usevitrine/vitr
 
 ## Where it stands (2026-11-03)
 Public since v1.0.0 (2026-10-23), with patch releases since (`CHANGELOG.md` says what each brought). Built: library,
-search, thumbnails, duplicates, favorites, view counts, Rankings, the downloader with six engines (gelbooru-v02 and its
-HTML form, Shimmie2, Mastodon, Danbooru, ehentai) and subscriptions, a site's pause when it stops answering, the web
+search, thumbnails, duplicates, favorites, view counts, Rankings, the downloader with eight engines (gelbooru-v02 and its
+HTML form, Shimmie2, Mastodon, Danbooru, Moebooru, e621, ehentai) and subscriptions, a site's pause when it stops answering, the web
 client (library, viewer, Downloads, Browse, Tags, Settings, Duplicates, Comics with collections), passkeys, Web Push,
 languages, fixes from updates (offered to run or skip), the Docker image, the Windows installer, backups, the website
 with its demo. Measurements and choices are in each topic doc's "as built" sections. Open work is tracked outside the

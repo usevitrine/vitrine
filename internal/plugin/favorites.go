@@ -134,8 +134,10 @@ func FavoritesBy(m Manifest, set map[string]bool) (by string, me bool) {
 		return "name", set["username"]
 	case "mastodon":
 		return "me", set["access_token"]
-	case "danbooru":
+	case "danbooru", "e621":
 		return "name", set["login"]
+	case "moebooru":
+		return "name", false // (vote:3:<name>; Vitrine doesn't sign in there)
 	}
 	return "", false
 }

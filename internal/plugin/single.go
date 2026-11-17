@@ -37,7 +37,8 @@ type SingleEngine interface {
 var (
 	singleID        = regexp.MustCompile(`(?i)^id:(\d+)$`)
 	shimmiePostPath = regexp.MustCompile(`/post/view/(\d+)/?$`)
-	danbooruPath    = regexp.MustCompile(`^/posts/(\d+)(?:\.json)?/?$`)
+	danbooruPath    = regexp.MustCompile(`^/posts/(\d+)(?:\.json)?/?$`) // (and e621)
+	moebooruPath    = regexp.MustCompile(`^/post/show/(\d+)(?:/[^/]*)?/?$`)
 	mastodonPaths   = []*regexp.Regexp{
 		regexp.MustCompile(`^/@[^/]+/(\d+)/?$`),               // a post's page
 		regexp.MustCompile(`^/web/@[^/]+/(\d+)/?$`),           // (older web app)
@@ -90,7 +91,11 @@ func SinglePost(m Manifest, query string) (id int64, ok bool, err error) {
 		if mm := shimmiePostPath.FindStringSubmatch(u.Path); mm != nil {
 			return parsePostID(m, mm[1])
 		}
-	case "danbooru":
+	case "moebooru":
+		if mm := moebooruPath.FindStringSubmatch(u.Path); mm != nil {
+			return parsePostID(m, mm[1])
+		}
+	case "danbooru", "e621":
 		if mm := danbooruPath.FindStringSubmatch(u.Path); mm != nil {
 			return parsePostID(m, mm[1])
 		}
