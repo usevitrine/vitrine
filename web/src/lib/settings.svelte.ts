@@ -9,7 +9,7 @@ const load = <T>(key: string, fallback: T): T => readJSON('vitrine.' + key, fall
 const save = (key: string, value: unknown) => writeJSON('vitrine.' + key, value);
 
 /** The settings every device shares (the server's allow-list). */
-const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'countViews', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'skipUploadedYear', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'updateCheck', 'whatsNew', 'whatsNewSeen', 'groupOrder', 'recentSearches'] as const;
+const shared = ['startMuted', 'loop', 'speed', 'defaultSearch', 'defaultSort', 'favoritesSort', 'comicsSort', 'comicsSearch', 'browseSearch', 'browseSort', 'cameButton', 'countViews', 'sfwMode', 'mediaOff', 'comicsOff', 'anonymousLogin', 'trashDays', 'skipVideoMB', 'skipImageMP', 'skipUploadedYear', 'notifyNew', 'notifyDone', 'notifyFailed', 'notifyBlacklisted', 'hoverPreview', 'seenAt', 'newOrder', 'newMode', 'newFromBulk', 'backupAuto', 'backupKeep', 'welcome', 'checkDepth', 'siteCheckDepths', 'language', 'pauseAfter', 'noticeModes', 'checksFirst', 'queueSort', 'updateCheck', 'whatsNew', 'whatsNewSeen', 'groupOrder', 'recentSearches'] as const;
 type SharedKey = (typeof shared)[number];
 
 class Settings {
@@ -81,6 +81,9 @@ class Settings {
   pauseAfter = $state(load('pauseAfter', 5));
   /** Subscription checks go ahead of downloads; a download running steps aside for them (shared). */
   checksFirst = $state(load('checksFirst', true));
+  /** The order each site's downloads run in (the Queue's sort menu, shared): 'queue' (as added or dragged), 'files'
+   *  (most posts on the site first) or 'files_asc' (fewest first) - the server runs them so. */
+  queueSort = $state(load('queueSort', 'queue'));
   /** Where each kind of notice goes (lib/noticeKinds): only the kinds changed from their default. */
   noticeModes = $state<Record<string, string>>(load('noticeModes', {}));
   /** Ask once a day whether a newer Vitrine is out (the server asks GitHub). */

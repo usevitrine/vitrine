@@ -89,6 +89,14 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   searches (`next`), and a running download (not a check) looks every 3 s for a check waiting: it steps aside after the
   posts in flight (`stop`), goes back to `queued` at its place and carries on from `low_id` once the checks are done.
   The Downloads page lists waiting checks first too (and reorders in that order).
+- **By file count (2026-11-17)** (the user: "i have it set to fewest first and it hasn't reordered" - the Queue's sort had
+  been only a view; asked: "Yes, reorder the queue"): the shared setting `queueSort` (`queue`, `files` most first,
+  `files_asc` fewest first; set from the Queue's sort menu) orders each site's queue after its checks (`queueOrder`):
+  by `site_total`, ones not counted (or that the site doesn't say) after the counted ones, then by position. A check
+  keeps its place as one not counted (its count is the whole search's, not what's new). Sorted, a running search looks
+  every 3 s whether a waiting one comes first (`aheadWaiting` - a newly counted smaller one, say) and steps aside as
+  for a check; in queue order it steps aside only for checks, as before. Dragging is off while sorted (the page's grips
+  fold away). Test: `TestQueueSortedByCount` (and `TestCountSearchesWhileRunning`: counting while one downloads).
 - **A first check is a bulk download** (2026-10-23, the user: "subscriptions still arent prioritized over bulk
   downloads (bulk downloads includes initial downloads that i put in a sub group)"): only a check for what's new
   (`stop_id > 0`: it stops at the newest post the last one saw; `checkSQL`, `Search.isCheck`) goes first and never steps

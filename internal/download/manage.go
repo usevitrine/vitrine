@@ -197,7 +197,7 @@ func (d *Downloader) Reorder(ctx context.Context, site string, ids []int64) erro
 	// running one steps aside at its next post, not only when it's done.
 	var run int64
 	if d.db.R.QueryRowContext(ctx, "SELECT id FROM searches WHERE site_id = ? AND state = 'running'", st.ID).Scan(&run) == nil {
-		if s, err := d.Get(ctx, run); err == nil && d.aheadWaiting(ctx, st.ID, s) {
+		if d.aheadWaiting(ctx, st.ID, run) {
 			d.mu.Lock()
 			d.aside[run] = true
 			d.mu.Unlock()

@@ -11475,6 +11475,10 @@ test('downloads queue: All / Downloads / Checks; a download that made way names 
     await page.getByRole('option', { name }).click();
   };
   await sortBy('File count - most first');
+  // (the server runs the queue so: a shared setting)
+  const serverSort = () => page.evaluate(async () => (await (await fetch('/api/settings')).json()).queueSort);
+  await expect.poll(serverSort).toBe('files');
+  await expect(page.getByText('One queue per site, top first: by file count on the site.')).toBeVisible();
   await expect.poll(() => counted.flat()).toEqual([99605]);
   await expect(card(99605).locator('.qcount')).toHaveText('Counting…'); // (asked: counting, not "not counted yet")
   await expect.poll(order).toEqual([99601, 99603, 99602, 99604, 99605]); // (the running one first; not counted last)
@@ -11484,6 +11488,7 @@ test('downloads queue: All / Downloads / Checks; a download that made way names 
   await sortBy('File count - fewest first');
   await expect.poll(order).toEqual([99601, 99604, 99602, 99603, 99605]);
   await sortBy('Queue order');
+  await expect.poll(serverSort).toBe('queue');
   await expect.poll(order).toEqual([99601, 99602, 99603, 99604, 99605]);
   await expect(card(99603).locator('.grip')).toBeEnabled();
   await expect(card(99603).locator('.qcount')).toHaveCount(0);

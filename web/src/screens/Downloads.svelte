@@ -726,14 +726,15 @@
   type QueueSort = 'queue' | 'files' | 'files_asc';
   const isCheck = (s: DownloadSearch) => !!s.subscription_id && !s.first_check;
   let queueKind = $state<QueueKind>(((v) => (v === 'downloads' || v === 'checks' ? v : 'all'))(read('vitrine.queueKind')));
-  let queueSort = $state<QueueSort>(((v) => (v === 'files' || v === 'files_asc' ? v : 'queue'))(read('vitrine.queueSort')));
+  // (shared: the server runs each site's queue in this order - 2026-11-17, the user: "i have it set to fewest first and it
+  // hasn't reordered"; it had been only a view, the running one on top: "Yes, reorder the queue")
+  const queueSort = $derived<QueueSort>(settings.queueSort === 'files' || settings.queueSort === 'files_asc' ? settings.queueSort : 'queue');
   function setQueueKind(v: QueueKind) {
     queueKind = v;
     write('vitrine.queueKind', v);
   }
   function setQueueSort(v: string) {
-    queueSort = v as QueueSort;
-    write('vitrine.queueSort', v);
+    settings.queueSort = v;
   }
   const queueSortOptions = $derived([
     { value: 'queue', label: t('downloads.queueSort.queue') },
@@ -741,15 +742,19 @@
     { value: 'files_asc', label: t('downloads.queueSort.filesAsc') },
   ]);
   const shownKind = (s: DownloadSearch) => queueKind === 'all' || (queueKind === 'checks') === isCheck(s);
-  /** A site's list by its searches' counts on the site (the running one first; not counted yet last, in queue order). */
+  /** A site's list by its searches' counts on the site, as the server runs it (download.queueOrder): checks first
+   *  (when they go first), then by count - not counted yet last, a check as one not counted (its count is the whole
+   *  search's, not what's new) - then in queue order. (A running one the sort puts later steps aside at its next post.) */
   function byCount(list: DownloadSearch[]): DownloadSearch[] {
     const dir = queueSort === 'files' ? -1 : 1;
-    const known = (s: DownloadSearch) => s.site_total >= 0;
+    const total = (s: DownloadSearch) => (isCheck(s) ? -1 : s.site_total);
+    const known = (s: DownloadSearch) => total(s) >= 0;
+    const tier = (s: DownloadSearch) => Number(settings.checksFirst && isCheck(s));
     return [...list].sort(
       (a, b) =>
-        Number(b.state === 'running') - Number(a.state === 'running') ||
+        tier(b) - tier(a) ||
         Number(known(b)) - Number(known(a)) ||
-        (known(a) && known(b) ? dir * (a.site_total - b.site_total) : 0),
+        (known(a) && known(b) ? dir * (total(a) - total(b)) : 0),
     );
   }
   let kindCounts = $derived.by(() => {

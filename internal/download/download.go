@@ -105,7 +105,10 @@ type Downloader struct {
 	pauseAfter int
 	// checksFirst: subscription checks go ahead of downloads in a site's queue, a running download stepping aside
 	// for them (Settings > Downloads; on unless turned off). Read under mu.
-	checksOff  bool
+	checksOff bool
+	// queueSort: the order a site's downloads run in - "" (queue order: as added, or as dragged), "files" (most posts on
+	// the site first) or "files_asc" (fewest first). Settings' queueSort, set from the Queue's sort menu. Read under mu.
+	queueSort  string
 	asideEvery time.Duration // how often a running download looks for a check waiting (tests: 0)
 	// aside: running searches a reorder put a waiting search ahead of - they step aside at their next post. Under mu.
 	aside     map[int64]bool
@@ -424,13 +427,32 @@ const checkSQL = "(s.subscription_id IS NOT NULL AND s.stop_id != 0)"
 // isCheck: a subscription's check for what's new (see checkSQL).
 func (s Search) isCheck() bool { return s.SubscriptionID != 0 && s.StopID != 0 }
 
+// queueOrder is the ORDER BY of a site's queue after its checks (checks first, unless turned off): by the searches'
+// counts on the site when the queue is sorted so (2026-11-17, the user: "i have it set to fewest first and it hasn't
+// reordered" - the sort had only been a view; asked: "Yes, reorder the queue") - ones not counted (or that the site
+// doesn't say) after the counted ones - then by position (as added, or as dragged). A check isn't sorted by its count
+// (the search's whole total, not what's new): it keeps its place as one not counted.
+func (d *Downloader) queueOrder() string {
+	d.mu.Lock()
+	sort := d.queueSort
+	d.mu.Unlock()
+	total := "(CASE WHEN " + checkSQL + " THEN -1 ELSE s.site_total END)"
+	switch sort {
+	case "files":
+		return total + " < 0, " + total + " DESC, s.position"
+	case "files_asc":
+		return total + " < 0, " + total + ", s.position"
+	}
+	return "s.position"
+}
+
 // next returns the site's first unfinished search: subscription checks first (unless turned off), then an
-// interrupted running one, then queued ones in order.
+// interrupted running one, then queued ones in the queue's order (queueOrder).
 func (d *Downloader) next(ctx context.Context, siteID uint32) (Search, bool, error) {
 	s, err := scanSearch(d.db.R.QueryRowContext(ctx, "SELECT "+searchColumns+`
 		FROM searches s JOIN sites si ON si.id = s.site_id
 		WHERE s.site_id = ?1 AND s.state IN ('running', 'queued')
-		ORDER BY (?2 AND `+checkSQL+`) DESC, s.state = 'running' DESC, s.position LIMIT 1`, siteID, d.checksFirst()))
+		ORDER BY (?2 AND `+checkSQL+`) DESC, s.state = 'running' DESC, `+d.queueOrder()+` LIMIT 1`, siteID, d.checksFirst()))
 	if errors.Is(err, sql.ErrNoRows) {
 		return s, false, nil
 	}
@@ -588,11 +610,16 @@ func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
 			yielded = true
 			return true
 		}
-		if s.isCheck() || !d.checksFirst() || time.Since(lookedAt) < d.asideEvery {
+		sorted := d.sorted()
+		if (!sorted && (s.isCheck() || !d.checksFirst())) || time.Since(lookedAt) < d.asideEvery {
 			return false
 		}
 		lookedAt = time.Now()
-		yielded = d.checkWaiting(ctx, st.ID)
+		if sorted {
+			yielded = d.aheadWaiting(ctx, st.ID, s.ID) // (a check, or one the sort puts first - fewer posts, say)
+		} else {
+			yielded = d.checkWaiting(ctx, st.ID)
+		}
 		return yielded
 	}
 	defer func() {
@@ -1003,13 +1030,6 @@ func (d *Downloader) checksFirst() bool {
 	return !d.checksOff
 }
 
-// checkWaiting reports whether a subscription check waits in the site's queue (a download steps aside for it).
-func (d *Downloader) checkWaiting(ctx context.Context, siteID uint32) bool {
-	var n int
-	d.db.R.QueryRowContext(ctx, `SELECT count(*) FROM searches s WHERE s.site_id = ? AND s.state = 'queued' AND `+checkSQL, siteID).Scan(&n)
-	return n > 0
-}
-
 // takeAside reports (once) whether a reorder put a waiting search ahead of the running one.
 func (d *Downloader) takeAside(id int64) bool {
 	d.mu.Lock()
@@ -1019,16 +1039,42 @@ func (d *Downloader) takeAside(id int64) bool {
 	return on
 }
 
-// aheadWaiting reports whether a waiting search on the site comes before the running one in next's order (checks
-// first unless turned off, then position - the running one's own, which a reorder may have changed): it steps aside.
-func (d *Downloader) aheadWaiting(ctx context.Context, siteID uint32, run Search) bool {
-	first := d.checksFirst()
+// checkWaiting reports whether a subscription check waits in the site's queue (a download steps aside for it).
+func (d *Downloader) checkWaiting(ctx context.Context, siteID uint32) bool {
 	var n int
-	d.db.R.QueryRowContext(ctx, `SELECT count(*) FROM searches s WHERE s.site_id = ?1 AND s.state = 'queued' AND (
-		(?2 AND `+checkSQL+`) > ?3 OR
-		((?2 AND `+checkSQL+`) = ?3 AND s.position < (SELECT position FROM searches WHERE id = ?4)))`,
-		siteID, first, first && run.isCheck(), run.ID).Scan(&n)
+	d.db.R.QueryRowContext(ctx, `SELECT count(*) FROM searches s WHERE s.site_id = ? AND s.state = 'queued' AND `+checkSQL, siteID).Scan(&n)
 	return n > 0
+}
+
+// sorted reports whether the queue runs by the searches' counts (SetQueueSort).
+func (d *Downloader) sorted() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.queueSort != ""
+}
+
+// aheadWaiting reports whether a waiting search on the site comes before the running one in the queue's order
+// (checks first unless turned off, then queueOrder - by count, or position, which a reorder may have changed): it
+// steps aside.
+func (d *Downloader) aheadWaiting(ctx context.Context, siteID uint32, run int64) bool {
+	var first int64
+	d.db.R.QueryRowContext(ctx, `SELECT s.id FROM searches s WHERE s.site_id = ?1 AND (s.state = 'queued' OR s.id = ?3)
+		ORDER BY (?2 AND `+checkSQL+`) DESC, `+d.queueOrder()+` LIMIT 1`, siteID, d.checksFirst(), run).Scan(&first)
+	return first != 0 && first != run
+}
+
+// SetQueueSort sets the order a site's downloads run in (queueOrder: "", "files" or "files_asc"); a running one
+// steps aside at its next post when another now comes first.
+func (d *Downloader) SetQueueSort(sort string) {
+	if sort != "files" && sort != "files_asc" {
+		sort = ""
+	}
+	d.mu.Lock()
+	d.queueSort = sort
+	d.mu.Unlock()
+	for id := range d.all() {
+		d.wake(id)
+	}
 }
 
 // SetPauseAfter sets how many connection failures in a row pause a site (0: never; below 0: the default).

@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Improved
+
+- **Queue order by file count**: picking most or fewest first now changes the order downloads actually run in, not just how the queue looks. A running download makes way for one that now comes first, and carries on afterwards. The choice is shared by all your devices, so pick it once more after updating.
+
 ## 1.3.0 - 2026-11-17
 
 ### New

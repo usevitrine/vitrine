@@ -61,6 +61,12 @@ func (s *Server) applySettings(set map[string]json.RawMessage) {
 			s.dl.SetChecksFirst(on)
 		}
 	}
+	if v, ok := set["queueSort"]; ok {
+		var sort string
+		if json.Unmarshal(v, &sort) == nil {
+			s.dl.SetQueueSort(sort)
+		}
+	}
 	if v, ok := set["flaresolverrURL"]; ok {
 		var u string
 		if json.Unmarshal(v, &u) == nil {

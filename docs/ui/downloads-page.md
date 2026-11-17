@@ -320,9 +320,11 @@ animated beautifully".
   waiting".
 - **Order** (an icon menu beside them, as the subscriptions': the shared Dropdown, "Sort by", a dot when not the default):
   Queue order (the default: the queue as it runs - as added, or as dragged), File count - most first, fewest first.
-  Remembered (`vitrine.queueSort`). By file count it's a view: each site's cards by their search's count on the site
-  (the running one first, ones not counted last), the queue itself unchanged ("Shown by file count - the queue keeps its
-  own order"), so the grips fold away (their column glides to nothing, then they're hidden) and come back with Queue
+  A shared setting (`queueSort`, 2026-11-17 - before, a view per device: the running one stayed on top and the queue ran
+  as before; the user: "i have it set to fewest first and it hasn't reordered" -> "Yes, reorder the queue"): the server
+  runs each site's queue in that order (docs/downloader/downloads-and-subscriptions.md, "By file count") and the cards
+  show it - checks first (when they go first), then by count, ones not counted last ("One queue per site, top first: by
+  file count on the site"). The grips fold away (their column glides to nothing, then they're hidden) and come back with Queue
   order. Cards glide to their new places (the stack places them by transform).
 - **Counting**: picking File count asks the server (`POST /api/downloads/count {ids}`) for every waiting search not
   counted yet (once each per page). `download.CountSearches`: one request per search for its first page, in the site's

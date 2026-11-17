@@ -1564,7 +1564,7 @@
     "openComic": "Open the comic",
     "nextRing": "Next check: {when}",
     "subsShort": "Subs",
-    "queueHintSorted": "One queue per site. Shown by file count - the queue keeps its own order.",
+    "queueHintSorted": "One queue per site, top first: by file count on the site.",
     "kinds": {
       "label": "Show",
       "all": "All",
