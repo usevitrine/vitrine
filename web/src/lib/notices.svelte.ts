@@ -148,11 +148,18 @@ class Notices {
   }
 
   /** New ones from the live stream. */
+  /** Called when the server says files were deleted in the background (set by results: the search runs again). */
+  onFilesGone?: () => void;
+
   fromServer(boot: string, events: ServerNotice[]) {
     if (boot !== this.boot && this.boot !== '') return void this.catchUp();
     this.boot = boot;
-    const fresh = events.map((e) => this.make(e)).filter((n) => !this.all.some((x) => x.key === n.key));
+    const made = events.map((e) => [e, this.make(e)] as const).filter(([, n]) => !this.all.some((x) => x.key === n.key));
+    const fresh = made.map(([, n]) => n);
     if (!fresh.length) return;
+    // Files deleted in the background (a removed site wiped, old files or a section deleted): the server says so
+    // when it's done - the library behind other pages showed them until a reload (2026-11-17, the user).
+    if (made.some(([e]) => e.category === 'deleted' && e.tone === 'removed')) this.onFilesGone?.();
     this.all = [...fresh.reverse(), ...this.all].slice(0, 100);
     let ring = false;
     for (const n of fresh) {

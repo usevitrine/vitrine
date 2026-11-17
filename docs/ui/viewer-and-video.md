@@ -132,6 +132,8 @@ lays them out at the original size.
   from the dragged rect (measured with the transform still on) with the sheet's own timing (200 ms ease-out, as the
   sheet leaves from where it was let go). On phones, opening and closing by a tap also use the sheet's timing (240 ms
   ease-out) instead of the wide screens' 260 ms curve, so the picture and the sheet move together.
+- **The post page's whole address** (2026-11-17, the user: "it should say the full url instead of just konachan"): its
+  row in Where it's from shows the link without `https://` and `www.`, all of it on hover.
 - **Details: copy links; swipe down (2026-10-16, user)**: the post page and source rows have a copy button after the
   open-in-new-tab arrow (toast "Copied the post page link"). Swiping down with the details open closes the viewer on
   wide screens (the details are a column beside the picture); on phones the sheet covers the picture, so it goes first.

@@ -337,7 +337,15 @@ animated beautifully".
   doesn't say how many" or "Not counted yet".
 - **The chip** "After some_artist's check" (+ "and N more"): on a download that has started and waits while a check of
   its site goes first (Settings > Sites > Queue order: checks first). Tapped: that check, shown and lit (All if only
-  downloads were shown).
+  downloads were shown). **It keeps its width** while something in the card's head comes or goes (2026-11-17, the
+  user: it "doesnt animate in and out cleanly" and "temporarily spans the entire width of the card" on opening): for
+  the moment a one-column grid is a flex column (`lib/motion`'s `gapAway`, so a gap closes with what goes),
+  `justify-self` means nothing - each child that keeps to a side gets the matching `align-self` meanwhile. Test:
+  "downloads: opening a card - the made-way chip keeps its width and the search its place" (the chip was 1120 px wide
+  without it).
+- **The search's line doesn't move as the card opens** (2026-11-17, the user: "the query line shifts up"): its first
+  line is as tall as the state beside it (28 px, `padding-block` from `1lh`) - closed it was centered beside it, open at
+  the top: 4 px up.
 - **Dragging with one kind shown**: the cards swap among the places theirs hold in the whole queue; the others stay.
 - Test: "downloads queue: All / Downloads / Checks; a download that made way names its check; ordered by file count";
   Go: `TestCountSearches`.

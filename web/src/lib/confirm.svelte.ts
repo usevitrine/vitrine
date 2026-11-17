@@ -23,20 +23,33 @@ export interface ConfirmOptions {
   check?: string;
 }
 
+type Asked = ConfirmOptions & { resolve: (ok: boolean) => void; answered?: boolean };
+
 class Confirm {
-  current = $state<(ConfirmOptions & { resolve: (ok: boolean) => void }) | null>(null);
+  current = $state<Asked | null>(null);
   checked = $state(false); // (the check box)
+  /** This question follows one just answered (removing a site asks up to three in a row): the dialog swaps - the
+   *  answered one goes, then this one comes, the page behind staying dimmed (2026-11-17, the user: "the popup doesnt
+   *  animate in cleanly" - the next one appeared over the one going, or took its place with no motion at all). */
+  follows = $state(false);
 
   ask(o: ConfirmOptions): Promise<boolean> {
-    this.current?.resolve(false); // one at a time
+    const prev = this.current;
+    if (prev && !prev.answered) prev.resolve(false); // one at a time
+    this.follows = !!prev?.answered;
     this.checked = false;
     return new Promise((resolve) => (this.current = { ...o, resolve }));
   }
 
   answer(ok: boolean) {
     const c = this.current;
-    this.current = null;
-    c?.resolve(ok);
+    if (!c || c.answered) return;
+    c.answered = true;
+    c.resolve(ok);
+    // Closed after what the answer starts has had its turn: a next question asked straight away takes its place.
+    setTimeout(() => {
+      if (this.current === c) this.current = null;
+    });
   }
 }
 

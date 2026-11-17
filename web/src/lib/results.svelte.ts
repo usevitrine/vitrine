@@ -9,6 +9,7 @@ import { decodeShapes } from './masonry';
 import { t, i18n } from './i18n.svelte';
 import { updateBadge } from './badge';
 import { touch } from './media';
+import { notices } from './notices.svelte';
 
 const SLICE = 500; // IDs per slice request
 const FIRST = 500; // IDs sent with the search itself
@@ -439,6 +440,7 @@ export class Results {
 }
 
 export const results = new Results();
+notices.onFilesGone = () => results.changedElsewhere();
 
 /** The 4x4 color preview as a tiny data URL (cached; the browser blurs it when scaling up). */
 const placeholderCache = new Map<string, string>();

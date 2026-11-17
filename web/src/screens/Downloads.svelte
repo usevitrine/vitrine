@@ -2578,6 +2578,9 @@
   .qhead .qline > .qname.qname:hover:not(:disabled) {
     flex: 0 1 auto;
     min-width: 0;
+    /* (its first line as tall as the state beside it, 28 px: centered closed, and in the same place open, its lines
+       from the top - it moved up 4 px as the card opened, the user) */
+    padding-block: max(0px, calc((28px - 1lh) / 2));
     /* (a block, so a button doesn't center a search wider than itself - it showed its middle) */
     display: block;
   }

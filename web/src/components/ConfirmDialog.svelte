@@ -27,7 +27,8 @@
   // Cancel); closed: back where it was.
   $effect(() => {
     if (!c) return;
-    opener = document.activeElement as HTMLElement | null;
+    // (a question following one just answered: focus goes back to what opened the first)
+    if (!confirmer.follows || !opener?.isConnected) opener = document.activeElement as HTMLElement | null;
     const undoable = c.undoable;
     typedText = '';
     tick().then(() => box?.querySelector<HTMLElement>(c.typed ? '.typed' : undoable ? '.go' : '.cancel')?.focus());
@@ -58,6 +59,7 @@
 
 {#if c}
   <div class="backdrop" role="presentation" in:shade out:shade={{ out: true }} onpointerdown={() => confirmer.answer(false)}></div>
+  {#key c}
   <div
     class="dialog" {@attach overlayScroll}
     class:sheet
@@ -66,12 +68,15 @@
     data-drag
     {@attach sheet && sheetDrag(() => confirmer.answer(false))}
     {@attach backClose(() => confirmer.answer(false))}
-    bind:this={box}
+    {@attach (n) => {
+      box = n;
+      return () => box === n && (box = undefined); // (a swapped-out one goes after the next has come)
+    }}
     role="alertdialog"
     aria-modal="true"
     aria-labelledby="confirm-title"
     aria-describedby={c.body ? 'confirm-body' : undefined}
-    in:sheetIn={{ on: sheet, desk: 'pop' }}
+    in:sheetIn={{ on: sheet, desk: 'pop', delay: confirmer.follows ? (sheet ? 220 : 200) : 0 }}
     out:sheetOut={{ on: sheet, desk: 'pop' }}>
     {#if sheet}<GrabBar bleed={20} after={10} />{/if}
     {#if c.thumbs?.length}
@@ -115,6 +120,7 @@
       <button class="go" disabled={!ready} onclick={() => confirmer.answer(true)}>{c.action}</button>
     </div>
   </div>
+  {/key}
 {/if}
 
 <style>

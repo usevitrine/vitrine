@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/usevitrine/vitrine/internal/media"
@@ -207,6 +208,21 @@ func (l *Library) Namespaces() []string {
 }
 
 // SiteNames maps site IDs to their names (plugin IDs).
+// SiteAddress is the host of one of the site's post links, without www. ("" without one): a removed site's name for
+// people.
+func (l *Library) SiteAddress(ctx context.Context, site uint32) string {
+	var link string
+	if l.db.R.QueryRowContext(ctx, `SELECT u.url FROM file_urls fu JOIN urls u ON u.id = fu.url_id
+		WHERE fu.site_id = ? AND fu.kind = ? LIMIT 1`, site, URLPost).Scan(&link) != nil {
+		return ""
+	}
+	u, err := url.Parse(link)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
+}
+
 func (l *Library) SiteNames(ctx context.Context) (map[uint32]string, error) {
 	rows, err := l.db.R.QueryContext(ctx, "SELECT id, name FROM sites")
 	if err != nil {

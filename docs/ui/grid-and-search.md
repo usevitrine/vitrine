@@ -16,6 +16,10 @@ more, and closing the viewer after swiping to file 8,000 leaves the grid at the 
 - The end of the results is the end (wrap-around only as an option).
 - The result list is a **snapshot** - new imports don't shift it; a "N new files" pill refreshes it (or, by setting,
   arrivals are taken in automatically while at the top). Files new since "Mark all as seen" come first, marked NEW.
+- **Files deleted in the background** (a removed site wiped, old files or a section deleted - 2026-11-17, the user: "theyre
+  still there when you switch back to the media page until you reload"): the job's notice (category `deleted`, tone
+  `removed`) reaches every open app live; `notices.onFilesGone` runs the search again (`results.changedElsewhere`).
+  Test: "library: files deleted in the background ... leave the grid when the server says they are gone".
 - The URL holds the search and the current file, so a reload or reopening the home-screen app returns to the same place.
 
 ## Selection bar and the iPhone's bottom edge (2026-10-21)
@@ -368,6 +372,10 @@ library itself on purpose (docs/ui/downloads-page.md).
   and open upwards when there's more room there). From opens a page of its own: All sites and each site with how
   many of the search's files came from it, ticked sites in mauve; several at once (one `system:site=a,b` chip, read
   "from a or b"; the row says "All sites", one or two names, or "3 sites"); applies at once and the page stays.
+  **A removed site stays while there are files from it** (2026-11-17, the user: "the site should only disappear from
+  the show files from if theres no files from it"): the list is the sites the counts have files from, installed or not
+  (`user` - files added by hand - isn't one); a removed one by its address (`/api/search/sites` gives each site's
+  `address`: the one `system:site=` knows, else the host of one of its files' post links).
   **Only the sites the search has files from** (2026-10-26, the user: "if there's 0 files for a site it shouldn't
   show", "comic sites shouldn't show in the media site filter"): a site with no files for it isn't listed (none before
   the counts are in), a comic site (a gallery engine) never in the media's; one already picked stays, to take it off.

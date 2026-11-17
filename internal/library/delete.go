@@ -254,6 +254,13 @@ func (l *Library) EmptyComicsTrash(ctx context.Context) (int, error) {
 }
 
 // ComicsTrash counts the deleted comics and their own pages' size.
+// TrashFiles is how many files the trash holds and their size (Stats has it too, with the rest of the library's
+// figures - asked for the trash alone, a big library took seconds: Empty trash's question waited for it).
+func (l *Library) TrashFiles(ctx context.Context) (files int, bytes int64, err error) {
+	err = l.db.R.QueryRowContext(ctx, `SELECT count(*), coalesce(sum(size), 0) FROM files WHERE deleted_at IS NOT NULL`).Scan(&files, &bytes)
+	return files, bytes, err
+}
+
 func (l *Library) ComicsTrash(ctx context.Context) (comics int, bytes int64, err error) {
 	err = l.db.R.QueryRowContext(ctx, `SELECT count(*), coalesce((SELECT sum(f.size) FROM files f WHERE f.deleted_at IS NOT NULL AND f.flags & 64 != 0), 0)
 		FROM comics WHERE deleted_at IS NOT NULL`).Scan(&comics, &bytes)

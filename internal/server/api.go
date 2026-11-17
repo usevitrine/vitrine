@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -806,17 +807,29 @@ func (s *Server) siteCounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type row struct {
-		Site  string `json:"site"`
-		Count int    `json:"count"`
+		Site    string `json:"site"`
+		Count   int    `json:"count"`
+		Address string `json:"address,omitempty"` // its web address (a removed site's too: the menu still lists it)
 	}
 	out := []row{}
 	for id, n := range ix.SiteCounts(res.IDs) {
 		if name, ok := names[id]; ok {
-			out = append(out, row{name, n})
+			out = append(out, row{name, n, s.siteAddress(r.Context(), ix, id)})
 		}
 	}
 	slices.SortFunc(out, func(a, b row) int { return b.Count - a.Count })
 	writeJSON(w, http.StatusOK, map[string]any{"total": len(res.IDs), "sites": out})
+}
+
+// siteAddress is a site's web address: the one system:site= knows it by, else (a removed site, after a restart) the
+// host of one of its files' post links; "" when neither.
+func (s *Server) siteAddress(ctx context.Context, ix *index.Index, site uint32) string {
+	for _, a := range ix.SiteAliases(site) {
+		if strings.Contains(a, ".") {
+			return a
+		}
+	}
+	return s.lib.SiteAddress(ctx, site)
 }
 
 // tagsOf lists the tags of the selected files with how many have each (the

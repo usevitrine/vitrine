@@ -22,9 +22,12 @@ class Trash {
   days = $state(0);
   /** Empty trash is removing everything (its button spins meanwhile: a big trash takes a while). */
   emptying = $state(false);
+  /** The totals have come at least once. */
+  loaded = false;
   async load() {
     try {
       const r = await api.trashInfo();
+      this.loaded = true;
       this.files = r.files;
       this.bytes = r.bytes;
       this.comics = r.comics;
@@ -99,7 +102,9 @@ export async function purgeFiles(results: Refreshable, ids: number[], thumbs: st
 
 /** Everything in a trash (the files', or the comics') removed for good: a word to type first. */
 export async function emptyTrash(results: Refreshable) {
-  await trash.load();
+  // The question at once, with the totals the page shows (read again meanwhile); only the first time it waits for them.
+  const totals = trash.load();
+  if (!trash.loaded) await totals;
   const comics = ofComics(results);
   const ok = await confirmAction({
     title: t(comics ? 'trash.emptyComicsTitle' : 'trash.emptyTitle'),

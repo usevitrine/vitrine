@@ -24,7 +24,24 @@ function desk(node: Element, kind: Desk, out: boolean) {
   return { duration: 180, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: translateY(${px((1 - t) * -8)}) scale(${settle(0.96 + 0.04 * t, size)})` };
 }
 
-export function sheetIn(node: Element, { on = true, desk: kind = '' as Desk } = {}) {
+/** A transition that waits delay ms first, held at its first frame meanwhile (a transition's own delay shows the
+ *  thing as it is until it starts: a window taking the place of one going showed over it). */
+function held(cfg: { duration?: number; easing?: (t: number) => number; css?: (t: number, u: number) => string }, delay: number) {
+  if (!delay || !cfg.css || !cfg.duration) return cfg;
+  const { duration, css } = cfg;
+  const ease = cfg.easing ?? ((t: number) => t);
+  const total = delay + duration;
+  return {
+    duration: total,
+    css: (t: number) => {
+      const k = ease(Math.max(0, (t * total - delay) / duration));
+      return css(k, 1 - k);
+    },
+  };
+}
+
+/** delay: come in after that many ms (a window taking the place of one going: after it has gone). */
+export function sheetIn(node: Element, { on = true, desk: kind = '' as Desk, delay = 0 } = {}) {
   // Reopened while still going, the same element comes back: usable again, and
   // not where a drag left it.
   const el = node as HTMLElement;
@@ -33,10 +50,10 @@ export function sheetIn(node: Element, { on = true, desk: kind = '' as Desk } = 
   delete el.dataset.dragged;
   el.style.transform = '';
   el.style.transition = '';
-  if (!on) return desk(node, kind, false);
+  if (!on) return held(desk(node, kind, false), delay);
   if (reduced()) return { duration: 0 };
   onPixels(node);
-  return { duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${px((1 - t) * away(node))})` };
+  return held({ duration: 240, easing: cubicOut, css: (t: number) => `transform: translateY(${px((1 - t) * away(node))})` }, delay);
 }
 
 export function sheetOut(node: Element, { on = true, desk: kind = '' as Desk } = {}) {

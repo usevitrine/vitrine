@@ -12,7 +12,7 @@ import (
 // trashInfo: GET /api/trash -> {files, bytes, comics, comic_bytes, days}: what the trash holds (files; comics and
 // their own pages), and after how many days it empties itself (0 = never).
 func (s *Server) trashInfo(w http.ResponseWriter, r *http.Request) {
-	st, err := s.lib.Stats(r.Context(), 0, 0)
+	files, bytes, err := s.lib.TrashFiles(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -26,7 +26,7 @@ func (s *Server) trashInfo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"files": st.Trash.Files, "bytes": st.Trash.Bytes, "comics": comics, "comic_bytes": comicBytes, "days": days})
+	writeJSON(w, http.StatusOK, map[string]any{"files": files, "bytes": bytes, "comics": comics, "comic_bytes": comicBytes, "days": days})
 }
 
 // forgetDeleted: POST /api/trash/forget -> {forgotten}: the files deleted forever may be downloaded again.

@@ -154,7 +154,7 @@
   // brings - the versions newer than the one installed (the user, 2026-10-28: "a plugin changelog system").
   const changelogOf = (id: string) => plugins.find((p) => p.id === id)?.changelog ?? [];
   const newIn = (u: PluginInfo, have: string) => (u.changelog ?? []).filter((c) => !have || isNewerVersion(c.version, have));
-  const day = (d?: string) => (d && /^d{4}-d{2}-d{2}$/.test(d) ? shortDate(new Date(d + 'T12:00:00').getTime()) : '');
+  const day = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? shortDate(new Date(d + 'T12:00:00').getTime()) : '');
 
   async function loadPlugins(refresh = false) {
     try {

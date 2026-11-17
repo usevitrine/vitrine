@@ -2647,7 +2647,18 @@ test('library: Sort and filters > From picks which sites to show files from (one
     await r.fulfill({ response: res, json: body });
   });
   await page.route('**/api/search/sites?*', (r) =>
-    r.fulfill({ json: { total: 26, sites: [{ site: 'test-down', count: 3 }, { site: 'test-slow', count: 2 }, { site: 'gallery-site', count: 4 }] } }),
+    r.fulfill({
+      json: {
+        total: 26,
+        sites: [
+          { site: 'test-down', count: 3 },
+          { site: 'test-slow', count: 2 },
+          { site: 'gallery-site', count: 4 },
+          { site: 'gone-site', count: 1, address: 'gone.test' }, // (removed, its file kept)
+          { site: 'user', count: 6 }, // (files added by hand: not a site)
+        ],
+      },
+    }),
   );
   await page.goto('/');
   await expect(page.getByText(/^26 files/)).toBeVisible();
@@ -2673,6 +2684,10 @@ test('library: Sort and filters > From picks which sites to show files from (one
   await expect(from.getByRole('button', { name: /^test-down.invalid/ })).toContainText('3'); // sites by address, with their counts
   await expect(from.getByRole('button', { name: /^safebooru.org/ })).toHaveCount(0); // no files from it: not listed
   await expect(from.getByRole('button', { name: /^gallery.test/ })).toHaveCount(0); // a comic site: not in the media's
+  // A removed site is listed while the search has files from it, by its address (2026-11-17, the user: "the site
+  // should only disappear from the show files from if theres no files from it"); files added by hand aren't a site.
+  await expect(from.getByRole('button', { name: /^gone.test/ })).toContainText('1');
+  await expect(from.getByRole('button', { name: /^user/ })).toHaveCount(0);
   await from.getByRole('button', { name: /^test-down.invalid/ }).click();
   await expect(page).toHaveURL(/system(%3A|:)site(%3D|=)test-down(&|$)/);
   await expect(page.locator('.bar .chip')).toHaveText(/from test-down.invalid/);
@@ -3252,6 +3267,26 @@ test('removing a site with files of it asks whether to erase every trace - Keep 
     await rowMenu(page, 'safebooru.org', 'Remove site');
     await page.getByRole('alertdialog', { name: 'Remove safebooru.org?' }).getByRole('button', { name: 'Remove', exact: true }).click();
   };
+  // The next question takes the answered one's place cleanly (2026-11-17, the user: "the popup doesnt animate in
+  // cleanly"): the page behind stays dimmed throughout, and the next one comes once the answered one has gone - never
+  // both on screen at once. (Watched frame by frame from before the first question.)
+  await page.evaluate(() => {
+    const w = window as unknown as { swap: { frames: number; bare: number; both: number; seen: boolean } };
+    w.swap = { frames: 0, bare: 0, both: 0, seen: false };
+    const look = () => {
+      // (on screen: not faded out, and some of it in sight - a phone's sheet waits below the screen, at full opacity)
+      const shown = [...document.querySelectorAll<HTMLElement>('[role=alertdialog]')].filter((d) => Number(getComputedStyle(d).opacity) > 0.1 && d.getBoundingClientRect().top < innerHeight - 24);
+      const dimmed = document.querySelector('.backdrop');
+      if (shown.length || dimmed) w.swap.seen = true;
+      if (w.swap.seen) {
+        w.swap.frames++;
+        if (!dimmed) w.swap.bare++;
+        if (shown.length > 1) w.swap.both++;
+      }
+      if (w.swap.frames < 120) requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  });
   await remove();
   // First the question (the user, 2026-10-28: the word to type came with no asking whether to erase at all).
   const ask = page.getByRole('alertdialog', { name: 'Also erase every trace of safebooru.org?' });
@@ -3260,6 +3295,10 @@ test('removing a site with files of it asks whether to erase every trace - Keep 
   await expect(ask).toContainText('2 files another site gave too stay, without its tags and links.');
   await expect(ask).toContainText('4 older deletion records');
   await expect(ask.getByRole('textbox')).toHaveCount(0); // (nothing to type yet)
+  const swap = await page.evaluate(() => (window as unknown as { swap: { frames: number; bare: number; both: number } }).swap);
+  expect(swap.bare, 'frames with the page behind not dimmed').toBe(0);
+  expect(swap.both, 'frames with both questions on screen').toBe(0);
+  await expect(page.getByRole('alertdialog')).toHaveCount(1); // (the answered one gone)
   await ask.getByRole('button', { name: 'Erase everything…' }).click();
   // Then the word to type.
   const sure = page.getByRole('alertdialog', { name: 'Erase every trace of safebooru.org for good?' });
@@ -3288,6 +3327,53 @@ test('removing a site with files of it asks whether to erase every trace - Keep 
   await expect.poll(() => sent).toEqual({ wipe: false, backups: false });
 });
 
+// 2026-11-17, the user: "when you delete a site and all its files, theyre still there when you switch back to the media
+// page until you reload" - a wipe runs in the background; its notice says when it's done, and the library searches again.
+test('library: files deleted in the background (a removed site wiped) leave the grid when the server says they are gone', async ({ page }) => {
+  let armed = false;
+  const { boot } = await (await page.request.get('/api/notices')).json();
+  await page.route('**/api/events', (r) =>
+    r.fulfill({
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+      body: armed
+        ? `retry: 300\n\nevent: notice\ndata: ${JSON.stringify({ boot, notices: [{ id: 990001, at: Date.now(), kind: 'app', text: 'Erased 3 files', tone: 'removed', category: 'deleted' }] })}\n\n`
+        : 'retry: 300\n\n',
+    }),
+  );
+  let searches = 0;
+  page.on('request', (r) => {
+    if (new URL(r.url()).pathname === '/api/search') searches++;
+  });
+  await page.goto('/');
+  await expect(page.locator('.tile').first()).toBeVisible();
+  await page.waitForTimeout(500);
+  const before = searches;
+  armed = true;
+  await expect.poll(() => searches, { timeout: 5000 }).toBeGreaterThan(before);
+});
+
+// 2026-11-17, the user: "if theres a lot of files in the trash and i press the empty trash button, it takes ages for the
+// popup to show" - it waited for the trash's totals (the whole library's figures) first.
+test('trash: Empty trash asks at once, with the totals the page has (read again meanwhile)', async ({ page }) => {
+  let slow = false;
+  await page.route('**/api/trash', async (r) => {
+    if (slow) await new Promise((done) => setTimeout(done, 4000));
+    await r.fulfill({ json: { files: 12, bytes: 12 * 1024 * 1024, comics: 0, comic_bytes: 0, days: 0 } });
+  });
+  await page.goto('/trash');
+  const empty = page.getByRole('button', { name: 'Empty trash' });
+  await expect(empty).toBeVisible();
+  await page.waitForTimeout(300); // (the totals have come)
+  slow = true;
+  const at = Date.now();
+  await empty.click();
+  await expect(page.getByRole('alertdialog')).toBeVisible({ timeout: 2000 });
+  expect(Date.now() - at).toBeLessThan(2000);
+  await expect(page.getByRole('alertdialog')).toContainText('12');
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
+});
+
 test('settings: a plugin update shows what the newer versions changed; Version history lists them all, the installed one marked', async ({ page }) => {
   const changelog = [
     { version: '1.2.0', date: '2026-10-28', changes: ['Downloads up to 6 files at once.'] },
@@ -3312,6 +3398,7 @@ test('settings: a plugin update shows what the newer versions changed; Version h
   const history = card.getByRole('region', { name: 'Version history' });
   await expect(history).toContainText('First version.');
   await expect(history.locator('.ver', { hasText: 'v' + have })).toContainText('Installed');
+  await expect(history).toContainText(/28 Oct|Oct 28/); // (a version's date: the check for one had lost its backslashes - never shown)
   await history.getByRole('button', { name: 'Close' }).click();
   await expect(history).toHaveCount(0);
 });
@@ -4886,6 +4973,8 @@ test('details: the post page and source links have copy buttons', async ({ page,
   const srcs = page.getByRole('region', { name: 'Sources' });
   // The post page's row shows its site's icon; the source's site (its own section) has none: the link icon.
   await expect(found.locator('li.row').nth(0).locator('.ic.site img.shown')).toBeVisible();
+  // Its whole address, not only the site's name (2026-11-17, the user).
+  await expect(found.locator('li.row').nth(0).locator('.sub')).toHaveText('safebooru.org/index.php?page=post&s=view&id=1');
   await expect(srcs.locator('.row').nth(0).locator('.ic svg')).toBeVisible();
   await expect(srcs.locator('.row').nth(0).locator('.ic img')).toHaveCount(0);
   await expect(srcs.locator('.unfold')).toHaveCount(0); // (one source: nothing stacked)
@@ -11524,6 +11613,54 @@ test('downloads queue: All / Downloads / Checks; a download that made way names 
   await expect.poll(order).toEqual([99601, 99602, 99603, 99604, 99605]);
   await expect(card(99603).locator('.grip')).toBeEnabled();
   await expect(card(99603).locator('.qcount')).toHaveCount(0);
+});
+
+// 2026-11-17, the user: the chip of a download that made way for a check "doesnt animate in and out cleanly, and if i
+// expand the download ... it temporarily spans the entire width of the card", and "when i expand a card the query line
+// shifts up". (While something in the card's head opens or closes, the head is a flex column for a moment: the chip
+// lost its justify-self there; the search sat centered beside the state when closed, at the top when open.)
+test('downloads: opening a card - the made-way chip keeps its width and the search its place', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('vitrine.queueKind', JSON.stringify('all'));
+    localStorage.setItem('vitrine.queueSort', JSON.stringify('queue'));
+  });
+  const base = { site: 'safebooru', max_posts: 0, handled: 0, downloaded: 0, already: 0, deleted: 0, skipped: 0, blacklisted: 0, failed: 0, created_at: Date.now() };
+  const mine = [
+    { ...base, id: 99701, query: 'some_artist', state: 'running', position: 1, site_total: 40, subscription_id: 1 },
+    { ...base, id: 99702, query: 'blue_sky', state: 'queued', position: 2, site_total: 120, handled: 30, downloaded: 30 },
+  ];
+  await page.route('**/api/downloads', async (r) => {
+    const res = await r.fetch();
+    const body = await res.json();
+    body.searches = [...body.searches.filter((s: { state: string }) => s.state !== 'queued' && s.state !== 'running' && s.state !== 'paused'), ...mine];
+    await r.fulfill({ response: res, json: body });
+  });
+  await page.goto('/downloads?focus=dl:99702');
+  const card = page.locator('[data-dl="99702"]');
+  const chip = card.locator('.madeway');
+  await expect(chip).toHaveText("After some_artist's check");
+  await page.waitForTimeout(400); // (settled)
+  const name = card.locator('.qname');
+  const top = async () => (await name.boundingBox())!.y - (await card.boundingBox())!.y;
+  const closedTop = await top();
+  const width = (await chip.boundingBox())!.width;
+  // Watched every frame while it opens.
+  await chip.evaluate((el) => {
+    const w = window as unknown as { widest: number; frames: number };
+    w.widest = 0;
+    w.frames = 0;
+    const look = () => {
+      w.widest = Math.max(w.widest, el.getBoundingClientRect().width);
+      if (++w.frames < 40) requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  });
+  await card.locator('.qtoggle').click();
+  await expect(card.locator('.qbody')).toBeVisible();
+  await page.waitForTimeout(800);
+  const widest = await page.evaluate(() => (window as unknown as { widest: number }).widest);
+  expect(widest, 'the chip at its widest while the card opened').toBeLessThan(width + 2);
+  expect(Math.abs((await top()) - closedTop), 'the search moved as the card opened').toBeLessThan(1);
 });
 
 test('grid: while a menu is open the tiles take no hover and no press - a click off it only closes it', async ({ page }) => {

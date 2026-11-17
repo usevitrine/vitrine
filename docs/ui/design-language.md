@@ -287,6 +287,13 @@ Palette: https://catppuccin.com/palette
   CSS); what differs is a prop - `stuck` (a sheet that scrolls: kept at its top, on the sheet's background), `bleed`
   (across the sheet's side padding), `after` (its gap to what follows), `z`. The sheets' own box CSS stays in each
   (their layers, padding and scrolling really differ).
+  **A question after a question** (2026-11-17, the user: removing a site, "the popup doesnt animate in cleanly"): a
+  confirmation asked right after one is answered (removing a site asks up to three) takes its place - the answered one
+  goes, the next comes once it has gone (`sheetIn`'s `delay`, the thing held at its first frame meanwhile: a
+  transition's own delay showed it as it is), the page behind stays dimmed. `lib/confirm` closes an answered question
+  only after what the answer starts has had its turn (`setTimeout`), so a next one asked at once replaces it. Before:
+  the next appeared over the one going, or took its place with no motion. Test: in "removing a site with files of it
+  asks whether to erase every trace", watched frame by frame.
   **One way in and out (2026-11-01, a code audit)**: the dialogs (Modal, ConfirmDialog, WhatsNew) and ActionMenu come
   and go with `lib/sheet`'s `sheetIn`/`sheetOut` (`desk: 'pop'` / `'drop'` on wider screens) and its `shade` - they
   had their own copies, some drifted (ActionMenu's menu grew from 0.98, its backdrop faded out in 160 ms). The top

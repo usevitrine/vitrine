@@ -207,7 +207,8 @@
         {#each posts as l (l.url)}
           <li class="row" animate:moved transition:reveal>
             <SiteIcon host={host(l.url)} />
-            <span class="what"><span class="q">{t('details.postPage')}</span><span class="sub">{siteLabel(l.site)}</span></span>
+            <!-- (its whole address, not only the site's name - 2026-11-17, the user: "it should say the full url") -->
+            <span class="what"><span class="q">{t('details.postPage')}</span><span class="sub path" title={l.url}>{l.url.replace(/^https?:\/\/(www\.)?/i, '')}</span></span>
             <a class="icon act" href={l.url} target="_blank" rel="noreferrer noopener" aria-label={t('details.openPost')} title={t('details.open')}><Icon name="external" size={17} /></a>
             <button class="icon act" aria-label={t('details.copyPost')} title={t('details.copyLink')} onclick={() => copy(l.url, t('details.what.post'))}><Icon name="copy" size={17} /></button>
           </li>

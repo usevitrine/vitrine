@@ -554,7 +554,7 @@ export const api = {
   logout: () => post<Session>('/api/logout', {}),
 
   siteCounts: (q: string, scope: Scope = '') =>
-    get<{ total: number; sites: { site: string; count: number }[] }>(`/api/search/sites?q=${encodeURIComponent(q)}${sc(scope)}`),
+    get<{ total: number; sites: { site: string; count: number; address?: string }[] }>(`/api/search/sites?q=${encodeURIComponent(q)}${sc(scope)}`),
   newCount: (q: string, since: number, bulk = true, scope: Scope = '') =>
     get<{ new: number }>(`/api/new?since=${since}&q=${encodeURIComponent(q)}${bulk ? '' : '&new_bulk=0'}${sc(scope)}`),
   /** collection (comics): that collection's comics only; else a collection's comics fold into its tile. */

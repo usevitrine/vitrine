@@ -217,10 +217,12 @@
   const currentSites = $derived(
     siteParts.sites.map((s) => Object.entries(sites.names).find(([id, addr]) => id === s || addr === s)?.[0] ?? s),
   );
-  const fromLabel = $derived(
-    currentSites.length === 0 ? t('filterMenu.allSites') : currentSites.length <= 2 ? currentSites.map(siteLabel).join(', ') : t('filterMenu.nSites', { n: currentSites.length }),
-  );
   let siteCounts = $state<Record<string, number>>({});
+  let siteAddresses = $state<Record<string, string>>({}); // (from the counts: a removed site's name too)
+  const fromName = (id: string) => sites.names[id] ?? siteAddresses[id] ?? id;
+  const fromLabel = $derived(
+    currentSites.length === 0 ? t('filterMenu.allSites') : currentSites.length <= 2 ? currentSites.map(fromName).join(', ') : t('filterMenu.nSites', { n: currentSites.length }),
+  );
   let siteTotal = $state<number | null>(null);
   let countsGen = 0;
   $effect(() => {
@@ -232,6 +234,7 @@
       .then((res) => {
         if (g !== countsGen) return;
         siteCounts = Object.fromEntries(res.sites.map((s) => [s.site, s.count]));
+        siteAddresses = Object.fromEntries(res.sites.filter((s) => s.address).map((s) => [s.site, s.address!]));
         siteTotal = res.total;
       })
       .catch(() => {
@@ -240,15 +243,17 @@
   });
   // The sites, those with the most of the search's files first: only the ones it has files from (as the counts say),
   // never a comic site in the media's (the user: "if there's 0 files for a site it shouldn't show in the site
-  // filter", "comic sites shouldn't show in the media site filter") - one already picked stays, to take it off.
+  // filter", "comic sites shouldn't show in the media site filter") - one already picked stays, to take it off. A
+  // removed site is there while the search has files from it (2026-11-17, the user: "the site should only disappear
+  // from the show files from if theres no files from it") - "user" (files added by hand) isn't a site.
   const siteIds = $derived(
-    Object.keys(sites.names)
+    [...new Set([...Object.keys(sites.names), ...Object.keys(siteCounts).filter((id) => id !== 'user'), ...currentSites])]
       .filter((id) => {
         if (currentSites.includes(id)) return true;
         if (!comics && sites.engines[id] === 'ehentai') return false;
         return (siteCounts[id] ?? 0) > 0; // (none listed before the counts are in: no list that shrinks)
       })
-      .sort((a, b) => (siteCounts[b] ?? 0) - (siteCounts[a] ?? 0) || siteLabel(a).localeCompare(siteLabel(b))),
+      .sort((a, b) => (siteCounts[b] ?? 0) - (siteCounts[a] ?? 0) || fromName(a).localeCompare(fromName(b))),
   );
   const setSites = (ids: string[]) => onquery(ids.length ? `${siteParts.rest} system:site=${ids.join(',')}`.trim() : siteParts.rest);
   const toggleSite = (id: string) =>
@@ -358,7 +363,7 @@
       {#each siteIds as id (id)}
         {@const on = currentSites.includes(id)}
         <button class="item pick-item" class:on aria-pressed={on} onclick={() => toggleSite(id)}>
-          <span class="item-text"><span class="item-label">{siteLabel(id)}</span></span>
+          <span class="item-text"><span class="item-label">{fromName(id)}</span></span>
           <span class="meta">{num(siteCounts[id] ?? 0)}</span>
           <span class="tick">{#if on}<Icon name="check" size={16} />{/if}</span>
         </button>

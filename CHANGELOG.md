@@ -11,6 +11,16 @@ shows this too (Settings > Help & about).
 - **e621 and e926**: a new site engine for e621 and its safe-for-work side, e926. An account is optional (user name + API key); with one, `fav:me` downloads your favorites.
 - **RedGIFs**: a new site engine. Search by tags, `@user` for someone's clips (the user becomes the creator), or paste a clip's link. No account needed.
 
+### Fixed
+
+- **Removing a site**: its questions follow one another smoothly (the next one came over the one going, or without any motion).
+- **Removing a site with its files**: the files leave the library page once they are erased, without reloading.
+- **Show files from**: a removed site is still listed while the library has files from it.
+- **Empty trash**: the question shows at once, even with a lot in the trash.
+- **Downloads**: the "After ...'s check" chip no longer stretches across the card while it opens or closes, and the search no longer moves up when a card opens.
+- **Details**: a file's post page shows its whole address, not just the site's name.
+- **Site plugins**: the dates in a plugin's version history show again.
+
 ## 1.3.2 - 2026-11-17
 
 ### Fixed

@@ -160,6 +160,18 @@ function gapAway(node: Element, axis: 'x' | 'y', ms: number): (t: number) => str
       parent.style.display = ps.display.startsWith('inline') ? 'inline-flex' : 'flex';
       parent.style.flexDirection = 'column';
     }
+    // (and what kept to one side of the grid keeps to it: justify-self means nothing in a flex column - a chip
+    // with justify-self: start stretched across the whole card while something beside it moved, the user). Every
+    // time: one coming while the box is already a column too.
+    for (const child of parent.children) {
+      const el = child as HTMLElement;
+      const js = getComputedStyle(el).justifySelf;
+      const as = js.includes('center') ? 'center' : js.includes('end') ? 'flex-end' : js.includes('start') || js.includes('left') ? 'flex-start' : '';
+      if (as && !el.style.alignSelf) {
+        el.style.alignSelf = as;
+        el.dataset.flexSelf = '';
+      }
+    }
     asFlex.set(parent, n + 1);
     setTimeout(() => {
       const left = (asFlex.get(parent) ?? 1) - 1;
@@ -171,6 +183,12 @@ function gapAway(node: Element, axis: 'x' | 'y', ms: number): (t: number) => str
         parent.style.justifyContent = '';
         parent.style.minWidth = '';
         parent.style.maxWidth = '';
+        for (const child of parent.children) {
+          const el = child as HTMLElement;
+          if (el.dataset.flexSelf === undefined) continue;
+          el.style.alignSelf = '';
+          delete el.dataset.flexSelf;
+        }
       }
     }, ms + 50);
   }
