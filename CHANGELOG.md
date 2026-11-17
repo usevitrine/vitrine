@@ -7,6 +7,7 @@ shows this too (Settings > Help & about).
 
 ### Fixed
 
+- **Tag suggestions**: typing at the start or in the middle of a word now suggests tags for the whole word, not just the part before the cursor, and picking one replaces the whole word.
 - **Queue order by file count**: new downloads are counted on their site straight away, so they take their place in the queue without opening the Downloads page first.
 
 ## 1.3.1 - 2026-11-17

@@ -6292,6 +6292,38 @@ test('suggestions: found inside a name (not only its start), what was typed mark
   await expect(sbox).toHaveValue('blue_sky ');
 });
 
+test('suggestions: for the whole word the caret is in - text typed at its start or in its middle too; a pick replaces all of it', async ({ page }) => {
+  const asked: string[] = [];
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (u.pathname === '/api/autocomplete') asked.push(u.searchParams.get('q') ?? '');
+  });
+  await page.goto('/');
+  await openNewDownload(page);
+  const dlg = newDl(page);
+  await dlg.getByRole('button', { name: 'safebooru.org' }).click();
+  const box = dlg.getByRole('combobox', { name: 'Search on the site' });
+  // Another word, then "sky" with "blue_" typed at its start: the suggestions are for "blue_sky", not "blue_".
+  await box.click();
+  await box.pressSequentially('landscape sky');
+  await box.evaluate((el: HTMLInputElement) => el.setSelectionRange(10, 10));
+  await box.pressSequentially('blue_');
+  await expect.poll(() => asked.at(-1)).toBe('blue_sky');
+  const option = page.getByRole('option', { name: /blue_sky/ });
+  await expect(option).toBeVisible();
+  // Picked: the whole word replaced (it left "sky" behind: "landscape blue_sky sky").
+  await option.click();
+  await expect(box).toHaveValue('landscape blue_sky ');
+  // In the middle of a word: "bl|_sky" + "ue" asks for "blue_sky".
+  await box.fill('');
+  await box.pressSequentially('bl_sky');
+  await box.evaluate((el: HTMLInputElement) => el.setSelectionRange(2, 2));
+  await box.pressSequentially('ue');
+  await expect.poll(() => asked.at(-1)).toBe('blue_sky');
+  await page.getByRole('option', { name: /blue_sky/ }).click();
+  await expect(box).toHaveValue('blue_sky ');
+});
+
 test('search: a suggestion picked while the typed word is highlighted becomes a chip (it went in front of it)', async ({ page }) => {
   await page.goto('/');
   const box = page.getByRole('combobox', { name: 'Search' });

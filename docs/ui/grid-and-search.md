@@ -501,6 +501,11 @@ library itself on purpose (docs/ui/downloads-page.md).
   while the text is highlighted it doesn't become a chip"): the word being completed was found from the selection's
   start, so the pick went in front of the highlighted word ("blue_sky blu") and stayed typed text; TagInput now
   works from the selection's end (the highlighted word is replaced; the pick becomes a chip as usual).
+- **The whole word under the caret (2026-11-17)** (the user: "if i add text mid-word or at the beginning instead of at
+  the end, it ignores the rest of the text in the autocomplete menu"): the word being completed ran from its start to
+  the caret, so "blue_" typed in front of "sky" asked for "blue_", and a pick left "sky" behind. TagInput's
+  `currentWord` now takes the word the caret is in from its start to its end (past the caret); a pick replaces all
+  of it. Test: "suggestions: for the whole word the caret is in".
 - **A press off the open list only closes it (2026-11-13)** (the user: "if the recent searches dropdown is open,
   clicking off of it should close it instead of interacting with the page"): while the search bar's list is open
   (recent searches or suggestions), a press outside the bar and the list closes it, lets the box go (the keyboard

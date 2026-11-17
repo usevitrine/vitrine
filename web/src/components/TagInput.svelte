@@ -221,17 +221,19 @@
     return () => node.remove();
   }
 
-  /** The word being completed: its start in the text, the leading "-" if any, and the word itself. */
+  /** The word being completed - the one the caret is in, all of it (2026-11-17, the user: "if i add text mid-word or at
+   *  the beginning instead of at the end, it ignores the rest of the text in the autocomplete menu" - it went only up
+   *  to the caret, and a pick left the rest behind): its start and end in the text, the leading "-" if any, the word. */
   function currentWord() {
     // (the end of a highlighted part: from its start, a pick went in front of the highlighted word - "blue_sky blu" -
     // and never became a chip)
     const caret = inputEl?.selectionEnd ?? value.length;
-    const before = value.slice(0, caret);
-    const start = multi ? before.search(/\S*$/) : 0;
-    let word = before.slice(start);
+    const start = multi ? value.slice(0, caret).search(/\S*$/) : 0;
+    const end = multi ? caret + (value.slice(caret).match(/^\S*/)?.[0].length ?? 0) : value.length;
+    let word = value.slice(start, end);
     const neg = word.startsWith('-') && word.length > 0;
     if (neg) word = word.slice(1);
-    return { start, neg, word, caret };
+    return { start, end, neg, word };
   }
 
   function schedule() {
@@ -267,8 +269,8 @@
     const have = new Set(exclude.map((x) => x.toLowerCase()));
     const words = new Set<string>();
     if (multi) {
-      const { start, caret } = currentWord();
-      for (const w of (value.slice(0, start) + ' ' + value.slice(caret)).split(/\s+/)) {
+      const { start, end } = currentWord();
+      for (const w of (value.slice(0, start) + ' ' + value.slice(end)).split(/\s+/)) {
         const bare = w.replace(/^-/, '').toLowerCase();
         if (bare && !'()~'.includes(bare)) words.add(bare);
       }
@@ -357,8 +359,8 @@
   }
   /** Text in place of the word being typed (then a space, when several words go in the box). */
   function put(text: string, neg: boolean) {
-    const { start, caret } = currentWord();
-    const after = value.slice(caret);
+    const { start, end } = currentWord();
+    const after = value.slice(end); // (the whole word goes: the part after the caret too)
     const insert = (neg ? '-' : '') + text + (multi ? ' ' : '');
     value = value.slice(0, start) + insert + (multi ? after.trimStart() : '');
     close();
