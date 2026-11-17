@@ -231,7 +231,15 @@ func (r *redgifs) Search(ctx context.Context, query string, before int64) (Page,
 		}
 	}
 	page := Page{Total: -1}
-	for tries := 0; tries < 10; tries++ {
+	// The site's tag search is loose: a tag it doesn't know is left out of the search without a word (a search
+	// for a made-up tag gives every clip), and a known one sometimes matches clips without it. Only clips with every
+	// tag searched for are kept - so a page can come back with none, and more pages are looked at before the end.
+	dropped, sawAny := 0, false
+	tries := 10
+	if len(q.tags) > 0 {
+		tries = 25
+	}
+	for try := 0; try < tries; try++ {
 		gifs, ok := cache[n]
 		if !ok {
 			var p, t int
@@ -245,11 +253,16 @@ func (r *redgifs) Search(ctx context.Context, query string, before int64) (Page,
 			}
 			pages, total = p, t
 		}
-		if before == 0 && tries == 0 {
+		if before == 0 && try == 0 {
 			page.Total = total
 		}
 		types := map[string]string{}
 		for _, g := range gifs {
+			sawAny = true
+			if !redgifsHasAll(g, q.tags) {
+				dropped++
+				continue
+			}
 			if p, ok := r.post(g, types); ok && (before == 0 || p.ID < before) {
 				page.Posts = append(page.Posts, p)
 			}
@@ -262,6 +275,13 @@ func (r *redgifs) Search(ctx context.Context, query string, before int64) (Page,
 		}
 		n++ // (a page of clips already handed out: new uploads pushed them down)
 	}
+	if before == 0 && dropped > 0 {
+		page.Total = -1 // (the site's count is of its loose search)
+	}
+	if before == 0 && len(page.Posts) == 0 && sawAny && len(q.tags) > 0 {
+		return Page{}, fmt.Errorf("%s has no clips with all of %s: check the tags' spelling (the site ignores tags it doesn't know)",
+			r.c.m.Site, strings.Join(q.tags, ", "))
+	}
 	if len(page.Posts) > 0 {
 		r.mu.Lock()
 		if r.next == nil || len(r.next) > 1000 {
@@ -271,6 +291,23 @@ func (r *redgifs) Search(ctx context.Context, query string, before int64) (Page,
 		r.mu.Unlock()
 	}
 	return page, nil
+}
+
+// redgifsHasAll reports whether a clip has every tag (in any case, "big_smile" = "Big Smile").
+func redgifsHasAll(g redgifsGif, tags []string) bool {
+	norm := func(t string) string {
+		return strings.ToLower(strings.Join(strings.Fields(strings.ReplaceAll(CleanTag(t), "_", " ")), " "))
+	}
+	have := make(map[string]bool, len(g.Tags))
+	for _, t := range g.Tags {
+		have[norm(t)] = true
+	}
+	for _, t := range tags {
+		if !have[norm(t)] {
+			return false
+		}
+	}
+	return true
 }
 
 // find is the first page with a clip below before: by halving the pages (newest first, so a page's last clip
@@ -373,7 +410,16 @@ func (r *redgifs) post(g redgifsGif, types map[string]string) (Post, bool) {
 	return p, true
 }
 
-// Lookup can't: a post's number doesn't give back the clip's word ID.
+// LookupURL fetches the clip behind a post's link (a refresh: the number alone can't be turned back into the clip).
+func (r *redgifs) LookupURL(ctx context.Context, postURL string) (*Post, error) {
+	q, err := r.parse(postURL)
+	if err != nil || q.clip == "" {
+		return nil, fmt.Errorf("%s: %q isn't a clip's link", r.c.m.Site, postURL)
+	}
+	return r.clip(ctx, q.clip)
+}
+
+// Lookup can't: a post's number doesn't give back the clip's word ID (LookupURL can, from its link).
 func (r *redgifs) Lookup(ctx context.Context, id int64) (*Post, error) {
 	return nil, ErrNoLookup
 }

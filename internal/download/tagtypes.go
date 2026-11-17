@@ -182,7 +182,7 @@ func (d *Downloader) untypedTags(ctx context.Context, st *Site) ([]int64, error)
 // becomes now (also when the site no longer has it, so it isn't asked again
 // before its next turn). Reports whether the site still has the post.
 func (d *Downloader) refreshPost(ctx context.Context, st *Site, postID int64, fileID uint32) (bool, error) {
-	post, err := st.Engine.Lookup(ctx, postID)
+	post, err := d.lookupPost(ctx, st, postID, fileID)
 	if err != nil {
 		return false, err
 	}
@@ -215,6 +215,25 @@ func (d *Downloader) refreshPost(ctx context.Context, st *Site, postID int64, fi
 		return post != nil, fmt.Errorf("download: %w", err)
 	}
 	return post != nil, nil
+}
+
+// lookupPost reads a file's post from its site: by its number, or (an engine that can't: plugin.URLEngine) by the
+// post link the file keeps.
+func (d *Downloader) lookupPost(ctx context.Context, st *Site, postID int64, fileID uint32) (*plugin.Post, error) {
+	ue, ok := st.Engine.(plugin.URLEngine)
+	if !ok {
+		return st.Engine.Lookup(ctx, postID)
+	}
+	var link string
+	err := d.db.R.QueryRowContext(ctx, `SELECT u.url FROM file_urls fu JOIN urls u ON u.id = fu.url_id
+		WHERE fu.file_id = ? AND fu.site_id = ? AND fu.kind = ? ORDER BY u.id LIMIT 1`, fileID, st.ID, library.URLPost).Scan(&link)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, plugin.ErrNoLookup // (no link kept: nothing to ask the site)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("download: %w", err)
+	}
+	return ue.LookupURL(ctx, link)
 }
 
 // Background work (tag-type lookups, then tag refreshes) leaves the site's

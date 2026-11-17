@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -33,8 +34,12 @@ func fakeRedgifs(t *testing.T) (Manifest, *httptest.Server, *[]*http.Request, *a
 		return "clip" + s
 	}
 	clip := func(srv *httptest.Server, i int) string {
-		return fmt.Sprintf(`{"id":%q,"createDate":%d,"type":1,"width":1080,"height":1920,"tags":["Blue Sky","Big  Smile","blue sky"],`+
-			`"userName":"Some_Artist","urls":{"hd":"%s/%s.mp4","sd":"%s/%s-mobile.mp4"}}`, name(i), 1794900000-60*i, srv.URL, name(i), srv.URL, name(i))
+		rare := "" // (every third clip, from the second: the site sends them for "blue sky,rare" with the others, loosely)
+		if i%3 == 1 {
+			rare = `,"Rare"`
+		}
+		return fmt.Sprintf(`{"id":%q,"createDate":%d,"type":1,"width":1080,"height":1920,"tags":["Blue Sky","Big  Smile","blue sky"%s],`+
+			`"userName":"Some_Artist","urls":{"hd":"%s/%s.mp4","sd":"%s/%s-mobile.mp4"}}`, name(i), 1794900000-60*i, rare, srv.URL, name(i), srv.URL, name(i))
 	}
 	var srv *httptest.Server
 	srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +64,7 @@ func fakeRedgifs(t *testing.T) (Manifest, *httptest.Server, *[]*http.Request, *a
 		case r.URL.Path == "/v2/users/nobody/search":
 			w.WriteHeader(404)
 			io.WriteString(w, `{"error":{"code":"UserNotFound","message":"User not found.","status":404}}`)
-		case r.URL.Path == "/v2/users/some_artist/search" || (r.URL.Path == "/v2/gifs/search" && strings.EqualFold(q.Get("tags"), "Blue Sky")):
+		case r.URL.Path == "/v2/users/some_artist/search" || (r.URL.Path == "/v2/gifs/search" && strings.HasPrefix(strings.ToLower(q.Get("tags")), "blue sky")):
 			n, _ := strconv.Atoi(q.Get("page"))
 			if n > 3 {
 				w.WriteHeader(500)
@@ -160,6 +165,24 @@ func TestRedgifsSearch(t *testing.T) {
 		t.Fatalf("past the last tag page: %+v %v", end, err)
 	}
 
+	// The site's search is loose (it sends every clip for "blue sky,rare", and for a tag it doesn't know): only clips
+	// with every tag are kept, the site's count isn't, and a tag no clip has is said.
+	rare, err := e.Search(ctx, "blue_sky rare", 0)
+	if err != nil || len(rare.Posts) != 27 || rare.Total != -1 {
+		t.Fatalf("loose results: %d posts of %d, %v", len(rare.Posts), rare.Total, err)
+	}
+	for _, p := range rare.Posts {
+		if !slices.Contains(p.Tags, "rare") {
+			t.Fatalf("a clip without the tag: %v", p.Tags)
+		}
+	}
+	if more, _ := e.Search(ctx, "blue_sky rare", rare.Posts[26].ID); len(more.Posts) != 26 { // (clips 82 to 157)
+		t.Fatalf("loose results, the next page: %d", len(more.Posts))
+	}
+	if _, err := e.Search(ctx, "blue_sky made_up", 0); err == nil || !strings.Contains(err.Error(), "no clips with all of blue sky, made up") {
+		t.Fatalf("a made-up tag: %v", err)
+	}
+
 	// A clip's link: that clip.
 	if page, err = e.Search(ctx, "https://www.redgifs.com/watch/clipd#x", 0); err != nil || len(page.Posts) != 1 || page.Posts[0].PostURL != "https://www.redgifs.com/watch/clipd" {
 		t.Fatalf("a clip's link: %+v %v", page, err)
@@ -198,6 +221,13 @@ func TestRedgifsSearch(t *testing.T) {
 	}
 	if _, err := e.Lookup(ctx, p.ID); !errors.Is(err, ErrNoLookup) {
 		t.Fatalf("lookup: %v", err)
+	}
+	// By its link (a refresh): the clip.
+	if got, err := e.(URLEngine).LookupURL(ctx, "https://www.redgifs.com/watch/clipd"); err != nil || got == nil || got.PostURL != "https://www.redgifs.com/watch/clipd" {
+		t.Fatalf("lookup by link: %+v %v", got, err)
+	}
+	if got, err := e.(URLEngine).LookupURL(ctx, "https://www.redgifs.com/watch/goneclip"); err != nil || got != nil {
+		t.Fatalf("a gone clip by link: %+v %v", got, err)
 	}
 }
 

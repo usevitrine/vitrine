@@ -140,6 +140,14 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
 - Searches: nothing (the newest of all: the site test), tags (all; `_` -> space), `@user`, `type:images`/`type:videos`, a clip's or user's link; `-tag`, `~`,
   `fav:` and @user with tags are refused with a reason. Tags lower-cased with `_`; the user name is the creator
   (tag type artist; `tag_query` creator -> `@{tag}`). Totals: the site's `total` (a tag search's is at most 10,000).
+- **The site's tag search is loose** (found 2026-11-17, the user: "files dont seem to match their assigned tags"): a tag
+  it doesn't know is dropped without a word (`bbc,solo male` - no such tag - gave plain `bbc` clips), and a known one
+  sometimes matches clips without it (34 of 39 for `big tits,cosplay`). The engine keeps only clips with every tag
+  searched for (any case, `_` = space), looks at up to 25 pages for one, says so when none has them all ("check the
+  tags' spelling"), and gives no total when it dropped any (the site's count is of its loose search).
+- **Refresh** (the user, the same day: "tag refresh doesnt work"): `Lookup` can't, so the engine is a
+  `plugin.URLEngine` - `LookupURL` takes the post link the file keeps (`file_urls`, kind post) and asks for that clip;
+  `download.lookupPost` uses it for every refresh. A failed file's retry still can't (no file, so no link kept).
 - `TestRedgifsLive` (VITRINE_LIVE=1): a tag search, the next page found by halving, a clip's link - passed 2026-11-17.
 
 ## Gallery sites: the ehentai engine (2026-10-20)

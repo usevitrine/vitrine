@@ -55,6 +55,12 @@ type Engine interface {
 	Lookup(ctx context.Context, id int64) (*Post, error)
 }
 
+// URLEngine is an engine whose posts can't be opened by their number but can by their link (RedGIFs' word IDs):
+// a refresh asks it with the post link the file keeps.
+type URLEngine interface {
+	LookupURL(ctx context.Context, postURL string) (*Post, error)
+}
+
 // NewEngine returns the engine for a client's plugin.
 func NewEngine(c *Client) (Engine, error) {
 	switch c.m.Engine {
