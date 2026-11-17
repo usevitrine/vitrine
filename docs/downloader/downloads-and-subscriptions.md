@@ -97,6 +97,11 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   every 3 s whether a waiting one comes first (`aheadWaiting` - a newly counted smaller one, say) and steps aside as
   for a check; in queue order it steps aside only for checks, as before. Dragging is off while sorted (the page's grips
   fold away). Test: `TestQueueSortedByCount` (and `TestCountSearchesWhileRunning`: counting while one downloads).
+- **Counted in the background (2026-11-17)** (the user: "when i add new downloads it doesnt seem to count the files on the
+  site in the background, i have to navigate to the page"): sorted, `wake` (something queued on a site, or the sort
+  picked) counts that site's waiting searches not counted yet (`countSite`; not its checks), the page open or not. A
+  site counting already looks again when it's done (`countAgain`) for what was added meanwhile; a count that failed
+  is asked again at the next wake. Test: `TestQueueSortedCountsNewSearches`.
 - **A first check is a bulk download** (2026-10-23, the user: "subscriptions still arent prioritized over bulk
   downloads (bulk downloads includes initial downloads that i put in a sub group)"): only a check for what's new
   (`stop_id > 0`: it stops at the newest post the last one saw; `checkSQL`, `Search.isCheck`) goes first and never steps

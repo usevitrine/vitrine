@@ -95,7 +95,8 @@ func TestCountSearchesWhileRunning(t *testing.T) {
 // The queue sorted by the searches' counts runs that way (2026-11-17, the user: "i have it set to fewest first and it
 // hasn't reordered" - it was only a view; "Yes, reorder the queue"): fewest (or most) first, ones not counted last;
 // a running download steps aside for one the sort now puts first. (The fake site gives every search all its posts as
-// its total - 25 here, set again by a search's own first page - so the counts below stay apart from it.)
+// its total - 25 here, set again by a search's own first page - so the counts below stay apart from it; the one
+// without a count is one the site doesn't say for (-2): sorted, a new search is counted in the background.)
 func TestQueueSortedByCount(t *testing.T) {
 	e := newEnv(t, 25)
 	ctx := context.Background()
@@ -135,11 +136,11 @@ func TestQueueSortedByCount(t *testing.T) {
 		}
 	}
 	// Fewest first: 4 (25 once it runs), 50, 900, then the one not counted.
-	run("files_asc", func(x []int64) []int64 { return []int64{x[1], x[0], x[3], x[2]} }, 50, 4, -1, 900)
+	run("files_asc", func(x []int64) []int64 { return []int64{x[1], x[0], x[3], x[2]} }, 50, 4, -2, 900)
 	// Most first: 900, 500 (25 once it runs - still ahead of 10), 10, not counted.
-	run("files", func(x []int64) []int64 { return []int64{x[3], x[0], x[1], x[2]} }, 500, 10, -1, 900)
+	run("files", func(x []int64) []int64 { return []int64{x[3], x[0], x[1], x[2]} }, 500, 10, -2, 900)
 	// Queue order: as added.
-	run("", func(x []int64) []int64 { return x }, 500, 10, -1, 900)
+	run("", func(x []int64) []int64 { return x }, 500, 10, -2, 900)
 
 	// While one runs: it steps aside when the sort puts a waiting one first.
 	ids := add(50, 4)
@@ -153,5 +154,37 @@ func TestQueueSortedByCount(t *testing.T) {
 		if got := e.dl.aheadWaiting(ctx, site, ids[0]); got != x.aside {
 			t.Fatalf("sort %q: the running one (50) steps aside for 4: %v, want %v", x.sort, got, x.aside)
 		}
+	}
+}
+
+// Sorted by count, a search added is counted on its site in the background - not only when the Downloads page asks
+// (2026-11-17, the user: "when i add new downloads it doesnt seem to count the files on the site in the background, i
+// have to navigate to the page"); in queue order, nothing is asked. A check isn't counted (it's not sorted by it).
+func TestQueueSortedCountsNewSearches(t *testing.T) {
+	e := newEnv(t, 37)
+	ctx := context.Background()
+	total := func(id int64) int {
+		s, err := e.dl.Get(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s.SiteTotal
+	}
+	plain, _ := e.dl.Add(ctx, "fake", "common", 0)
+	time.Sleep(200 * time.Millisecond)
+	if n := total(plain); n != -1 {
+		t.Fatalf("queue order: counted %d, want -1 (not asked)", n)
+	}
+	e.dl.SetQueueSort("files_asc") // (picking it counts what waits)
+	added, _ := e.dl.Add(ctx, "fake", "tag_3", 0)
+	deadline := time.Now().Add(5 * time.Second)
+	for (total(plain) < 0 || total(added) < 0) && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if total(plain) != 37 || total(added) != 37 {
+		t.Fatalf("sorted: totals %d and %d, want 37 (counted without the page)", total(plain), total(added))
+	}
+	for len(e.dl.Counting()) > 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
 	}
 }

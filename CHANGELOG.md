@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **Queue order by file count**: new downloads are counted on their site straight away, so they take their place in the queue without opening the Downloads page first.
+
 ## 1.3.1 - 2026-11-17
 
 ### Improved

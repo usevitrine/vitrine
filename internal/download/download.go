@@ -113,6 +113,8 @@ type Downloader struct {
 	// aside: running searches a reorder put a waiting search ahead of - they step aside at their next post. Under mu.
 	aside     map[int64]bool
 	md5Warned sync.Map // sites whose md5s were found wrong for a file (warned once)
+	// countAgain: sites asked to count while they were counting (count.go) - they look again when done.
+	countAgain sync.Map
 	// The Downloads page's slow numbers (tag refresh counts, when each subscription last found something), worked out
 	// at most every statusEvery and shared (refresh.go, subscribe.go): the page asks again on every change. Once there,
 	// an answer is given at once - an older one while the next is worked out in the background (busy) - so no request
@@ -350,6 +352,9 @@ func (d *Downloader) LabelSearch(ctx context.Context, id int64, label string) er
 
 func (d *Downloader) wake(site string) {
 	d.Changed() // something was queued
+	if d.sorted() {
+		go d.countSite(site) // (the queue runs by count: what was queued is counted now, the page open or not)
+	}
 	select {
 	case d.wakeChan(site) <- struct{}{}:
 	default:

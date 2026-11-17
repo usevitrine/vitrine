@@ -326,7 +326,8 @@ animated beautifully".
   show it - checks first (when they go first), then by count, ones not counted last ("One queue per site, top first: by
   file count on the site"). The grips fold away (their column glides to nothing, then they're hidden) and come back with Queue
   order. Cards glide to their new places (the stack places them by transform).
-- **Counting**: picking File count asks the server (`POST /api/downloads/count {ids}`) for every waiting search not
+- **Counting**: (since 2026-11-17 the server also counts by itself what's queued while the queue is sorted - see
+  docs/downloader/downloads-and-subscriptions.md, "Counted in the background") picking File count asks the server (`POST /api/downloads/count {ids}`) for every waiting search not
   counted yet (once each per page). `download.CountSearches`: one request per search for its first page, in the site's
   turn (foreground: someone's waiting), with the login - the total its engine reads (Gelbooru's API and Danbooru exact,
   Gelbooru HTML and Shimmie estimated from the page count); stored in `searches.site_total` (the search's own first
