@@ -179,11 +179,16 @@ func TestRedgifsSearch(t *testing.T) {
 		"~a ~b":              "can't leave a tag out",
 		"@some_artist cloud": "@user alone",
 		"fav:me":             "sign-in",
-		"type:images":        "type tags",
 	} {
 		if _, err := e.Search(ctx, q, 0); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: %v, want %q", q, err, want)
 		}
+	}
+
+	// Nothing: the newest of all (the site test's search) - no tags asked.
+	e.Search(ctx, "", 0)
+	if q := (*reqs)[len(*reqs)-1].URL.Query(); q.Has("tags") || q.Get("type") != "g" || (*reqs)[len(*reqs)-1].URL.Path != "/v2/gifs/search" {
+		t.Fatalf("an empty search: %v", (*reqs)[len(*reqs)-1].URL)
 	}
 
 	// A refused token is fetched again once.

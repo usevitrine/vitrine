@@ -137,7 +137,7 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
   below `before` by halving the page range (each page's last clip says which side it's on) - about 7 requests for a
   tag search's 125 pages. Posts at or above `before` are dropped (new uploads push clips down a page). Past a tag
   search's last page the site answers 500: the end.
-- Searches: tags (all; `_` -> space), `@user`, `type:images`/`type:videos`, a clip's or user's link; `-tag`, `~`,
+- Searches: nothing (the newest of all: the site test), tags (all; `_` -> space), `@user`, `type:images`/`type:videos`, a clip's or user's link; `-tag`, `~`,
   `fav:` and @user with tags are refused with a reason. Tags lower-cased with `_`; the user name is the creator
   (tag type artist; `tag_query` creator -> `@{tag}`). Totals: the site's `total` (a tag search's is at most 10,000).
 - `TestRedgifsLive` (VITRINE_LIVE=1): a tag search, the next page found by halving, a clip's link - passed 2026-11-17.

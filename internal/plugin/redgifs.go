@@ -16,7 +16,7 @@ import (
 
 // redgifs reads RedGIFs' API (api.redgifs.com/v2), with the temporary token
 // the site hands to anyone (/v2/auth/temporary, kept for a day, fetched again
-// when refused). A search is tags (all of them: the site's tags=a,b; no
+// when refused). A search is nothing (the newest of all), tags (all of them: the site's tags=a,b; no
 // leaving out, no OR), "@name" (that user's clips, the user as the creator), or
 // a clip's link (that clip). Tag searches give videos unless "type:images";
 // a user's gives both (or what type: says). Newest first.
@@ -109,9 +109,6 @@ func (r *redgifs) parse(q string) (redgifsQuery, error) {
 	if out.user != "" && len(out.tags) > 0 {
 		return out, fmt.Errorf("%s: a user's clips can't be searched by tag - @user alone, or tags alone", r.c.m.Site)
 	}
-	if out.user == "" && len(out.tags) == 0 {
-		return out, fmt.Errorf("%s: type tags, @user or a clip's link", r.c.m.Site)
-	}
 	if out.user == "" && out.typ == "" {
 		out.typ = "g" // (the site's tag search gives one kind at a time)
 	}
@@ -174,7 +171,9 @@ func (r *redgifs) page(ctx context.Context, q redgifsQuery, n int) (gifs []redgi
 	if q.user == "" {
 		path = "/v2/gifs/search"
 		v.Set("order", "latest")
-		v.Set("tags", strings.Join(q.tags, ","))
+		if len(q.tags) > 0 { // (none: the newest of all, as an empty search is on every site)
+			v.Set("tags", strings.Join(q.tags, ","))
+		}
 	}
 	if q.typ != "" {
 		v.Set("type", q.typ)
