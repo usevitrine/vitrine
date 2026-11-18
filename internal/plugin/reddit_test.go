@@ -43,7 +43,11 @@ func TestReddit(t *testing.T) {
 		case "/api/v1/access_token":
 			user, pass, ok := r.BasicAuth()
 			r.ParseForm()
-			if !ok || user != "APPID" || pass != "SECRET" || r.PostForm.Get("grant_type") != "client_credentials" {
+			own := ok && user == "APPID" && pass == "SECRET" && r.PostForm.Get("grant_type") == "client_credentials"
+			// (the project's app: an installed app - no secret, a device ID)
+			project := ok && user == "PUBLICAPP" && pass == "" && r.PostForm.Get("grant_type") == "https://oauth.reddit.com/grants/installed_client" &&
+				len(r.PostForm.Get("device_id")) >= 20
+			if !own && !project {
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
@@ -182,11 +186,31 @@ tags:
 		t.Fatalf("below the gallery: %+v %v", page.Posts, err)
 	}
 	mu.Lock()
-	defer mu.Unlock()
 	if tokens != 1 {
 		t.Errorf("%d tokens, want 1 (kept)", tokens)
 	}
-	if last := asked[len(asked)-1]; !strings.Contains(last, "after=t3_abb") {
+	mu.Unlock()
+
+	// The plugin's own app (no login of the user's): Reddit works without one; a username alone isn't a sign-in.
+	pm := m
+	pm.Auth.AppID = "PUBLICAPP"
+	pc := testClient(pm, srv, map[string]string{"username": "someone", "password": "pw"})
+	if !pc.HasCredentials() {
+		t.Fatal("the plugin's app should be enough")
+	}
+	pe, _ := NewEngine(pc)
+	if page, err := pe.Search(ctx, "r/EarthPorn", 0); err != nil || len(page.Posts) == 0 {
+		t.Fatalf("with the plugin's app: %d posts, %v", len(page.Posts), err)
+	}
+	if testClient(m, srv, nil).HasCredentials() {
+		t.Error("no app at all counts as signed in")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if tokens != 2 {
+		t.Errorf("%d tokens, want 1 (kept)", tokens)
+	}
+	if last := strings.Join(asked, " "); !strings.Contains(last, "after=t3_abb") {
 		t.Errorf("resumed with %s", last)
 	}
 }

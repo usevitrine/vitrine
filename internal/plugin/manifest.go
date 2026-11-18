@@ -50,6 +50,9 @@ type Manifest struct {
 		// "reddit" = a Reddit app's client_id and client_secret (and optionally an account's username and password),
 		// traded for an OAuth token by the reddit engine - never sent in a query.
 		Login string `yaml:"login"`
+		// AppID (login: reddit): the project's own public app ID (an installed app: no secret), used when the user
+		// sets none - so Reddit works without making an app of one's own. The user's client_id replaces it.
+		AppID string `yaml:"app_id"`
 	} `yaml:"auth"`
 	Limits struct {
 		RequestsPerSec float64 `yaml:"requests_per_sec"` // API requests

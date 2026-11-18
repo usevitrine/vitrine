@@ -140,6 +140,12 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
   installed_client grant with a random device ID. The token (from www.reddit.com/api/v1/access_token, HTTP Basic:
   `Client.PostFormBasic`) is kept until 5 min before it runs out, fetched again on a 401; `Client.SetToken` sends it
   to oauth.reddit.com only. Signed in = an app ID (the Settings card and `HasCredentials`).
+- **The project's own app (decided 2026-11-18**, the user: making an app of one's own is "too convoluted for the average
+  user" - "lets try this"): as gallery-dl ships its own Reddit app, Vitrine applies to Reddit once as the project (its
+  Responsible Builder Policy: approval needed, 2025 on) for an **installed app** (no secret, so its ID can be public)
+  and puts the ID in the plugin (`auth.app_id`), so Reddit works with nothing to fill in; a user's own client_id
+  replaces it. A username and password count only with the user's own script app (the password grant needs one).
+  Until Reddit approves, the plugin stays out of the plugins index (its file is in the repo, without `app_id`).
 - Searches: `r/name` (`/r/name/new`; `r/a+b`), `r/name words` (its search, `restrict_sr`, newest first), `u/name`
   (`/user/name/submitted`), words alone (`/search`), a post's link or redd.it link (that post), a subreddit's or user's
   link; nothing = `r/all` (the site test). 100 a page, `raw_json=1`; pages without a file we take are passed over

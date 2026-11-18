@@ -219,12 +219,15 @@ func (r *reddit) token(ctx context.Context, again bool) error {
 		return nil
 	}
 	id, secret := r.c.credential("client_id"), r.c.credential("client_secret")
+	if id == "" { // (the project's own app, if the plugin has one: an installed app, no secret)
+		id, secret = r.c.m.Auth.AppID, ""
+	}
 	if id == "" {
 		return ErrNoCredentials
 	}
 	form := url.Values{"grant_type": {"client_credentials"}}
 	switch user, pass := r.c.credential("username"), r.c.credential("password"); {
-	case user != "" && pass != "":
+	case user != "" && pass != "" && secret != "": // (a sign-in needs a script app of one's own: not the project's)
 		form = url.Values{"grant_type": {"password"}, "username": {user}, "password": {pass}}
 	case secret == "":
 		r.mu.Lock()

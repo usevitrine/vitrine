@@ -420,7 +420,7 @@ func (c *Client) HasCredentials() bool {
 		return (c.creds["username"] != "" && c.creds["password"] != "") || (c.creds["ipb_member_id"] != "" && c.creds["ipb_pass_hash"] != "")
 	}
 	if c.m.Auth.Login == "reddit" { // (an app's ID is enough: an installed app has no secret, an account is optional)
-		return c.creds["client_id"] != "" && (c.creds["username"] == "") == (c.creds["password"] == "")
+		return (c.creds["client_id"] != "" || c.m.Auth.AppID != "") && (c.creds["username"] == "") == (c.creds["password"] == "")
 	}
 	for _, f := range c.m.Auth.Fields {
 		if c.creds[f] == "" {
