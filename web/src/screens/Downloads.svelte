@@ -4204,7 +4204,9 @@
   }
   /* The grip folds away while the queue is ordered by count (it's the queue's order it moves), and comes back. */
   .qrow.has-grip {
-    transition: grid-template-columns 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition:
+      grid-template-columns 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+      column-gap 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .qrow.has-grip .qhead,
   .qrow.has-grip .qbody {
@@ -4212,6 +4214,7 @@
   }
   .qrow.grip-off {
     grid-template-columns: 0px minmax(0, 1fr);
+    column-gap: 0; /* (with the gap, the hover fill stopped 6px short of the card's left edge) */
   }
   .qrow.grip-off .qhead,
   .qrow.grip-off .qbody {

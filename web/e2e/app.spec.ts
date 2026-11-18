@@ -11665,6 +11665,12 @@ test('downloads queue: All / Downloads / Checks; a download that made way names 
   await expect(card(99603).locator('.qcount')).toHaveText('900 on the site');
   await expect(card(99603).locator('.grip')).toBeDisabled();
   await expect(card(99603).locator('.grip')).toHaveCSS('opacity', '0');
+  // (the hover fill - the header's - reaches the card's left edge once the grip has folded away)
+  await expect
+    .poll(() =>
+      card(99603).evaluate((el) => Math.round(el.querySelector('.qhead')!.getBoundingClientRect().left - el.getBoundingClientRect().left))
+    )
+    .toBe(0);
   await sortBy('File count - fewest first');
   await expect.poll(order).toEqual([99601, 99604, 99602, 99603, 99605]);
   await sortBy('Queue order');
