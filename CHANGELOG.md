@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **Removing a site on a big library**: it took a minute or more with nothing to show for it (Vitrine counted what the site had left file by file). It now takes seconds, and the site's card says Removing… meanwhile.
+
 ## 1.5.0 - 2026-11-18
 
 ### New
