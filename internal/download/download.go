@@ -111,11 +111,11 @@ type Downloader struct {
 	queueSort  string
 	asideEvery time.Duration // how often a running download looks for a check waiting (tests: 0)
 	// aside: running searches a reorder put a waiting search ahead of - they step aside at their next post. Under mu.
-	aside     map[int64]bool
+	aside map[int64]bool
 	// siteDownloads: how many of a site's downloads run at once (slots.go; Settings > Downloads). Read under mu.
 	siteDownloads int
 	gates         map[uint32]*fileGate // each site's file connections, shared by its downloads running at once
-	md5Warned sync.Map // sites whose md5s were found wrong for a file (warned once)
+	md5Warned     sync.Map             // sites whose md5s were found wrong for a file (warned once)
 	// countAgain: sites asked to count while they were counting (count.go) - they look again when done.
 	countAgain sync.Map
 	// The Downloads page's slow numbers (tag refresh counts, when each subscription last found something), worked out
