@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -98,6 +97,7 @@ func NewEngine(c *Client) (Engine, error) {
 type gelbooru struct {
 	c   *Client
 	fav favLists
+	tc  gelbooruTypeCache // tags.types: tag_api
 }
 
 type gelbooruPosts struct {
@@ -137,13 +137,20 @@ func (g *gelbooru) Search(ctx context.Context, query string, before int64) (Page
 	if err != nil {
 		return Page{}, err
 	}
-	var res gelbooruPosts
-	if err := xml.Unmarshal(body, &res); err != nil {
+	res, err := parseGelbooruPosts(body)
+	if err != nil {
 		// Errors come back as other XML/HTML (e.g. a missing api_key).
+		return Page{}, fmt.Errorf("%s: unexpected reply: %s", m.Site, snippet(body))
+	}
+	if len(res.Posts) > 0 && res.Posts[0].ID <= 0 {
+		// Posts the engine can't read would page on forever with nothing to download.
 		return Page{}, fmt.Errorf("%s: unexpected reply: %s", m.Site, snippet(body))
 	}
 	page := Page{Total: res.Count, Posts: make([]Post, 0, len(res.Posts))}
 	for _, p := range res.Posts {
+		if p.ID <= 0 {
+			continue
+		}
 		post := Post{
 			ID: p.ID, FileURL: p.FileURL, Tags: Tags(p.Tags), Sources: SourceLinks(p.Source),
 			Rating: m.Rating(p.Rating), Width: p.Width, Height: p.Height, PostURL: m.Post(p.ID),
@@ -156,6 +163,13 @@ func (g *gelbooru) Search(ctx context.Context, query string, before int64) (Page
 			post.FileURL = "https:" + post.FileURL
 		}
 		page.Posts = append(page.Posts, post)
+	}
+	if m.Tags.Types == "tag_api" && len(page.Posts) > 0 {
+		if types := g.tagAPI(ctx, page.Posts); types != nil {
+			for i := range page.Posts {
+				page.Posts[i].TagTypes = types
+			}
+		}
 	}
 	if m.Tags.Types == "tag_info" && len(page.Posts) > 0 {
 		// Best effort: without types the posts still download, and the

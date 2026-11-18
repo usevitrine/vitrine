@@ -81,7 +81,9 @@ type Manifest struct {
 	// Tags says how the engine learns tag types and which become namespaces.
 	Tags struct {
 		// Types: "tag_info" = gelbooru 0.2's JSON API with fields=tag_info
-		// (one extra request per page); "page" = read from each post's page
+		// (one extra request per page); "tag_api" = Gelbooru's (gelbooru.com) tag API,
+		// s=tag&names=... (types as numbers; a few requests on a search's first page, then only for tags not seen
+		// yet); "page" = read from each post's page
 		// (gelbooru-v02-html); "post" = they come with every post (danbooru, moebooru, e621);
 		// empty = tag types aren't known.
 		Types string `yaml:"types"`
@@ -178,7 +180,7 @@ func Parse(data []byte) (Manifest, error) {
 		return m, fmt.Errorf("plugin %s: unknown auth.login %q", m.ID, m.Auth.Login)
 	}
 	switch m.Tags.Types {
-	case "", "tag_info", "page", "post":
+	case "", "tag_info", "tag_api", "page", "post":
 	default:
 		return m, fmt.Errorf("plugin %s: unknown tags.types %q", m.ID, m.Tags.Types)
 	}

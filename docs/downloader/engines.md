@@ -238,6 +238,11 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
   `id`, `md5`, `file_url`, `tags`, `source` (split on spaces), `rating`, size. Resume = the query plus `id:<low_id`.
   Tags are stored verbatim (namespaces from tag types: see "Tag namespaces" below; plain-name search finds
   any namespace).
+- **gelbooru.com (2026-11-18)**: a newer Gelbooru. Its XML sends each post's fields as child elements; the engine reads
+  either form (attributes first). A page whose posts have no ID is an error, not an empty page, so a reply the engine
+  can't read never pages on forever. Its JSON has no `fields=tag_info`: `tags.types: tag_api` asks the tag API
+  (`s=tag&q=index&json=1&names=<up to 100 tags>`) and maps its type numbers to tag_info's names (1 artist,
+  3 copyright, 4 character, 5 metadata); the answers are kept in memory, so later pages ask only for new tags.
 - **2026-10-14**: the engine stores each post's upload time (`created_at`). A post the downloader has seen before is
   no longer skipped silently: its tags, links, rating and upload time are written again (`SetSitePost`), so running a
   search again works as a simple tag refresh and fills in upload times for files downloaded before this.
