@@ -14,6 +14,7 @@ import (
 // (applySettings) - before dl.Run.
 func (s *Server) SetDownloader(dl *download.Downloader) {
 	s.dl = dl
+	dl.SetSiteDownloads(download.DefaultSiteDownloads) // (unless the settings say otherwise: below)
 	if set, err := s.lib.Settings(context.Background()); err == nil {
 		s.applySettings(set)
 	} else {

@@ -2088,6 +2088,14 @@
       },
       "never": "Never pause"
     },
+    "atOnce": {
+      "title": "Downloads at once",
+      "hint": "How many downloads of one site run side by side, so a small one doesn't wait for a big one. They share the site's connections and request limit, so the site isn't asked for more.",
+      "n": {
+        "one": "One at a time",
+        "other": "{n} at once"
+      }
+    },
     "order": {
       "title": "Queue order",
       "checksFirst": "Subscription checks first",

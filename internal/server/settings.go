@@ -55,6 +55,12 @@ func (s *Server) applySettings(set map[string]json.RawMessage) {
 			s.dl.SetPauseAfter(n)
 		}
 	}
+	if v, ok := set["siteDownloads"]; ok {
+		var n int
+		if json.Unmarshal(v, &n) == nil {
+			s.dl.SetSiteDownloads(n)
+		}
+	}
 	if v, ok := set["checksFirst"]; ok {
 		var on bool
 		if json.Unmarshal(v, &on) == nil {

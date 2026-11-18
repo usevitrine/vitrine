@@ -195,8 +195,8 @@ func (d *Downloader) Reorder(ctx context.Context, site string, ids []int64) erro
 	}
 	// A waiting search now ahead of the running one (a big first check dragged down, another dragged above it): the
 	// running one steps aside at its next post, not only when it's done.
-	var run int64
-	if d.db.R.QueryRowContext(ctx, "SELECT id FROM searches WHERE site_id = ? AND state = 'running'", st.ID).Scan(&run) == nil {
+	running, _ := db.Column[int64](ctx, d.db.R, "SELECT id FROM searches WHERE site_id = ? AND state = 'running'", st.ID)
+	for _, run := range running {
 		if d.aheadWaiting(ctx, st.ID, run) {
 			d.mu.Lock()
 			d.aside[run] = true

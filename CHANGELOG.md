@@ -8,6 +8,7 @@ shows this too (Settings > Help & about).
 ### New
 
 - **Keep a file despite the blacklist**: a file with a blacklisted tag can be kept. Its details say it has one, with **Keep it**; the blacklist's Delete them then leaves it alone and no notice comes when it gets one. The blacklist card counts kept files apart and shows them, and `system:kept` finds them. Several at once: select them on the card's Show them page.
+- **Several downloads of a site at once**: up to 3 by default (Settings > Downloads > Downloads at once), so a small download no longer waits for a big one. They share the site's connections and request limit, so the site isn't asked for more.
 - **More sites**: plugins for Gelbooru, Rule34 (paheal), Xbooru, HypnoHub, AIBooru and Pawoo. Install them in Settings > Sites (Gelbooru needs a free account). Shimmie sites can now be read through their API, as paheal is, and AIBooru's AI-model tags become `model:` tags.
 
 ### Fixed

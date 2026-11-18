@@ -160,8 +160,9 @@ var settingCheck = map[string]func(json.RawMessage) error{
 		return nil
 	},
 	// Connection failures in a row that pause a site's downloads until it answers again (missing = 5; 0 = never).
-	"pauseAfter":  numberIn(0, 100),
-	"checksFirst": isBool, // subscription checks go ahead of downloads, a running one stepping aside (missing = on)
+	"pauseAfter":    numberIn(0, 100),
+	"siteDownloads": numberIn(1, 10), // a site's downloads at once (download.DefaultSiteDownloads when missing)
+	"checksFirst":   isBool,          // subscription checks go ahead of downloads, a running one stepping aside (missing = on)
 	// The order a site's downloads run in: queue order, most posts on the site first, fewest first (missing = queue).
 	"queueSort": oneOf("queue", "files", "files_asc"),
 	// Sites (written by the downloader): switched off, and built-in ones removed.

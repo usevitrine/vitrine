@@ -28,6 +28,15 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   boundaries (a search dragged above the running one takes over after the post in flight: the running one steps aside). (One worker for everything never
   preempted.)
 - **Per-site limits from the plugin** (requests/s, connections); ETA from measured speed.
+- **Several downloads of a site at once (2026-11-18**, the user: "let a site run several downloads at once", as Hydrus
+  runs several queues of a domain): Settings > Downloads > Downloads at once (`siteDownloads`, 1-10, default 3; the
+  CLI and tests without the setting: 1). The first N of the site's queue run (in the queue's order; one ends or steps
+  aside, the next starts). They **share** the site, never multiply it: one API rate (`plugin.Client`) and the
+  plugin's file connections (`download/slots.go`, `fileGate`: at most `connections` files in flight in all, given in
+  turn so none starves) - a site that caps each address stays within its cap; a small search no longer waits for a big
+  one. Stepping aside: a running one steps aside when it is no longer among the first N (a check or a sorted/dragged
+  one ahead of it, or the setting lowered). A paused site's try runs one search on its own. Comic sites (a gallery
+  engine) stay at one: a gallery already uses every connection.
 - **Parallel downloads** (discussed 2026-10-14): sites always run in parallel (a worker each); within a site, up to
   the plugin's `connections` files download at once (a fast CDN: 3-4; a site that caps each IP: 1 - see the
   plugins repo's site notes). Optional

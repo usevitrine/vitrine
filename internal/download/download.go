@@ -112,6 +112,9 @@ type Downloader struct {
 	asideEvery time.Duration // how often a running download looks for a check waiting (tests: 0)
 	// aside: running searches a reorder put a waiting search ahead of - they step aside at their next post. Under mu.
 	aside     map[int64]bool
+	// siteDownloads: how many of a site's downloads run at once (slots.go; Settings > Downloads). Read under mu.
+	siteDownloads int
+	gates         map[uint32]*fileGate // each site's file connections, shared by its downloads running at once
 	md5Warned sync.Map // sites whose md5s were found wrong for a file (warned once)
 	// countAgain: sites asked to count while they were counting (count.go) - they look again when done.
 	countAgain sync.Map
@@ -164,7 +167,7 @@ type Downloader struct {
 func New(ctx context.Context, lib *library.Library, d *db.DB, plugins map[string]plugin.Manifest,
 	secrets plugin.Secrets, log *slog.Logger) (*Downloader, error) {
 	sites := map[string]*Site{}
-	dl := &Downloader{lib: lib, db: d, log: log, jitter: rand.Float64, pageRetryWait: 3 * time.Second, pauseAfter: -1, asideEvery: 3 * time.Second, now: time.Now, wakes: map[string]chan struct{}{}, stops: map[int64]bool{}, runs: map[int64]bool{}, runSince: map[int64][2]int64{}, pageCancel: map[int64]context.CancelFunc{}, aside: map[int64]bool{}, due: make(chan struct{}, 1), off: map[string]bool{},
+	dl := &Downloader{lib: lib, db: d, log: log, jitter: rand.Float64, pageRetryWait: 3 * time.Second, pauseAfter: -1, siteDownloads: 1, asideEvery: 3 * time.Second, now: time.Now, wakes: map[string]chan struct{}{}, stops: map[int64]bool{}, runs: map[int64]bool{}, runSince: map[int64][2]int64{}, pageCancel: map[int64]context.CancelFunc{}, aside: map[int64]bool{}, due: make(chan struct{}, 1), off: map[string]bool{},
 		retryWaits: []time.Duration{time.Minute, 5 * time.Minute, 30 * time.Minute, 2 * time.Hour, 6 * time.Hour},
 		fileWaits:  []time.Duration{2 * time.Second, 10 * time.Second}, Solver: plugin.NewSolver()}
 	removed := dl.idList(ctx, "removedSites") // built-in sites the user removed
@@ -546,29 +549,6 @@ func (d *Downloader) startWorker(parent context.Context, id string) {
 	}()
 }
 
-// RunQueue works through one site's queue until it is empty or ctx ends.
-func (d *Downloader) RunQueue(ctx context.Context, site string) error {
-	for ctx.Err() == nil {
-		st, ok := d.all()[site] // read for each search: an updated plugin applies from the next one
-		if !ok {
-			return fmt.Errorf("%w: %q", ErrUnknownSite, site)
-		}
-		// Paused (it kept failing to answer): the queue waits until its next try (the worker wakes for it).
-		if st.Client.Waiting() {
-			return nil
-		}
-		s, ok, err := d.next(ctx, st.ID)
-		if err != nil || !ok {
-			return err
-		}
-		d.run(ctx, st, s)
-		if !st.Client.Paused().Until.IsZero() {
-			return nil // (it paused on the way: the search waits where it was)
-		}
-	}
-	return nil
-}
-
 // run works one search until it is done, fails, or ctx ends (then it stays
 // "running" and resumes on the next start).
 func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
@@ -615,15 +595,18 @@ func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
 			yielded = true
 			return true
 		}
-		sorted := d.sorted()
-		if (!sorted && (s.isCheck() || !d.checksFirst())) || time.Since(lookedAt) < d.asideEvery {
+		if time.Since(lookedAt) < d.asideEvery {
 			return false
 		}
 		lookedAt = time.Now()
-		if sorted {
+		switch {
+		case d.runningOn(ctx, st.ID) > d.slots(st): // (fewer at once since it started: Settings > Downloads)
+			yielded = d.aheadWaiting(ctx, st.ID, s.ID)
+		case d.sorted():
 			yielded = d.aheadWaiting(ctx, st.ID, s.ID) // (a check, or one the sort puts first - fewer posts, say)
-		} else {
-			yielded = d.checkWaiting(ctx, st.ID)
+		case s.isCheck() || !d.checksFirst():
+		default:
+			yielded = d.checkWaiting(ctx, st.ID) && d.aheadWaiting(ctx, st.ID, s.ID)
 		}
 		return yielded
 	}
@@ -812,6 +795,11 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 		err     error
 	}
 	results := make(chan result)
+	// The site's connections, shared with its other downloads running now (slots.go): a post starts once it has one.
+	// freed: waiting for one (in line), told when to ask again.
+	gate := d.gate(st.ID)
+	defer gate.leave(s.ID)
+	var freed <-chan struct{}
 	done := make([]bool, len(posts))
 	next, inflight := 0, 0 // next: the first post not yet behind the resume point
 	ending := ""           // why no more posts start: "done", "stop" or "failed: ..."
@@ -858,6 +846,11 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 				i++
 				continue
 			}
+			ok, wait := gate.take(s.ID, conns())
+			if !ok {
+				freed = wait
+				goto wait
+			}
 			if s.StopID > 0 && p.ID <= s.StopID {
 				s.pastStop++ // (a resumed check starts its depth again: a few posts more, never fewer)
 			}
@@ -876,6 +869,7 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 				}
 				postStart := d.now()
 				outcome, fileID, err := d.handle(pctx, st, p, bl, rules, bulk)
+				gate.release()
 				untrack()
 				d.log.Debug("post", "site", s.Site, "search", s.ID, "post", p.ID, "outcome", outcomeNames[outcome], "file", fileID,
 					"took", d.now().Sub(postStart).Round(time.Millisecond), "err", err)
@@ -884,10 +878,35 @@ func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []p
 			i++
 			continue
 		}
-		if inflight == 0 {
+		gate.leave(s.ID) // (starts nothing now: out of the line)
+	wait:
+		if inflight == 0 && freed == nil {
 			break // nothing in flight and nothing more to start
 		}
-		r := <-results
+		var r result
+		if freed != nil {
+			// Waiting for a connection another download has: a file of its own may come in first. (Asked again every
+			// second too: a pause or stop ends the wait even if no connection comes free.)
+			t := time.NewTimer(time.Second)
+			select {
+			case r = <-results:
+				t.Stop()
+				freed = nil
+			case <-freed:
+				t.Stop()
+				freed = nil
+				continue
+			case <-t.C:
+				freed = nil
+				continue
+			case <-ctx.Done():
+				t.Stop()
+				freed = nil
+				continue
+			}
+		} else {
+			r = <-results
+		}
 		inflight--
 		rctx := ctx // (recording it)
 		if ctx.Err() != nil {
@@ -1058,14 +1077,26 @@ func (d *Downloader) sorted() bool {
 	return d.queueSort != ""
 }
 
-// aheadWaiting reports whether a waiting search on the site comes before the running one in the queue's order
-// (checks first unless turned off, then queueOrder - by count, or position, which a reorder may have changed): it
-// steps aside.
+// aheadWaiting reports whether the running search is no longer among the first of the site's searches - as many as
+// run at once (slots) - in the queue's order (checks first unless turned off, then queueOrder - by count, or position,
+// which a reorder may have changed): a waiting one comes before it, or more run than may: it steps aside.
 func (d *Downloader) aheadWaiting(ctx context.Context, siteID uint32, run int64) bool {
-	var first int64
-	d.db.R.QueryRowContext(ctx, `SELECT s.id FROM searches s WHERE s.site_id = ?1 AND (s.state = 'queued' OR s.id = ?3)
-		ORDER BY (?2 AND `+checkSQL+`) DESC, `+d.queueOrder()+` LIMIT 1`, siteID, d.checksFirst(), run).Scan(&first)
-	return first != 0 && first != run
+	n := 1
+	for _, st := range d.all() {
+		if st.ID == siteID {
+			n = d.slots(st)
+		}
+	}
+	first, err := db.Column[int64](ctx, d.db.R, `SELECT s.id FROM searches s WHERE s.site_id = ?1 AND (s.state IN ('queued', 'running') OR s.id = ?3)
+		ORDER BY (?2 AND `+checkSQL+`) DESC, `+d.queueOrder()+` LIMIT ?4`, siteID, d.checksFirst(), run, n)
+	return err == nil && len(first) > 0 && !slices.Contains(first, run)
+}
+
+// runningOn counts the site's running searches.
+func (d *Downloader) runningOn(ctx context.Context, siteID uint32) int {
+	var n int
+	d.db.R.QueryRowContext(ctx, "SELECT count(*) FROM searches WHERE site_id = ? AND state = 'running'", siteID).Scan(&n)
+	return n
 }
 
 // SetQueueSort sets the order a site's downloads run in (queueOrder: "", "files" or "files_asc"); a running one

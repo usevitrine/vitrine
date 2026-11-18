@@ -326,6 +326,19 @@
                 items={[3, 5, 10, 20, 0].map((n) => ({ label: n > 0 ? t('sites.pause.after', { n }) : t('sites.pause.never'), on: settings.pauseAfter === n, run: () => (settings.pauseAfter = n) }))} />
             </div>
           </section>
+          <!-- A site's downloads side by side (2026-11-18): they share its connections, so a site isn't asked more of. -->
+          <section class="card">
+            <div class="card-head">
+              <h2>{t('sites.atOnce.title')}</h2>
+              <p class="hint">{t('sites.atOnce.hint')}</p>
+            </div>
+            <div class="field narrow">
+              <ActionMenu
+                label={t('sites.atOnce.title')}
+                current={t('sites.atOnce.n', { n: settings.siteDownloads })}
+                items={[1, 2, 3, 5].map((n) => ({ label: t('sites.atOnce.n', { n }), on: settings.siteDownloads === n, run: () => (settings.siteDownloads = n) }))} />
+            </div>
+          </section>
           <!-- A subscription check waiting while a big download runs: it goes first (the download carries on after). -->
           <section class="card">
             <div class="card-head"><h2>{t('sites.order.title')}</h2></div>
