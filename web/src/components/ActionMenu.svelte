@@ -301,6 +301,7 @@
     min-width: min(240px, calc(100vw - 16px));
     max-width: min(380px, calc(100vw - 16px));
     display: grid;
+    grid-template-columns: minmax(0, 1fr); /* (its pages no wider than it: see .group) */
     padding: 4px;
     background: var(--mantle);
     border: 1px solid var(--surface1);
@@ -349,6 +350,9 @@
   }
   .group {
     display: grid;
+    /* (no wider than the menu: a long name shortens with "..." - an auto column took the name's whole width, past the
+       menu's edge, the check mark beside it outside the menu: 2026-11-18, a group "Soles Soles Soles ...") */
+    grid-template-columns: minmax(0, 1fr);
     padding-top: 4px;
     margin-top: 2px;
     border-top: 1px solid var(--surface0);

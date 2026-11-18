@@ -14,6 +14,7 @@ shows this too (Settings > Help & about).
 ### Fixed
 
 - **Sites behind Cloudflare**: a site's API that only FlareSolverr's browser gets through to (AIBooru through some VPNs) now works.
+- **Menus**: a long name (a subscription group's in Move to group) shortens with "…" instead of running past the menu's edge.
 - **Downloads**: with the queue sorted by file count (no grabbers), a queue card's hover shade reaches its left edge again.
 
 ## 1.4.0 - 2026-11-17

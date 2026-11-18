@@ -4004,6 +4004,30 @@ test('subscription groups: subscribe into a new or existing group, move, act on 
   await group.getByRole('button', { name: 'Unfold Artists' }).click();
   await expect(group.locator('li')).toHaveCount(3);
 
+  // A long group name shortens in Move to group: every choice and the current one's check mark stay inside the menu
+  // (2026-11-18: the name ran past the menu's edge, the check mark outside it).
+  const long = Array(10).fill('Soles').join(' ');
+  await rowMenu(page, 'Artists', 'Rename');
+  await group.getByLabel('New name for Artists').fill(long);
+  await group.getByRole('button', { name: 'Rename', exact: true }).click();
+  await expect(card.getByRole('region', { name: `Group ${long}` })).toBeVisible();
+  await rowMenu(page, 'grp_a', 'Move to group');
+  const choices = page.getByRole('menuitemradio');
+  await expect(choices.filter({ hasText: long })).toBeVisible();
+  await expect(page.locator('.menu .mpage')).toHaveCount(1); // (the page slid in: measured where it stays)
+  const box = (await page.locator('.menu').boundingBox())!;
+  for (const el of [...(await choices.all()), page.locator('.menu [aria-checked="true"] svg')]) {
+    const b = (await el.boundingBox())!;
+    expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width);
+  }
+  await page.keyboard.press('Escape'); // (back to the menu, then closed)
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.menu')).toHaveCount(0);
+  await rowMenu(page, long, 'Rename');
+  await card.getByLabel(`New name for ${long}`).fill('Artists');
+  await card.getByRole('button', { name: 'Rename', exact: true }).click();
+  await expect(group).toBeVisible();
+
   // Rename, then delete: the subscriptions stay, in no group.
   await rowMenu(page, 'Artists', 'Rename');
   await group.getByLabel('New name for Artists').fill('Favorites');
