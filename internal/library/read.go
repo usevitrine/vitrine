@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -231,6 +232,9 @@ func (l *Library) OpenOriginal(f FileRow) (*os.File, error) {
 
 // Tools are the external programs the library uses (ffmpeg, libvips).
 func (l *Library) Tools() media.Tools { return l.tools }
+
+// TempDir is the store's folder for files on their way in (emptied at each start).
+func (l *Library) TempDir() string { return filepath.Join(l.store.Root(), "tmp") }
 
 // FileSource is a search or subscription that met a file ("Found by").
 type FileSource struct {

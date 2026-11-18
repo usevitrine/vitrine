@@ -7,7 +7,7 @@
   refuses `api:` on other engines (`shimmie_api.go`, `TestShimmieAPI`).
 # Engines
 
-The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, Danbooru, Moebooru, e621, RedGIFs, and the ehentai gallery engine (comics).
+The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, Danbooru, Moebooru, e621, RedGIFs, Reddit, and the ehentai gallery engine (comics).
 
 ## Shimmie2 engine (2026-10-16)
 - `engine: shimmie2` reads a Shimmie2 site's web pages (many have no API on). List pages `/post/list/<tags>/1`: tags
@@ -129,6 +129,39 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
   `fav:<name>`; OR `~a ~b`. The site wants a User-Agent naming the program (Vitrine's own; a browser's meets
   Cloudflare).
 - `TestE621Live` (VITRINE_LIVE=1) asks e926.net: search, the next page, a lookup - passed 2026-11-17.
+
+## Reddit engine (2026-11-18)
+
+- `engine: reddit` (`internal/plugin/reddit.go`; the user: "reddit engine/plugin" - "the only issue with reddit is theres
+  no tags"). **Needs the user's own Reddit app**: without OAuth every API address answered 403 "Blocked" from the VPN
+  (www, old, api and oauth.reddit.com, 2026-11-18). `auth.login: reddit` with the fields client_id, client_secret,
+  username, password: a script app's ID and secret give an app-only token (client_credentials); with a username and
+  password, the account's (password grant; not with two-factor sign-in); an installed app (no secret) the
+  installed_client grant with a random device ID. The token (from www.reddit.com/api/v1/access_token, HTTP Basic:
+  `Client.PostFormBasic`) is kept until 5 min before it runs out, fetched again on a 401; `Client.SetToken` sends it
+  to oauth.reddit.com only. Signed in = an app ID (the Settings card and `HasCredentials`).
+- Searches: `r/name` (`/r/name/new`; `r/a+b`), `r/name words` (its search, `restrict_sr`, newest first), `u/name`
+  (`/user/name/submitted`), words alone (`/search`), a post's link or redd.it link (that post), a subreddit's or user's
+  link; nothing = `r/all` (the site test). 100 a page, `raw_json=1`; pages without a file we take are passed over
+  (up to 10). Reddit's lists end after ~1,000 posts. Tag searches: creator -> `u/{tag}`, subreddit -> `r/{tag}`.
+- **Post IDs**: a post's base-36 ID * 100 + the file's place (a gallery has at most 20), handed out last file first
+  (IDs going down, as Mastodon's). Resuming below N asks `after=t3_<N/100>`; part-way through a post, that post's
+  remaining files first (`/api/info`), the next page then goes on after it. Lookup reads `/api/info?id=t3_...`.
+- **Files**: a gallery's images (`i.redd.it/<media id>.<type>`, the preview server's copy as the alternative) and
+  animations (its mp4), a Reddit video (`fallback_url`, its sound apart: `Post.AudioURLs` = DASH_AUDIO_128/64,
+  DASH_audio, audio next to it - joined by the downloader, below), an i.redd.it image, a RedGIFs link (below), another
+  site's animation Reddit keeps a copy of (`preview.reddit_video_preview`, no sound). A crosspost: the original's
+  files. Text posts, links to articles and removed posts: none. Imgur links aren't taken (a removed image comes back
+  as a placeholder picture, not an error).
+- **Tags** (Reddit has none): the subreddit (lower-cased, type `subreddit` - the plugin's namespace `subreddit:`), the
+  poster (type artist -> creator; not `[deleted]`), the flair (emoji codes dropped, lower-cased with `_`, at most 40
+  characters). Rating: `over_18` -> nsfw, else sfw (the plugin maps them).
+- **RedGIFs links**: the post is `Partial` (no file yet); its Reddit part and the clip's ID are kept in memory (5,000)
+  and `Lookup` asks RedGIFs (`/v2/gifs/<id>` - there is no several-at-once lookup: `/v2/gifs?ids=` answers 404,
+  checked 2026-11-18) only when the downloader needs the file: the clip's HD file (with sound), its tags and its user
+  (a creator) added to the Reddit tags, the watch link as the source. Gone from RedGIFs: Reddit's copy if it has one.
+  RedGIFs is asked through a client of its own (api.redgifs.com, 2 requests a second), not the plugin's.
+- `TestReddit`, `TestRedditQueries` (a fake Reddit: token, listing, gallery, video, RedGIFs, crosspost, resuming).
 
 ## RedGIFs engine (2026-11-17)
 

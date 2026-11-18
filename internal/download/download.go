@@ -1501,7 +1501,11 @@ func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *li
 		if i == 0 {
 			md5 = fp.MD5 // (the site's md5 is the post's file's, not an alternative's)
 		}
-		f, modified, err = d.fetchFile(ctx, st, st.Client.Manifest().FileFetchURL(u, fp.ID), md5, limit, bulk, fp.Posted, fp.ID) // (as the site links it: see FileQuery)
+		if i == 0 && len(fp.AudioURLs) > 0 { // (its sound a file of its own: mux.go)
+			f, modified, err = d.fetchMuxed(ctx, st, u, fp.AudioURLs, limit, bulk, fp.Posted, fp.ID)
+		} else {
+			f, modified, err = d.fetchFile(ctx, st, st.Client.Manifest().FileFetchURL(u, fp.ID), md5, limit, bulk, fp.Posted, fp.ID) // (as the site links it: see FileQuery)
+		}
 		if err != nil && ctx.Err() != nil {
 			return Failed, 0, ctx.Err() // (stopped mid-file: fetched again on resume)
 		}

@@ -264,11 +264,14 @@
   /** "User ID" -> "user ID", "API key" stays (an acronym). */
   const lowerFirst = (w: string) => (/^[A-Z]{2}/.test(w) ? w : w[0].toLowerCase() + w.slice(1));
 
-  // (A gallery site's login: a user name and password, or its two cookies - either pair.)
+  // (A gallery site's login: a user name and password, or its two cookies - either pair. Reddit's: its app's ID - the
+  // secret and an account are optional.)
   const allSet = (s: SiteInfo) =>
     s.fields.includes('ipb_member_id')
       ? (!!s.set.username && !!s.set.password) || (!!s.set.ipb_member_id && !!s.set.ipb_pass_hash)
-      : s.fields.every((f) => s.set[f]);
+      : s.fields.includes('client_id')
+        ? !!s.set.client_id
+        : s.fields.every((f) => s.set[f]);
   const anySet = (s: SiteInfo) => s.fields.some((f) => s.set[f]);
   const hasTyped = (s: SiteInfo) => s.fields.some((f) => (typed[s.id]?.[f] ?? '').trim());
 

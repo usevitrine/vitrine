@@ -36,6 +36,9 @@ type Post struct {
 	AltFileURLs []string
 	// Gallery: the post is a whole gallery (a comic) - its pages, not one file (GalleryEngine).
 	Gallery *Gallery
+	// AudioURLs: a video whose sound is a file of its own (Reddit's): the first of these that the site has is joined
+	// to FileURL (ffmpeg, no re-encoding); none: the video as it is.
+	AudioURLs []string
 }
 
 // Page is one search request's posts, newest first.
@@ -79,6 +82,8 @@ func NewEngine(c *Client) (Engine, error) {
 		return &e621{c: c}, nil
 	case "redgifs":
 		return &redgifs{c: c}, nil
+	case "reddit":
+		return newReddit(c)
 	case "ehentai":
 		e := &ehentai{c: c}
 		if e.exhentai() {

@@ -46,7 +46,9 @@ type Manifest struct {
 		// "ehentai" = the e-hentai forum login (username, password) or its two
 		// cookies (ipb_member_id, ipb_pass_hash) pasted from a browser;
 		// "bearer" = the one field is an access token sent as
-		// "Authorization: Bearer" (Mastodon).
+		// "Authorization: Bearer" (Mastodon);
+		// "reddit" = a Reddit app's client_id and client_secret (and optionally an account's username and password),
+		// traded for an OAuth token by the reddit engine - never sent in a query.
 		Login string `yaml:"login"`
 	} `yaml:"auth"`
 	Limits struct {
@@ -111,7 +113,7 @@ var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`)
 var nsPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}$`)
 
 // Engines are the built-in site engines.
-var Engines = map[string]bool{"gelbooru-v02": true, "gelbooru-v02-html": true, "shimmie2": true, "mastodon": true, "danbooru": true, "moebooru": true, "e621": true, "redgifs": true, "ehentai": true}
+var Engines = map[string]bool{"gelbooru-v02": true, "gelbooru-v02-html": true, "shimmie2": true, "mastodon": true, "danbooru": true, "moebooru": true, "e621": true, "redgifs": true, "reddit": true, "ehentai": true}
 
 // Parse reads and checks a manifest, filling defaults.
 func Parse(data []byte) (Manifest, error) {
@@ -171,6 +173,10 @@ func Parse(data []byte) (Manifest, error) {
 	case "ehentai":
 		if strings.Join(m.Auth.Fields, ",") != "username,password,ipb_member_id,ipb_pass_hash" {
 			return m, fmt.Errorf("plugin %s: auth.login %q needs the fields username, password, ipb_member_id, ipb_pass_hash", m.ID, m.Auth.Login)
+		}
+	case "reddit":
+		if strings.Join(m.Auth.Fields, ",") != "client_id,client_secret,username,password" {
+			return m, fmt.Errorf("plugin %s: auth.login %q needs the fields client_id, client_secret, username, password", m.ID, m.Auth.Login)
 		}
 	case "bearer":
 		if len(m.Auth.Fields) != 1 {
@@ -237,6 +243,7 @@ func (m Manifest) Rating(site string) media.Rating {
 var engineTagQueries = map[string]map[string]string{
 	"mastodon": {"creator": "@{tag}", "*": "#{tag}"},
 	"redgifs":  {"creator": "@{tag}"},
+	"reddit":   {"creator": "u/{tag}", "subreddit": "r/{tag}"},
 	// E-Hentai's exact-tag syntax: namespace:"name with spaces$" (artist and parody are Vitrine's creator and series).
 	"ehentai": {"creator": `artist:"{name}$"`, "series": `parody:"{name}$"`, "": `"{name}$"`, "*": `{ns}:"{name}$"`},
 }

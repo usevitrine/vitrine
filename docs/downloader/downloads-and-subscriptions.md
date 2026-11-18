@@ -302,6 +302,10 @@ Lessons from self-hosted download setups built on gallery-dl and companion tools
   post once every newer post on the page is done (a crash re-fetches at most the posts in flight, never skips one;
   their counters may count them twice). Pausing lets in-flight files finish. Measured on one site's CDN:
   one at a time ~18 MB/s, three at once ~50 MB/s (that plugin uses 3); sites that throttle extra connections stay at 1.
+- **A video and its sound apart (2026-11-18, Reddit)**: a post's `AudioURLs` - the downloader (`download/mux.go`)
+  downloads the video and the first sound file the site has (403/404: the next name) into the store's tmp folder and
+  joins them with ffmpeg without re-encoding (`-c copy`, `+faststart`) before the import; no sound file, no ffmpeg or
+  ffmpeg failing: the video alone. The video counts as the post's progress; download rules apply to it.
 - **Download rules (built 2026-10-15)**: Settings > Download rules - "Skip videos larger than N MB" (checked from the
   file response's Content-Length before reading the body) and "Skip images larger than N megapixels" (from the post's
   width x height, when the site gives them). Shared settings `skipVideoMB` / `skipImageMP` (0 = no limit); read at the

@@ -247,6 +247,42 @@ func (c *Client) PostForm(ctx context.Context, u *url.URL, form url.Values) ([]b
 	return io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 }
 
+// PostFormBasic posts a form with HTTP Basic authentication (an OAuth token request: Reddit's app ID and secret) to
+// an allowed host and returns the reply, at most 2 MB. Errors never contain the form's values or the credentials.
+func (c *Client) PostFormBasic(ctx context.Context, u *url.URL, user, pass string, form url.Values) ([]byte, error) {
+	if !c.m.allows(u.Hostname()) || u.Scheme != "https" && u.Scheme != "http" {
+		return nil, fmt.Errorf("%s: %s is not one of the plugin's domains", c.m.Site, u.Hostname())
+	}
+	if err := c.brk.waiting(c.m.Site); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, c.apiTimeout)
+	defer cancel()
+	if err := c.waitTurn(ctx); err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("%s: bad request", c.m.Site)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", UserAgent)
+	req.SetBasicAuth(user, pass)
+	start := time.Now()
+	resp, err := c.http.Do(req)
+	if err != nil {
+		err = fmt.Errorf("%s: request to %s failed: %w", c.m.Site, u.Hostname(), unwrapURL(err))
+		c.logRequest(u, 0, start, err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+	c.logRequest(u, resp.StatusCode, start, nil)
+	if resp.StatusCode != http.StatusOK {
+		return nil, &StatusError{Site: c.m.Site, Host: u.Hostname(), Code: resp.StatusCode}
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+}
+
 // postPassing sends a POST (send: once, after its turn) and, when Cloudflare challenges it, gets a clearance from
 // FlareSolverr for its address (never its body: a form's values, an API call's) and sends it once more with it. Every
 // request to a site meets the check the same way: page requests in getOnce, these here (a login form, e-hentai's
@@ -382,6 +418,9 @@ func (c *Client) HasCredentials() bool {
 	defer c.credMu.RUnlock()
 	if c.m.Auth.Login == "ehentai" {
 		return (c.creds["username"] != "" && c.creds["password"] != "") || (c.creds["ipb_member_id"] != "" && c.creds["ipb_pass_hash"] != "")
+	}
+	if c.m.Auth.Login == "reddit" { // (an app's ID is enough: an installed app has no secret, an account is optional)
+		return c.creds["client_id"] != "" && (c.creds["username"] == "") == (c.creds["password"] == "")
 	}
 	for _, f := range c.m.Auth.Fields {
 		if c.creds[f] == "" {
