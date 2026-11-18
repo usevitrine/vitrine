@@ -8,9 +8,11 @@ shows this too (Settings > Help & about).
 ### New
 
 - **Keep a file despite the blacklist**: a file with a blacklisted tag can be kept. Its details say it has one, with **Keep it**; the blacklist's Delete them then leaves it alone and no notice comes when it gets one. The blacklist card counts kept files apart and shows them, and `system:kept` finds them. Several at once: select them on the card's Show them page.
+- **More sites**: plugins for Rule34 (paheal), Xbooru, HypnoHub, AIBooru and Pawoo. Install them in Settings > Sites. Shimmie sites can now be read through their API, as paheal is, and AIBooru's AI-model tags become `model:` tags.
 
 ### Fixed
 
+- **Sites behind Cloudflare**: a site's API that only FlareSolverr's browser gets through to (AIBooru through some VPNs) now works.
 - **Downloads**: with the queue sorted by file count (no grabbers), a queue card's hover shade reaches its left edge again.
 
 ## 1.4.0 - 2026-11-17

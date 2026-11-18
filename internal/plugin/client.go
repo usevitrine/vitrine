@@ -1122,7 +1122,8 @@ func (c *Client) passCloudflare(ctx context.Context, u *url.URL, referer string,
 	}
 	resp.Body.Close()
 	if page && same && len(got) > 0 {
-		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"text/html"}}, Body: io.NopCloser(bytes.NewReader(got))}, nil
+		got, ctype := browserText(got)
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {ctype}}, Body: io.NopCloser(bytes.NewReader(got))}, nil
 	}
 	return nil, &CloudflareError{Site: c.m.Site, Reason: "the site still refused the cleared requests"}
 }

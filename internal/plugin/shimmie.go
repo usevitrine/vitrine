@@ -79,8 +79,9 @@ func decaret(s string) string {
 
 var shmCarets = map[byte]byte{'^': '^', 's': '/', 'b': '\\', 'q': '?', 'a': '&', 'd': '.'}
 
-// listURL is the first page of a search.
-func (s *shimmie) listURL(query string, before int64) (*url.URL, error) {
+// searchTags are a search's tags as the site is asked them: id<N to resume, newest first unless it has its own
+// order.
+func searchTags(query string, before int64) []string {
 	tags := strings.Fields(query)
 	ordered := false
 	for _, t := range tags {
@@ -94,6 +95,12 @@ func (s *shimmie) listURL(query string, before int64) (*url.URL, error) {
 	if !ordered {
 		tags = append(tags, "order=id_desc")
 	}
+	return tags
+}
+
+// listURL is the first page of a search.
+func (s *shimmie) listURL(query string, before int64) (*url.URL, error) {
+	tags := searchTags(query, before)
 	parts := make([]string, len(tags))
 	for i, t := range tags {
 		parts[i] = strings.ReplaceAll(url.PathEscape(t), "+", "%2B")
@@ -112,6 +119,9 @@ func (s *shimmie) Search(ctx context.Context, query string, before int64) (Page,
 	m := s.c.m
 	if err := s.login(ctx); err != nil {
 		return Page{}, err
+	}
+	if m.API == "danbooru" {
+		return s.apiSearch(ctx, query, before)
 	}
 	u, err := s.listURL(query, before)
 	if err != nil {
@@ -169,6 +179,13 @@ func (s *shimmie) Search(ctx context.Context, query string, before int64) (Page,
 func (s *shimmie) Lookup(ctx context.Context, id int64) (*Post, error) {
 	if err := s.login(ctx); err != nil {
 		return nil, err
+	}
+	if s.c.m.API == "danbooru" {
+		page, err := s.apiFind(ctx, url.Values{"id": {strconv.FormatInt(id, 10)}})
+		if err != nil || len(page.Posts) == 0 || page.Posts[0].ID != id {
+			return nil, err
+		}
+		return &page.Posts[0], nil
 	}
 	u, err := url.Parse(strings.TrimRight(s.c.m.Base, "/") + "/post/view/" + strconv.FormatInt(id, 10))
 	if err != nil {

@@ -39,6 +39,7 @@ type danbooruPost struct {
 	Copyright string `json:"tag_string_copyright"`
 	Character string `json:"tag_string_character"`
 	Meta      string `json:"tag_string_meta"`
+	Model     string `json:"tag_string_model"` // aibooru: the AI model a picture was made with
 }
 
 func (d *danbooru) url(path string, q url.Values) (*url.URL, error) {
@@ -152,7 +153,7 @@ func (d *danbooru) post(p danbooruPost, types map[string]string) (Post, bool) {
 	if t, err := time.Parse(time.RFC3339Nano, p.CreatedAt); err == nil {
 		post.Posted = t
 	}
-	for typ, list := range map[string]string{"general": p.General, "artist": p.Artist, "copyright": p.Copyright, "character": p.Character, "meta": p.Meta} {
+	for typ, list := range map[string]string{"general": p.General, "artist": p.Artist, "copyright": p.Copyright, "character": p.Character, "meta": p.Meta, "model": p.Model} {
 		for _, t := range strings.Fields(list) {
 			types[CleanTag(t)] = typ
 		}

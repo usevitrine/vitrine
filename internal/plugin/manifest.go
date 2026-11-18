@@ -96,6 +96,10 @@ type Manifest struct {
 	// a CDN caches each URL apart, and the plain URL's copy can be broken (rule34's US cache: some files stopped
 	// part-way, crawling, for everyone fetching the bare URL from there).
 	FileQuery string `yaml:"file_query"`
+	// API picks an engine's API in place of its web pages: "danbooru" = a Shimmie2 site's Danbooru-style
+	// API (/api/danbooru/find_posts), where the site has it switched on (it gives everything a list page and a
+	// post page do, in one request).
+	API string `yaml:"api"`
 	// BuiltIn is set for the plugins shipped inside Vitrine (not in the file).
 	BuiltIn bool `yaml:"-"`
 }
@@ -152,6 +156,9 @@ func Parse(data []byte) (Manifest, error) {
 		if !strings.Contains(tmpl, "{tag}") && !strings.Contains(tmpl, "{name}") {
 			return m, fmt.Errorf("plugin %s: search.tag_query %q: %q has no {tag}", m.ID, ns, tmpl)
 		}
+	}
+	if m.API != "" && !(m.API == "danbooru" && m.Engine == "shimmie2") {
+		return m, fmt.Errorf("plugin %s: api %q: only \"danbooru\", with the shimmie2 engine", m.ID, m.API)
 	}
 	switch m.Auth.Login {
 	case "":

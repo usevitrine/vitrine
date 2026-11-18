@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -319,4 +320,25 @@ func unwrapURL(err error) error {
 		return ue.Err
 	}
 	return err
+}
+
+// browserText undoes the browser's own page around a reply that wasn't HTML: Chrome shows JSON or plain text as
+// <pre> in a page of its own, and FlareSolverr gives that page (aibooru.online's API, whose cleared requests were
+// still challenged while the browser's weren't - 2026-11-18). Any other page is given back as it is.
+func browserText(page []byte) ([]byte, string) {
+	const head = `<html><head><meta name="color-scheme" content="light dark">`
+	s := string(page)
+	if !strings.HasPrefix(s, head) {
+		return page, "text/html"
+	}
+	start := strings.Index(s, "<pre")
+	if start < 0 {
+		return page, "text/html"
+	}
+	open := strings.IndexByte(s[start:], '>')
+	end := strings.LastIndex(s, "</pre>")
+	if open < 0 || end < start+open {
+		return page, "text/html"
+	}
+	return []byte(html.UnescapeString(s[start+open+1 : end])), "text/plain"
 }

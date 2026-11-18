@@ -268,3 +268,17 @@ func TestCloudflarePosts(t *testing.T) {
 		t.Fatalf("without FlareSolverr: %v", err)
 	}
 }
+
+func TestBrowserText(t *testing.T) {
+	// Chrome's page around JSON, as FlareSolverr gave it for aibooru.online's API (2026-11-18).
+	page := `<html><head><meta name="color-scheme" content="light dark"><meta charset="utf-8"></head><body><pre>[{"id":1,"tag_string":"a&amp;b &lt;c&gt;"}]</pre><div class="json-formatter-container"></div></body></html>`
+	got, ctype := browserText([]byte(page))
+	if string(got) != `[{"id":1,"tag_string":"a&b <c>"}]` || ctype != "text/plain" {
+		t.Fatalf("got %q %s", got, ctype)
+	}
+	// A site's own page stays as it is.
+	own := `<html><head><title>Some site</title></head><body><pre>x</pre></body></html>`
+	if got, ctype := browserText([]byte(own)); string(got) != own || ctype != "text/html" {
+		t.Fatalf("own page: %q %s", got, ctype)
+	}
+}

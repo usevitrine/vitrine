@@ -15,6 +15,10 @@ Cloudflare and FlareSolverr, stalled and trickling downloads, files checked agai
 - FlareSolverr visits the URL **without credentials** (the clearance is for the whole site). If the site still refuses
   cleared requests (it checks more than cookies), a page request uses the page FlareSolverr's browser got (only when
   that was the same URL); otherwise a clear error. Files never go through FlareSolverr.
+- **A JSON API through the browser's page (2026-11-18)**: aibooru.online, through the VPN, challenges Vitrine's cleared
+  requests while FlareSolverr's browser is let through, so its API replies come from the browser's page - which for a
+  JSON address is Chrome's own viewer page (`<html><head><meta name="color-scheme" content="light dark">...<pre>`).
+  `browserText` unwraps the `<pre>` (HTML-unescaped) so the engine reads the JSON; any other page is left as it is.
 - Without FlareSolverr a challenge is `CloudflareError` ("blocked by Cloudflare - set up FlareSolverr in Settings >
   Sites"). FlareSolverr must reach sites from the same IP as Vitrine (behind a VPN: share its network namespace).
 - While a clearance is in use, requests carry the browser's User-Agent instead of Vitrine's (Cloudflare ties the

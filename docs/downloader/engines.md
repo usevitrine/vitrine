@@ -1,3 +1,10 @@
+- **`api: danbooru` (2026-11-18)**: a Shimmie2 site with its Danbooru-style API on (`ext/danbooru_api`) is searched
+  through `/api/danbooru/find_posts?tags=...&limit=N` (XML, up to 100 a page; `?id=N` for a lookup) instead of the
+  pages: each post whole in one request (md5, file, tags, source, rating `s`/`q`/`e`/`?` = safe/questionable/explicit/
+  unrated for the manifest, upload time in UTC). The same tags as the pages (`id<N`, `order=id_desc`). Its XML can hold
+  HTML entities (`&oacute;`), which the decoder accepts. Logins, favorites and post links are the engine's as before.
+  Made for rule34.paheal.net, whose list pages have their own markup (the thumbnail data on a `div`). The manifest
+  refuses `api:` on other engines (`shimmie_api.go`, `TestShimmieAPI`).
 # Engines
 
 The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, Danbooru, Moebooru, e621, RedGIFs, and the ehentai gallery engine (comics).
@@ -86,7 +93,8 @@ The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, 
   through the JSON API. `/posts.json?tags=&limit=` (up to 200), newest first, resumed with the site's own
   `page=b<ID>` (posts before that one: new uploads can't shift pages). The total comes from `/counts/posts.json`
   (first page only, best effort). Lookup: `/posts/<id>.json` (404 = gone).
-- Tags with their types in every post (`tag_string_artist`, `_copyright`, `_character`, `_meta`, `_general`) -
+- Tags with their types in every post (`tag_string_artist`, `_copyright`, `_character`, `_meta`, `_general`; aibooru's `_model`, the AI model, as
+  the `model` type - 2026-11-18) -
   `tags.types: post` (no extra requests); the plugins map artist/copyright/character/meta to creator/series/character/meta.
 - Account optional: `login` + `api_key` in the query. Without one the site allows two tags per search (its 422 is
   explained) and hides some files - a post without `file_url` is passed over (a page of only those doesn't end the
