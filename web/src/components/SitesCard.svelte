@@ -87,6 +87,7 @@
           },
     );
     if (!ok) return;
+    busy[s.id] = 'remove'; // (working from here: the count of what it left can take a moment on a big library)
     const found = await traces;
     let wipe = false;
     let backups = false;
@@ -426,7 +427,7 @@
               {[s.name !== s.site && s.name !== s.id ? s.name : '', s.version ? `v${s.version}` : '', s.built_in ? t('sites.builtIn') : t('sites.installedTag'), s.tag_types ? t('sites.tagTypes') : ''].filter(Boolean).join(' · ')}
             </p>
           </div>
-          <span class="status {st.cls}">{busy[s.id] === 'test' ? t('sites.testing') : st.text}</span>
+          <span class="status {st.cls}">{busy[s.id] === 'test' ? t('sites.testing') : busy[s.id] === 'remove' ? t('sites.removing') : st.text}</span>
           <ActionMenu label={t('common.moreFor', { name: s.site })} title={s.site} items={siteItems(s)} />
         </header>
         {#if updateFor(s.id)}

@@ -205,3 +205,24 @@ func (ix *Index) DropSite(site uint32, subs []uint32) {
 		delete(ix.subFiles, s)
 	}
 }
+
+// SiteShare splits the files from a site (as system:site= has them: by their links) into those no other site gave
+// (own) and a count of those another site gave too - for what removing a site would take (library.SiteTraces): the
+// bitmaps instead of reading every file's tags and links (40 s and more on a library of 1.5 million files, 2026-11-18).
+func (ix *Index) SiteShare(site uint32) (own []uint32, shared int) {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	bm := ix.siteFiles[site]
+	if bm == nil {
+		return nil, 0
+	}
+	others := roaring.New()
+	for id, o := range ix.siteFiles {
+		if id != site && id != 0 {
+			others.Or(o)
+		}
+	}
+	bm = roaring.And(bm, ix.alive) // (the files this index has: live ones, or the trash's - not ones removed for good)
+	mine := roaring.AndNot(bm, others)
+	return mine.ToArray(), int(bm.GetCardinality() - mine.GetCardinality())
+}

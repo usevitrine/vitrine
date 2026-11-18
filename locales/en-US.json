@@ -2037,6 +2037,7 @@
     "installedTag": "installed",
     "tagTypes": "tag types",
     "testing": "Testing…",
+    "removing": "Removing…",
     "available": "Version {version} is available.",
     "availableHave": "Version {version} is available (you have {have}).",
     "updateSite": "Update {site}",

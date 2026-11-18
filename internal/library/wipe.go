@@ -77,13 +77,40 @@ func (l *Library) SiteTraces(ctx context.Context, name string) (SiteTraces, erro
 		return t, err
 	}
 	q := l.db.R
-	if err := q.QueryRowContext(ctx, "SELECT count(*), coalesce(sum(size), 0) FROM files f WHERE "+fromSite+" AND NOT "+keptToo, site).
-		Scan(&t.Files, &t.Bytes); err != nil {
-		return t, fmt.Errorf("library: %w", err)
+	// The files from the site and which of them another site gave too: from the index's bitmaps (by the files'
+	// links, as system:site=) - reading fromSite and keptToo here took 40 s and more on a library of 1.5 million
+	// files, and the Remove dialog waited for it (2026-11-18, the user: "i cant remove redgifs.com"). A count to
+	// decide by: the wipe itself goes by fromSite/keptToo (a file with only a tag or a source from the site, no link,
+	// isn't counted here). Pages of another site's comic (or a comic of one's own) stay too.
+	own, shared := l.ix.SiteShare(uint32(site))
+	bytes := l.ix.SizeOf(own)
+	if trash, err := l.TrashIndex(ctx); err != nil {
+		return t, err
+	} else if trash != nil { // (files in the trash go too)
+		tOwn, tShared := trash.SiteShare(uint32(site))
+		own, shared, bytes = append(own, tOwn...), shared+tShared, bytes+trash.SizeOf(tOwn)
 	}
-	if err := q.QueryRowContext(ctx, "SELECT count(*) FROM files f WHERE "+fromSite+" AND "+keptToo, site).Scan(&t.Shared); err != nil {
-		return t, fmt.Errorf("library: %w", err)
+	if len(own) > 0 {
+		pages, err := db.Column[uint32](ctx, q, `SELECT DISTINCT p.file_id FROM comic_pages p JOIN comics c ON c.id = p.comic_id
+			WHERE c.site_id IS NOT ?`, site)
+		if err != nil {
+			return t, fmt.Errorf("library: %w", err)
+		}
+		if len(pages) > 0 {
+			kept := map[uint32]bool{}
+			for _, p := range pages {
+				kept[p] = true
+			}
+			own = slices.DeleteFunc(own, func(id uint32) bool {
+				if kept[id] {
+					shared++
+					return true
+				}
+				return false
+			})
+		}
 	}
+	t.Files, t.Bytes, t.Shared = len(own), bytes, shared
 	if err := q.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM comics WHERE site_id = ?1),
 		(SELECT count(*) FROM tombstones WHERE instr(sites, ',' || ?2 || ',') > 0 AND sha256 NOT IN (SELECT sha256 FROM files)),
 		(SELECT count(*) FROM tombstones WHERE sites IS NULL),

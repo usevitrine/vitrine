@@ -71,7 +71,10 @@ Files, tags (one tag set, origins, namespaces), parents and siblings, delete/und
 - **Wiping a removed site (2026-10-26)** (the user: removing a site can "completely wipe their server of any hint that
   they ever had it enabled. That means deleting all files/metadata/deleted files history/any entry in every menu such
   as the sites filter"): after Remove, when anything of it is left, a second dialog asks whether to erase every trace
-  (`GET /api/plugins/{id}/traces` counts it: `Library.SiteTraces`) - a list of what goes, **Keep them** or **Erase
+  (`GET /api/plugins/{id}/traces` counts it: `Library.SiteTraces` - its files from the search index's site bitmaps
+  and the trash index, `index.SiteShare`, since 2026-11-18: reading every file's links, tags and sources took 40 s and more
+  on 1.5 million files and the dialog waited silently - the user: "i cant remove redgifs.com"; the site's card says
+  Removing... meanwhile) - a list of what goes, **Keep them** or **Erase
   everything…** (a plain question first since 2026-10-28, the user: the word to type came with no asking whether to
   erase at all; the dialogs' other button can be named: `ConfirmOptions.cancel`); then the word "erase" to type and
   "Also delete older backups (they still contain it)", off by default (the user's choice). Keep them, or Cancel at the
