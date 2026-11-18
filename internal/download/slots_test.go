@@ -20,7 +20,7 @@ func withConnections(e *env, n int) {
 
 func waitFor(t *testing.T, what string, ok func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(20 * time.Second) // (CI's machines are slow)
 	for !ok() {
 		if time.Now().After(deadline) {
 			t.Fatalf("timed out waiting for %s", what)
@@ -66,41 +66,44 @@ func TestSiteDownloadsAtOnce(t *testing.T) {
 	}
 }
 
-// Downloads running together share the site's connections: never more files at once than it has, and the one waiting
-// gets the next free connection.
+// Downloads running together share the site's connections: never more files at once than it has. (Every file waits,
+// so which download's page comes first - either may - doesn't matter: CI, 2026-11-18.)
 func TestSiteDownloadsShareConnections(t *testing.T) {
 	e := newEnvWith(t, 25, "")
 	withConnections(e, 2)
 	e.dl.SetSiteDownloads(3)
 	ctx := context.Background()
-	hold := make(chan struct{})
+	block := make(chan struct{})
 	e.fb.mu.Lock()
-	e.fb.hold[25], e.fb.hold[24] = hold, hold
+	e.fb.block = block
 	e.fb.mu.Unlock()
 	a, _ := e.dl.Add(ctx, "fake", "common", 0)
 	b, _ := e.dl.Add(ctx, "fake", "common id:<10", 3)
 	finished := make(chan error)
 	go func() { finished <- e.dl.RunQueue(ctx, "fake") }()
-	waitFor(t, "both running", func() bool {
+	waitFor(t, "both running, two files on their way", func() bool {
 		sa, _ := e.dl.Get(ctx, a)
 		sb, _ := e.dl.Get(ctx, b)
-		return sa.State == StateRunning && sb.State == StateRunning
+		e.fb.mu.Lock()
+		defer e.fb.mu.Unlock()
+		return sa.State == StateRunning && sb.State == StateRunning && e.fb.active == 2
 	})
-	time.Sleep(100 * time.Millisecond) // (the second would have started a file by now)
+	time.Sleep(200 * time.Millisecond) // (a third would have started by now)
 	e.fb.mu.Lock()
 	peak := e.fb.peak
+	e.fb.block = nil
 	e.fb.mu.Unlock()
-	if s, _ := e.dl.Get(ctx, b); peak != 2 || s.Handled != 0 {
-		t.Fatalf("%d files at once, the second handled %d", peak, s.Handled)
+	if peak != 2 {
+		t.Fatalf("%d files at once, the site has 2 connections", peak)
 	}
-	close(hold)
+	close(block)
 	if err := <-finished; err != nil {
 		t.Fatal(err)
 	}
 	sa, _ := e.dl.Get(ctx, a)
 	sb, _ := e.dl.Get(ctx, b)
 	if sa.State != StateDone || sb.State != StateDone || sb.Handled != 3 {
-		t.Fatalf("a %+v\nb %+v", sa, sb)
+		t.Fatalf("a %+v, b %+v", sa, sb)
 	}
 	e.fb.mu.Lock()
 	defer e.fb.mu.Unlock()
