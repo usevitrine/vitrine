@@ -3,6 +3,12 @@
 What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
 shows this too (Settings > Help & about).
 
+## Unreleased
+
+### Fixed
+
+- **Download counts after a pause**: a download paused and resumed could count a file it had just downloaded as "already there" too.
+
 ## 1.6.0 - 2026-11-22
 
 ### New

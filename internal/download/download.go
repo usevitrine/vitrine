@@ -1278,11 +1278,14 @@ func (d *Downloader) record(s Search, siteID uint32, postID int64, fileID uint32
 	}
 	// Recorded by this same search already (it was resumed: the posts finished past its resume point come again)?
 	// Then it isn't counted twice - only moved to its new outcome's count.
-	// (recorded since the search started, before this run of it began: by its earlier run)
+	// (recorded since the search started, before this run of it began: by its earlier run. Up to and including the
+	// ms this run began: a stopped run records the posts it finished just before it ends, and a coarse clock (Windows)
+	// gave one the same ms as the resumed run's start - counted again, as "already there", CI 2026-11-22. The start
+	// stays strict: an earlier search with the same query may have saved posts in the ms this one began.)
 	before := -1
 	tx.QueryRow(`SELECT sp.outcome FROM seen_posts sp JOIN searches s ON s.id = ?
 		WHERE sp.site_id = ? AND sp.post_id = ? AND sp.query = s.query AND s.started_at IS NOT NULL
-		AND sp.seen_at > s.started_at AND sp.seen_at < ?`,
+		AND sp.seen_at > s.started_at AND sp.seen_at <= ?`,
 		s.ID, siteID, postID, s.runFrom).Scan(&before)
 	if err := recordSeen(tx, siteID, postID, file, outcome, postErr, strings.TrimSpace(s.Query), d.now().UnixMilli()); err != nil {
 		return false, err
