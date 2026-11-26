@@ -1,0 +1,1712 @@
+// Package download runs searches on sites and brings their posts straight
+// into the library, file by file.
+//
+// Each site has one worker that works through that site's queue in order;
+// sites run in parallel. Posts with a blacklisted tag are skipped (see
+// library.Blacklist). A search resumes exactly where it stopped (see the
+// searches table), every post is recorded as soon as it's handled, and files
+// the library has or deleted are skipped by md5 before downloading.
+package download
+
+import (
+	"bytes"
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"maps"
+	"math/rand/v2"
+	"net/http"
+	"net/url"
+	"slices"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/usevitrine/vitrine/internal/db"
+	"github.com/usevitrine/vitrine/internal/library"
+	"github.com/usevitrine/vitrine/internal/media"
+	"github.com/usevitrine/vitrine/internal/plugin"
+	"github.com/usevitrine/vitrine/internal/store"
+)
+
+// Post outcomes (seen_posts.outcome).
+const (
+	Downloaded  = 1
+	Already     = 2
+	Deleted     = 3
+	Failed      = 4
+	Skipped     = 5
+	Blacklisted = 6 // has a blacklisted tag: not downloaded
+	TooBig      = 7 // over a download rule's size limit: not downloaded (counted as skipped)
+	TooOld      = 8 // uploaded before the download rules' year: not downloaded (counted as skipped)
+)
+
+// oldRunStop: after this many posts in a row older than the download rules' year, a search ends - older ones follow (a
+// site's posts are in upload order), and a site that needs a request per post would go through them all for nothing.
+var oldRunStop = 100 // (a test makes it smaller)
+
+// Search states.
+const (
+	StateQueued  = "queued"
+	StateRunning = "running"
+	StatePaused  = "paused"
+	StateDone    = "done"
+	StateFailed  = "failed"
+)
+
+// Site is a plugin ready to use.
+type Site struct {
+	ID     uint32 // sites.id in meta.db
+	Client *plugin.Client
+	Engine plugin.Engine
+	// backgroundAfter: no background work before this (a back-off after an
+	// error, e.g. "too many requests"). Used by the site's worker only.
+	backgroundAfter time.Time
+	postedFixed     int // upload times given their moment by FixPosted (for its log line)
+	// LearnTypes' next tags to look up (tags.id, found a batch at a time), and when to look for more after it found
+	// none. Used by the site's worker only.
+	typeTags      []int64
+	typesIdleTill time.Time
+}
+
+// Downloader runs the queues.
+type Downloader struct {
+	lib   *library.Library
+	db    *db.DB
+	sites atomic.Pointer[map[string]*Site] // by plugin ID; replaced whole when a plugin is installed (see all)
+	log   *slog.Logger
+	now   func() time.Time
+
+	// Solver passes Cloudflare challenges with FlareSolverr (off until its address is set).
+	Solver *plugin.Solver
+
+	// SecretsPath is the credentials file (secrets.toml) that SetCredentials writes.
+	SecretsPath string
+	credMu      sync.Mutex
+
+	// OnPost, if set, is called after each post (for progress output).
+	OnPost func(s Search, p plugin.Post, outcome int, err error)
+	// OnEvent, if set, hears about things worth telling the user (notifications).
+	OnEvent func(Event)
+
+	live liveState // watchers and files in progress (live.go)
+
+	// jitter returns 0..1: a check is scheduled up to a tenth of its interval
+	// (at most 30 min) late, so subscriptions added together drift apart
+	// instead of all hitting the site at once.
+	jitter func() float64
+	// pageRetryWait: a search page that got no answer is asked again after this, twice this, ... (tests: shorter).
+	pageRetryWait time.Duration
+	// pauseAfter: connection failures in a row that pause a site (Settings > Sites; 0 = never; -1: not set - the default).
+	pauseAfter int
+	// checksFirst: subscription checks go ahead of downloads in a site's queue, a running download stepping aside
+	// for them (Settings > Downloads; on unless turned off). Read under mu.
+	checksOff bool
+	// queueSort: the order a site's downloads run in - "" (queue order: as added, or as dragged), "files" (most posts on
+	// the site first) or "files_asc" (fewest first). Settings' queueSort, set from the Queue's sort menu. Read under mu.
+	queueSort  string
+	asideEvery time.Duration // how often a running download looks for a check waiting (tests: 0)
+	// aside: running searches a reorder put a waiting search ahead of - they step aside at their next post. Under mu.
+	aside map[int64]bool
+	// siteDownloads: how many of a site's downloads run at once (slots.go; Settings > Downloads). Read under mu.
+	siteDownloads int
+	gates         map[uint32]*fileGate // each site's file connections, shared by its downloads running at once
+	md5Warned     sync.Map             // sites whose md5s were found wrong for a file (warned once)
+	// countAgain: sites asked to count while they were counting (count.go) - they look again when done.
+	countAgain sync.Map
+	// The Downloads page's slow numbers (tag refresh counts, when each subscription last found something), worked out at
+	// most every statusEvery and shared (refresh.go, subscribe.go): the page asks again on every change. Once there, an
+	// answer is given at once - an older one while the next is worked out in the background (busy) - so no request waits
+	// for the count (2026-10-31: the Downloads page took a long time to load - 4.7 s every half minute on a 680k-file
+	// library). gen: bumped by Refresh now (a background count from before it isn't kept).
+	statusMu    sync.Mutex
+	refreshAt   time.Time
+	refreshOut  []RefreshStatus
+	refreshBusy bool
+	refreshGen  int
+	foundMu     sync.Mutex
+	foundAt     time.Time
+	foundOut    map[int64]int64
+	foundBusy   bool
+
+	runCtx  context.Context               // Run's context (sites installed later start their worker in it)
+	cancels map[string]context.CancelFunc // stops a site's worker
+	workers sync.WaitGroup
+
+	// PluginsDir is where installed plugins are saved (InstallPlugin);
+	// PluginIndex the list Settings offers (a URL or a local path).
+	PluginsDir  string
+	PluginIndex string
+	installMu   sync.Mutex
+	index       pluginIndex
+
+	mu        sync.Mutex
+	retrying  map[string]*retryCall // failed posts being tried again (one at a time each: see RetryPost)
+	retryJobs map[string]*RetryJob  // ... in the background, and their results for a while (see StartRetry)
+	off       map[string]bool       // switched-off sites (see siteoff.go)
+	wakes     map[string]chan struct{}
+	stops     map[int64]bool     // searches asked to stop (paused or removed) before their next post
+	runs      map[int64]bool     // searches being worked now (run)
+	runSince  map[int64][2]int64 // ... since when (Unix ms: Search.RunningSince) and their run time before (ms)
+	// A search's page request in flight: canceled when it's asked to stop (a
+	// site that hangs would otherwise hold its queue until the request times out).
+	pageCancel map[int64]context.CancelFunc
+	// retryWaits: how long a failed search waits before its next automatic try
+	// (one per attempt; after the last it waits for the user).
+	retryWaits []time.Duration
+	// fileWaits: pauses before trying a failed file download again.
+	fileWaits []time.Duration
+	due       chan struct{} // wakes the subscription scheduler
+}
+
+// New prepares a downloader for the given plugins and credentials.
+func New(ctx context.Context, lib *library.Library, d *db.DB, plugins map[string]plugin.Manifest,
+	secrets plugin.Secrets, log *slog.Logger) (*Downloader, error) {
+	sites := map[string]*Site{}
+	dl := &Downloader{lib: lib, db: d, log: log, jitter: rand.Float64, pageRetryWait: 3 * time.Second, pauseAfter: -1, siteDownloads: 1, asideEvery: 3 * time.Second, now: time.Now, wakes: map[string]chan struct{}{}, stops: map[int64]bool{}, runs: map[int64]bool{}, runSince: map[int64][2]int64{}, pageCancel: map[int64]context.CancelFunc{}, aside: map[int64]bool{}, due: make(chan struct{}, 1), off: map[string]bool{},
+		retryWaits: []time.Duration{time.Minute, 5 * time.Minute, 30 * time.Minute, 2 * time.Hour, 6 * time.Hour},
+		fileWaits:  []time.Duration{2 * time.Second, 10 * time.Second}, Solver: plugin.NewSolver()}
+	removed := dl.idList(ctx, "removedSites") // built-in sites the user removed
+	for _, id := range dl.idList(ctx, "sitesOff") {
+		dl.off[id] = true
+	}
+	for id, m := range plugins {
+		if m.BuiltIn && slices.Contains(removed, id) {
+			continue
+		}
+		st, err := dl.prepareSite(ctx, m, secrets[id])
+		if err != nil {
+			return nil, err
+		}
+		sites[id] = st
+		dl.wakes[id] = make(chan struct{}, 1)
+	}
+	dl.sites.Store(&sites)
+	return dl, nil
+}
+
+// all returns the sites by plugin ID. Don't change the map: installing a
+// plugin replaces it whole (putSite), so readers never see it half-changed.
+func (d *Downloader) all() map[string]*Site { return *d.sites.Load() }
+
+// putSite adds or replaces a site (a copy of the map with it in).
+func (d *Downloader) putSite(id string, st *Site) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	next := maps.Clone(*d.sites.Load())
+	next[id] = st
+	d.sites.Store(&next)
+	if d.wakes[id] == nil {
+		d.wakes[id] = make(chan struct{}, 1)
+	}
+}
+
+// wakeChan is the channel that wakes a site's worker.
+func (d *Downloader) wakeChan(site string) chan struct{} {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.wakes[site]
+}
+
+// Sites lists the plugin IDs, sorted.
+func (d *Downloader) Sites() []string {
+	out := make([]string, 0, len(d.all()))
+	for id := range d.all() {
+		out = append(out, id)
+	}
+	slices.Sort(out)
+	return out
+}
+
+// Search is a queued or finished search.
+type Search struct {
+	ID    int64  `json:"id"`
+	Site  string `json:"site"`
+	Query string `json:"query"`
+	// Label: its name where the query says little (a gallery's link: its title - given, its subscription's, or the
+	// downloaded comic's); "" = the query.
+	Label string `json:"label,omitempty"`
+	// Pages: pages it brought in for galleries (a gallery site: one gallery's counts are by page).
+	Pages    int    `json:"pages,omitempty"`
+	State    string `json:"state"`
+	MaxPosts int    `json:"max_posts"`
+	LowID    int64  `json:"-"`
+	HighID   int64  `json:"-"`
+	// StopID: a subscription check is done on reaching a post at or below this ID; 0: its first check (the whole search,
+	// or initial_max posts); -1: a check for what's new before any post was ever seen (nothing to stop at - 2026-11-13; a
+	// subscription with no previous downloads must not count its later checks as initial).
+	StopID      int64  `json:"-"`
+	StopDepth   int    `json:"-"` // ... and this many posts past it (the check depth)
+	pastStop    int    // posts at or below StopID gone through so far (this run)
+	runFrom     int64  // when this run of it began (Unix ms; a resumed search's earlier posts are from before)
+	runBase     int64  // its run time before this run (RunMS when it began)
+	SiteTotal   int    `json:"site_total"`
+	Handled     int    `json:"handled"`
+	Downloaded  int    `json:"downloaded"`
+	Already     int    `json:"already"`
+	Deleted     int    `json:"deleted"`
+	Skipped     int    `json:"skipped"`
+	Blacklisted int    `json:"blacklisted"`
+	Failed      int    `json:"failed"`
+	Error       string `json:"error,omitempty"`
+	Position    int    `json:"position"`           // order in its site's queue
+	Attempts    int    `json:"attempts,omitempty"` // failures in a row
+	RetryAt     int64  `json:"retry_at,omitempty"` // when it is tried again automatically (0 = not)
+	CreatedAt   int64  `json:"created_at"`
+	FinishedAt  int64  `json:"finished_at,omitempty"`
+	// How long it has been working: RunMS in its runs before (kept as it goes - each post), RunningSince when its run
+	// now began (Unix ms; 0 = not running now) - a page counts on from there. Waiting of any kind doesn't count.
+	RunMS        int64 `json:"run_ms"`
+	RunningSince int64 `json:"running_since,omitempty"`
+	// RunNow: running, its run time at this answer (the page counts on from when it got it - its clock may not be the
+	// server's).
+	RunNow int64 `json:"run_now,omitempty"`
+	// SubscriptionID is set on a subscription's check.
+	SubscriptionID int64 `json:"subscription_id,omitempty"`
+	FirstCheck     bool  `json:"first_check,omitempty"` // a subscription's first check: a bulk download, not one of its checks
+	// Force: one post taken whatever the download rules, the blacklist and deletion records say (AddForced).
+	Force  bool `json:"force,omitempty"`
+	siteID uint32
+}
+
+// ErrUnknownSite means no plugin has that ID.
+var ErrUnknownSite = plugin.ErrUnknownSite
+
+// Add queues a search at the end of its site's queue. maxPosts > 0 stops it
+// after that many posts.
+func (d *Downloader) Add(ctx context.Context, site, query string, maxPosts int) (int64, error) {
+	return d.AddTo(ctx, site, query, maxPosts, false)
+}
+
+// AddTo is Add; favorite: the files it brings in become favorites too (e.g.
+// your own favorites on the site).
+func (d *Downloader) AddTo(ctx context.Context, site, query string, maxPosts int, favorite bool) (int64, error) {
+	s, ok := d.all()[site]
+	if !ok {
+		return 0, fmt.Errorf("%w: %q", ErrUnknownSite, site)
+	}
+	if d.IsOff(site) {
+		return 0, fmt.Errorf("%w: %s", ErrSiteOff, site)
+	}
+	// One post's link or ID: kept as id:N (a link's other parts say nothing; the list shows the short form).
+	if post, single, err := plugin.SinglePost(s.Client.Manifest(), query); err != nil {
+		return 0, err
+	} else if single {
+		query = singleQuery(post)
+	}
+	var id int64
+	err := d.db.W.QueryRowContext(ctx, `
+		INSERT INTO searches (site_id, query, max_posts, position, created_at, favorite)
+		VALUES (?, ?, ?, (SELECT coalesce(max(position), 0) + 1 FROM searches WHERE site_id = ?), ?, ?)
+		RETURNING id`, s.ID, query, max(0, maxPosts), s.ID, d.now().UnixMilli(), favorite).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("download: %w", err)
+	}
+	d.wake(site)
+	return id, nil
+}
+
+// AddForced queues one post "anyway" (2026-11-15: for a post the download rules and an earlier delete kept out): taken
+// whatever the download rules, the blacklist, an earlier sighting or a deletion record say - one deleted and still in
+// the trash comes back from it. Only one post's link or ID (never a whole search: that would take every post the rules
+// keep out). At the front of its site's queue.
+func (d *Downloader) AddForced(ctx context.Context, site, query string) (int64, error) {
+	s, ok := d.all()[site]
+	if !ok {
+		return 0, fmt.Errorf("%w: %q", ErrUnknownSite, site)
+	}
+	if d.IsOff(site) {
+		return 0, fmt.Errorf("%w: %s", ErrSiteOff, site)
+	}
+	post, single, err := plugin.SinglePost(s.Client.Manifest(), query)
+	if err != nil {
+		return 0, err
+	}
+	if !single {
+		return 0, ErrNotOnePost
+	}
+	var id int64
+	err = d.db.W.QueryRowContext(ctx, `
+		INSERT INTO searches (site_id, query, max_posts, position, created_at, force)
+		VALUES (?, ?, 0, (SELECT coalesce(min(position), 1) - 1 FROM searches WHERE site_id = ?), ?, 1)
+		RETURNING id`, s.ID, singleQuery(post), s.ID, d.now().UnixMilli()).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("download: %w", err)
+	}
+	d.wake(site)
+	return id, nil
+}
+
+// ErrNotOnePost: only one post can be downloaded anyway.
+var ErrNotOnePost = errors.New("only one post's link can be downloaded anyway")
+
+// LabelSearch names a search (a gallery's title for its link).
+func (d *Downloader) LabelSearch(ctx context.Context, id int64, label string) error {
+	if _, err := d.db.W.ExecContext(ctx, "UPDATE searches SET label = nullif(?, '') WHERE id = ?", strings.TrimSpace(label), id); err != nil {
+		return fmt.Errorf("download: %w", err)
+	}
+	d.Changed()
+	return nil
+}
+
+func (d *Downloader) wake(site string) {
+	d.Changed() // something was queued
+	if d.sorted() {
+		go d.countSite(site) // (the queue runs by count: what was queued is counted now, the page open or not)
+	}
+	select {
+	case d.wakeChan(site) <- struct{}{}:
+	default:
+	}
+}
+
+const searchColumns = `s.id, si.name, s.site_id, s.query, s.state, s.max_posts, s.low_id, s.site_total, s.handled,
+	s.downloaded, s.already, s.deleted, s.skipped, s.blacklisted, s.failed, coalesce(s.error, ''), s.position, s.created_at,
+	coalesce(s.finished_at, 0), s.high_id, s.stop_id, coalesce(s.subscription_id, 0), s.attempts, coalesce(s.retry_at, 0),
+	s.stop_depth, s.pages, s.run_ms, s.force, coalesce(s.label, (SELECT label FROM subscriptions WHERE id = s.subscription_id), (SELECT title FROM comics c WHERE rtrim(c.url, '/') = rtrim(s.query, '/') AND c.deleted_at IS NULL LIMIT 1), '')`
+
+func scanSearch(row interface{ Scan(...any) error }) (Search, error) {
+	var s Search
+	err := row.Scan(&s.ID, &s.Site, &s.siteID, &s.Query, &s.State, &s.MaxPosts, &s.LowID, &s.SiteTotal, &s.Handled,
+		&s.Downloaded, &s.Already, &s.Deleted, &s.Skipped, &s.Blacklisted, &s.Failed, &s.Error, &s.Position, &s.CreatedAt, &s.FinishedAt,
+		&s.HighID, &s.StopID, &s.SubscriptionID, &s.Attempts, &s.RetryAt, &s.StopDepth, &s.Pages, &s.RunMS, &s.Force, &s.Label)
+	s.FirstCheck = s.SubscriptionID != 0 && s.StopID == 0
+	return s, err
+}
+
+// List returns all searches, each site's queue in order.
+// runSoFar is its run time up to now in this run (0 outside one: run_ms stays as it is - max).
+func (s Search) runSoFar(now time.Time) int64 {
+	if s.runFrom == 0 {
+		return 0
+	}
+	return s.runBase + now.UnixMilli() - s.runFrom
+}
+
+// scan is scanSearch with when its run now began, if it's running (RunningSince).
+func (d *Downloader) scan(row interface{ Scan(...any) error }) (Search, error) {
+	s, err := scanSearch(row)
+	if err == nil {
+		d.mu.Lock()
+		r, ok := d.runSince[s.ID]
+		d.mu.Unlock()
+		if ok {
+			// (from the run's start - run_ms already has the part up to its last post)
+			s.RunningSince = r[0]
+			s.RunNow = r[1] + max(0, d.now().UnixMilli()-r[0])
+		}
+	}
+	return s, err
+}
+
+func (d *Downloader) List(ctx context.Context) ([]Search, error) {
+	rows, err := d.db.R.QueryContext(ctx, "SELECT "+searchColumns+
+		" FROM searches s JOIN sites si ON si.id = s.site_id ORDER BY si.name, s.position")
+	if err != nil {
+		return nil, fmt.Errorf("download: %w", err)
+	}
+	defer rows.Close()
+	var out []Search
+	for rows.Next() {
+		s, err := d.scan(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// Get returns one search.
+func (d *Downloader) Get(ctx context.Context, id int64) (Search, error) {
+	return d.scan(d.db.R.QueryRowContext(ctx, "SELECT "+searchColumns+
+		" FROM searches s JOIN sites si ON si.id = s.site_id WHERE s.id = ?", id))
+}
+
+// checkSQL: a subscription's check for what's new (it stops at the newest post the last one saw) - not its first check,
+// which takes everything at once like a download (2026-10-23: initial downloads in a subscription group are bulk
+// downloads: they don't go first, and they step aside for checks).
+const checkSQL = "(s.subscription_id IS NOT NULL AND s.stop_id != 0)"
+
+// isCheck: a subscription's check for what's new (see checkSQL).
+func (s Search) isCheck() bool { return s.SubscriptionID != 0 && s.StopID != 0 }
+
+// queueOrder is the ORDER BY of a site's queue after its checks (checks first, unless turned off): by the searches'
+// counts on the site when the queue is sorted so (2026-11-17; the sort had only been a view before) - ones not counted
+// (or that the site doesn't say) after the counted ones - then by position (as added, or as dragged). A check isn't
+// sorted by its count (the search's whole total, not what's new): it keeps its place as one not counted.
+func (d *Downloader) queueOrder() string {
+	d.mu.Lock()
+	sort := d.queueSort
+	d.mu.Unlock()
+	total := "(CASE WHEN " + checkSQL + " THEN -1 ELSE s.site_total END)"
+	switch sort {
+	case "files":
+		return total + " < 0, " + total + " DESC, s.position"
+	case "files_asc":
+		return total + " < 0, " + total + ", s.position"
+	}
+	return "s.position"
+}
+
+// next returns the site's first unfinished search: subscription checks first (unless turned off), then an
+// interrupted running one, then queued ones in the queue's order (queueOrder).
+func (d *Downloader) next(ctx context.Context, siteID uint32) (Search, bool, error) {
+	s, err := scanSearch(d.db.R.QueryRowContext(ctx, "SELECT "+searchColumns+`
+		FROM searches s JOIN sites si ON si.id = s.site_id
+		WHERE s.site_id = ?1 AND s.state IN ('running', 'queued')
+		ORDER BY (?2 AND `+checkSQL+`) DESC, s.state = 'running' DESC, `+d.queueOrder()+` LIMIT 1`, siteID, d.checksFirst()))
+	if errors.Is(err, sql.ErrNoRows) {
+		return s, false, nil
+	}
+	return s, err == nil, err
+}
+
+// Run works every site's queue until ctx ends, waiting for new searches when
+// a queue is empty, and starts subscription checks when they are due.
+func (d *Downloader) Run(ctx context.Context) {
+	d.mu.Lock()
+	d.runCtx = ctx
+	d.mu.Unlock()
+	if n, err := d.scheduleUndated(ctx); err != nil {
+		d.log.Warn("files without an upload time", "err", err)
+	} else if n > 0 {
+		d.log.Info("files without an upload time: first in the tag refresh", "posts", n)
+	}
+	d.workers.Add(1)
+	go func() {
+		defer d.workers.Done()
+		d.schedule(ctx)
+	}()
+	// The Downloads page's slow numbers, worked out now: the first visit after a start doesn't wait for them either.
+	d.workers.Add(1)
+	go func() {
+		defer d.workers.Done()
+		d.RefreshStatus(ctx)
+		d.lastFound(ctx)
+	}()
+	for id := range d.all() {
+		d.startWorker(ctx, id)
+	}
+	<-ctx.Done()
+	d.workers.Wait()
+}
+
+// startWorker runs a site's queue and background work until ctx ends.
+func (d *Downloader) startWorker(parent context.Context, id string) {
+	ctx, cancel := context.WithCancel(parent)
+	d.mu.Lock()
+	if d.cancels == nil {
+		d.cancels = map[string]context.CancelFunc{}
+	}
+	d.cancels[id] = cancel // removing the site stops its worker (a running search resumes when it's back)
+	d.mu.Unlock()
+	// Tag types of older files and the tag refresh: beside the queue (2026-10-28: the tag fetching got stuck behind huge
+	// initial downloads - it waited for an empty queue, days behind a first check of 700k posts), slowly and taking the
+	// site's turns only when no search or check waits for one (plugin.Idle).
+	d.workers.Add(1)
+	go func() {
+		defer d.workers.Done()
+		for ctx.Err() == nil {
+			if _, ok := d.all()[id]; !ok || d.IsOff(id) {
+				return
+			}
+			d.background(plugin.Idle(ctx), id)
+			select {
+			case <-time.After(time.Minute):
+			case <-ctx.Done():
+			}
+		}
+	}()
+	d.workers.Add(1)
+	go func() {
+		defer d.workers.Done()
+		defer cancel()
+		for ctx.Err() == nil {
+			if _, ok := d.all()[id]; !ok || d.IsOff(id) {
+				return // the site was removed or switched off
+			}
+			if err := d.RunQueue(ctx, id); err != nil && ctx.Err() == nil {
+				d.log.Error("download queue", "site", id, "err", err)
+			}
+			wait := time.Minute
+			if st, ok := d.all()[id]; ok {
+				if p := st.Client.Paused(); !p.Until.IsZero() {
+					wait = min(wait, max(time.Second, time.Until(p.Until))) // (paused: wakes for its next try)
+				}
+			}
+			select {
+			case <-d.wakeChan(id):
+			case <-time.After(wait):
+			case <-ctx.Done():
+			}
+		}
+	}()
+}
+
+// run works one search until it is done, fails, or ctx ends (then it stays
+// "running" and resumes on the next start).
+func (d *Downloader) run(ctx context.Context, st *Site, s Search) {
+	d.mu.Lock()
+	d.runs[s.ID] = true
+	d.mu.Unlock()
+	defer func() {
+		d.mu.Lock()
+		delete(d.runs, s.ID)
+		delete(d.stops, s.ID)
+		d.mu.Unlock()
+	}()
+	// Removed since the queue picked it (Remove stops only a search it sees running): nothing to do.
+	if err := d.db.R.QueryRowContext(ctx, "SELECT 1 FROM searches WHERE id = ?", s.ID).Scan(new(int)); errors.Is(err, sql.ErrNoRows) {
+		return
+	}
+	if s.State == StateQueued {
+		s.State = StateRunning
+		d.db.W.ExecContext(ctx, "UPDATE searches SET state = 'running', started_at = ? WHERE id = ? AND state = 'queued'",
+			d.now().UnixMilli(), s.ID)
+		d.Changed()
+	}
+	// Read now, and again before a post whenever they've changed since (lists.fresh): a tag blacklisted mid-download
+	// applies from its next post.
+	lists := &downloadLists{}
+	if err := d.loadLists(ctx, lists); err != nil {
+		d.finish(s, StateFailed, err.Error())
+		return
+	}
+	var favorite bool // its files become favorites
+	d.db.R.QueryRowContext(ctx, "SELECT favorite FROM searches WHERE id = ?", s.ID).Scan(&favorite)
+	// Paused or removed: stop before the next post (the state is already set).
+	defer d.stopped(s.ID, true)
+	// It steps aside for a waiting search the queue now puts first: a subscription check (Settings > Downloads) ahead
+	// of a download or a first check (looked for every few seconds, not for every post), or one dragged above it on the
+	// Downloads page (Reorder). It goes back in the queue at its place and carries on from its last post in its turn.
+	yielded := false
+	var lookedAt time.Time
+	stepAside := func() bool {
+		if yielded {
+			return true
+		}
+		if d.takeAside(s.ID) {
+			yielded = true
+			return true
+		}
+		if time.Since(lookedAt) < d.asideEvery {
+			return false
+		}
+		lookedAt = time.Now()
+		switch {
+		case d.runningOn(ctx, st.ID) > d.slots(st): // (fewer at once since it started: Settings > Downloads)
+			yielded = d.aheadWaiting(ctx, st.ID, s.ID)
+		case d.sorted():
+			yielded = d.aheadWaiting(ctx, st.ID, s.ID) // (a check, or one the sort puts first - fewer posts, say)
+		case s.isCheck() || !d.checksFirst():
+		default:
+			yielded = d.checkWaiting(ctx, st.ID) && d.aheadWaiting(ctx, st.ID, s.ID)
+		}
+		return yielded
+	}
+	defer func() {
+		if yielded {
+			d.db.W.ExecContext(context.WithoutCancel(ctx), "UPDATE searches SET state = 'queued' WHERE id = ? AND state = 'running'", s.ID)
+			d.log.Info("download steps aside for a search ahead of it in the queue", "site", s.Site, "search", s.ID)
+			d.Changed()
+		}
+	}()
+	stop := func() bool { return d.stopped(s.ID, false) || stepAside() }
+	first := s.LowID == 0
+	// A favorites subscription's complete check (from the newest post, not resumed):
+	// the posts it saw, to find favorites removed on the site (favgone.go).
+	var favSeen map[int64]bool
+	if s.SubscriptionID != 0 && s.LowID == 0 && plugin.IsFavorites(s.Query) {
+		favSeen = map[int64]bool{}
+	}
+	began := d.now()
+	s.runFrom = began.UnixMilli()
+	// Its run time: counted from now until this run ends (each post keeps it: record), then kept.
+	s.runBase = s.RunMS
+	d.mu.Lock()
+	d.runSince[s.ID] = [2]int64{s.runFrom, s.runBase}
+	d.mu.Unlock()
+	defer func() {
+		d.mu.Lock()
+		delete(d.runSince, s.ID)
+		d.mu.Unlock()
+		d.db.W.ExecContext(context.WithoutCancel(ctx), "UPDATE searches SET run_ms = ? WHERE id = ?", s.runBase+d.now().UnixMilli()-s.runFrom, s.ID)
+		d.Changed()
+	}()
+	d.log.Debug("search started", "site", s.Site, "search", s.ID, "query", s.Query, "resumed", s.LowID != 0, "below", s.LowID, "subscription", s.SubscriptionID)
+	defer func() {
+		d.log.Debug("search ended", "site", s.Site, "search", s.ID, "handled", s.Handled, "downloaded", s.Downloaded, "already", s.Already,
+			"took", d.now().Sub(began).Round(time.Second), "interrupted", ctx.Err() != nil)
+	}()
+	fetch := func(below int64) (plugin.Page, error) {
+		pctx, cancel := context.WithCancel(ctx)
+		d.trackPage(s.ID, cancel)
+		pageStart := d.now()
+		var page plugin.Page
+		var err error
+		if post, single, _ := plugin.SinglePost(st.Client.Manifest(), s.Query); single {
+			page, err = plugin.FetchSingle(pctx, st.Client.Manifest(), st.Engine, post, below)
+		} else {
+			page, err = st.Engine.Search(pctx, s.Query, below)
+		}
+		d.trackPage(s.ID, nil)
+		cancel()
+		d.log.Debug("page", "site", s.Site, "search", s.ID, "below", below, "posts", len(page.Posts), "total", page.Total,
+			"took", d.now().Sub(pageStart).Round(time.Millisecond), "err", err)
+		return page, err
+	}
+	seen := func(posts []plugin.Post) {
+		for _, p := range posts {
+			if favSeen != nil {
+				favSeen[p.ID] = true
+			}
+		}
+		if err := d.recordTypes(ctx, st.ID, posts[0].TagTypes); err != nil {
+			d.log.Warn("saving tag types", "site", s.Site, "err", err)
+		}
+	}
+	// The next page while a page's last files are still coming (below its oldest post): one slow file at the
+	// end of a page held every connection up until it came or was given up. Nothing (an error, the end):
+	// the next round of the loop below asks again from the resume point, as always.
+	more := func(below int64) []plugin.Post {
+		if stop() {
+			return nil
+		}
+		page, err := fetch(below)
+		if err != nil || len(page.Posts) == 0 {
+			return nil
+		}
+		seen(page.Posts)
+		return page.Posts
+	}
+	for {
+		if stop() {
+			return
+		}
+		page, err := fetch(s.LowID)
+		// No answer (or a 5xx, a Cloudflare block): asked again a few times, a little later each time - a site
+		// that's only briefly unwell carries on; one that's down gets paused on the way (and the search waits).
+		// (Out of time counts even when a file meanwhile reset the site's failures: its API can stall while files come.)
+		for try := 1; err != nil && try < st.Client.PauseAfter() && ctx.Err() == nil && !stop() && !pausedBy(st, err) &&
+			(st.Client.Failing() > 0 || errors.Is(err, context.DeadlineExceeded)); try++ {
+			select {
+			case <-time.After(time.Duration(try) * d.pageRetryWait):
+			case <-ctx.Done():
+			}
+			if ctx.Err() == nil {
+				page, err = fetch(s.LowID)
+			}
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		if stop() { // (a canceled request lands here: stopped, not failed)
+			return
+		}
+		if err != nil {
+			if pausedBy(st, err) {
+				return // (it stays running: it carries on from here once the site answers again)
+			}
+			d.finish(s, StateFailed, err.Error())
+			return
+		}
+		if first {
+			first = false
+			d.db.W.ExecContext(ctx, "UPDATE searches SET site_total = ? WHERE id = ?", page.Total, s.ID)
+		}
+		if len(page.Posts) == 0 {
+			if favSeen != nil {
+				if n, err := d.markFavGone(ctx, s.SubscriptionID, favSeen); err != nil {
+					d.log.Warn("favorites removed on the site", "subscription", s.SubscriptionID, "err", err)
+				} else if n > 0 {
+					d.log.Info("favorites removed on the site", "site", s.Site, "subscription", s.SubscriptionID, "files", n)
+				}
+			}
+			d.finish(s, StateDone, "")
+			return
+		}
+		seen(page.Posts)
+		if !d.runPage(ctx, st, &s, page.Posts, lists, favorite, stop, more) {
+			return
+		}
+	}
+}
+
+// downloadLists are what a download checks each post against: the blacklist and the download rules, as of ver.
+type downloadLists struct {
+	bl    *library.Blacklist
+	rules library.DownloadRules
+	ver   int64
+}
+
+// loadLists reads the blacklist and the download rules (the version first: a change made while reading shows next time).
+func (d *Downloader) loadLists(ctx context.Context, l *downloadLists) error {
+	ver := d.lib.DownloadListsVersion()
+	bl, err := d.lib.Blacklist(ctx)
+	if err != nil {
+		return err
+	}
+	rules, err := d.lib.DownloadRules(ctx)
+	if err != nil {
+		return err
+	}
+	*l = downloadLists{bl: bl, rules: rules, ver: ver}
+	return nil
+}
+
+// freshLists reads them again if they've changed (kept as they were if that fails: tried again before the next post).
+func (d *Downloader) freshLists(ctx context.Context, l *downloadLists) {
+	if d.lib.DownloadListsVersion() == l.ver {
+		return
+	}
+	if err := d.loadLists(ctx, l); err != nil {
+		d.log.Warn("reading the blacklist again", "err", err)
+	}
+}
+
+// runPage works through one page's posts, up to the plugin's connections at
+// once (a site's files download in parallel, in list order) - and the pages
+// after it that more brings while its last posts are in flight (so the
+// connections stay busy across pages). Each post is
+// recorded when it's done; the resume point (low_id) only moves past a post
+// once every newer post on the page is done - a crash may fetch a file
+// again, never skip one. Pausing stops new posts and lets the ones in flight
+// finish. It reports whether the search goes on to the next page.
+func (d *Downloader) runPage(ctx context.Context, st *Site, s *Search, posts []plugin.Post, lists *downloadLists,
+	favorite bool, stop func() bool, more func(below int64) []plugin.Post) bool {
+	// Files from a subscription's regular check (it stops at the newest post the last
+	// check saw) are "new" in the strict sense; anything else came in bulk.
+	bulk := !s.isCheck()
+	// Files at once: the plugin's number, or what tuning found (plugin/tune.go) - read again as each post starts.
+	conns := func() int { return max(1, st.Client.Connections()) }
+	if _, ok := st.Engine.(plugin.GalleryEngine); ok {
+		conns = func() int { return 1 } // one gallery at a time: its pages share the connections (see handleGallery)
+	}
+	type result struct {
+		i       int
+		outcome int
+		fileID  uint32
+		err     error
+	}
+	results := make(chan result)
+	// The site's connections, shared with its other downloads running now (slots.go): a post starts once it has one.
+	// freed: waiting for one (in line), told when to ask again.
+	gate := d.gate(st.ID)
+	defer gate.leave(s.ID)
+	var freed <-chan struct{}
+	done := make([]bool, len(posts))
+	next, inflight := 0, 0 // next: the first post not yet behind the resume point
+	ending := ""           // why no more posts start: "done", "stop" or "failed: ..."
+	// max_posts counts the posts gone through - new, had, blacklisted, skipped, deleted before, failed: what the Downloads
+	// page counts against it (2026-10-24; before, only the files that ended up in the library). While the posts in flight
+	// would reach it, no more start.
+	reached := func() bool { return s.MaxPosts > 0 && s.Handled >= s.MaxPosts }
+	// A user's favorites: a check goes through all of them (a post favorited
+	// since can be older than the newest one the last check saw).
+	favorites := plugin.IsFavorites(s.Query)
+	exhausted := more == nil // (no more pages to bring meanwhile)
+	pf := newPrefetcher(ctx, st)
+	oldRun := 0 // posts in a row older than the limit (a favorites list goes through whole: see favorites above)
+	for i := 0; i < len(posts) || inflight > 0; {
+		if ending == "" && reached() {
+			ending = "done"
+		}
+		if ending == "" && oldRun >= oldRunStop && !favorites {
+			d.log.Info("search ended: only posts older than the download rules' year from here", "site", s.Site, "search", s.ID, "below", s.LowID)
+			ending = "done"
+		}
+		enoughInFlight := s.MaxPosts > 0 && s.Handled+inflight >= s.MaxPosts
+		if i == len(posts) && inflight > 0 && inflight < conns() && ending == "" && !enoughInFlight && !exhausted {
+			// A connection is free and the page is used up: the next page now, not once its last files are in.
+			if np := more(posts[len(posts)-1].ID); len(np) > 0 {
+				posts = append(posts, np...)
+				done = append(done, make([]bool, len(np))...)
+			} else {
+				exhausted = true
+			}
+			continue
+		}
+		if i < len(posts) && inflight < conns() && ending == "" && !enoughInFlight {
+			p := posts[i]
+			switch {
+			case ctx.Err() != nil || stop():
+				ending = "stop"
+				continue
+			case s.StopID > 0 && p.ID <= s.StopID && !favorites && s.pastStop >= s.StopDepth:
+				ending = "done" // reached the posts the last check had (and went as deep past them as asked)
+				continue
+			case p.ID <= 0 || (s.LowID > 0 && p.ID >= s.LowID):
+				done[i] = true // the site ignored id:<N; don't loop
+				i++
+				continue
+			}
+			ok, wait := gate.take(s.ID, conns())
+			if !ok {
+				freed = wait
+				goto wait
+			}
+			if s.StopID > 0 && p.ID <= s.StopID {
+				s.pastStop++ // (a resumed check starts its depth again: a few posts more, never fewer)
+			}
+			d.freshLists(ctx, lists)
+			bl, rules := lists.bl, lists.rules
+			if s.Force { // (one post "anyway": no rules, no blacklist, past a deletion record - library.WithForce)
+				bl, rules = nil, library.DownloadRules{}
+			}
+			inflight++
+			next := slices.Clone(posts[i+1 : min(i+4, len(posts))]) // (the posts after it: one may have its page opened ahead)
+			go func(i int, p plugin.Post) {
+				pctx, untrack := d.trackPost(ctx, s.ID, p.ID)
+				pctx = withAhead(pctx, pf, next)
+				if s.Force {
+					pctx = library.WithForce(pctx)
+				}
+				postStart := d.now()
+				outcome, fileID, err := d.handle(pctx, st, p, bl, rules, bulk)
+				gate.release()
+				untrack()
+				d.log.Debug("post", "site", s.Site, "search", s.ID, "post", p.ID, "outcome", outcomeNames[outcome], "file", fileID,
+					"took", d.now().Sub(postStart).Round(time.Millisecond), "err", err)
+				results <- result{i, outcome, fileID, err}
+			}(i, p)
+			i++
+			continue
+		}
+		gate.leave(s.ID) // (starts nothing now: out of the line)
+	wait:
+		if inflight == 0 && freed == nil {
+			break // nothing in flight and nothing more to start
+		}
+		var r result
+		if freed != nil {
+			// Waiting for a connection another download has: a file of its own may come in first. (Asked again every
+			// second too: a pause or stop ends the wait even if no connection comes free.)
+			t := time.NewTimer(time.Second)
+			select {
+			case r = <-results:
+				t.Stop()
+				freed = nil
+			case <-freed:
+				t.Stop()
+				freed = nil
+				continue
+			case <-t.C:
+				freed = nil
+				continue
+			case <-ctx.Done():
+				t.Stop()
+				freed = nil
+				continue
+			}
+		} else {
+			r = <-results
+		}
+		inflight--
+		rctx := ctx // (recording it)
+		if ctx.Err() != nil {
+			if r.err != nil || (r.outcome != Downloaded && r.outcome != Already) {
+				continue // interrupted mid-file: fetched again on resume
+			}
+			// In the library before the stop came: recorded as it is (left out, the resume found its file and counted
+			// it "already there" instead of downloaded - CI caught it). The loop still stops: nothing new starts.
+			rctx = context.WithoutCancel(ctx)
+		}
+		p := posts[r.i]
+		// (one it has counts too, by its date; any post not known to be old starts the count again)
+		if r.outcome == TooOld || lists.rules.TooOld(p.Posted) {
+			oldRun++
+		} else {
+			oldRun = 0
+		}
+		if r.err != nil && pausedBy(st, r.err) {
+			// The site stopped answering, or banned this address for a while (a gallery's page said so): not recorded
+			// as failed - the search carries on from this post when the site's pause ends.
+			if ending == "" || ending == "done" || ending == "stop" {
+				ending = "paused"
+			}
+			continue
+		}
+		var stop errStopSearch
+		if errors.As(r.err, &stop) {
+			// (not recorded: the search goes on from this post later - a gallery from the page it stopped at)
+			d.log.Warn("search stopped", "site", s.Site, "post", p.ID, "err", r.err)
+			if ending == "" || ending == "done" || ending == "stop" {
+				ending = "failed: " + stop.Error()
+			}
+			continue
+		}
+		if r.err != nil {
+			d.log.Warn("post failed", "site", s.Site, "post", p.ID, "err", r.err)
+		}
+		if favorites && s.SubscriptionID != 0 && r.fileID != 0 && (r.outcome == Downloaded || r.outcome == Already) {
+			d.noteFavMember(rctx, s.SubscriptionID, p.ID, r.fileID)
+		}
+		if favorite && r.fileID != 0 && (r.outcome == Downloaded || r.outcome == Already) {
+			// (a favorite already keeps the time it became one)
+			if _, err := d.lib.SetFavorite(rctx, []uint32{r.fileID}, true); err != nil {
+				d.log.Warn("adding to favorites", "site", s.Site, "file", r.fileID, "err", err)
+			}
+		}
+		done[r.i] = true
+		low := s.LowID
+		for next < len(posts) && done[next] {
+			low = posts[next].ID
+			next++
+		}
+		again, err := d.record(*s, st.ID, p.ID, r.fileID, r.outcome, low, r.err)
+		if err != nil {
+			if ending == "" || ending == "stop" || ending == "done" {
+				ending = "failed: " + err.Error()
+			}
+			continue
+		}
+		s.LowID = low
+		if !again { // (counted already, before the search was resumed)
+			s.Handled++
+			switch r.outcome {
+			case Downloaded:
+				s.Downloaded++
+			case Already:
+				s.Already++
+			}
+		}
+		if d.OnPost != nil {
+			d.OnPost(*s, p, r.outcome, r.err)
+		}
+	}
+	// Every post on the page handled: the resume point is the page's last post.
+	for next < len(posts) && done[next] {
+		s.LowID = posts[next].ID
+		next++
+	}
+	switch {
+	case ctx.Err() != nil, ending == "stop", ending == "paused":
+		return false
+	case strings.HasPrefix(ending, "failed: "):
+		d.finish(*s, StateFailed, strings.TrimPrefix(ending, "failed: "))
+		return false
+	case ending == "done" || reached():
+		d.finish(*s, StateDone, "")
+		return false
+	}
+	return true
+}
+
+// pausedBy says whether err came from the site being paused (or pausing with it): the work waits instead of failing.
+func pausedBy(st *Site, err error) bool {
+	return errors.Is(err, plugin.ErrPaused) || !st.Client.Paused().Until.IsZero()
+}
+
+// sitePaused hears a site pause (it kept failing to answer; again: a try failed) or answer again: the user hears
+// of it once each way (not of every try), the Downloads page shows it, and the site's queue carries on when it's back.
+func (d *Downloader) sitePaused(m plugin.Manifest, paused bool, p plugin.Pause) {
+	switch {
+	case paused && p.Kind == plugin.PauseBan:
+		d.log.Warn("site paused: it banned this address for a while", "site", m.ID, "until", p.Until.Format("15:04:05"), "err", p.Reason)
+	case paused:
+		d.log.Warn("site paused: it isn't answering", "site", m.ID, "until", p.Until.Format("15:04:05"), "tries", p.Tries, "err", p.Reason)
+	default:
+		d.log.Info("site answers again", "site", m.ID, "paused_since", p.Since.Format("15:04:05"))
+	}
+	// Kept over restarts (a restart doesn't start the waits over).
+	var keep *library.SitePause
+	if paused {
+		keep = &library.SitePause{Since: p.Since.UnixMilli(), Until: p.Until.UnixMilli(), Reason: p.Reason, Tries: p.Tries, Kind: p.Kind}
+	}
+	if err := d.lib.SetSitePause(context.Background(), m.ID, keep); err != nil {
+		d.log.Warn("keeping a site's pause", "site", m.ID, "err", err)
+	}
+	if d.OnEvent != nil && (!paused || p.Tries == 0) {
+		e := Event{Kind: EventBack, Site: m.Site}
+		if paused {
+			e = Event{Kind: EventPaused, Site: m.Site, Error: p.Reason, First: p.Kind == plugin.PauseBan}
+		}
+		d.OnEvent(e)
+	}
+	if !paused {
+		d.wake(m.ID)
+		d.kick()
+	}
+	d.Changed()
+}
+
+// SetChecksFirst sets whether subscription checks go ahead of downloads (Settings > Downloads).
+func (d *Downloader) SetChecksFirst(on bool) {
+	d.mu.Lock()
+	d.checksOff = !on
+	d.mu.Unlock()
+	if on {
+		for id := range d.all() {
+			d.wake(id) // (a download running now steps aside at its next post)
+		}
+	}
+}
+
+func (d *Downloader) checksFirst() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return !d.checksOff
+}
+
+// takeAside reports (once) whether a reorder put a waiting search ahead of the running one.
+func (d *Downloader) takeAside(id int64) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	on := d.aside[id]
+	delete(d.aside, id)
+	return on
+}
+
+// checkWaiting reports whether a subscription check waits in the site's queue (a download steps aside for it).
+func (d *Downloader) checkWaiting(ctx context.Context, siteID uint32) bool {
+	var n int
+	d.db.R.QueryRowContext(ctx, `SELECT count(*) FROM searches s WHERE s.site_id = ? AND s.state = 'queued' AND `+checkSQL, siteID).Scan(&n)
+	return n > 0
+}
+
+// sorted reports whether the queue runs by the searches' counts (SetQueueSort).
+func (d *Downloader) sorted() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.queueSort != ""
+}
+
+// aheadWaiting reports whether the running search is no longer among the first of the site's searches - as many as
+// run at once (slots) - in the queue's order (checks first unless turned off, then queueOrder - by count, or position,
+// which a reorder may have changed): a waiting one comes before it, or more run than may: it steps aside.
+func (d *Downloader) aheadWaiting(ctx context.Context, siteID uint32, run int64) bool {
+	n := 1
+	for _, st := range d.all() {
+		if st.ID == siteID {
+			n = d.slots(st)
+		}
+	}
+	first, err := db.Column[int64](ctx, d.db.R, `SELECT s.id FROM searches s WHERE s.site_id = ?1 AND (s.state IN ('queued', 'running') OR s.id = ?3)
+		ORDER BY (?2 AND `+checkSQL+`) DESC, `+d.queueOrder()+` LIMIT ?4`, siteID, d.checksFirst(), run, n)
+	return err == nil && len(first) > 0 && !slices.Contains(first, run)
+}
+
+// runningOn counts the site's running searches.
+func (d *Downloader) runningOn(ctx context.Context, siteID uint32) int {
+	var n int
+	d.db.R.QueryRowContext(ctx, "SELECT count(*) FROM searches WHERE site_id = ? AND state = 'running'", siteID).Scan(&n)
+	return n
+}
+
+// SetQueueSort sets the order a site's downloads run in (queueOrder: "", "files" or "files_asc"); a running one
+// steps aside at its next post when another now comes first.
+func (d *Downloader) SetQueueSort(sort string) {
+	if sort != "files" && sort != "files_asc" {
+		sort = ""
+	}
+	d.mu.Lock()
+	d.queueSort = sort
+	d.mu.Unlock()
+	for id := range d.all() {
+		d.wake(id)
+	}
+}
+
+// SetPauseAfter sets how many connection failures in a row pause a site (0: never; below 0: the default).
+func (d *Downloader) SetPauseAfter(n int) {
+	if n < 0 {
+		n = plugin.PauseAfter
+	}
+	d.mu.Lock()
+	d.pauseAfter = n
+	d.mu.Unlock()
+	for _, st := range d.all() {
+		st.Client.SetPauseAfter(n)
+	}
+}
+
+// TryNow makes a paused site try again now.
+func (d *Downloader) TryNow(site string) error {
+	st, ok := d.all()[site]
+	if !ok {
+		return fmt.Errorf("%w: %q", ErrUnknownSite, site)
+	}
+	st.Client.TryNow()
+	d.wake(site)
+	return nil
+}
+
+// Event is something the user may want to hear about.
+type Event struct {
+	Kind         string // EventNewFiles, EventFailed, EventDone or EventBlacklisted
+	Site         string // the site's address, e.g. "safebooru.org"
+	Query        string
+	Subscription bool
+	New          int    // files downloaded
+	Error        string // EventFailed: why
+	Tag          string // EventBlacklisted: the blacklist entry the file now matches
+	First        bool   // EventDone: a subscription's first check (its initial download); EventPaused: the site's own ban
+	Pages        int    // a gallery site's: the pages brought in (New counts its galleries)
+	SearchID     int64  // the download it is about (0: none - a site's pause, a blacklisted tag)
+	SubID        int64  // the subscription it is about (0: none)
+}
+
+const (
+	EventNewFiles = "new"    // a subscription's regular check found new files
+	EventFailed   = "failed" // a subscription check failed (the first time in a row) or a search stopped retrying
+	EventPaused   = "paused" // a site kept failing to answer: its downloads wait (Error: the last failure)
+	EventBack     = "back"   // a paused site answers again: its downloads carry on
+	EventDone     = "done"   // a search finished, or a subscription's first check (First)
+	// A file in the library got a blacklisted tag (a tag refresh, or the same
+	// file found on another site). New downloads never have one: they're skipped.
+	EventBlacklisted = "blacklisted"
+)
+
+// setSitePost writes what a site says about a file the library has, and tells
+// when that gives the file a blacklisted tag it didn't have.
+func (d *Downloader) setSitePost(ctx context.Context, st *Site, file uint32, sp library.SitePost, bl *library.Blacklist) error {
+	if bl == nil || len(bl.Patterns()) == 0 || bl.Match(sp.Tags) == "" {
+		return d.lib.SetSitePost(ctx, file, st.ID, sp) // nothing blacklisted can come of it
+	}
+	before := d.blacklistedTag(ctx, file, bl)
+	if err := d.lib.SetSitePost(ctx, file, st.ID, sp); err != nil {
+		return err
+	}
+	if before != "" || d.OnEvent == nil || d.lib.IsKept(file) { // (kept despite the blacklist: nothing to tell)
+		return nil
+	}
+	if now := d.blacklistedTag(ctx, file, bl); now != "" {
+		d.OnEvent(Event{Kind: EventBlacklisted, Site: st.Client.Manifest().Site, Tag: now})
+	}
+	return nil
+}
+
+// blacklistedTag is the blacklist entry one of the file's tags matches ("" if none).
+func (d *Downloader) blacklistedTag(ctx context.Context, file uint32, bl *library.Blacklist) string {
+	tags, err := d.lib.FileTags(ctx, file)
+	if err != nil {
+		return ""
+	}
+	names := make([]string, len(tags))
+	for i, t := range tags {
+		names[i] = t.Tag
+		if _, name, ok := strings.Cut(t.Tag, ":"); ok {
+			names = append(names, name) // "creator:x" also as "x" (the blacklist matches either)
+		}
+	}
+	return bl.Match(names)
+}
+
+func (d *Downloader) emit(s Search, e Event) {
+	if d.OnEvent == nil {
+		return
+	}
+	e.Site = s.Site
+	if st := d.all()[s.Site]; st != nil {
+		e.Site = st.Client.Manifest().Site
+	}
+	e.Query = strings.TrimSpace(s.Query)
+	// A gallery's link: said by its title (2026-11-02: the bell showed the link). Read now: it has one by the end.
+	if strings.HasPrefix(e.Query, "http") {
+		if now, err := d.Get(context.Background(), s.ID); err == nil && now.Label != "" {
+			e.Query = now.Label
+		}
+	}
+	e.Subscription = s.SubscriptionID != 0
+	e.SearchID, e.SubID = s.ID, s.SubscriptionID
+	d.OnEvent(e)
+}
+
+// finish marks a search done or failed. It uses a fresh context: it must be
+// written even if the run's context was just canceled.
+func (d *Downloader) finish(s Search, state, msg string) {
+	defer d.Changed()
+	if s.SubscriptionID != 0 {
+		d.finishCheck(s, state, msg)
+		return
+	}
+	now := d.now().UnixMilli()
+	// A failure is retried automatically a few times, waiting longer each time
+	// (attempts counts failures in a row; any handled post resets it).
+	_, err := d.db.W.Exec(`UPDATE searches SET state = ?1, error = nullif(?2, ''), finished_at = ?3,
+		attempts = CASE WHEN ?1 = 'failed' THEN attempts + 1 ELSE 0 END,
+		retry_at = CASE WHEN ?1 = 'failed' AND attempts < ?4
+			THEN ?3 + (SELECT value FROM json_each(?5) WHERE key = attempts) END
+		WHERE id = ?6`, state, msg, now, len(d.retryWaits), retryWaitsJSON(d.retryWaits), s.ID)
+	if err != nil {
+		d.log.Error("finishing search", "search", s.ID, "err", err)
+	}
+	if state == StateFailed {
+		d.log.Warn("search failed", "site", s.Site, "query", s.Query, "err", msg)
+	}
+	if err == nil && d.OnEvent != nil {
+		var downloaded, pages int
+		var retrying bool
+		d.db.R.QueryRow("SELECT downloaded, pages, retry_at IS NOT NULL FROM searches WHERE id = ?", s.ID).Scan(&downloaded, &pages, &retrying)
+		switch {
+		case state == StateDone:
+			d.emit(s, Event{Kind: EventDone, New: downloaded, Pages: pages})
+		case !retrying: // gave up trying by itself
+			d.emit(s, Event{Kind: EventFailed, Error: msg})
+		}
+	}
+}
+
+var counterColumn = map[int]string{
+	Downloaded: "downloaded", Already: "already", Deleted: "deleted", Failed: "failed", Skipped: "skipped",
+	Blacklisted: "blacklisted", TooBig: "skipped", TooOld: "skipped",
+}
+
+// record writes the post's outcome and the search's resume point (low: the
+// oldest post every newer one of which is done), in one transaction.
+func (d *Downloader) record(s Search, siteID uint32, postID int64, fileID uint32, outcome int, low int64, postErr error) (again bool, err error) {
+	tx, err := d.db.W.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	var file any
+	if fileID != 0 {
+		// Removed for good since the post was handled (the trash emptied meanwhile): recorded without its file - left
+		// in, the insert broke the foreign key and failed the whole check (2026-10-28, on the main instance).
+		var one int
+		if tx.QueryRow("SELECT 1 FROM files WHERE id = ?", fileID).Scan(&one) == nil {
+			file = fileID
+		} else {
+			fileID = 0
+		}
+	}
+	// Recorded by this same search already (it was resumed: the posts finished past its resume point come again)?
+	// Then it isn't counted twice - only moved to its new outcome's count.
+	// (recorded since the search started, before this run of it began: by its earlier run)
+	before := -1
+	tx.QueryRow(`SELECT sp.outcome FROM seen_posts sp JOIN searches s ON s.id = ?
+		WHERE sp.site_id = ? AND sp.post_id = ? AND sp.query = s.query AND s.started_at IS NOT NULL
+		AND sp.seen_at > s.started_at AND sp.seen_at < ?`,
+		s.ID, siteID, postID, s.runFrom).Scan(&before)
+	if err := recordSeen(tx, siteID, postID, file, outcome, postErr, strings.TrimSpace(s.Query), d.now().UnixMilli()); err != nil {
+		return false, err
+	}
+	now := d.now().UnixMilli()
+	if fileID != 0 && (outcome == Downloaded || outcome == Already) {
+		// "Found by": the first time this search met the file.
+		var sub any
+		if s.SubscriptionID != 0 {
+			sub = s.SubscriptionID
+		}
+		if _, err := tx.Exec(`INSERT INTO file_sources (file_id, site_id, query, subscription_id, downloaded, first_at)
+			VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+			fileID, siteID, strings.TrimSpace(s.Query), sub, outcome == Downloaded, now); err != nil {
+			return false, err
+		}
+	}
+	col := counterColumn[outcome]
+	counts := `handled = handled + 1, ` + col + ` = ` + col + ` + 1`
+	if before >= 0 {
+		// Counted already: unchanged - unless it had failed and now hasn't (then it moves).
+		counts = `handled = handled`
+		if before == Failed && outcome != Failed {
+			counts = col + ` = ` + col + ` + 1, failed = max(0, failed - 1)`
+		}
+	}
+	if _, err := tx.Exec(`UPDATE searches SET low_id = ?, high_id = max(high_id, ?), attempts = 0, run_ms = max(run_ms, ?), `+counts+` WHERE id = ?`,
+		low, postID, s.runSoFar(d.now()), s.ID); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	if fileID != 0 && outcome == Downloaded && s.SubscriptionID != 0 {
+		d.lib.Index().AddFoundBy(fileID, uint32(s.SubscriptionID)) // (system:found_by= finds it)
+		d.foundChanged(s.SubscriptionID, now)
+	}
+	d.Changed()
+	return before >= 0, nil
+}
+
+// foundChanged: a subscription found a new file at (Unix ms) - set in lastFound's map (a copy: readers share the old
+// one), not read again.
+func (d *Downloader) foundChanged(sub, at int64) {
+	d.foundMu.Lock()
+	defer d.foundMu.Unlock()
+	if d.foundOut == nil || d.foundOut[sub] >= at {
+		return
+	}
+	m := make(map[int64]int64, len(d.foundOut)+1)
+	for k, v := range d.foundOut {
+		m[k] = v
+	}
+	m[sub] = at
+	d.foundOut = m
+}
+
+// handle brings one post into the library.
+func (d *Downloader) handle(ctx context.Context, st *Site, p plugin.Post, bl *library.Blacklist, rules library.DownloadRules, bulk bool) (int, uint32, error) {
+	// A partial post (an HTML list page: ID and md5 only) is opened only when
+	// it's needed - not for posts seen before or files deleted before.
+	var full *plugin.Post
+	if !p.Partial {
+		full = &p
+	}
+	details := func() (*plugin.Post, error) {
+		if full != nil {
+			return full, nil
+		}
+		var fp *plugin.Post
+		var err error
+		opened := false
+		if a := aheadOf(ctx); a != nil {
+			fp, err, opened = a.pf.take(ctx, p.ID) // (opened while the post before downloaded its file)
+			if opened && err != nil && ctx.Err() == nil {
+				opened = false // (that try failed: once more, now)
+			}
+		}
+		if !opened {
+			fp, err = st.Engine.Lookup(ctx, p.ID)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if fp != nil {
+			if fp.MD5 == [16]byte{} {
+				fp.MD5 = p.MD5
+			}
+			if err := d.recordTypes(ctx, st.ID, fp.TagTypes); err != nil {
+				d.log.Warn("saving tag types", "site", st.Client.Manifest().ID, "err", err)
+			}
+		}
+		full = fp
+		return fp, nil
+	}
+	sitePost := func(fp *plugin.Post) library.SitePost {
+		sp := library.SitePost{Tags: fp.Tags, PostURL: fp.PostURL, Sources: fp.Sources, FileURL: fp.FileURL, Rating: fp.Rating,
+			Namespaces: namespaces(st.Client.Manifest(), *fp)}
+		if !fp.Posted.IsZero() {
+			sp.PostedAt = fp.Posted.UnixMilli()
+		}
+		sp.PostID = fp.ID
+		return sp
+	}
+
+	// A whole gallery: a comic (its pages, never library files). Never skipped as
+	// seen: it fetches only the pages its comic lacks (none: had).
+	if p.Gallery != nil {
+		if rules.TooOld(p.Posted) {
+			return TooOld, 0, nil
+		}
+		return d.handleGallery(ctx, st, p, bl)
+	}
+
+	// Seen before (e.g. by an overlapping search)?
+	var prev int
+	var prevFile sql.NullInt64
+	err := d.db.R.QueryRowContext(ctx, "SELECT outcome, file_id FROM seen_posts WHERE site_id = ? AND post_id = ?",
+		st.ID, p.ID).Scan(&prev, &prevFile)
+	// Too old last time, the limit still there: not opened again (lowering the limit forgets these; a post that came with
+	// its date is simply checked below).
+	if err == nil && prev == TooOld && p.Partial && rules.UploadedBefore > 0 {
+		return TooOld, 0, nil
+	}
+	forced := library.Forced(ctx) // (one post "anyway": not passed as seen, nor as deleted)
+	if err == nil && !forced && prev != Failed && prev != Blacklisted && prev != TooBig && prev != TooOld {
+		// Its file deleted since (purged: the link emptied), or recorded as deleted: "deleted before", not "already had" -
+		// those counts said the library had files it didn't (2026-11-15: 311k such posts in one library, after deleting every
+		// file uploaded in or before 2020). (skipped before - a type Vitrine can't keep, gone from the site: no file either -
+		// stays skipped)
+		noFile := !prevFile.Valid || prevFile.Int64 <= 0
+		if !noFile && (prev == Downloaded || prev == Already) {
+			var gone bool // (in the trash: deleted as well)
+			if d.db.R.QueryRowContext(ctx, "SELECT deleted_at IS NOT NULL AND flags & 64 = 0 FROM files WHERE id = ?", prevFile.Int64).Scan(&gone) == nil && gone {
+				noFile = true
+			}
+		}
+		switch {
+		case prev == Deleted || (noFile && (prev == Downloaded || prev == Already)):
+			return Deleted, 0, nil
+		case prev == Skipped:
+			return Skipped, 0, nil
+		}
+		// Refresh what the site says now (tags, links, upload time): running a
+		// search again updates posts the library already has. (A partial post
+		// isn't opened for that: the tag refresh does it at its own pace.)
+		if prevFile.Valid && prevFile.Int64 > 0 && !p.Partial {
+			return Already, uint32(prevFile.Int64), d.setSitePost(ctx, st, uint32(prevFile.Int64), sitePost(&p), bl)
+		}
+		return Already, uint32(max(0, prevFile.Int64)), nil
+	}
+
+	// Ask the library first: the site gives the md5 up front.
+	if p.MD5 != [16]byte{} {
+		m, err := d.lib.FindMD5(ctx, p.MD5)
+		if err != nil {
+			return Failed, 0, err
+		}
+		if m.FileID != 0 {
+			// Same file, maybe from another site: add this site's post to it.
+			fp, err := details()
+			if err != nil {
+				return Failed, 0, err
+			}
+			if fp == nil {
+				return Already, m.FileID, nil
+			}
+			return Already, m.FileID, d.setSitePost(ctx, st, m.FileID, sitePost(fp), bl)
+		}
+		if m.Deleted && !forced {
+			return Deleted, 0, nil
+		}
+	}
+
+	fp, err := details()
+	if err != nil {
+		return Failed, 0, err
+	}
+	if fp == nil {
+		return Skipped, 0, nil // gone from the site since the list page
+	}
+
+	// Older than the download rules' year (a file it has already was found above: that stays). No date: downloaded.
+	if rules.TooOld(fp.Posted) {
+		return TooOld, 0, nil
+	}
+	// Blacklisted: not downloaded, but recorded as seen so a rerun doesn't page
+	// through it again. (A post skipped earlier is checked again: the
+	// blacklist may have changed.)
+	if bl.Match(fp.Tags) != "" {
+		return Blacklisted, 0, nil
+	}
+	if fp.FileURL == "" {
+		return Failed, 0, errors.New("the post has no file URL")
+	}
+	// Download rules: images by their size in pixels (when the site says).
+	if rules.ImagePixels > 0 && !isVideoURL(fp.FileURL) && int64(fp.Width)*int64(fp.Height) > rules.ImagePixels {
+		return TooBig, 0, nil
+	}
+
+	// The next post that will need its page has it opened while this file downloads (prefetch.go).
+	d.openNext(ctx, aheadOf(ctx))
+
+	// The file, or its alternatives in turn (a video's webm when its mp4 is
+	// missing or empty).
+	var f library.File
+	var modified time.Time
+	urls := append([]string{fp.FileURL}, fp.AltFileURLs...)
+	for i, u := range urls {
+		var limit int64
+		if isVideoURL(u) {
+			limit = rules.VideoBytes
+		}
+		var md5 [16]byte
+		if i == 0 {
+			md5 = fp.MD5 // (the site's md5 is the post's file's, not an alternative's)
+		}
+		if i == 0 && len(fp.AudioURLs) > 0 { // (its sound a file of its own: mux.go)
+			f, modified, err = d.fetchMuxed(ctx, st, u, fp.AudioURLs, limit, bulk, fp.Posted, fp.ID)
+		} else {
+			f, modified, err = d.fetchFile(ctx, st, st.Client.Manifest().FileFetchURL(u, fp.ID), md5, limit, bulk, fp.Posted, fp.ID) // (as the site links it: see FileQuery)
+		}
+		if err != nil && ctx.Err() != nil {
+			return Failed, 0, ctx.Err() // (stopped mid-file: fetched again on resume)
+		}
+		if err == nil || errors.Is(err, library.ErrDeleted) || i == len(urls)-1 {
+			break
+		}
+		d.log.Info("trying the next file for the post", "site", st.Client.Manifest().ID, "post", p.ID, "err", err)
+	}
+	switch {
+	case errors.Is(err, errTooBig):
+		return TooBig, 0, nil
+	case errors.Is(err, media.ErrUnsupported):
+		return Skipped, 0, nil
+	case errors.Is(err, library.ErrDeleted):
+		return Deleted, 0, nil
+	case err != nil:
+		return Failed, 0, err
+	}
+	fp.Posted = refinePosted(fp.Posted, modified)
+	// In the library now: finished whatever comes (a stop just after the import left it unrecorded - the resume found
+	// its file and counted it "already there" instead of downloaded; CI, on its slower machines).
+	if err := d.lib.SetSitePost(context.WithoutCancel(ctx), f.ID, st.ID, sitePost(fp)); err != nil {
+		return Failed, f.ID, err
+	}
+	if f.New {
+		// Its thumbnail is made by the media worker (library.RunMedia): the
+		// download goes straight on to the next file.
+		d.lib.WakeMedia()
+		return Downloaded, f.ID, nil
+	}
+	return Already, f.ID, nil
+}
+
+// fetchFile downloads one file into the library, trying again after short
+// waits when the failure may pass (network trouble, the server busy) - not for
+// a missing file, a web page instead of the file, or a type Vitrine can't keep.
+// It also returns the file's Last-Modified time (zero if the site sent none).
+//
+// With the md5 the site gave for it (zero: none), the file is kept only if it matches: one that doesn't came out
+// wrong and is downloaded again. If the site then sends the very same file again, its md5 is just wrong for it (a
+// site that lists another version's md5): it's kept - an error would fail the post for good.
+// posted, postID: the post's upload time (zero: unknown) and ID - the file goes into the library with them (refined by
+// its Last-Modified as handle does after), never sorted for a moment as the newest upload by its import time.
+func (d *Downloader) fetchFile(ctx context.Context, st *Site, u string, md5 [16]byte, maxBytes int64, bulk bool, posted time.Time, postID int64) (library.File, time.Time, error) {
+	var want [][16]byte // the md5s the file may have
+	if md5 != ([16]byte{}) {
+		want = [][16]byte{md5}
+	}
+	for attempt := 0; ; attempt++ {
+		var f library.File
+		var modified time.Time
+		fileStart := d.now()
+		body, size, err := st.Client.File(ctx, u)
+		if err == nil && maxBytes > 0 && size > maxBytes {
+			body.Close()
+			return f, modified, errTooBig // a download rule: known from the size before reading it
+		}
+		if err == nil {
+			if m, ok := body.(interface{ Modified() time.Time }); ok {
+				modified = m.Modified()
+			}
+			// A file that came in one piece over HTTPS (as long as the site said) with another md5 than the site gave:
+			// usually the site's own mistake (a file replaced since - rule34's older videos came 68 times in a few
+			// minutes). Two small pieces asked for again and the same as ours: it's what the site has - kept, not
+			// downloaded a whole second time to be sure. Otherwise (one carried on from a later request could mix two
+			// copies; a site without Range requests) it's downloaded again, as before.
+			whole, _ := body.(interface{ InOnePiece() bool })
+			body = d.countBody(ctx, body, size)
+			var at int64
+			if p := refinePosted(posted, modified); !p.IsZero() {
+				at = p.UnixMilli()
+			}
+			f, err = d.lib.ImportPosted(ctx, body, bulk, at, postID, func(got [16]byte, content io.ReaderAt, n int64) bool {
+				if len(want) == 0 || slices.Contains(want, got) {
+					return true
+				}
+				return whole != nil && whole.InOnePiece() && d.sameAsSite(ctx, st, u, content, n)
+			})
+			body.Close()
+		}
+		var wrong *store.MD5MismatchError
+		if errors.As(err, &wrong) {
+			want = [][16]byte{md5, wrong.Got} // (the same again: the site's md5 is wrong, not the download)
+		} else if err == nil && md5 != ([16]byte{}) && f.MD5 != md5 {
+			// Once per site while Vitrine runs (it came 68 times in a few minutes on a big first check).
+			if _, said := d.md5Warned.LoadOrStore(st.Client.Manifest().ID, true); !said {
+				d.log.Warn("the site's md5 doesn't match some of its files (replaced on the site since): kept as they came", "site", st.Client.Manifest().ID, "url", u)
+			}
+			d.log.Debug("the site's md5 doesn't match its file: kept", "site", st.Client.Manifest().ID, "url", u)
+		}
+		d.log.Debug("file", "site", st.Client.Manifest().ID, "url", u, "attempt", attempt+1, "bytes", size, "new", f.New, "file_id", f.ID,
+			"took", d.now().Sub(fileStart).Round(time.Millisecond), "err", err)
+		if err == nil || ctx.Err() != nil || !mayPass(err) || attempt >= len(d.fileWaits) {
+			return f, modified, err
+		}
+		d.log.Info("file download failed; trying again", "site", st.Client.Manifest().ID, "err", err)
+		select {
+		case <-time.After(d.fileWaits[attempt]):
+		case <-ctx.Done():
+			return f, modified, ctx.Err()
+		}
+	}
+}
+
+var errTooBig = errors.New("larger than the download rules allow")
+
+// refinePosted gives an upload time that is only a day (a site's page says "Oct, 14 2026": midnight UTC) its moment
+// from the file's Last-Modified - when that falls on the same day (realbooru keeps it as the upload time; checked
+// on posts from 2019 to 2026, images and videos). Anything else stays as the page says.
+func refinePosted(posted, modified time.Time) time.Time {
+	if posted.IsZero() || modified.IsZero() {
+		return posted
+	}
+	p := posted.UTC()
+	if p.Hour() != 0 || p.Minute() != 0 || p.Second() != 0 || p.Nanosecond() != 0 {
+		return posted // (a moment already)
+	}
+	m := modified.UTC()
+	if m.Year() == p.Year() && m.YearDay() == p.YearDay() {
+		return m
+	}
+	return posted
+}
+
+// isVideoURL guesses from a file URL's extension whether it's a video.
+func isVideoURL(u string) bool {
+	u = strings.ToLower(u)
+	if i := strings.IndexAny(u, "?#"); i >= 0 {
+		u = u[:i]
+	}
+	for _, ext := range []string{".mp4", ".webm", ".mov", ".mkv", ".m4v"} {
+		if strings.HasSuffix(u, ext) {
+			return true
+		}
+	}
+	return false
+}
+
+// mayPass reports whether a download error is worth another try.
+func mayPass(err error) bool {
+	var se *plugin.StatusError
+	switch {
+	case errors.As(err, &se):
+		return se.Code == http.StatusTooManyRequests || se.Code >= 500
+	case errors.Is(err, plugin.ErrNotAFile), errors.Is(err, media.ErrUnsupported), errors.Is(err, library.ErrDeleted),
+		errors.Is(err, plugin.ErrCutShort): // (the same again from the start: no)
+		return false
+	}
+	return true // the connection dropped, a timeout, ...
+}
+
+// OtherHosts lists the other addresses the plugins know for the site a host
+// belongs to (its API, its post pages) - e.g. for a site icon when the main
+// address is behind a bot check.
+func (d *Downloader) OtherHosts(host string) []string {
+	var out []string
+	for _, s := range d.all() {
+		m := s.Client.Manifest()
+		if !slices.ContainsFunc(m.Domains, func(dom string) bool { return host == dom || strings.HasSuffix(host, "."+dom) }) {
+			continue
+		}
+		for _, raw := range []string{m.Base, m.PostURL} {
+			if u, err := url.Parse(strings.ReplaceAll(raw, "{id}", "1")); err == nil && u.Hostname() != "" && u.Hostname() != host && !slices.Contains(out, u.Hostname()) {
+				out = append(out, u.Hostname())
+			}
+		}
+	}
+	return out
+}
+
+// Site returns a site by plugin ID (nil if unknown).
+func (d *Downloader) Site(id string) *Site { return d.all()[id] }
+
+// sampleBytes: the size of each piece sameAsSite asks for again.
+const sampleBytes = 64 << 10
+
+// sameAsSite reports whether two pieces of the file - from its middle and its end - asked for again (Range requests)
+// are the same as in content: the file came as the site has it. Any doubt (an error, a site without Range requests,
+// a file too small for two pieces) is no.
+func (d *Downloader) sameAsSite(ctx context.Context, st *Site, u string, content io.ReaderAt, size int64) bool {
+	if size < 2*sampleBytes+1 {
+		return false
+	}
+	// Both pieces at once: one after the other, each was a round trip more for every such file while its connection waited
+	// - rule34's older videos through the VPN, ~0.2-0.8 s each (2026-10-28).
+	offs := []int64{size / 2, size - sampleBytes}
+	same := make([]bool, len(offs))
+	var wg sync.WaitGroup
+	for i, off := range offs {
+		wg.Go(func() {
+			got, err := st.Client.FileSample(ctx, u, off, sampleBytes)
+			if err != nil {
+				d.log.Debug("file sample", "site", st.Client.Manifest().ID, "err", err)
+				return
+			}
+			ours := make([]byte, sampleBytes)
+			if _, err := content.ReadAt(ours, off); err != nil && !errors.Is(err, io.EOF) {
+				return
+			}
+			same[i] = bytes.Equal(got, ours)
+		})
+	}
+	wg.Wait()
+	return !slices.Contains(same, false)
+}

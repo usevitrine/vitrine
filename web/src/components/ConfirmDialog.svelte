@@ -1,0 +1,282 @@
+<script lang="ts">
+  import { phone } from '../lib/media';
+  import GrabBar from './GrabBar.svelte';
+  import { overlayScroll } from '../lib/overlayScroll';
+  // The confirmation before a destructive action (lib/confirm): what goes (a
+  // red badge, or the files' pictures), a question, one line, Cancel and the
+  // action. A card in the middle on wider screens, a sheet on phones. Escape or
+  // a press outside cancels; Tab stays inside. With a word to type (typed), the
+  // action waits until it's typed.
+  import { backClose } from '../lib/backClose';
+  import { tick } from 'svelte';
+  import { confirmer } from '../lib/confirm.svelte';
+  import { sheetIn, sheetOut, shade } from '../lib/sheet';
+  import { sheetDrag } from '../lib/sheetDrag';
+  import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n.svelte';
+
+  const c = $derived(confirmer.current);
+  const sheet = phone();
+
+  let box = $state<HTMLElement>();
+  let opener: HTMLElement | null = null;
+  let typedText = $state('');
+  const ready = $derived(!c?.typed || typedText.trim().toLowerCase() === c.typed.toLowerCase());
+
+  // Opened: the focus goes in (on the action when it can be undone, else on
+  // Cancel); closed: back where it was.
+  $effect(() => {
+    if (!c) return;
+    // (a question following one just answered: focus goes back to what opened the first)
+    if (!confirmer.follows || !opener?.isConnected) opener = document.activeElement as HTMLElement | null;
+    const undoable = c.undoable;
+    typedText = '';
+    tick().then(() => box?.querySelector<HTMLElement>(c.typed ? '.typed' : undoable ? '.go' : '.cancel')?.focus());
+    return () => opener?.focus?.({ preventScroll: true });
+  });
+
+  // Keys go to the dialog only (caught before the page sees them: the viewer's
+  // arrows, a menu's Escape). Enter and Space still press the focused button.
+  $effect(() => {
+    if (!c) return;
+    window.addEventListener('keydown', keydown, true);
+    return () => window.removeEventListener('keydown', keydown, true);
+  });
+  function keydown(e: KeyboardEvent) {
+    if (!c) return;
+    e.stopPropagation();
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      confirmer.answer(false);
+    } else if (e.key === 'Tab') {
+      const b = [...(box?.querySelectorAll<HTMLElement>('input, button:not(:disabled)') ?? [])];
+      const i = b.indexOf(document.activeElement as HTMLElement);
+      e.preventDefault();
+      b[(i + (e.shiftKey ? b.length - 1 : 1)) % b.length]?.focus();
+    }
+  }
+</script>
+
+{#if c}
+  <div class="backdrop" role="presentation" in:shade out:shade={{ out: true }} onpointerdown={() => confirmer.answer(false)}></div>
+  {#key c}
+  <div
+    class="dialog" {@attach overlayScroll}
+    class:sheet
+    class:wide={!!c.details?.length}
+    data-sheet={sheet ? '' : undefined}
+    data-drag
+    {@attach sheet && sheetDrag(() => confirmer.answer(false))}
+    {@attach backClose(() => confirmer.answer(false))}
+    {@attach (n) => {
+      box = n;
+      return () => box === n && (box = undefined); // (a swapped-out one goes after the next has come)
+    }}
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="confirm-title"
+    aria-describedby={c.body ? 'confirm-body' : undefined}
+    in:sheetIn={{ on: sheet, desk: 'pop', delay: confirmer.follows ? (sheet ? 220 : 200) : 0 }}
+    out:sheetOut={{ on: sheet, desk: 'pop' }}>
+    {#if sheet}<GrabBar bleed={20} after={10} />{/if}
+    {#if c.thumbs?.length}
+      <div class="thumbs" aria-hidden="true" style:--n={Math.min(3, c.thumbs.length)}>
+        {#each c.thumbs.slice(0, 3) as t, i (t)}
+          <img src={t} alt="" style:--i={i} />
+        {/each}
+        <span class="badge small"><Icon name={c.icon ?? 'trash'} size={14} /></span>
+      </div>
+    {:else}
+      <span class="badge" aria-hidden="true"><Icon name={c.icon ?? 'trash'} size={22} /></span>
+    {/if}
+    <h2 id="confirm-title">{c.title}</h2>
+    {#if c.details?.length}
+      <ul class="details">
+        {#each c.details as d (d)}<li>{d}</li>{/each}
+      </ul>
+    {/if}
+    {#if c.body}<p id="confirm-body">{c.body}</p>{/if}
+    {#if c.typed}
+      <label class="typed-label">
+        <span>{t('confirm.typeToConfirm', { word: c.typed })}</span>
+        <input
+          class="typed"
+          bind:value={typedText}
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          aria-label={t('confirm.typeToConfirm', { word: c.typed })}
+          onkeydown={(e) => e.key === 'Enter' && ready && confirmer.answer(true)} />
+      </label>
+    {/if}
+    {#if c.check}
+      <label class="check">
+        <input type="checkbox" bind:checked={confirmer.checked} />
+        <span>{c.check}</span>
+      </label>
+    {/if}
+    <div class="buttons">
+      <button class="quiet cancel" onclick={() => confirmer.answer(false)}>{c.cancel ?? t('common.cancel')}</button>
+      <button class="go" disabled={!ready} onclick={() => confirmer.answer(true)}>{c.action}</button>
+    </div>
+  </div>
+  {/key}
+{/if}
+
+<style>
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70; /* over the viewer and the sheets */
+    background: rgb(17 17 27 / 0.6);
+  }
+  .dialog {
+    position: fixed;
+    z-index: 71;
+    /* In the middle of what can be seen (above the keyboard), placed by layout - whole pixels: a translate of -50%
+       left it half a pixel off, and its text shifted as an animation ended. */
+    inset: var(--view-top) 0 var(--kb, 0px);
+    height: fit-content;
+    margin: auto;
+    translate: 0 0; /* (an identity: drawn the same at rest as while it animates in) */
+    width: min(380px, calc(100vw - 32px));
+    max-height: calc(var(--view-h) - 24px);
+    overflow-y: auto;
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 24px 20px 18px;
+    background: var(--mantle);
+    border: 1px solid var(--surface1);
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgb(0 0 0 / 0.6);
+    text-align: center;
+  }
+  /* With a list of what happens: room for its lines. */
+  .dialog.wide {
+    width: min(440px, calc(100vw - 32px));
+  }
+  /* Phones: a sheet along the bottom like the others (drag down to cancel). */
+  .dialog.sheet {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: var(--kb, 0px); /* (just above the on-screen keyboard: a word to type) */
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0 20px calc(26px + var(--bottom-room));
+    border-width: 1px 0 0;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -12px 40px rgb(0 0 0 / 0.55);
+  }
+  .badge {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    margin-bottom: 8px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--red) 16%, transparent);
+    color: var(--red);
+  }
+  /* The files' pictures, fanned out, with a small badge on them. */
+  .thumbs {
+    position: relative;
+    width: calc(64px + (var(--n, 1) - 1) * 18px);
+    height: 64px;
+    margin: 0 auto 10px;
+  }
+  .thumbs img {
+    position: absolute;
+    top: 0;
+    left: calc(var(--i) * 18px);
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 2px solid var(--mantle);
+    background: var(--surface0);
+    transform: rotate(calc((var(--i) - (var(--n) - 1) / 2) * 6deg));
+  }
+  .badge.small {
+    position: absolute;
+    right: -8px;
+    bottom: -8px;
+    width: 26px;
+    height: 26px;
+    margin: 0;
+    background: var(--red);
+    color: var(--crust);
+    border: 2px solid var(--mantle);
+  }
+  h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  p {
+    margin: 0;
+    color: var(--subtext);
+    font-size: var(--font-small);
+  }
+  .buttons {
+    justify-self: stretch;
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .buttons button {
+    flex: 1;
+  }
+  .go {
+    background: var(--red);
+    color: var(--crust);
+  }
+  /* More of what happens: a short list, left-aligned (a line each reads better than a paragraph); the body's line
+     under it. */
+  .details {
+    justify-self: stretch;
+    display: grid;
+    gap: 6px;
+    margin: 8px 0 6px;
+    padding: 10px 12px 10px 28px;
+    border-radius: 12px;
+    background: var(--base);
+    text-align: left;
+    color: var(--subtext);
+    font-size: var(--font-small);
+  }
+  .details li::marker {
+    color: var(--overlay0);
+  }
+  /* A box to tick: beside its words, the whole row pressable. */
+  .check {
+    justify-self: stretch;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-top: 10px;
+    text-align: left;
+    font-size: var(--font-small);
+    cursor: pointer;
+  }
+  .check input {
+    margin-top: 1px;
+  }
+  /* The word to type: its label above a full-width box. */
+  .typed-label {
+    justify-self: stretch;
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+    text-align: left;
+    color: var(--subtext);
+    font-size: var(--font-small);
+  }
+  .typed {
+    width: 100%;
+  }
+</style>

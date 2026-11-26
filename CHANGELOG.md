@@ -1,0 +1,646 @@
+# Changelog
+
+What changed in each version of Vitrine, newest first, sorted into new features, improvements and fixes. The app
+shows this too (Settings > Help & about).
+
+## 1.6.0 - 2026-11-22
+
+### New
+
+- **Bluesky**: download a profile's images and videos (no account needed) or hashtags (with your handle and an app password). Files are the originals, with the post's hashtags and the author as creator. Install it in Settings > Sites.
+
+## 1.5.2 - 2026-11-22
+
+### Improved
+
+- **Fewer disk writes while downloading**: about 10% less written to the database for each new file, so SSDs wear a little slower.
+
+## 1.5.1 - 2026-11-18
+
+### Fixed
+
+- **Removing a site on a big library**: it took a minute or more with nothing to show for it (Vitrine counted what the site had left file by file). It now takes seconds, and the site's card says Removing… meanwhile.
+
+## 1.5.0 - 2026-11-18
+
+### New
+
+- **Keep a file despite the blacklist**: a file with a blacklisted tag can be kept. Its details say it has one, with **Keep it**; the blacklist's Delete them then leaves it alone and no notice comes when it gets one. The blacklist card counts kept files apart and shows them, and `system:kept` finds them. Several at once: select them on the card's Show them page.
+- **Several downloads of a site at once**: up to 3 by default (Settings > Downloads > Downloads at once), so a small download no longer waits for a big one. They share the site's connections and request limit, so the site isn't asked for more.
+- **More sites**: plugins for Gelbooru, Rule34 (paheal), Xbooru, HypnoHub, AIBooru and Pawoo. Install them in Settings > Sites (Gelbooru needs a free account). Shimmie sites can now be read through their API, as paheal is, and AIBooru's AI-model tags become `model:` tags.
+
+### Fixed
+
+- **Sites behind Cloudflare**: a site's API that only FlareSolverr's browser gets through to (AIBooru through some VPNs) now works.
+- **Menus**: a long name (a subscription group's in Move to group) shortens with "…" instead of running past the menu's edge.
+- **Downloads**: with the queue sorted by file count (no grabbers), a queue card's hover shade reaches its left edge again.
+
+## 1.4.0 - 2026-11-17
+
+### New
+
+- **Moebooru sites**: a new site engine for yande.re, Konachan and Sakugabooru. Install their plugins in Settings > Sites. Tag types become namespaces, and `fav:<name>` downloads someone's favorites.
+- **e621 and e926**: a new site engine for e621 and its safe-for-work side, e926. An account is optional (user name + API key); with one, `fav:me` downloads your favorites.
+- **RedGIFs**: a new site engine. Search by tags, `@user` for someone's clips (the user becomes the creator), or paste a clip's link. No account needed.
+
+### Fixed
+
+- **Removing a site**: its questions follow one another smoothly (the next one came over the one going, or without any motion).
+- **Removing a site with its files**: the files leave the library page once they are erased, without reloading.
+- **Show files from**: a removed site is still listed while the library has files from it.
+- **Empty trash**: the question shows at once, even with a lot in the trash.
+- **Downloads**: the "After ...'s check" chip no longer stretches across the card while it opens or closes, and the search no longer moves up when a card opens.
+- **Removed sites** are named by their address everywhere (konachan.com, not konachan): Where it's from in the details, the search's site chip, Show files from.
+- **Site plugins**: the dates in a plugin's version history show again.
+
+## 1.3.2 - 2026-11-17
+
+### Fixed
+
+- **Tag suggestions**: typing at the start or in the middle of a word now suggests tags for the whole word, not just the part before the cursor, and picking one replaces the whole word.
+- **Queue order by file count**: new downloads are counted on their site straight away, so they take their place in the queue without opening the Downloads page first.
+
+## 1.3.1 - 2026-11-17
+
+### Improved
+
+- **Queue order by file count**: picking most or fewest first now changes the order downloads actually run in, not just how the queue looks. A running download makes way for one that now comes first, and carries on afterwards. The choice is shared by all your devices, so pick it once more after updating.
+
+## 1.3.0 - 2026-11-17
+
+### New
+
+- **Download tags separately**: with two or more tags, the new download dialog can make a search for each tag instead of one search with all of them. Excluded tags go in every search. This works with several sites at once: each site lists its searches, you can untick any, and searches you're subscribed to already are marked and skipped. Subscriptions start in a new group named after the search, one per site.
+
+## 1.2.1 - 2026-11-16
+
+### Improved
+
+- **Several sites in one go**: each site now gets its own choice of once or subscribe, how often, its group and how many posts.
+- **Picking subscriptions**: works like picking tags - press and hold a subscription, tap more, then the round button with the count opens what to do with them (move to a group, check, pause, resume, unsubscribe). You can also start from the icon in the top right corner of the Subscriptions card. Moving to a group is offered only when the picked subscriptions are all on one site.
+- **Subscription groups**: a long group name stays on one line and slides to show the rest, instead of breaking onto the next line.
+- **Comic subscriptions**: a long comic title stays on one line and slides to show the rest.
+- **Comic subscriptions**: show the comic's cover and its latest pages, like other subscriptions show their newest files.
+- **Subscriptions on a phone**: a subscription's tags scroll sideways under your finger.
+- **Deleting**: the notification says the files (or comics) were moved to the trash, instead of "Deleted".
+- **Folding**: subscription groups, a site's subscriptions and History's Earlier slide open and shut instead of snapping.
+
+### Fixed
+
+- **Coming back to Downloads**: after leaving the Downloads page, going back to it could show nothing until the app was restarted. Opening a menu also made the app loop briefly in the background. Both fixed.
+- **Picked subscriptions**: the ring around a picked subscription (and the flash of a just-added one) is no longer cut off at the corners.
+
+## 1.2.0 - 2026-11-16
+
+### New
+
+- **Downloads queue**: show all, only downloads or only subscription checks. Order the queue by file count, most or fewest first: Vitrine asks each site how many posts every waiting search has, and shows the count on its card. A download that made way for a subscription check now says which one; tap it to see the check.
+- **Download anyway**: a single post that didn't download - because of your download rules, the blacklist, or because you deleted its file before - can be downloaded anyway from its card on the Downloads page. A file still in the trash comes back from there.
+- **Select subscriptions**: pick several subscriptions (or a whole group) and move them to another group, a new group or out of their groups, check, pause, resume or unsubscribe them all at once.
+- **Several sites in one go**: a new download can go to several sites at once - check them on "Which site?", and each gets its search written its own way.
+
+### Improved
+
+- **Picking several tags**: the cramped bar under the tags is now a round button with the count; it opens the picked tags (each can be taken off) and roomy cards saying what each action does.
+- **Menus**: while any menu or dropdown is open, thumbnails don't react: no hover preview, and clicking one only closes the menu. Clicking a button right after closing a menu no longer does nothing.
+- **Starting up**: Vitrine starts several times faster on a big library. It saves part of its search index when it stops and reads it back at the next start instead of rebuilding it; a library of over a million files started in about 5 seconds instead of 25. Anything changed in between is noticed, and the index is rebuilt as before.
+
+### Fixed
+
+- **Download counts**: a post whose file you deleted before now counts as "deleted before" instead of "already have".
+
+## 1.1.0 - 2026-11-14
+
+### Improved
+
+- **Search box**: with recent searches or suggestions open, tapping elsewhere just closes them instead of also opening what you tapped.
+
+### Fixed
+
+- **Selecting files**: the purple band around a selected thumbnail is the same width on every side, on tall and wide thumbnails alike.
+- **Hover previews**: the picture in an enlarged thumbnail no longer jumps a pixel when its sharper copy appears. A picture with a see-through background has the same grey behind it when enlarged as at rest, and that grey fades back in when you close it in the viewer, instead of showing the thumbnails underneath.
+- **Downloads queue**: on each card the state (or progress and speed) and the arrow stay at the right edge, whatever the search's length. A long search slides along its line like other long names, and opening the card shows all of it.
+- **Subscriptions**: a subscription whose first check found nothing no longer treats every later check as its first. They're regular checks: no first-download limit, and they don't wait behind downloads.
+- **Source links**: refreshing a file's tags no longer adds a source link it already had, written with `&amp;` instead of `&`. For the ones already in your library, the fixes menu (the wrench) offers "Source links listed twice" after you update.
+- **Dialogs on a phone**: a dialog taller than the room above the keyboard, such as a site's login, scrolls under its title instead of running behind the keyboard, and the box you type in stays in view. On an iPhone, sheets and dialogs also leave room for the bar above the keyboard (the arrows and the tick).
+
+## 1.0.29 - 2026-11-12
+
+### Improved
+
+- **Tag suggestions**: the search box suggests all the tags that match what you type (up to 200), not just the first 12. The list keeps its height and scrolls, and the arrow keys keep the highlighted one in view.
+- **Results page**: files shown from I came, the blacklist, a tag on the Tags page and a subscription's new files open on a results page of their own, with a Back button, so your library's search, filters and order stay as they were. A file tapped on I came opens straight in the viewer, and closing it brings you back to I came.
+- **Downloads**: tap a subscription's or a download's search to see it in your library, newest imported first. A download tapped in the top bar's Downloads menu opens on the Downloads page, scrolled to and highlighted.
+- **Notifications**: tapping one, in the bell or a push notification, takes you to what it's about: a subscription's new files, the download or subscription itself on the Downloads page (scrolled to and highlighted), or the blacklist's Delete them button. A fix's notice opens the fixes.
+- **Comics**: subscribe to a comic from its menu (right-click or long-press) on the Comics page, to get its newer versions. A comic you follow says Subscribed there, and takes you to its subscription.
+- **Recent searches**: saved searches aren't added to them any more. They are a tap away already, and run every day they pushed your other searches out.
+
+### Fixed
+
+- **Selecting files**: on a new file's thumbnail, the NEW label moves beside the round check instead of sitting under it.
+- **Site logins behind Cloudflare**: logging in to a site (such as a Shimmie or Gelbooru site) whose pages Cloudflare checks no longer fails when the login itself worked. Every login, and e-hentai's gallery details, now pass Cloudflare's check with FlareSolverr when a site asks for it.
+- **Search box**: on a phone or tablet, clearing the search no longer brings up the keyboard.
+
+## 1.0.28 - 2026-11-11
+
+### New
+
+- **Recent searches**: tap the empty search box to see your last searches and run one again with a tap, with the order it had. While you type the first word, recent searches with a matching word show above the tag suggestions. An × forgets one, Clear forgets them all. Each page (Library, Comics, Comics > Browse) keeps its own, on the server, so every device has the same ones; searches in the trash aren't kept. Settings > Library can turn them off, which forgets them too.
+
+### Fixed
+
+- **What's new**: the list of changes has room under its last line before the bottom bar.
+
+## 1.0.27 - 2026-11-09
+
+### Fixed
+
+- **ExHentai bans**: when the site bans your address for loading pages too fast, Vitrine stops asking it anything until the ban ends (it says when on the Downloads page), and its downloads carry on by themselves after. Before, it kept asking every few seconds, which can make a ban longer.
+- **ExHentai browsing**: covers and page thumbnails load at most 5 a second, so fast scrolling no longer counts towards a ban. With the ExHentai plugin's update (1.2.0), its pages load one every 3 seconds.
+- **E-Hentai and ExHentai login**: when Cloudflare holds up the forum's login longer than FlareSolverr can wait, the error now says so and suggests pasting the login cookies, instead of "context canceled".
+
+## 1.0.26 - 2026-11-09
+
+### New
+
+- **Download one file**: in New download, paste a post's link or type `id:12345` to download just that post, once. Works on Gelbooru-style, Shimmie, Danbooru and Mastodon sites; a link for another site, or a post that doesn't exist, says so straight away.
+
+### Fixed
+
+- **Saved searches**: a short name no longer leaves the card's pictures short of its sides.
+- **Saved searches**: the new-files dot on a tab sits at the top right of its name, close to it.
+- **Downloads, Notifications, Fixes from updates and Saved searches**: their cards line up with their headings on both sides.
+- **Notifications menu**: a notification's icon is centered beside its text.
+- **Details**: Imported and Uploaded sit next to each other.
+
+## 1.0.25 - 2026-11-03
+
+### New
+
+- **Delete old files**: Settings > Library can delete every file uploaded in or before a year you pick, by the date on its site. It shows how many files and how much space first, goes to the trash so you can restore them, and can delete forever straight away to free the disk. Files with no upload date are never included.
+- **Skip old files when downloading**: Settings > Downloads can skip files uploaded in a year you pick or earlier. Files with no date still download, and a search stops early once it reaches only old posts.
+
+### Improved
+
+- Emptying a very big trash now runs on the server, so it finishes in reasonable time and carries on if you close the page.
+
+## 1.0.24 - 2026-11-03
+
+### New
+
+- **NixOS**: Vitrine can run natively on NixOS, with a flake and a module (`services.vitrine`), no containers involved. Update by hand, on a timer, or with the Update button in Settings; each makes a backup of the library first.
+
+## 1.0.23 - 2026-11-03
+
+### Fixed
+
+- **Search bar**: picking a saved search shows the end of the search, and the space after what you type no longer grows as you type.
+- **Very big libraries**: going past the top or bottom of the grid no longer makes it shake.
+- **Videos with non-square pixels**: thumbnails and preview frames the fix had remade now show up; browsers kept showing the old ones. Thumbnails are downloaded again once as you scroll.
+
+## 1.0.22 - 2026-11-03
+
+### Improved
+
+- **Fixes from updates**: after a restart, a fix that's holding off for a few minutes counts down to when it carries on, instead of its progress just sitting still.
+- **Tags marked in the suggestions**: the row of marked tags scrolls to its end as you mark more, so the newest is always in view.
+
+### Fixed
+
+- **Very big libraries**: past about a million files on a phone (fewer in Firefox), the grid couldn't scroll to the oldest ones, because browsers limit how tall a page can be. All of them can be reached now.
+- **Fixes from updates**: their cards no longer have so much empty space around the progress bar.
+
+## 1.0.21 - 2026-11-03
+
+### Added
+
+- **Fixes from updates are yours to run**: when an update brings a fix for what's already in your library, a wrench appears in the top bar and the bell tells you. It explains what the fix does, with Run the fix and Skip. While it runs, the wrench shows how far it's got, and it goes away once you've said OK to the result. A library with nothing to fix never sees it.
+
+### Fixed
+
+- **Downloads queue**: a card moving to the top of a stack no longer shows extra space on its right for a moment.
+
+## 1.0.20 - 2026-11-03
+
+### Fixed
+
+- **A site that stalls**: a request that got no answer for a minute failed the whole subscription check or search straight away. The page is now asked again a few times, and a site that really has stopped answering pauses by itself instead.
+
+## 1.0.19 - 2026-11-03
+
+### Fixed
+
+- **Tags in the wrong namespace**: a general tag could get stuck under a namespace like `character:` for good, after one site called it that once. A tag now follows what its site says now, and tags already stuck are put back after the update. Tags you moved yourself stay where you put them.
+
+## 1.0.18-hotfix - 2026-11-03
+
+### Fixed
+
+- **Videos with non-square pixels**: a vertical video stored this way got a squashed widescreen thumbnail. It now has its real shape, and ones already in your library are found and put right in the background after the update.
+
+### Improved
+
+- **Updates**: Check now is always there, even with an update on offer, and Update checks again first, so you get the newest version under its own name.
+
+## 1.0.18 - 2026-11-02
+
+### Added
+
+- **Clear the deleted forever list** (Settings, in the Trash section): files you deleted forever can be downloaded again when a later download finds them.
+- **Browse**: saved searches, selecting as on the other pages, and a right-click menu with Download. It keeps your search and place when you come back, reload or reopen the app. Galleries you already have are grey, and a download's mark updates when it ends.
+- **Drag comics into a collection**: hold a comic a moment with the mouse, then drop it on a collection.
+- **Rename a comic** from its right-click menu.
+- **Backups made before an update say so**: "Before the 1.2.3 update" in Settings > Backups, and in the file's name.
+
+### Improved
+
+- **Browse searches are quicker**: about half the time or better, as the list no longer waits between its requests or for its covers.
+- **Scrubbing a video's card**: the cursor stays on the card while you scrub, so it keeps playing when you let go.
+- **Opening a collection**: its comics unstack from its tile, one after another; closing stacks them back.
+- **The blacklist's notice**: going from red to green after a clean-up, its color, height and text now change smoothly together.
+- **Thumbnails come in the same way everywhere**: one fade, all together, once their pictures are ready - after a search, a tag added, removed or edited, a saved search, or opening the app.
+
+### Fixed
+
+- **Comics and Browse details panels**: a click outside closes them, instead of opening what's under the cursor.
+- **A comic's hover card**: its title's soft edge no longer jumps as the card shrinks back.
+- **A finished gallery in the bell**: it's named by its title, not its link.
+- **Comics downloading**: a comic now appears on the Comics page as soon as its download starts, in a cover's shape, with an animated mark and its pages counting up; finished, the mark turns into a tick and goes. An empty Comics or Media page also takes in its first downloads without a reload.
+- **A tag added to the search showing the old files**: when new downloads came in at that moment, the search could be canceled, leaving the tag in the search bar and the previous files under it until you pressed Enter.
+- **Stats' parents count**: it counted every tag under a parent; now it counts the parents. "Deleted forever" no longer includes files still in the trash.
+- **Scrubbing in Safari**: the video's progress line no longer flashes back to the start after you let go.
+
+## 1.0.17 - 2026-11-02
+
+### Fixed
+
+- **New download on phones**: opened from a tag's or a chip's menu, the dialog could close again as it appeared (since
+  1.0.16).
+- **Search bar**: the clear button closes the suggestions too, and clicking back into a box left mid-word brings its
+  suggestions back without having to type.
+- **Suggestions' width**: under Tags > Tag rules they're as wide as the row of boxes, and in the library they also span
+  the button beside the search bar.
+- **Phones**: the keyboard no longer covers text boxes in sheets, such as naming a saved search; every sheet sits above it.
+
+## 1.0.16 - 2026-11-02
+
+### Improved
+
+- **Downloads menu**: New stands out as a filled purple button.
+- **Downloads**: the queue's grabber sits against the card's edge, its highlight following the card's corners.
+- **A tag's menu** no longer has Subscribe… beside New download: the New download dialog does both.
+
+### Fixed
+
+- **Centered text**: small text in chips and buttons (the site kinds when adding a site, for one) sat about a pixel
+  high on Windows; it's centered now.
+- **Saved thumbnails**: with many saved, Settings > This device said "Nothing yet", Clear was greyed out, and the limit
+  on how many are kept had stopped working. The count, Clear and the limit (7,500-15,000 now) all work at any size.
+- **Cyrillic letters** (in tags, say) show in the app's font: its small font file was blocked by the app's own
+  security rules.
+- **Keyboard**: tabbing through the grid, the top row's ring is no longer cut off at the top; it's drawn just inside
+  each tile.
+- **Downloads and notifications menus**: New and All in the heading have their words and icons on one line, with even
+  room on both sides.
+- **Saved searches**: switching between the Saved and Groups tabs no longer shows both tabs' buttons for a moment.
+- **New download**: the dialog opens at its full height instead of opening small with "Loading…" and jumping up.
+- **All tags**: a row lights up whole on hover, its menu button included; the namespace picker shows each namespace's
+  color; and changing a tag's namespace, renaming or aliasing it after Show more keeps your place instead of jumping
+  back to the top.
+
+## 1.0.15 - 2026-11-01
+
+### Improved
+
+- **All tags by site**: pick a site on Tags > All tags to see only the tags of its files, with how many of them have each.
+- **New dots on the saved searches' tabs**: Saved and Groups each show a dot when one of theirs has new files, not just the save button.
+- **The picture follows the details sheet** (phones): drag the details down and the picture moves and grows with your finger into the room the sheet leaves. Let go and it carries on from there as the sheet closes, or goes back up with it.
+
+### Fixed
+
+- **A sheet flicked back up stays open**: dragging a menu or the details nearly closed and flicking back up closed it anyway. Now it goes back up.
+- **Sheets dragged with a mouse in a narrow window** no longer stop following the pointer after the first drag.
+- **File sizes are written the same way everywhere** (one screen said "12.0 MB" where another said "12 MB").
+- **The tag menu on a computer** no longer plays two opening animations at once.
+- **A comic collection given a malformed ID** is refused instead of being treated as collection 0.
+- **An opened or hover-zoomed tile** no longer leaves a gray box behind in its place, just the page.
+- **Restoring a backup from a file** failed with "request body too large" for any backup over 1 MB. It now takes backups of any size.
+- **Menus and dialogs come and go the same way**: a few had their own slightly different animation.
+- **An expired login while saving views or uploading a backup** now brings you to the login page instead of failing quietly.
+- **The FlareSolverr address set with `vitrine setting`** while Vitrine runs takes effect at once, as the command says, instead of after a restart.
+
+## 1.0.14 - 2026-11-01
+
+### New
+
+- **View counts**: Vitrine counts how often you've viewed each file and for how long. A file counts once it has been on screen for 2 seconds, or a video has played for 3; swiping past doesn't count. The details show how many times, how long and when you last viewed it. Search for files you've never viewed, or haven't viewed lately, and sort by most viewed, most watched or recently viewed. Turn it off, or clear all views, in Settings > Viewing.
+
+### Improved
+
+- **Saved searches, redesigned**: the menu opens from a floppy disk now (instead of the star). Each saved search is a tile with its first few pictures, its name and how many files it finds, two to a row. Press and hold a tile (or click and hold) to move it. Parent tags have a tab of their own, as tiles too, in an order you choose. On a phone the menu comes up from the bottom (drag it down to close); on a computer it's a panel at the right. **Save** sits at the top.
+- **Put a tag in a parent tag from its menu**: tap a tag in a file's details or in the search bar, then Parent tags. Tap a parent to put the tag in it or take it out, or type a new one.
+- **Long lines that slide come back quickly**: a name or search too long for its place slides slowly to its end, then comes back to its start quickly instead of at the same slow speed, and its first and last letters are never faded.
+- **The Downloads page opens at once on big libraries**: it no longer waits several seconds every half minute while the tag refresh numbers are counted again (they're counted in the background now, the last ones shown meanwhile). Opened again, it shows what it showed last while the latest comes, and it says "Loading…" instead of "No subscriptions yet" until the first answer arrives.
+- **Settings > Stats, redesigned**: every number in a tile with a few words under it, two to a row on a phone and more on a computer, so nothing is cut off or runs off the card any more. The health check shows its state as a badge, the images / GIFs / videos counts line up under their bar, and long versions (ffmpeg, video decoding) have rows of their own.
+
+### Fixed
+
+- **The app opens faster again on iPhone**: since 1.0.13 every start waited most of a second before showing anything (the page from the server was held back until a copy had been saved on the device). It's shown the moment it arrives now. And when the phone's own copy of the app is slow to come up (as it often is when you open the app from a notification), the app is loaded from the server instead of waiting for it.
+- **Tapping a notification on iPhone starts the app once**: it used to open a second copy beside the one iOS starts, so both loaded at the same time and the app took a few seconds to appear.
+- **No thumbnail edge around a video as it opens**: for a split second the thumbnail showed around the video's edges while the video faded in (easiest to see on a video that starts black). It now sits exactly behind the video's picture.
+
+## 1.0.13 - 2026-10-31
+
+### New
+
+- **Passkeys**: log in with your face, fingerprint or device PIN. Add passkeys in Settings > Account, then use "Log in with a passkey" on the login screen (the plain sign-in page too). Turn on "Log in with a passkey only" and passwords are refused altogether; `vitrine passwd` on the server turns it off again if you lose your passkeys.
+- **Change your name and password in Settings > Account** (the current password first). A new password logs your other devices out, and "Log out other devices" does it on request.
+
+### Improved
+
+- **A safer login**: the server checks at most two passwords at a time (many tries at once could use up its memory), limits failed tries to 60 an hour as well as 10 a minute, and writes every login, failed or not, to the log.
+
+- **Settings, reorganized**: everything is where you'd look for it. New files has a section of its own; Downloads (was Download rules) also holds what happens when a site stops answering and the queue order; Appearance (was Viewing) is about how things look; Media and Comics on or off and Safe for work moved to Library; Help & about (was Updates) has the version, the changelog, first steps and the problem report. Old links to Settings pages still work.
+- **Opening a NEW file marks it as seen**: a file marked NEW stops being new once you've opened it in the viewer - its mark goes, the "N new" count and the app icon's count drop, on every device. It keeps its NEW label while you're looking at it.
+
+- **The Downloads page opens fast with many subscriptions**: each subscription's pictures and "new since you looked" no longer go through every file it ever found (several seconds with a few hundred subscriptions on a big library), and the page's other numbers aren't worked out again for every new file while subscriptions download.
+- **A new download from a tag opens its "Which site?" page fast**: it no longer waits for the whole Downloads page's numbers (1-3 seconds on a big library), and the sites a tag came from are counted in a moment instead of going through every file with it.
+- **The first open after an update starts once**: Vitrine used to start the version saved on your device, notice the new one and start all over again - several seconds now and then. It now opens the new version straight away (the saved copy is still there when the server can't be reached).
+
+### Fixed
+
+- **No notification for a subscription that found nothing**: a new subscription whose first check brought no new files (everything already in the library) no longer says it's ready with 0 new files.
+- **Nothing shifts as it finishes opening**: menus, panels, dialogs, sections and notices no longer jump by a pixel the moment their opening animation ends (seen on Windows) - they now come in on whole pixels.
+- **Scrubbing fast no longer jumps back**: in the viewer, letting go after scrubbing fast no longer showed an earlier (or later) moment for a split second before the right one; on a library card, the line along its foot no longer jumps back and forth while you scrub, and letting go lands exactly where you stopped.
+- **Scrubbing a library card starts from where the video is**: pressing on a playing card and moving sideways moves on from its current moment (the card's width is the whole video) instead of jumping to the spot under the pointer.
+- **A moved download stays where you put it**: on the Downloads page, a download moved in its queue (or one removed) no longer went back to where it was for a moment, then jumped again - seen while downloads ran.
+- **"Which site?" comes in smoothly**: when its list of sites arrives, the dialog grows to fit and the list fades in, instead of the dialog jumping to its new size and place and "Loading…" closing after the list had come.
+
+## 1.0.12 - 2026-10-30
+
+### Improved
+
+- **Less processor load between downloads on big libraries**: while a site's queue is idle, Vitrine looks up the types of tags it doesn't know yet (artist, character…); choosing which post to look up went through every post and tag each time, even with nothing left to learn - now it takes a few milliseconds, and nothing at all once every type is known.
+
+## 1.0.11 - 2026-10-30
+
+### Improved
+
+- **Even less processor load while downloading into a big library**: with the Downloads page open, its tag refresh counts and each subscription's "last found" were worked out again on every change (up to twice a second); now at most every 30 seconds, and at once when you press Refresh now or a subscription finds something. On a 580,000-file library that was two thirds of what Vitrine itself used.
+
+### Fixed
+
+- **The subscription bell in search chips sat low and off-center**: it's now level with the tag's name, and the bell is centered in its circle.
+
+## 1.0.10 - 2026-10-30
+
+### Improved
+
+- **Much less processor load on big libraries while downloading**: finding the files still waiting for a thumbnail, a duplicate check or preview frames read through the whole library each time a file came in; now it reads only the waiting ones. On a 580,000-file library that was about half of what Vitrine itself used.
+
+## 1.0.9 - 2026-10-30
+
+### New
+
+- **A bell on tags your subscriptions follow**: in the details, the search bar, the suggestions and the tag list, a filled bell means a subscription is that tag, an outline that the tag is part of one (dimmed when paused). A tag's menu says it's subscribed and on which sites, with a button to open it, and offers **Subscribe…** for tags that aren't yet.
+- **Videos are decoded by your graphics card**: Intel and AMD (VA-API), Nvidia (CUDA), any card on Windows (Direct3D 11) and Macs (VideoToolbox). Vitrine finds it by itself; preview frames and video thumbnails then take a fraction of the processor time, so big imports weigh far less on the server. In Docker, pass the GPU in (see `compose.example.yaml`); Settings > Stats shows which one is used. `hwaccel = "off"` in the config turns it off.
+- **`vitrine profile`, and a "load" line in the log**: every few minutes while busy, the log says what the processor went on (Vitrine itself, and ffmpeg and libvips by job); `vitrine profile` records what Vitrine's own code spends its time on.
+
+### Improved
+
+- **Tag refresh fits on one line per site on phones**: how many posts are waiting to be refreshed is now in the site's status ("12 to refresh", "Paused · 12") instead of next to the post count.
+- **Thumbnails come into view more smoothly**: each one fades in once it's ready to show (some used to pop in at the end of their fade instead), and ones you've already seen are there at once when you scroll back.
+
+## 1.0.8 - 2026-10-29
+
+### New
+
+- **How long each download has been running**: on its card in the queue (counting on while it works, standing still while it's paused or waiting for any reason), and on finished downloads in History.
+
+### Improved
+
+- **Finished downloads and the downloads menu match the new download cards**: finished ones in History are cards like the queue's (tap one for its numbers and actions), and the top bar's menu shows each download's progress and speed the same way, more compactly.
+- **The Subscriptions tab's order is an icon inside the filter box**, as in the library's search bar, instead of a dropdown on a line of its own.
+
+### Fixed
+
+- **The Subscriptions tab could stop working** (laggy, sites opening with nothing in them) when two subscriptions in a group had the same newest file.
+- **New downloads no longer show at the top of the library for a moment** in upload order: each file comes in already in its place by upload time.
+
+## 1.0.7 - 2026-10-29
+
+### New
+
+- **Plugin updates in the bell, with what changed**: when a site's plugin has a new version, the bell says so (checked once a day, with the same setting as Vitrine's own update check). Settings > Sites shows what the new version changes before you update, and each site's ⋯ menu has its Version history.
+
+### Improved
+
+- **Removing a site asks first whether to erase it**: after Remove, a plain question - Keep them or Erase everything… - comes before the word to type.
+- **The Downloads summary stays one row on phones**: when its counts don't fit, the row scrolls sideways instead of wrapping onto a second line.
+- **Faster downloads and less memory**: recording each downloaded post takes about half the database work, emptying the trash is many times faster on a big library (it no longer pauses downloads for long), and the server holds far less memory for thumbnails while downloading.
+- **A steadier download speed**: the speed shown is the last 10 seconds' average of every byte, so it no longer jumps between a big video's speed and a run of small files'.
+- **Faster downloads of files whose md5 the site lists wrongly** (common with rule34's older videos): the two small pieces that check such a file are asked for together, one wait instead of two.
+- **Subscriptions keep checking during their first download**: while a subscription's initial download is still going (hours, for a big search), its regular checks run on schedule as usual and bring in new posts as they come out.
+- **Blacklist changes apply to running downloads**: a tag added to the blacklist (or a new size limit) counts from the download's next post, not only from the next download.
+- **Only a subscription's regular checks bring NEW files** on a new library: a first download (once, or a subscription's first check) no longer fills NEW and the top of the library. Settings > Library > "Bulk downloads count as new" brings the old way back.
+
+### Fixed
+
+- **Tapping a thumbnail while downloads add files could open the wrong file**: new files now come into the library only at a quiet moment - at the top of the grid, with nothing open or selected and nothing touched for a second - so nothing ever moves under your finger. Scrolled down, they wait until you're back at the top.
+- A file's long-press menu could act on a different file if new files arrived while it was open.
+- An opened download on the Downloads page showed its speed twice, and its hover highlight touched the line below it.
+
+## 1.0.6-hotfix - 2026-10-28
+
+### Fixed
+
+- **Emptying the trash during a download no longer stops it**: a check that met a file just removed for good failed with "FOREIGN KEY constraint failed"; it now carries on.
+
+## 1.0.6 - 2026-10-28
+
+### New
+
+- **Scrub a video right on its hover card**: press on a playing hover card and move left or right to jump through the video - the spot under the pointer, start to end across the card. Let go and it plays on from there; a plain click still opens it.
+- **What's new after an update**: the first time you open your library after an update, a window shows what changed in the new version. Tick "Don't show again" to stop it, or switch it in Settings > Updates.
+- **A native installer for Windows on ARM**: `Vitrine-Setup-<version>-arm64.exe` runs Vitrine (with its ffmpeg and libvips) natively on ARM64 PCs. If you installed the x64 version on one, its next update moves it to the ARM64 one by itself.
+
+### Improved
+
+- **Windows downloads**: the release has just the two installers now; the separate Windows zip files are gone.
+- **A spinner over a video while it loads**: when a video opens, after you jump or scrub to a part not loaded yet, and whenever playback waits for the connection.
+- **No more dark gaps when flicking fast**: when a fast flick outruns the thumbnails (iPhones especially), you see the shapes of the tiles that are about to fill in, exactly where they'll land, instead of an empty background.
+- **Clearer counts in the downloads menu**: a subscription check says "Checking…" before it has looked at anything, then how many new files it found and how many posts it looked at ("3 new · 24 looked at") instead of a bare number; a first download says "Starting…" until it begins.
+- **The trash is quick and smooth**: it opens at once even while downloads run (it took a couple of seconds on a big library), the library's files no longer flash on it - they leave and the trash's appear one after another, as anywhere in the media - and files deleted for good disappear as they go, not all at the end.
+- **Roomier download queue**: each download is one line - the search, how far it is and how fast - with a short summary under its bar. Tap it for all its numbers with their names, the time left, and its actions. Removing a download from the queue asks first.
+- **Tags keep up during big downloads**: looking up tag types and refreshing older files' tags no longer waits for a site's downloads to finish (a big first check could hold them up for days). It runs alongside, slowly, and only takes the site's turn when no download or check needs it.
+- **More files at once where it pays**: a site plugin can let Vitrine try more simultaneous downloads; it keeps an extra connection only while it adds at least a tenth to the total speed, and backs off at the first "too many requests". Plugins can also say which Vitrine version they need, so older versions aren't offered an update they can't read.
+- **A health check of your library**: every week Vitrine checks its database and that every file is still on the disk, and every day it reads back a share of your files to check they haven't been damaged (all of them about every four weeks, slowly). Anything it finds is a notice, and Settings > Stats shows how it's going.
+- **Every backup is checked**: right after it's made, Vitrine reads it back as a restore would. A backup that couldn't be restored is reported (a notice for the daily one) and never replaces the older, good ones.
+- **Warnings are kept for weeks**: warnings and errors also go to a log of their own, so `vitrine logs -level warn` and the problem report reach back far beyond the last few hours of a busy downloader.
+- **Settings > Stats opens at once on a big library** (it took several seconds with hundreds of thousands of files).
+- **Less downloading twice**: when a site lists an out-of-date checksum for a file it has since replaced (common on rule34's older videos), Vitrine checks two small pieces of it again instead of downloading the whole file a second time. The log says so once per site, not for every file.
+- **Reorder the download that's running**: drag it below another (a big first check, say) and the one now ahead takes over after the file in flight; the one moved down carries on later from where it was.
+- **Update during setup**: when a newer Vitrine is out, the first steps offer it at the top; after the update, setup starts over on the new version. Otherwise a Check for updates link sits beside the step count.
+
+### Fixed
+
+- **Big disks in TB** in the first steps ("5.4 TB", not "5,538 GB").
+- **No false "Updated" for a plugin**: when the plugin list offers a version its file doesn't have yet, updating says so instead of reporting success and offering the same update again.
+
+## 1.0.5 - 2026-10-26
+
+### New
+
+- **Erase every trace of a removed site**: after removing a site, Vitrine offers to wipe it from the server completely - the files only it gave, its tags and links on the rest, its downloads, subscriptions, history, deletion records, notices, login and log lines, and its entries in menus, filters and saved searches. Files another site also gave stay. Older backups go too if you tick the box. Deletion records from before this version can't be traced to a site and stay.
+
+### Improved
+
+- **Site filter** (Sort and filters > From): only the sites your files came from are listed, and comic sites no longer show in the media's.
+- **No more "Tap for sound" button**: when the browser won't play a video with sound (an iPhone, after a swipe), it plays muted without a button over it - the speaker in the controls shows it and turns the sound on.
+
+### Fixed
+
+- **Checking for updates** works behind a VPN or another shared internet address: when GitHub refuses ("403 Forbidden" - its hourly limit, used up by others on the same address), Vitrine asks GitHub's website instead.
+
+## 1.0.4 - 2026-10-26
+
+### Improved
+
+- **Videos play with their sound** from the start (Start videos muted, in Settings > Viewing, is now off unless you turn it on). Where the browser doesn't allow it, the video plays muted with Tap for sound, as before.
+- **The app's own scrollbar everywhere**: menus, sheets, dropdowns, dialogs and the comic reader have the thin floating scrollbar, on phones too (the details sheet on a phone had the browser's own).
+
+### Fixed
+
+- **Video sound**: the mute button can always be pressed (at a high volume the hidden volume slider covered part of it), and a video paused right away stays paused when the browser refuses its sound.
+- **Search chips**: a tag picked from the suggestions slides into the search bar smoothly (its first frames came out broken, so it popped in).
+- **Details on phones**: with the details sheet up, the picture moves into the room above it instead of staying hidden behind the sheet.
+
+## 1.0.3-hotfix - 2026-10-26
+
+### Fixed
+
+- **Windows installer**: Vitrine opens after installing (1.0.3's installer put the command-line program in its place, which closed at once).
+
+## 1.0.3 - 2026-10-26
+
+### New
+
+- **Windows installer**: `Vitrine-Setup-<version>-x64.exe` installs Vitrine for you (no administrator needed) with ffmpeg and libvips included. It asks where to keep the library, the original files and the backups, the port, and whether phones on your Wi-Fi may open it; it can start Vitrine when you sign in, add the `vitrine` command to PATH and put Vitrine in the Start menu (and on the desktop). Vitrine then lives in the notification area: click it to open Vitrine, or use its menu - the address for your phone, your files, the log, Start with Windows, Restart, Quit. Update in Settings installs new versions by itself and brings Vitrine back. Uninstalling keeps your library unless you say otherwise.
+- **Portable**: a `config.toml` next to the program makes Vitrine portable - with `data_dir = "data"` everything lives in that folder (move or copy it), a double-click starts the server, and ffmpeg/libvips placed beside it are used. Relative paths in a config file now count from the file's folder, not from where Vitrine was started.
+- **Settings > Library** (was Media): a card each for Media, Comics, Browse and the trash. Comics and Browse each have a default search and sort, and open with them (Browse's sort can be one of the site's own lists, like Popular).
+- **New filters**: New (the files marked NEW) and Animated (videos and animated pictures), in Sort and filters - or type `system:new`, `system:animated`.
+- **Downloads are checked**: every file is compared with the md5 its site gives for it; one that came out wrong is downloaded again (a site whose md5 doesn't match its own file still gets its file).
+- **Comics > Browse**: galleries with a blacklisted tag are hidden, as they are from downloads.
+
+### Improved
+
+- **Notifications about blacklisted tags** (the bell's and push) take you to Tags > Rules, its Delete them button in view and lit.
+- **Slow connections re-rolled**: a file connection far slower than the site usually gives (a server trickling at 100 KB/s where a fresh connection gets 30 MB/s) is carried on on a fresh connection within 20 seconds.
+- **Comics > Browse**: a gallery's pages show in the details panel as they come (each in its place at once, filling in sheet by sheet), the next ones fetched ahead; Download there is purple; a new search clears the last one's galleries at once (a spinner until the new ones come).
+- **Viewer on phones**: the controls split like a phone's photo app - close, where you are and the details at the top, favorite, I came and full screen along the bottom in reach of your thumb; the size shows a moment while you zoom. Large libraries no longer push the buttons off the screen.
+- **Top bar**: always there - it no longer slides away when you scroll down.
+- **Duplicates**: a big picture still loading shows a spinner on its side until it's there (only the blurry thumbnail showed); the spinner shows on bright pictures too.
+- **Trash**: Empty trash spins until it's done.
+
+### Fixed
+
+- **Files arriving in any order**: sorted other than newest first (oldest first, by size, random...), downloads coming in no longer change the file you're viewing, shift what's on screen or make a tap open the neighboring file.
+- **The Downloads menu and the bell** no longer show a scrollbar for a moment when a download or notification comes in while they're open.
+- **Long names that scroll** (a download's search in the Downloads menu, a comic's title on hover): the soft edge shows only where text is out of view, so the first and last letters are no longer faded.
+- **Removing a running download** no longer, now and then, starts it again in the background and holds up its site's other downloads for up to a minute.
+- Pressing "I came" or the heart on a video no longer freezes its picture while the sound plays on.
+- **Tiles keep their insides**: as a cover zooms, a row resizes or a collection opens, the picture keeps its proportions and the title, chips, marks and badges keep their size and place (they shrank and grew back, the pages icon drifted, and the title vanished as a comic's cover zoomed); a comic's title, chips and gradient stay sharp and still while its cover zooms.
+- **Comics downloads count pages**: the Downloads menu, the bell and notifications say how many pages a gallery brought ("40 new pages"), not "1 new file".
+- **Comics > Browse**: covers that fail in a bad moment are fetched again (a burst of the site's failures left them broken), a cover that never comes stops spinning, and a new search never shows the last one's covers (Chrome kept them, titles and all).
+- **Trash**: going there no longer shows the library's files for a moment first.
+- **Taps after a swipe**: a tap right after a quick swipe - to the next picture, or down to close it - works at once anywhere in the app (the browser ignored it, so it took a second tap).
+
+## 1.0.2 - 2026-10-25
+
+### New
+
+- **Updates**: a page of its own (Settings > Updates, in place of What’s new) - Vitrine tells you when a new
+  version is out (and the bell does; it checks GitHub once a day and can be told not to) and shows what’s new in
+  it above the changes so far. With Watchtower set up (see the example compose file), Update installs
+  it from there: a backup first, then a full-screen updater follows each step and fades the app back in on the new
+  version.
+- **Trackpad gestures in the viewer**: swipe with two fingers to go to the next or previous file (it follows your fingers), and move a zoomed picture with two fingers; pinch zooms.
+- **The menu shows what's in the trash**: deleted files and comics together on Trash, each on its own under it.
+
+### Improved
+
+- **Notifications**: pop-ups stack by kind like the Downloads page (newest in front, the rest peeking out behind;
+  point at or tap a stack to fan it out), sit just above the bottom of the screen and come and go smoothly; the bell
+  stacks the same way. A notice about one file or comic names it (“Deleted file #1234”); several just say how many.
+  Push notifications no longer show site names, tags or searches - only what happened and how many.
+- **Downloads**: a download's line is shorter - "57,734/72,588" (posts gone through, out of the limit you picked or
+  the site's count), then icons with counts for new, had, blacklisted and the rest. A limit now counts every post
+  gone through, blacklisted ones too, like the line does.
+- **Downloads button**: in the top bar on every page, not only the library.
+- **Phones**: every dropdown opens as a sheet from the bottom, like the other menus.
+- **Pixel-perfect motion**: the details panel opens and closes without the picture snapping aside at the end; bottom sheets no longer leave a dark band behind as they close; search suggestions fade in and out; Settings and Tags sections cross-fade instead of the old one vanishing; a picture fades from its thumbnail to full sharpness; a comic's title fades in as the reader closes, its cover rounding its corners on the way back; pages cross-fade when you go from one to another; Duplicates' next pair fades in; the comic reader closed with Back flies home like its close button.
+- **Smoother motion**: stacks unfold from under their front card and fan out a little when pointed at; menus settle without a last-moment jump; Downloads tabs and Add site's kinds switch cleanly (nothing lingering or jumping). The Subscriptions tab is "Subs".
+- **New download**: the limit is labeled Posts (it counts every post gone through - new, had or blacklisted).
+- **Top bar**: the downloads and bell icons are a little smaller, their counters too.
+- **The bell and the Downloads menu** open with their stacks folded.
+
+### Fixed
+
+- A file that finished just as its download was stopped is counted as downloaded (it showed as "had" after resuming).
+- A site behind Cloudflare no longer loses its fresh clearance when several requests are challenged at once.
+- **Hover previews**: a thumbnail zooms into its card smoothly - no more shaking as it grows or shrinks back.
+- **Duplicates**: the last pair fades away cleanly (it shrank first).
+
+## 1.0.1 - 2026-10-24
+
+### New
+
+- **Adding sites**: the list of sites to add has a search, filters by kind (image boards, galleries, social), shows
+  the first few with "Show all", and slides open, filters and installs smoothly.
+- **Site logins**: entered in a dialog (a site’s ⋯ menu, or the line on its card) with a Test button that tries
+  what you typed before saving it.
+- **Downloads menu**: the download button in the top bar shows how many downloads are running or waiting, and opens
+  a list of them with their progress, plus New.
+- **Tags in the details**: press and hold a tag to pick several, then Search, Download or Blacklist them. A tag’s menu can add it to the download blacklist (or take it off), and blacklisted tags are
+  marked with a crossed-out eye.
+- **The example compose file** includes FlareSolverr (optional) for sites behind Cloudflare.
+
+### Improved
+
+- **A new look**: the Plus Jakarta Sans font (bundled - nothing is fetched from elsewhere) and a fuller, consistent
+  icon set (Lucide).
+- **Smoother everywhere**: things slide, fade and move into place instead of popping in and out - dialogs, menus,
+  lists, chips, panels - and text no longer shifts as an animation ends; buttons and chips that come and go let what’s
+  beside them glide, and the details panel changes smoothly as you move to the next file.
+- **Default sort**: newest uploaded first (unless you picked another).
+- **Default layout**: Rows (each thumbnail in its file’s shape) on a device that hasn’t picked one.
+- **A slimmer top bar on phones**: just the logo’s V, shorter file counts (159K files); the button that marks new
+  files as seen is now an eye beside the search bar.
+- **Searching any of the picked tags** has its own icon (a tilde, the search’s OR) instead of a plus.
+- **Push notifications** for new files say "across N subscriptions" every time.
+
+### Fixed
+
+- **Blacklist**: an entry with a namespace (“creator:x”) now also stops downloads of posts tagged x - sites send
+  bare tags, so such entries let files through before; adding from the details adds the bare tag.
+- **Scrolling the library** no longer stalls while downloads run (the downloads menu reads much less, less often).
+- **Deleting files elsewhere** (the blacklist’s clean-up, Duplicates) updates the media page at once, no reload.
+- **Duplicates**: the picture no longer starts small and grows when the page opens, or shrinks after you keep one; the “still looking” progress is a thin bar under the heading.
+- **iPhone**: the library’s last row of thumbnails keeps clear of the home bar and the curved corners; pages, sheets
+  and the menu keep clear of the screen’s rounded corners at the bottom.
+- **Android**: the home-screen icon’s logo is smaller (it was too big in round icons - add the app again to get it),
+  the start-up screen goes straight to the app (no second one with a logo of another size), comic pages turn and close with a swipe again, and no
+  thin line shows under the top bar while scrolling.
+
+## 1.0.0 - 2026-10-23
+
+The first public release.
+
+- **A media library** for images, GIFs and videos: a fast tag search with chips, sort and filters, saved searches,
+  favorites, a viewer with gestures and video controls, a details panel, trash with undo, and duplicates to compare.
+- **A built-in downloader**: site plugins (Gelbooru, Danbooru, Shimmie, e-hentai and Mastodon kinds), one-off
+  downloads and subscriptions with groups, a queue per site, retries, a blacklist and file size limits.
+- **Comics**: galleries as comics with a reader, collections and progress.
+- **Tags**: a tag browser, namespaces, parents and siblings, and tags read again from their sites now and then.
+- **One web app** for desktop and phones (installable on the home screen), with push notifications, backups and
+  stats; Docker images and programs for Linux, Windows and macOS.

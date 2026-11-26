@@ -1,0 +1,15 @@
+# Only what the build needs. Never ship personal notes or local data.
+.git
+.github
+.claude
+CLAUDE.local.md
+*.local.md
+*.local.sh
+spike
+docs
+*.exe
+/data
+*.db
+*.db-*
+web/node_modules
+internal/server/web/app

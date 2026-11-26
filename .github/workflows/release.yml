@@ -1,0 +1,185 @@
+name: Release
+
+# A version tag (v1.2.3) builds the release: the program for every platform (with the web app built in), the
+# Windows installers (packaging/windows: x64 and arm64), the Docker image (amd64 + arm64) at ghcr.io/usevitrine/vitrine,
+# and a GitHub release with the archives (Linux, macOS), the installers and checksums. (Windows: the installers only -
+# no zips since 1.0.6.)
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # the release
+  packages: write # the image
+
+jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Web app
+        working-directory: web
+        run: npm ci && npm run build
+      - name: Windows resources (icon, version)
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          v="${VERSION#v}"
+          go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64,arm64 --out cmd/vitrine/rsrc --manifest gui \
+            --icon cmd/vitrine/vitrine.ico --product-name Vitrine --file-description Vitrine \
+            --product-version "$v.0" --file-version "$v.0" --copyright "Vitrine contributors, AGPL-3.0-or-later"
+      - name: Programs
+        env:
+          CGO_ENABLED: "0"
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64 darwin/amd64 darwin/arm64; do
+            os="${target%/*}"; arch="${target#*/}"
+            name="vitrine_${VERSION#v}_${os}_${arch}"
+            mkdir -p "build/$name"
+            exe=vitrine; [ "$os" = windows ] && exe=vitrine.exe
+            GOOS="$os" GOARCH="$arch" go build -trimpath -buildvcs=false -ldflags "-s -w -X main.version=$VERSION" -o "build/$name/$exe" ./cmd/vitrine
+            cp LICENSE README.md config.example.toml "build/$name/"
+            [ "$os" = windows ] || tar -C build -czf "dist/$name.tar.gz" "$name" # (Windows: in the installers)
+          done
+          # The installer's notification-area program: the same, without a console. (Each in a folder of its own:
+          # Windows doesn't tell Vitrine.exe from vitrine.exe - unpacked there, one replaced the other and 1.0.3's
+          # installer had the command line as Vitrine.exe, which shut at once.)
+          for arch in amd64 arm64; do
+            mkdir -p "windows/$arch/tray" "windows/$arch/cli"
+            GOOS=windows GOARCH=$arch go build -trimpath -buildvcs=false -ldflags "-s -w -X main.version=$VERSION -X main.gui=1 -H windowsgui" -o "windows/$arch/tray/Vitrine.exe" ./cmd/vitrine
+            cp "build/vitrine_${VERSION#v}_windows_$arch/vitrine.exe" "windows/$arch/cli/"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: windows/
+
+  installer:
+    needs: binaries
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: windows
+      - name: Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
+      - name: Installers
+        shell: bash
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          packaging/windows/build.sh "$VERSION" windows/amd64/tray/Vitrine.exe windows/amd64/cli/vitrine.exe dist x64
+          packaging/windows/build.sh "$VERSION" windows/arm64/tray/Vitrine.exe windows/arm64/cli/vitrine.exe dist arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: dist/
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/usevitrine/vitrine
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # A hotfix (v1.2.3-hotfix) is a pre-release to semver, so the two above skip it: 1 and 1.2 follow it too,
+            # or installs on :1 never get it (2026-10-28: Watchtower "found no newer image" for v1.0.6-hotfix).
+            type=match,pattern=v(\d+)\.\d+\.\d+-hotfix$,group=1
+            type=match,pattern=v(\d+\.\d+)\.\d+-hotfix$,group=1
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=Vitrine
+            org.opencontainers.image.description=A fast, self-hosted media library with a built-in downloader and its own web app
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    needs: [binaries, installer, image]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer
+          path: dist
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          (cd dist && sha256sum * > SHA256SUMS)
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Vitrine ${TAG#v}" --generate-notes \
+            --notes "Docker: \`docker pull ghcr.io/usevitrine/vitrine:${TAG#v}\` (see compose.example.yaml). Windows: Vitrine-Setup-${TAG#v}-x64.exe installs it (Vitrine-Setup-${TAG#v}-arm64.exe on ARM64 Windows; with ffmpeg and libvips, in the notification area, updates from the app). Programs for Linux and macOS below; SHA256SUMS to check them."
+
+  # The flake's build of this release, on both platforms (and into the binary cache when there is one: without the
+  # secret, NixOS installs compile it themselves).
+  nix:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    env:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31.11.3
+      - uses: cachix/cachix-action@v17
+        if: env.CACHIX_AUTH_TOKEN != ''
+        with:
+          name: vitrine
+          authToken: ${{ env.CACHIX_AUTH_TOKEN }}
+      - run: nix build .#default -L
+
+  # What NixOS systems follow (github:usevitrine/vitrine/stable), once all of this release is out and the flake builds it.
+  stable:
+    needs: [release, nix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: git push origin "HEAD:refs/heads/stable"

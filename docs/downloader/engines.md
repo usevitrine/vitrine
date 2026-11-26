@@ -1,0 +1,357 @@
+- **`api: danbooru` (2026-11-18)**: a Shimmie2 site with its Danbooru-style API on (`ext/danbooru_api`) is searched
+  through `/api/danbooru/find_posts?tags=...&limit=N` (XML, up to 100 a page; `?id=N` for a lookup) instead of the
+  pages: each post whole in one request (md5, file, tags, source, rating `s`/`q`/`e`/`?` = safe/questionable/explicit/
+  unrated for the manifest, upload time in UTC). The same tags as the pages (`id<N`, `order=id_desc`). Its XML can hold
+  HTML entities (`&oacute;`), which the decoder accepts. Logins, favorites and post links are the engine's as before.
+  Made for rule34.paheal.net, whose list pages have their own markup (the thumbnail data on a `div`). The manifest
+  refuses `api:` on other engines (`shimmie_api.go`, `TestShimmieAPI`).
+# Engines
+
+The site engines: gelbooru-v02 (API) and gelbooru-v02-html, Shimmie2, Mastodon, Danbooru, Moebooru, e621, RedGIFs, Reddit, and the ehentai gallery engine (comics).
+
+## Shimmie2 engine (2026-10-16)
+- `engine: shimmie2` reads a Shimmie2 site's web pages (many have no API on). List pages `/post/list/<tags>/1`: tags
+  joined with `+`, **`order=id_desc` always added** (some sites mix older posts in otherwise; a search with its own
+  `order=` keeps it), `id<N` to resume; an empty result is a 404 page. Thumbnail links give `data-post-id`,
+  `data-tags`, width/height and the md5 (`/_thumbs/<md5>/`), so seen posts are skipped unopened. Post pages
+  (`/post/view/<id>`): the file from the Download form (else the video source / main image), md5 from `/_images/<md5>/`,
+  `a.tag_name` tags (lower-cased; no tag types), source links, rating (mapped by the manifest), upload time.
+- **Login** (`auth: {fields: [username, password], login: shimmie2}`): the engine posts the site's login form
+  (`/user_admin/login`, `user`/`pass`) when credentials are set and keeps the session (`shm_session` cookie, a
+  per-client cookie jar that empties when the credentials change); it signs in again when the session is gone.
+  Credentials of a `login:` plugin never go into request URLs. A refused login: "the site didn't accept the user name
+  and password". Settings labels the fields User name (shown as typed) and Password.
+- No OR search on Shimmie2 sites seen so far (`~a ~b`, `a || b` find nothing).
+
+## Mastodon engine (2026-10-16)
+- `engine: mastodon` uses a Mastodon server's API. Searches: `#tag` (the hashtag timeline), `#tag #other` (both:
+  `all[]`), `#tag ~#other` (either: `any[]`), `#tag -#other` (without: `none[]`), `@name` (a profile's own media posts,
+  `exclude_reblogs`), `@name #tag` (`tagged=`, further tags checked locally); pasted `/tags/<tag>` and `/@name` URLs
+  work; a word without `#` is a hashtag too. Always `only_media=true`, 40 statuses a page, `max_id` paging; pages whose posts are all filtered out are
+  passed over (up to 10 requests) so an empty page means the end.
+- Each image / gifv / video of a status is one post: **ID = status ID * 10 + its place** (Mastodon allows 4; status IDs
+  ~1.2e17 leave room); resuming below ID N asks `max_id=N/10`. Tags: the hashtags (lower-cased) + the author's
+  `acct` (lower-cased) with tag type `artist` (the plugin maps it to `creator`); rating from `sensitive`; the post's
+  own URL; no md5 (files are recognized after download by SHA-256, as usual). Lookup reads `/api/v1/statuses/<id>`.
+- Guests: hashtag timelines get `local=true` (many servers show only their own users' posts to guests). An optional
+  access token (`auth: {fields: [access_token], login: bearer}`, sent as `Authorization: Bearer`, never in URLs) lifts
+  that.
+
+- **`search.hint`** (2026-10-16): a plugin can replace the new-download box's placeholder for its own search syntax
+  (`/api/sites` `search_hint`; e.g. a Mastodon server: "#tag or @profile, e.g. #art #painting -#ai" - keep it short, it must fit a
+  phone). The Downloads screen reloads site names and hints when it opens (sites installed meanwhile).
+- **`search.tag_query`** (2026-10-19): how a library tag becomes the site's search, for a tag's "New download" (from
+  the details or a search chip): a namespace, or `"*"` for every other tag, mapped to a template with `{tag}` (the tag
+  without its namespace), e.g. `{creator: "@{tag}", "*": "#{tag}"}`; a template without `{tag}` is refused. Engines
+  have defaults (`plugin.TagQueries`): Mastodon `@{tag}` for creators and `#{tag}` for the rest, every other engine
+  the plain tag - so a plugin only sets it for a site with its own rules. `/api/sites` sends the result as
+  `tag_query`; the New download form writes the tag the chosen site's way, and again when another site is picked
+  before the search was changed by hand.
+- **`search.or`** (2026-10-20): how the site searches for posts with any of several tags, if it can - a template with
+  `{tags}`, the tags (each written the `tag_query` way) joined by `search.or_sep` (default `" ~ "`); e.g. a Gelbooru 0.2 site's
+  `or: "( {tags} )"` gives `( a ~ b ~ c )`. A template without `{tags}` is refused; no `or`: the site has no OR
+  search - except the Mastodon engine's own "either" hashtags, `~{tags}` joined by ` ~` (`~#a ~#b`; hashtags only:
+  with a tag written `@name` there's no Any). A Shimmie2 site checked 2026-10-20 has none: ten forms tried
+  (`~a ~b`, `a OR b`, `(a OR b)`, `a|b`, `{a,b}`, `or:a or:b`, `( a ~ b )`, ...) all answered 404, and its search
+  help lists no OR. `/api/sites` sends it as `or_query`/`or_sep`; the details' picked tags offer Download > Any of them
+  (`tagsQuery` in lib/sites); a site without one gets a search for each combination (`splitSearches` in lib/siteSearch).
+- **Blacklisted-tag notification (2026-10-18)**: when a file already in the library gets a tag the blacklist
+  matches - a search rerun or tag refresh updating its site tags, or the same file found on another site - the
+  downloader sends `EventBlacklisted` (site + the matching entry), once: only when the file didn't match before
+  (`setSitePost` checks the file's tags before and after). New downloads never cause one (they're skipped).
+  Push: "A file got a blacklisted tag" / "N files got blacklisted tags", the entries with counts, opens Tags > Tag
+  rules (the blacklist card shows them with Show them / Delete them). Setting `notifyBlacklisted` (on unless off).
+- **Sites off / built-in removable (2026-10-18)**: Settings > Sites, a site's ⋯ menu: **Switch off** keeps the site
+  but nothing runs for it - no new downloads (`Add` refuses, the new-download picker leaves it out), no subscription
+  checks, no tag refreshes; its worker stops (a running search resumes where it was) and its queue/subscriptions show
+  "Off" on the Downloads page. **Switch on** starts it again (due checks start). `POST /api/sites/{id}/off {off}`;
+  kept in the settings table as `sitesOff`. **Remove site** works for the built-in safebooru too: remembered as
+  `removedSites` (not loaded at start-up) until it's installed again - it's in the plugins repo's index for that.
+- **Source links only (2026-10-19)**: a post's source is free text on the sites - often several links with labels
+  ("Twitter: https://... Patreon: https://..."), sometimes words. `plugin.SourceLinks` keeps only the links (a bare
+  "x.com/someone" gets https://; a lone domain, labels and words are dropped) for every engine, and the library
+  stores only http(s) sources. Migration 0016 removed the non-link sources saved before (over a thousand in a real library
+  - backed up first).
+- **Source links decoded (2026-11-13)**: Gelbooru 0.2's JSON API (a tag refresh) sends the source text as the site
+  stores it, `&amp;` for `&`; its XML API (lists, so downloads) decodes it - the same link twice once both had been
+  read. `SourceLinks` decodes HTML codes first (`CleanTag`), for every engine. The ones already kept: the fix "Source
+  links listed twice" (fixes menu, `library/fixsources.go`) writes each in its decoded form, merged where a file has
+  both.
+- **HTML codes in tag names (2026-10-19)**: some Gelbooru 0.2 APIs send some tags with HTML character codes ("kai&#039;sa"
+  for "kai'sa", "&lt;" / "&gt;"); `plugin.Tags` / `CleanTag` decode them (the gelbooru engine's tags and tag
+  types). At start-up `library.fixEscapedTags` repairs tags saved before: renamed, or merged into the tag with the
+  right name (files, hidden marks, parents, siblings move; tag types too) - hundreds of such tags in a real library,
+  159 of them merged.
+- **Stopping a search whose site hangs (2026-10-19)**: a running search's page request has its own context;
+  pausing or removing the search cancels it at once (`Downloader.stop` / `trackPage`), so the site's queue goes on
+  straight away instead of waiting up to a minute for the request to time out. A canceled request counts as
+  stopped, not failed. Files already downloading still finish (as before).
+
+## Danbooru engine (2026-10-20)
+
+- `engine: danbooru` (`internal/plugin/danbooru.go`): danbooru.donmai.us and the sites running the same software,
+  through the JSON API. `/posts.json?tags=&limit=` (up to 200), newest first, resumed with the site's own
+  `page=b<ID>` (posts before that one: new uploads can't shift pages). The total comes from `/counts/posts.json`
+  (first page only, best effort). Lookup: `/posts/<id>.json` (404 = gone).
+- Tags with their types in every post (`tag_string_artist`, `_copyright`, `_character`, `_meta`, `_general`; aibooru's `_model`, the AI model, as
+  the `model` type - 2026-11-18) -
+  `tags.types: post` (no extra requests); the plugins map artist/copyright/character/meta to creator/series/character/meta.
+- Account optional: `login` + `api_key` in the query. Without one the site allows two tags per search (its 422 is
+  explained) and hides some files - a post without `file_url` is passed over (a page of only those doesn't end the
+  search). OR: `~a ~b` (the engine's default). Favorites: `fav:me` = the login's, `fav:<name>` anyone's - the site's
+  own fav: search, newest post first (so the favorites-removed check works as for the others).
+- Plugins (in the plugins repo): `danbooru` (adult content) and `safebooru-donmai` (Danbooru's safe-for-work mirror,
+  rated general only). `TestDanbooruLive` (VITRINE_LIVE=1) asks safebooru.donmai.us: search, the next page, a lookup -
+  passed 2026-10-20.
+
+## Moebooru engine (2026-11-17)
+
+- `engine: moebooru` (`internal/plugin/moebooru.go`): yande.re, konachan and sakugabooru (Danbooru 1's API).
+  `/post.json?api_version=2&include_tags=1` (up to 1000; the plugins ask 200) gives a page of posts and a `tags` map
+  of every tag's type, so `tags.types: post` needs no extra request. Newest first, resumed with `id:<N` added to the
+  search (the site has no `page=b`). The total: `/post.xml`'s `count` (first page only). Lookup: the search `id:N`.
+- No account: Moebooru signs in with a salted password hash, not an API key, so the engine doesn't. `fav:<name>` is the
+  site's `vote:3:<name>` (that user's favorites); `fav:me` is refused with a hint. OR: `~a ~b`. A post without
+  `file_url` is passed over, as on Danbooru. Post links: `/post/show/<id>(/<slug>)`.
+- `TestMoebooruLive` (VITRINE_LIVE=1) asks konachan.net: search, the next page, a lookup - passed 2026-11-17.
+
+## e621 engine (2026-11-17)
+
+- `engine: e621` (`internal/plugin/e621.go`): e621.net and e926.net (its safe-for-work side). Danbooru-like but its
+  own JSON: `/posts.json` gives `{"posts": [...]}` (up to 320), each with `file.url/md5/width/height`, `sources` (a
+  list) and `tags` by category (artist, contributor, copyright, character, species, general, meta, lore, invalid -
+  read in that order, so a post's tags keep one order). Resumed with `page=b<ID>`; lookup `/posts/<id>.json`
+  (`{"post": ...}`, 404 = gone).
+- No count endpoint: a one plain tag search's total is the tag's `post_count` (`/tags.json?search[name]=`); every
+  other search, and every search on e926 (its tag counts include posts it doesn't show), is -1.
+- Account optional: `login` + `api_key` in the query, a 401 (`SessionLoader::AuthenticationFailure`) explained as a
+  refused login. Without one the site hides some files (`file.url` null) - passed over. `fav:me` = the login's
+  `fav:<name>`; OR `~a ~b`. The site wants a User-Agent naming the program (Vitrine's own; a browser's meets
+  Cloudflare).
+- `TestE621Live` (VITRINE_LIVE=1) asks e926.net: search, the next page, a lookup - passed 2026-11-17.
+
+## Reddit engine (2026-11-18)
+
+- `engine: reddit` (`internal/plugin/reddit.go`; Reddit posts carry no tags). **Needs the user's own Reddit app**:
+  without OAuth every API address answered 403 "Blocked" from the VPN (www, old, api and oauth.reddit.com, 2026-11-18).
+  `auth.login: reddit` with the fields client_id, client_secret, username, password: a script app's ID and secret give
+  an app-only token (client_credentials); with a username and password, the account's (password grant; not with
+  two-factor sign-in); an installed app (no secret) the installed_client grant with a random device ID. The token (from
+  www.reddit.com/api/v1/access_token, HTTP Basic: `Client.PostFormBasic`) is kept until 5 min before it runs out,
+  fetched again on a 401; `Client.SetToken` sends it to oauth.reddit.com only. Signed in = an app ID (the Settings card
+  and `HasCredentials`).
+- **The project's own app (decided 2026-11-18**; making an app of one's own is too convoluted for the average user): as
+  gallery-dl ships its own Reddit app, Vitrine applies to Reddit once as the project (its Responsible Builder Policy:
+  approval needed, 2025 on) for an **installed app** (no secret, so its ID can be public) and puts the ID in the plugin
+  (`auth.app_id`), so Reddit works with nothing to fill in; a user's own client_id replaces it. A username and password
+  count only with the user's own script app (the password grant needs one). Until Reddit approves, the plugin stays out
+  of the plugins index (its file is in the repo, without `app_id`).
+- **Shelved (2026-11-22)**: Reddit answered that it has stopped accepting public API access requests - apps must run
+  on its Developer Platform (Devvit), inside Reddit, which a self-hosted downloader can't. The engine stays in the
+  code, unused (no plugin in the index); the video-and-sound joining (`download/mux.go`) is general.
+- Searches: `r/name` (`/r/name/new`; `r/a+b`), `r/name words` (its search, `restrict_sr`, newest first), `u/name`
+  (`/user/name/submitted`), words alone (`/search`), a post's link or redd.it link (that post), a subreddit's or user's
+  link; nothing = `r/all` (the site test). 100 a page, `raw_json=1`; pages without a file we take are passed over
+  (up to 10). Reddit's lists end after ~1,000 posts. Tag searches: creator -> `u/{tag}`, subreddit -> `r/{tag}`.
+- **Post IDs**: a post's base-36 ID * 100 + the file's place (a gallery has at most 20), handed out last file first
+  (IDs going down, as Mastodon's). Resuming below N asks `after=t3_<N/100>`; part-way through a post, that post's
+  remaining files first (`/api/info`), the next page then goes on after it. Lookup reads `/api/info?id=t3_...`.
+- **Files**: a gallery's images (`i.redd.it/<media id>.<type>`, the preview server's copy as the alternative) and
+  animations (its mp4), a Reddit video (`fallback_url`, its sound apart: `Post.AudioURLs` = DASH_AUDIO_128/64,
+  DASH_audio, audio next to it - joined by the downloader, below), an i.redd.it image, a RedGIFs link (below), another
+  site's animation Reddit keeps a copy of (`preview.reddit_video_preview`, no sound). A crosspost: the original's
+  files. Text posts, links to articles and removed posts: none. Imgur links aren't taken (a removed image comes back
+  as a placeholder picture, not an error).
+- **Tags** (Reddit has none): the subreddit (lower-cased, type `subreddit` - the plugin's namespace `subreddit:`), the
+  poster (type artist -> creator; not `[deleted]`), the flair (emoji codes dropped, lower-cased with `_`, at most 40
+  characters). Rating: `over_18` -> nsfw, else sfw (the plugin maps them).
+- **RedGIFs links**: the post is `Partial` (no file yet); its Reddit part and the clip's ID are kept in memory (5,000)
+  and `Lookup` asks RedGIFs (`/v2/gifs/<id>` - there is no several-at-once lookup: `/v2/gifs?ids=` answers 404,
+  checked 2026-11-18) only when the downloader needs the file: the clip's HD file (with sound), its tags and its user
+  (a creator) added to the Reddit tags, the watch link as the source. Gone from RedGIFs: Reddit's copy if it has one.
+  RedGIFs is asked through a client of its own (api.redgifs.com, 2 requests a second), not the plugin's.
+- `TestReddit`, `TestRedditQueries` (a fake Reddit: token, listing, gallery, video, RedGIFs, crosspost, resuming).
+
+## Bluesky engine (2026-11-22)
+
+- `engine: bluesky` (`internal/plugin/bluesky.go`): Bluesky's AppView API. Guests use public.api.bsky.app; with a
+  handle and an **app password** (`auth: {fields: [handle, app_password], login: bluesky}`) the engine signs in at the
+  base (bsky.social, `com.atproto.server.createSession`) and sends everything there with the session's token
+  (`Client.SetToken`, base host only). A new session after 100 minutes (tokens last about two hours; sign-ins are
+  limited to 30 per 5 minutes) and once after a 401. Accounts on other servers than bsky.social can't sign in.
+- **Searches**: `@handle` (getAuthorFeed, `posts_with_media`, reposts left out) works as a guest; `#tag` (several:
+  all of them; a bare word is a hashtag too) is searchPosts (`q` + `tag`, `sort=latest`), which refuses guests
+  (403) - the engine says an account is needed. `@handle #tag`: signed in, searchPosts with `author`; as a guest
+  the profile's feed with the hashtags checked here. `-#tag` is checked here; `~` (either) and `fav:` are refused
+  with a reason. Pasted bsky.app profile, `/hashtag/` and post links work; a post's link is that post.
+- **Post IDs**: keys are text (DID + record key), so like RedGIFs a post's ID is made: the time Bluesky sorts by
+  (the earlier of the record's `createdAt` and `indexedAt`) in ms `<< 20`, 18 bits of an FNV hash of the post's
+  `at://` address, 2 bits for the file's place (up to 4 images, or one video). Same post, same numbers; newer posts
+  higher. Resuming: the cursor after the last post handed out is kept in memory; after a restart it's made from the
+  ID's time (+1 ms; the feed's cursor is a time, the search's `until`), and posts at or above the ID are dropped.
+  Pages with nothing to take are passed over (up to 10), so an empty page is the end.
+- **Refreshes**: an ID can't be turned back into a post, so `Lookup` is `ErrNoLookup`, `CanSinglePost` is false and
+  the engine is a `URLEngine`. `LookupURL` now also gets the file's post ID (2026-11-22; RedGIFs ignores it), so a
+  post with several images gives each file its own (the place in the ID's last two bits).
+- **Files**: the original blob from the author's own server (`com.atproto.sync.getBlob` on their PDS, found once per
+  author through plc.directory; only servers under the plugin's domains, i.e. Bluesky's `*.host.bsky.network`), with
+  the CDN's copy (`cdn.bsky.app/img/feed_fullsize`, a re-encoded JPEG, about a quarter of the size) as the images'
+  fallback. Videos exist only as blobs and HLS streams: one on another server is passed over. Size from the
+  record's `aspectRatio` (the poster's app sets the real size).
+- **Tags**: the post's hashtags (facets and the record's `tags`, lower-cased) and the author's handle as type
+  `artist`; rating from the post's and its author's labels (`porn`, `sexual`, `nudity`, `graphic-media`, else
+  `safe`), mapped by the plugin. `tag_query`: creators `@{tag}`, the rest `#{tag}`.
+- `TestBlueskyLive` (VITRINE_LIVE=1): a profile as a guest, its next page, a refresh by link, an original file -
+  passed 2026-11-22; tried on the dev server through the VPN the same day (12 files, a video among them).
+- Later, maybe: likes (`fav:me`, getActorLikes - ordered by when liked, not posted).
+
+## RedGIFs engine (2026-11-17)
+
+- `engine: redgifs` (`internal/plugin/redgifs.go`): redgifs.com's API v2. No account: the site's temporary token
+  (`/v2/auth/temporary`), kept a day, fetched again on a 401; `Client.SetToken` sends it to the base host only (not
+  to the file CDN).
+- **Post IDs**: clips have word IDs ("happyfluffycat"), but the downloader needs numbers that fall with age (resuming
+  below a post, a check's stop at the newest one seen). A post's ID is `createDate << 20 | fnv32a(id) & 0xfffff`:
+  the same clip always gets the same number, newer clips higher ones. A number can't be turned back into the clip, so
+  `Lookup` is `ErrNoLookup` and `CanSinglePost` is false (`id:N` refused; a clip's link is the engine's own search,
+  as a gallery's is for ehentai). `post_url` is empty: each post carries its own `/watch/<id>` link.
+- **Paging**: the site pages by number (80 a page). After handing out a page the engine remembers which page follows
+  its last post (in memory, at most 1,000 entries); without that (after a restart) it finds the first page with a post
+  below `before` by halving the page range (each page's last clip says which side it's on) - about 7 requests for a
+  tag search's 125 pages. Posts at or above `before` are dropped (new uploads push clips down a page). Past a tag
+  search's last page the site answers 500: the end.
+- Searches: nothing (the newest of all: the site test), tags (all; `_` -> space), `@user`, `type:images`/`type:videos`, a clip's or user's link; `-tag`, `~`,
+  `fav:` and @user with tags are refused with a reason. Tags lower-cased with `_`; the user name is the creator
+  (tag type artist; `tag_query` creator -> `@{tag}`). Totals: the site's `total` (a tag search's is at most 10,000).
+- **The site's tag search is loose** (found 2026-11-17: files didn't match their assigned tags): a tag it doesn't know
+  is dropped without a word (`bbc,solo male` - no such tag - gave plain `bbc` clips), and a known one sometimes matches
+  clips without it (34 of 39 for `big tits,cosplay`). The engine keeps only clips with every tag searched for (any case,
+  `_` = space), looks at up to 25 pages for one, says so when none has them all ("check the tags' spelling"), and gives
+  no total when it dropped any (the site's count is of its loose search).
+- **Refresh** (the same day: tag refresh didn't work): `Lookup` can't, so the engine is a `plugin.URLEngine` -
+  `LookupURL` takes the post link the file keeps (`file_urls`, kind post) and asks for that clip; `download.lookupPost`
+  uses it for every refresh. A failed file's retry still can't (no file, so no link kept).
+- `TestRedgifsLive` (VITRINE_LIVE=1): a tag search, the next page found by halving, a clip's link - passed 2026-11-17.
+
+## Gallery sites: the ehentai engine (2026-10-20)
+- Engine `ehentai` (plugins in the plugins repo: e-hentai.org, exhentai.org): each search result is a **gallery** post
+  (`plugin.Post.Gallery`: token, titles, category, page count, `Key` = the first version's ID) and comes in as a
+  **comic** (Comics page), never as library files. Search: the site's own syntax, newest first, resuming with the
+  list's `next=<gid>` cursor; details for 25 galleries per call from the JSON API (`gdata`, all tags with their
+  namespaces - stored booru-style, `female:big breasts` -> `female:big_breasts`; artist/parody/character map to
+  creator/series/character through the plugin's `tags.namespaces`, the rest keep the site's names). A **gallery's
+  link** as the search = that one gallery, followed to its newest version (the gallery page's "newer versions"); a
+  subscription to it brings new versions in - the same comic (key = first version); the pages it has stay and only the
+  new ones are fetched, from where it got to (2026-10-20; an ongoing gallery adds pages - before, every page was
+  fetched again); a version with fewer pages trims the rest. A gallery is never skipped as "seen": its comic says which
+  pages it lacks. **Thumbnails only**: the gallery page's comments can link pages too (an uploader's chapter index) -
+  only links in the thumbnail area (`#gdt`) count, each placed by the page number in its link (a chapter index once
+  made pages come in out of order and asked for one that doesn't exist: "Invalid page."). **Download again** (a comic's
+  details; `POST /api/comics/do/redownload`): its pages cleared (`ClearComicPages`) and a download of the gallery queued.
+- Download (`download/gallery.go`): the comic is made or updated (title, tags of the site's origin, page count), then
+  its pages in order - the gallery's thumbnail pages list every picture page (streamed: `GalleryEngine.GalleryPages`
+  hands each page over as soon as its thumbnail page is read, so pictures download while the rest are listed; a stopped
+  download lists from the thumbnail page holding the first page it lacks), each picture page names the picture; a
+  picture that fails is asked for again with the page's reload key (another image server). Pages the comic has are
+  skipped, so a stopped download carries on where it was. **Speed** (2026-10-20): the picture pages are read one after
+  another at the plugin's `requests_per_sec` (1/s: at 2/s ExHentai stopped answering properly after ~55 pages, likely a
+  ban for loading pages too fast - now `plugin.ErrBanned`, read from the ban's plain-text answer; **ExHentai 0.33/s
+  since 2026-11-09**, plugin 1.2.0: at 1/s, with browsing beside it and through a shared VPN address, a 188-page gallery
+  got the address banned after 49 pages; e-hentai stays at 1/s) and read ahead while the pictures download, up to its
+  `connections` (3) at once - pictures come from many image servers, not the site; one gallery at a time per search (its
+  pages share the connections). Measured before: ~1.4 s a page whatever its size (1 page/s, then the picture, one at a
+  time). The downloads list counts a running gallery's pages ("12 of 75 pages", live: `FileProgress.pages/done`), its
+  bar follows them, and a gallery site's posts are "galleries" (its new ones "comics"). **Counts by what was asked**
+  (2026-10-22): a download or subscription of one gallery (its link) counts pages - the pages it added are kept
+  (`searches.pages`, `subscriptions.pages`: migration 0036, added as pages are stored, so a stopped download keeps its
+  count), shown as "N pages" / "page X of Y" while running / "had it all"; a tag search counts galleries (new / had),
+  with the running gallery's "page X of Y" beside them.
+- **Faster where it can be (2026-10-23, #105)** (the Android apps JHenTai and EhViewer feel much faster at loading
+  content: their sources read). Measured from the VPN: a picture page answers in ~0.3 s (the apps' api.php `showpage`
+  the same, so not used); 3 vs 6 connections with a look-ahead made no difference (no lookup ever waited for a slot, the
+  slowest picture < 3 s) - **the site's 1 page/s is the whole wait** (EhViewer paces the same; JHenTai's 2/s is what got
+  ExHentai to ban). The apps feel fast because they show the page being read first. Two changes:
+  - **The multi-page viewer** (`/mpv/{gid}/{token}/`, its `var imagelist` JSON - each page's key `k`): every page in
+    one request instead of a thumbnail page per 20/40 - only for an account with the site's "Multi-Page Viewer" Hath
+    Perk; anyone else gets "eeenope", remembered for a day (one request lost), and the thumbnail pages list them. Not
+    tried without an account.
+  - **Pages by their keys**: a page link's key (`/s/{key}/{gid}-{n}`) is the start of the original picture's SHA-1 - the
+    same in every gallery and on both sites (EhViewer reuses an older version's pages by it). Kept on each comic page
+    (`comic_pages.site_key`, migration 0038; `GalleryPages` hands it over with each page): a page whose key the library has
+    - in this comic (moved in a newer version) or another comic - is linked as it is (`LinkComicPage`), neither its page
+    nor its picture asked for. A newer version is checked page by page by key (pages added in the middle, or changed,
+    land right - before, only by page number); fewer pages: the rest go. Not the stored file's own hash: the site often
+    serves a resized picture. Pages from before the keys get theirs on the next check of the gallery.
+- **A ban** (2026-11-09): the ban's answer says how long ("The ban expires in 59 minutes and 48 seconds"; days,
+  hours, minutes, seconds; an hour when it doesn't say - `banLength`): the site is **paused** that long plus a minute
+  (`Client.Hold`, kind `ban`: reliability.md), so nothing more goes to it - before, every browse and retry asked again
+  every few seconds, which can make a ban longer. Its downloads wait and carry on when it ends.
+  **ExHentai's covers and thumbnail sheets** come from the site itself (`s.exhentai.org`; e-hentai's from a CDN) and
+  skipped the rate limit (only 8 at once): fast browsing made ~25 a second beside the pages. They're paced at 5 a
+  second now (`Client.SetPicturePace`, set by the engine - not a plugin field: an older Vitrine refuses fields it
+  doesn't know). Cached ones (64 MB here, a month in the browser) never wait.
+- **The image limit**: a picture page serving the "509" picture -> `plugin.ErrImageLimit`, wrapped in
+  `errStopSearch`: the search stops as failed (retried later) **without recording the gallery**, so the resume point
+  stays before it. Same for a refused login, ExHentai's blank "sad panda" page (`ErrSadPanda`: no access) and a
+  blocked country (`ErrRegionBlocked`: e-hentai answers 451 to the United Kingdom - Online Safety Act).
+  Logged in, the account's own limit applies (it can be raised on the site; Vitrine never spends the account's
+  points).
+- **Login** (`auth.login: ehentai`, fields `username, password, ipb_member_id, ipb_pass_hash` - either pair): the
+  e-hentai forum's login form; if it asks for a captcha, the two cookies pasted from a browser. The forum's login
+  page is behind a Cloudflare check that FlareSolverr can fail on from a VPN address (2026-11-09: it timed out every
+  time, ~65 s): a login page that runs out of time is `errEHCloudflare` too (it suggests the cookies), not a bare
+  "context canceled". The cookies (and
+  `nw=1`: no content-warning page) go to e-hentai.org, its API and forum hosts, and exhentai.org.
+- **Tag suggestions**: a gallery site's tags are the comics' only - never in the library's suggestions or namespace
+  lists (`Library.Namespaces` leaves out namespaces only comics use). The Comics page's search and New download for
+  a gallery site suggest from them (`GET /api/comics/tags?q=&site=`); a pick is written the site's way
+  (`tag_query` templates now take `{name}` - spaces for underscores - and `{ns}`; the engine's default:
+  `artist:"name$"`, `parody:"name$"`, `{ns}:"name$"`).
+
+## As built (from step 1, 2026-10-14 on)
+- **gelbooru-v02 engine**: XML dapi (`page=dapi&s=post&q=index&limit=<per_page>&pid=0&tags=...`), reads `count`,
+  `id`, `md5`, `file_url`, `tags`, `source` (split on spaces), `rating`, size. Resume = the query plus `id:<low_id`.
+  Tags are stored verbatim (namespaces from tag types: see "Tag namespaces" below; plain-name search finds
+  any namespace).
+- **gelbooru.com (2026-11-18)**: a newer Gelbooru. Its XML sends each post's fields as child elements; the engine reads
+  either form (attributes first). A page whose posts have no ID is an error, not an empty page, so a reply the engine
+  can't read never pages on forever. Its JSON has no `fields=tag_info`: `tags.types: tag_api` asks the tag API
+  (`s=tag&q=index&json=1&names=<up to 100 tags>`) and maps its type numbers to tag_info's names (1 artist,
+  3 copyright, 4 character, 5 metadata); the answers are kept in memory, so later pages ask only for new tags.
+- **2026-10-14**: the engine stores each post's upload time (`created_at`). A post the downloader has seen before is
+  no longer skipped silently: its tags, links, rating and upload time are written again (`SetSitePost`), so running a
+  search again works as a simple tag refresh and fills in upload times for files downloaded before this.
+- **The gelbooru-v02-html engine (2026-10-15)**: for Gelbooru 0.2 sites that switched their API off; instead of the
+  planned JavaScript plugin layer a Go engine reads Gelbooru 0.2 web pages - reusable for any Gelbooru site without an
+  API; the scripted layer stays planned for genuinely odd sites. **List pages** (`page=post&s=list&tags=...&pid=0`, 42
+  posts; resume with the site's `id:<N` search, which works there) give each post's ID and md5 - the thumbnail is named
+  `thumbnail_<md5>.jpg` - as *partial* posts: the downloader skips seen posts and deleted files without opening them,
+  and opens a post page (`page=post&s=view&id=N`) only to download it or to attach its tags to a file the library has.
+  **Post pages**: tags from `<a class="TYPE" href="index.php?page=post&amp;s=list&amp;tags=NAME">` (a type per class,
+  e.g. `tag-type-general`, `artist`, `character`, `copyright`, `metadata`), the file from the video's `<source>`s (mp4
+  first, webm as fallback - some mp4s are missing or empty; then the "Original" link, if it's a video) or the "Original"
+  link (an image's original, not its sample) with the image shown on the page as the fallback (2026-10-20: the Original
+  link sometimes answers 404 while the shown file is there), the md5 from the original's file name, the source from the
+  edit form's `source` field, the upload date from "Posted at Oct, 14 2026" (day only) - given its moment by the
+  downloaded file's `Last-Modified` when that falls on the same day (2026-10-21, any engine: `refinePosted`; realbooru
+  keeps it as the upload time, checked on posts from 2019 to 2026, images and videos). A day-only time read again later
+  (a tag refresh) leaves a moment on that day as it is (`SetSitePost`). Files downloaded before that get theirs from a
+  one-off pass in the background work (`FixPosted`, before the tag refresh, only while the queue is idle): each file
+  still at midnight on a gelbooru-v02-html site has its file URL asked for the headers only (`Client.Modified`: its
+  turn, a file slot, dropped once the headers are in); progress in meta `posted_fix:<site>` (last file ID, then "done").
+  **What it can't fix** (measured 2026-10-23 on realbooru: 8,702 of 10,009 files got their moment): files posted before
+  30 June 2020 all answer Last-Modified = that day (the site re-saved its files then), so the day check rightly refuses
+  it; ~1,300 stay day-only. The index sorts a day-only file by its post ID within that day (`index.postedKey`: midnight
+  + post ID ms; the stored date unchanged - chosen over estimated times). No rating on the pages: the manifest's
+  `ratings` maps the empty rating. Total = the last pagination `pid` plus a page. **Hotlink protection**: file URLs
+  redirect to `hotlink.php` (an HTML page) unless the request carries the site's Referer - manifests can set `referer:`;
+  the client now refuses `text/html` where a file is expected (never imported) and refuses redirects off the plugin's
+  domains. Tag types `page` (read from post pages) feed namespaces through the manifest. Live-tested 2026-10-15 (3
+  newest posts in 5 s). Per-site details: the plugins repo. **`login: gelbooru`** (2026-10-21): an account (user name,
+  password) signs in through the Gelbooru 0.2 login form (`page=account&s=login&code=00`), the session cookies kept
+  (`user_id`, `pass_hash`; again when they run out); `fav:me` is the signed-in user (no user ID to type). realbooru
+  1.1.0 uses it (optional). **`file_query:`** (2026-10-21): files are fetched with it as a query (`{id}`: the post), the
+  way the site's pages link them; the plain URL is what's kept. rule34 (`"{id}"`): its US Cloudflare cache served broken
+  copies of some files under the bare URL - a "HIT" crawling to a stop at the same byte each time, holding the queue up
+  (measured through the VPN: the bare URL 2.7 of 5 MB in 40 s; `?<id>` the whole file in 2 s; from London both were
+  fine).

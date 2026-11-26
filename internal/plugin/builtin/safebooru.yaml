@@ -1,0 +1,17 @@
+# Example plugin, shipped with Vitrine: Safebooru, a safe-for-work site on
+# the gelbooru 0.2 engine that needs no account. Other sites' plugins live in
+# the plugins repository (github.com/usevitrine/vitrine-plugins).
+id: safebooru
+name: Safebooru
+version: 1.0.0
+engine: gelbooru-v02
+base: https://safebooru.org
+post_url: https://safebooru.org/index.php?page=post&s=view&id={id}
+domains: [safebooru.org]
+limits: {requests_per_sec: 1, connections: 2}
+search: {per_page: 100}
+ratings: {general: general, safe: general, s: general, questionable: questionable, q: questionable}
+# Tag types come with each page (one extra request per page); these become namespaces.
+tags:
+  types: tag_info
+  namespaces: {artist: creator, character: character, copyright: series, metadata: meta}

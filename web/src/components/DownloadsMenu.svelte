@@ -1,0 +1,501 @@
+<script lang="ts">
+  import { overlayScroll } from '../lib/overlayScroll';
+  import { untrack } from 'svelte';
+  import { marquee } from '../lib/marquee';
+  // The downloads in the top bar (the library): its counter says how many are running or waiting, and the arrow bobs
+  // while one downloads. A press opens New download and the downloads going on now - running, then waiting, then paused
+  // - a site's together as a stack like the Downloads page's; each is a small version of the page's queue card
+  // (2026-10-29): its search (scrolling sideways when it's long) with how far and how fast - or its state - on the
+  // right, its bar, and a quiet line: "Sub" (a subscription's check) or "Initial" (a first download), its new files,
+  // the posts gone through out of its goal; one opens the Downloads page. It grows out of its button like the bell's
+  // (lib/popover).
+  import { flip } from 'svelte/animate';
+  import { backClose } from '../lib/backClose';
+  import { grow, rowIn, rowOut, dismiss } from '../lib/popover';
+  import { activeDownloads as active } from '../lib/activeDownloads.svelte';
+  import { live } from '../lib/live.svelte';
+  import { formatSize } from '../lib/results.svelte';
+  import { measurable, progress, goalOf, galleryNow, oneGallery } from '../lib/downloadProgress';
+  import { openNewDownload } from '../lib/newDownload.svelte';
+  import { sites as siteInfo, siteLabel } from '../lib/sites.svelte';
+  import { router } from '../lib/router.svelte';
+  import type { DownloadSearch } from '../lib/api';
+  import { t, num } from '../lib/i18n.svelte';
+  import Icon from './Icon.svelte';
+  import SiteIcon from './SiteIcon.svelte';
+  import Stack from './Stack.svelte';
+  import { scrollsWhenFull } from '../lib/scrollsWhenFull';
+
+  // query: the search in the bar (New download offers it first).
+  let { query }: { query: string } = $props();
+
+  const SHOWN = 6; // sites; more: "N more", to the Downloads page
+
+  let open = $state(false);
+  let button = $state<HTMLButtonElement>();
+  let panel = $state<HTMLElement>();
+
+  $effect(() => active.use());
+
+  const running = $derived(active.list.some((s) => shownState(s) === 'running'));
+
+  function close() {
+    open = false;
+  }
+  function newDownload() {
+    close();
+    openNewDownload(query);
+  }
+  /** One download: the Downloads page on it - its tab, scrolled to, highlighted (Downloads' focus "dl:"). */
+  function toDownload(id: number) {
+    close();
+    router.focus = 'dl:' + id;
+    router.go('downloads');
+  }
+  function toDownloads() {
+    close();
+    router.go('downloads');
+  }
+
+  // (a running one on a paused site waits for it: shown as waiting, as on the Downloads page)
+  const shownState = (s: DownloadSearch) => (s.state === 'running' && active.sitesPaused[s.site] ? 'queued' : s.state);
+  const gallery = (s: DownloadSearch) => siteInfo.engines[s.site] === 'ehentai';
+  const named = (s: DownloadSearch) => s.label || s.query || t('push.everything');
+  /** A subscription's check ("Sub"), or a first download - a new subscription's first check, or a download once. */
+  const isSub = (s: DownloadSearch) => !!s.subscription_id && !s.first_check;
+  /** "57,734/72,588" - the posts gone through out of the goal (the limit, the site's count; none: the count). A
+   *  subscription's check has no goal (it goes until the posts the last one saw): "24 looked at" (its new files go
+   *  before it - newOf); nothing gone through yet: "Checking…" / "Starting…" (not a bare 0), waiting: nothing
+   *  (its state says it). */
+  function count(s: DownloadSearch): string {
+    if (!s.handled && !(gallery(s) && galleryNow(s, live.files))) {
+      if (shownState(s) !== 'running') return '';
+      return t(isSub(s) ? 'dlMenu.checking' : 'dlMenu.starting');
+    }
+    if (isSub(s) && !gallery(s)) return t('dlMenu.lookedAt', { n: num(s.handled) });
+    const goal = goalOf(s);
+    const posts = goal ? `${num(s.handled)}/${num(goal)}` : num(s.handled);
+    if (!gallery(s)) return posts;
+    // A gallery site: one gallery by its pages (not "0/1"), a search of many by gallery - with the page it's on.
+    const g = galleryNow(s, live.files);
+    if (oneGallery(s)) {
+      if (g) return `${num(g.done)}/${num(g.pages)} ${t('downloads.stat.pages', { n: g.pages })}`;
+      return s.pages ? `${num(s.pages)} ${t('downloads.stat.newPages', { n: s.pages })}` : '';
+    }
+    return g ? `${posts} · ${t('downloads.stat.pageOf', { done: num(g.done), pages: num(g.pages) })}` : posts;
+  }
+
+  /** How fast it downloads (the server's average over the last seconds). */
+  const speedOf = (s: DownloadSearch) => (live.speed[s.id] > 0 ? t('downloads.speed', { size: formatSize(live.speed[s.id]) }) : '');
+
+  // A site's downloads together (in the list's order: running, waiting, paused), the sites as they come first.
+  const groups = $derived.by(() => {
+    const by = new Map<string, DownloadSearch[]>();
+    for (const s of active.list) by.set(s.site, [...(by.get(s.site) ?? []), s]);
+    return [...by.entries()].map(([site, list]) => ({ site, list }));
+  });
+  let unfolded = $state<Record<string, boolean>>({});
+  // Opened again: its stacks folded (a stack left open stayed open the next time).
+  $effect.pre(() => {
+    if (open) untrack(() => (unfolded = {}));
+  });
+
+  // A press outside or Escape closes it (the press goes no further: nothing opens by accident underneath).
+  $effect(() => {
+    if (open) return dismiss(() => panel, () => button, close);
+  });
+</script>
+
+<div class="dl-wrap">
+  <button
+    bind:this={button}
+    class="icon dl"
+    class:has={active.count > 0}
+    class:running
+    aria-label={active.count ? t('dlMenu.labelActive', { n: active.count }) : t('dlMenu.label')}
+    title={t('dlMenu.label')}
+    aria-haspopup="dialog"
+    aria-expanded={open}
+    onclick={() => (open = !open)}>
+    <span class="arrow"><Icon name="download" size={19} /></span>
+    {#if active.count}
+      {#key active.count}
+        <span class="counter" aria-hidden="true">{active.count > 99 ? '99+' : num(active.count)}</span>
+      {/key}
+    {/if}
+  </button>
+
+  {#if open}
+    <div class="panel" bind:this={panel} role="dialog" aria-label={t('dlMenu.label')} {@attach backClose(close)} in:grow out:grow={{ out: true }}>
+      <header>
+        <h2>{t('dlMenu.label')}</h2>
+        <button class="link new" onclick={newDownload} aria-label={t('newDl.open')}><Icon name="plus" size={16} /> {t('dlMenu.new')}</button>
+        <button class="quiet link" onclick={toDownloads}>{t('dlMenu.all')} <Icon name="right" size={16} /></button>
+      </header>
+      {#if active.list.length}
+        <ul {@attach scrollsWhenFull} {@attach overlayScroll}>
+          {#each groups.slice(0, SHOWN) as g, i (g.site)}
+            <li animate:flip={{ duration: 220 }} in:rowIn={{ i }} out:rowOut>
+              {#if g.list.length === 1}
+                <div class="solo">{@render row(g.list[0])}</div>
+              {:else}
+                <Stack items={g.list} key={(x) => x.id} label={siteLabel(g.site)} bind:open={() => !!unfolded[g.site], (v) => (unfolded[g.site] = v)}>
+                  {#snippet card(x, _)}{@render row(x)}{/snippet}
+                </Stack>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+        {#if groups.length > SHOWN}
+          <button class="quiet more" onclick={toDownloads}>{t('dlMenu.more', { n: groups.slice(SHOWN).reduce((n, g) => n + g.list.length, 0) })}</button>
+        {/if}
+      {:else}
+        <!-- (nothing: a quiet check, no words - like the bell's) -->
+        <div class="empty" role="img" aria-label={t('dlMenu.empty')} in:rowIn><Icon name="check" size={22} /></div>
+      {/if}
+    </div>
+  {/if}
+</div>
+
+{#snippet row(s: DownloadSearch)}
+  {@const st = shownState(s)}
+  <button class="item" onclick={() => toDownload(s.id)}>
+    <SiteIcon host={siteInfo.hosts[s.site] ?? ''} />
+    <span class="text">
+      <span class="head">
+        <!-- (a search too long for its line slides to its end and back: lib/marquee) -->
+        <span class="name marquee sliding" title={named(s)} {@attach marquee}><span>{named(s)}</span></span>
+        {#if st === 'running'}
+          {@const pct = measurable(s, live.files) ? Math.floor(progress(s, live.files, gallery(s)) * 100) : null}
+          {#if pct !== null || speedOf(s)}
+            <span class="now">{#if pct !== null}<b>{pct}%</b>{/if}{#if speedOf(s)}<span>{speedOf(s)}</span>{/if}</span>
+          {:else}
+            <span class="state running">{t('downloads.state.running')}</span>
+          {/if}
+        {:else}
+          <span class="state {st}">{t(`downloads.state.${st}`)}</span>
+        {/if}
+      </span>
+      {#if st === 'running' && !measurable(s, live.files)}
+        <span class="bar striped" role="progressbar" aria-label={t('downloads.noEstimate')}></span>
+      {:else}
+        <span class="bar"><span class="fill {st}" style:width="{progress(s, live.files, gallery(s)) * 100}%"></span></span>
+      {/if}
+      <span class="meta">
+        <span class="kind" class:sub={isSub(s)} title={isSub(s) ? t('dlMenu.subTitle') : t('dlMenu.initialTitle')}>{isSub(s) ? t('dlMenu.sub') : t('dlMenu.initial')}</span>
+        {#if isSub(s) && s.downloaded && !gallery(s)}<b class="new">{t('dlMenu.newN', { n: num(s.downloaded) })}</b>{/if}
+        {#if count(s)}<span class="count">{count(s)}</span>{/if}
+      </span>
+    </span>
+  </button>
+{/snippet}
+
+<style>
+  .dl-wrap {
+    position: relative;
+  }
+  .dl {
+    position: relative;
+    color: var(--subtext);
+  }
+  .dl.has {
+    color: var(--text);
+  }
+  .arrow {
+    display: grid;
+  }
+  /* Something downloading: the arrow bobs down, again and again. */
+  .dl.running .arrow {
+    animation: bob 1.6s ease-in-out infinite;
+  }
+  @keyframes bob {
+    0%,
+    100% {
+      transform: translateY(-1px);
+    }
+    50% {
+      transform: translateY(2px);
+    }
+  }
+  /* (on the icon's top right corner; a longer number grows to the right) */
+  .counter {
+    position: absolute;
+    top: calc(50% - 15px);
+    left: calc(50% + 2px);
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--peach);
+    color: var(--crust);
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 14px;
+    text-align: center;
+    box-shadow: 0 0 0 2px var(--mantle);
+    animation: pop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes pop {
+    from {
+      transform: scale(0.4);
+    }
+  }
+  .panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: -48px; /* (lined up with the bell's panel: the bell is right of this button) */
+    z-index: 60;
+    width: min(380px, calc(100vw - 16px));
+    max-height: min(70vh, 560px);
+    display: flex;
+    flex-direction: column;
+    background: var(--mantle);
+    border: 1px solid var(--surface1);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgb(0 0 0 / 0.55);
+    transform-origin: calc(100% - 70px) 0;
+    overflow: hidden;
+  }
+  /* Phones: across the top bar, the same margin on both sides (the bar holds it, not the button). */
+  @media (max-width: 639px) {
+    .dl-wrap {
+      position: static;
+    }
+    .panel {
+      left: 8px;
+      right: 8px;
+      width: auto;
+    }
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    /* (3 px under: with the line, 36 px around the 32 px buttons - on whole pixels, so their words and icons line up;
+       at the sides: the title and All's chevron - its drawing, not its button - end where the cards below do) */
+    padding: 4px 4px 3px 12px;
+    border-bottom: 1px solid var(--surface0);
+  }
+  h2 {
+    flex: 1;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  /* New download and All: small links in the heading. */
+  .link {
+    min-height: 32px;
+    padding: 0 8px;
+    border: 0;
+    font-size: var(--font-small);
+    color: var(--mauve);
+    gap: 2px;
+  }
+  /* New stands out: a filled mauve button (the app's usual one), All stays a quiet link. */
+  .link.new {
+    gap: 4px;
+    padding: 0 10px;
+    color: var(--crust);
+    font-weight: 600;
+  }
+  /* (the icons' drawings sit inside empty margins - the chevron's 6 px a side, the plus's 3 px: pulled in, so the
+     button's room is even on both sides) */
+  .link:not(.new) > :global(svg) {
+    margin: 0 -5px 0 -3px;
+  }
+  .link.new > :global(svg:first-child) {
+    margin-left: -3px;
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 6px 12px 10px; /* (at the sides: as the heading above) */
+    overflow: hidden; /* (scrolls only when its rows don't fit: scrollsWhenFull) */
+    overscroll-behavior: contain;
+    display: grid;
+    gap: 2px;
+  }
+  ul:global(.full) {
+    overflow-y: auto;
+  }
+  .item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    padding: 8px 10px 8px 8px;
+    background: none;
+    border: 0;
+    border-radius: 10px;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    font-weight: 400;
+  }
+  @media (hover: hover) {
+    .item:hover {
+      background: var(--surface0);
+      filter: none;
+    }
+  }
+  .text {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+  /* The search and its kind: the search scrolls sideways when it's long (soft edge), the chip stays. */
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .name {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+  }
+  /* How far and how fast (as the page's cards: the percent in peach, the speed after a dot), or its state. */
+  .now {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .now b {
+    color: var(--peach);
+    font-weight: 700;
+  }
+  .now b + span::before {
+    content: '·';
+    margin-right: 6px;
+    color: var(--overlay0);
+  }
+  .state {
+    flex: none;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 17px;
+    background: var(--surface0);
+    color: var(--subtext);
+  }
+  .state.running {
+    color: var(--peach);
+    background: color-mix(in srgb, var(--peach) 14%, transparent);
+  }
+  .state.paused {
+    color: var(--yellow);
+    background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  }
+  /* The kind, first on the quiet line: a word in its color. */
+  .kind {
+    font-weight: 700;
+    color: var(--peach);
+  }
+  .kind.sub {
+    color: var(--mauve);
+  }
+  .count {
+    font-variant-numeric: tabular-nums;
+    color: var(--subtext);
+  }
+  .meta .new {
+    color: var(--green);
+    font-weight: 600;
+  }
+  /* (a stack's cards: a little room around each, and under the folded edges) */
+  /* One on its own: a card like a stack's (Stack's framed cards) */
+  .solo {
+    margin: 2px 0;
+    border: 1px solid var(--surface0);
+    border-radius: 12px;
+    background: var(--crust);
+    overflow: hidden;
+  }
+  li :global(.stack) {
+    margin: 2px 0;
+  }
+  li :global(.stack.many:not(.open)) {
+    margin-bottom: 10px;
+  }
+  /* (its items a dot apart) */
+  .meta {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--overlay1);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .meta > * + *::before {
+    content: '·';
+    margin-right: 6px;
+    color: var(--overlay0);
+    font-weight: 400;
+  }
+  .bar {
+    display: block;
+    height: 4px;
+    margin: 3px 0 1px;
+    border-radius: 2px;
+    background: var(--surface0);
+    overflow: hidden;
+  }
+  .fill {
+    display: block;
+    height: 100%;
+    background: var(--peach);
+    transition: width 0.4s;
+  }
+  .fill.paused,
+  .fill.queued {
+    background: var(--overlay0);
+  }
+  .bar.striped {
+    background: repeating-linear-gradient(-45deg, var(--peach) 0 6px, color-mix(in srgb, var(--peach) 45%, var(--surface0)) 6px 12px);
+    background-size: 17px 17px;
+    animation: stripes 0.8s linear infinite;
+  }
+  @keyframes stripes {
+    to {
+      background-position: 17px 0;
+    }
+  }
+  .more {
+    margin: 0 12px 8px;
+    min-height: 34px;
+    border: 0;
+    font-size: var(--font-small);
+    color: var(--subtext);
+  }
+  .empty {
+    display: grid;
+    place-items: center;
+    margin: 0;
+    padding: 18px 16px;
+    border: 0; /* (not the dashed box of an empty list elsewhere) */
+    border-radius: 0;
+    background: none;
+    color: var(--overlay0);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dl.running .arrow,
+    .counter,
+    .bar.striped,
+    .name:global(.long),
+    .name:global(.long) > span {
+      animation: none;
+    }
+  }
+</style>

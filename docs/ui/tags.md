@@ -1,0 +1,167 @@
+# Tags in the UI
+
+The tag menu, tag actions in the details, the tag browser and Tags screens, the selection's tag editor, tag rules, picking several tags.
+
+## As built (web client, from 2026-10-14 on)
+- **Tag menu (2026-10-15, replaced the row of buttons)**: tapping a tag in the details opens a menu (`TagMenu.svelte`) -
+  at the tag with a mouse, an action sheet along the bottom on phones. Header: the tag and its namespace. Search: Add
+  to search / Remove from search, Exclude / Include again, New search (just this tag). New download: Downloads with
+  the form filled in (the plain tag without namespace - sites search by it - and the file's site when the tag came
+  from one; `router.downloadDraft`). Copy: the full tag, and for namespaced tags "Copy without namespace" (the text
+  shown on each item; clipboard API, execCommand fallback; a toast). Remove from this file (red). Escape / tap
+  outside closes only the menu; arrow keys move through it. Ctrl/Cmd-click (add) and Alt-click (exclude) stay.
+- **Parent tags from the tag menu (2026-11-01)**: an item "Parent tags" beside Namespace (the parent's name on it when
+  the tag has one, else "N parents"), the library's tags only. Its page (lib/pages, like Namespace): every parent tag
+  with a check when this tag is one of its children - a tap puts it in or takes it out, the menu stays open; a parent
+  this tag was the only child of stays listed once taken out, so a second tap puts it back - and a box for a new parent
+  by name (+). `GET/POST /api/relations`, the same as Tags > Rules. The search bar too: a chip's menu (`ChipEditor`) has
+  the same item and page when the chip is one library tag (not a filter, wildcard or OR group) - one page component
+  (`ParentsPage`) and one helper (`lib/parents.svelte.ts`) for both menus. The saved searches menu calls them parents
+  too (its tab "Parents", "New parent").
+- **Tags a subscription follows (2026-10-30)**: a small mauve bell after the tag (`SubMark.svelte`) - filled when a
+  subscription's search is the tag alone (excluded tags beside it allowed), an outline when it's one of several, dimmed
+  when every one is paused. A subscription on the bare name counts for the namespaced tag (`some_artist` ->
+  `creator:some_artist`); a site's own marks are taken off (`#tag`, `@name`); excluded tags, wildcards and links don't
+  count (`lib/subTags.svelte.ts`, `searchTags`). Shown in the details panel's tags, the search bar's chips (not on an
+  excluded one), the suggestions, and the tag browser (Tags > All tags). Not on grid tiles. The list comes from `GET
+  /api/subscriptions/tags` (id, site, search, paused - nothing else), asked for once a tag needs it and again a second
+  after a live "downloads" event; the Downloads page hands over its own list. **The tag menu** (just "Subscribed" and
+  the sites, an open icon instead of a word): under the header a mauve-tinted box - the bell, "Subscribed" / "In a
+  subscription", the sites under it - and an external-link icon that opens it on the Downloads page (one: scrolled to
+  and flashed, `router.focus = 'sub:<id>'`; several: the Subscriptions tab filtered to the tag, `'subs:<name>'`). A new
+  subscription is New download's (the dialog's Once / Subscribe); a separate **Subscribe…** beside it was removed on
+  2026-11-02. **Centered (2026-10-30: the chip's bell sat low, its icon off-center)**: in a chip the tag's text and bell
+  are a flex row (`align-items: center`, no nudge); elsewhere `vertical-align: middle`; the bell is the disc's size
+  minus 4 px (same odd/even, so it lands on whole pixels - a 9 px bell in a 14 px disc was half a pixel off), `display:
+  block`. The e2e test measures it: the disc's middle on the chip's / row's (1 px), the bell's on the disc's (0.5 px).
+- **Tag actions in the details panel**: tapping a tag opens a row under its group: **Add**
+  (to the current search), **Exclude** (adds `-tag`), **Only this** (searches just the tag). If the search already has
+  the tag, Add becomes **Remove** (from the search); if it already excludes it, Exclude becomes **Include**. The tag's
+  own chip is replaced (an exclusion becomes an inclusion and back); OR groups are left alone. Tapping the tag again
+  closes the row. Desktop shortcuts: Ctrl/Cmd-click adds, Alt-click excludes. The viewer closes and the new search
+  runs, as before.
+- **Tag browser (built 2026-10-15)** (`TagBrowser.svelte`, top of the Tags screen): every tag with live files and how
+  many files have it, in its namespace color; filter (substring, any case), namespace chips (All, Creator, Series,
+  Character, ..., General, Meta), Most used / A-Z; 100 at a time with "Show more". Tap a tag: Search (opens the
+  library), Rename (only tags the user added - into an existing tag merges; refused for tags with parents/siblings),
+  Alias (= make it a sibling of another tag; the only option for tags from sites, because a tag refresh would bring a
+  renamed site tag back). API: `GET /api/tags?q=&ns=&sort=count|name&offset=&limit=` (index `TagList`, `ns=-` = no
+  namespace; rows say `from_sites`), `POST /api/tags/rename {from, to}`. **By site (2026-11-01)**: a site picker beside
+  the order (All sites, then the sites the library has files from, media and comics, most files first; not shown with
+  only one site): only the tags of that site's files, each counted by those files - `&site=` (a site's name, or several
+  `a,b`), counted in the index (`siteFiles` bitmaps, as `system:site=`). A tag the user added to a site's file counts
+  too: files, not tag origins (the index doesn't keep origins - the same as the "Which site?" counts).
+- **Tags sub-pages**: the tag browser took too much room above the rules, so the Tags screen
+  has two sub-pages: **All tags** (`/tags`, the browser) and **Tag rules** (`/tags/rules`: parents, siblings,
+  blacklist). A two-way switch under the heading (`.segmented` in `app.css`, full width on phones) and indented
+  entries under Tags in the navigation drawer (the current one highlighted) lead to them; the URL keeps the sub-page,
+  so reload and Back work. The router has a `sub` (the path after the screen's own).
+  **Since 2026-10-18 Tags is laid out like Settings** (the shared `components/Sections.svelte`): **Tag rules**
+  (`/tags/rules`) first and **All tags** (`/tags/all`); phones get a list of the two (each opens as a page with
+  "‹ Tags"), wide screens the list on the left and the section beside it. The menu's Tags entry opens Tag rules.
+- **Tags in the details (2026-10-16)**: the Tags header has two icon buttons - refresh (read the post's tags from the
+  site again; only for files with a post page; it moved there from "Where it's from") and a pencil. Tags show no ×
+  until the pencil is pressed: edit mode shows the add box and × on every tag (× marks a tag removed - struck through,
+  × again keeps it; new tags show dashed), a note "1 to add, 1 to remove", and the pencil becomes a mauve check that
+  saves it all at once ("Tags saved (added 1, removed 1)" with Undo). Swiping to another file or closing the details
+  while editing saves the changes. The tag menu's "Remove from this file" still removes at once.
+- **Selection tag editor (2026-10-16, replaced "+ Tags" / "− Tags")**: the selection bar's **Tags** button opens a panel
+  above the bar ("Tags of 30 files"; full width on phones, 520 px at the right on desktop) listing every tag of the
+  selected files (`POST /api/tags/of {ids}` -> each tag with how many of them have it, hidden site tags left out),
+  grouped by namespace. A tag on only some files is a dimmer pill with "12/30 +": the + gives it to all (shows
+  "all ✓", dashed). × removes a tag from all (struck through; × again keeps it). The add box adds new tags (one every
+  file already has is skipped). "1 to add, 1 to remove", Cancel / Save - one `POST /api/tags` for everything.
+- **Tag rules boxes (2026-10-19)**: each parent's "add children" box sits under its name, above its children, with an
+  Add button (`.add-row` in app.css; it used to trail the children and move as they grew); the blacklist's box has an
+  Add button too. (The box binds through a getter/setter: binding a not-yet-set record entry to a `$bindable` with a
+  fallback throws `props_invalid_value` and the parents list never rendered.) The blacklist's notice going from red to
+  green and back (2026-11-02): both states share one grid cell, each fading and closing or opening with the buttons
+  inside it, the box's height and color following; only the all-clear line is green.
+- **Several tags at once (2026-10-20)**: the details' Tags header has a "Pick several tags" button (two checks; with two
+  tags or more). Picking: a tap on a tag picks it (filled with its namespace's color) instead of opening its menu, and a
+  bar under the tags (a header like the panels': "N picked" in bold, × to stop picking, a line under it) offers two rows
+  of equal buttons in three columns, each under a small heading: SEARCH - All of them (a new search), Any of them (one
+  OR group), Add to search (each added to the current search; one already a chip of its own is replaced); DOWNLOAD - All
+  of them (the form filled with all of them, each written the site's way) and Any of them (the site's OR search - only
+  shown where the site the download would use has one: the picked tags' site, else the form's last one;
+  `router.downloadDraft` {tags, any}). The button again ends picking. **Since 2026-10-23** (the little dialogue was
+  inconsistent with the rest of the app): the bar is one row like the selection bar - "N picked", a **Use** button
+  (`ActionMenu`: the usual menu, a sheet on phones - Search all of them, Search any of them, Add them to the search,
+  Download all of them, Download any of them, Add them to the blacklist) and × - instead of the grey box of button
+  grids. **Picking starts by pressing and holding a tag** (450 ms, a tick where the phone can; right-click with a mouse,
+  the context-menu key on a keyboard - `lib/longPress`); the header's pick button is gone; the held tag is the first
+  picked, taps pick more, unpicking the last one ends picking (as does ×). The hold isn't also a tap (no tag menu), and
+  the phone's own long-press menu stays away.
+- **The download blacklist from the details (2026-10-23)**: a tag's menu has Add to blacklist (Remove from blacklist
+  when it's on it); picked tags have Add them to the blacklist. A toast says so ("x won't be downloaded any more") with
+  Undo; the list is read the first time a menu needs it (`GET/POST /api/blacklist`, the same as Tags > Tag rules).
+- **Which site for a new download from tags (2026-10-20)**: a tag's New download (the details' tag menu, a search
+  chip) and the picked tags' Download all/any go through `newDownload` (lib/newDownload.svelte.ts): it asks the server
+  which sites gave the tags (`GET /api/tags/sites?t=...` -> per tag `[{site, count}]`, live files, most first;
+  since 2026-10-31 counted in the index - the tag's files and each site's files, for a tag some site gave - with the
+  database's count only for files from no site: a tag on most of a big library took up to 0.8 s) and
+  ranks the sites that can take them (installed, not off; for Any only sites with an OR search for those tags) by how
+  many of the tags they gave, then files. More than one: "Download from which site?" (`SitePicker`, a card / a phone
+  sheet): those sites with their file counts ("2 of 3 tags" for a site that gave only some), then "Other sites";
+  Escape or a press outside cancels. One: straight to the form on it; none: the file's site, else the form's own.
+- **Blacklisted tags marked in the details (2026-10-23)**: a tag on the download blacklist has a red crossed-out eye
+  before its name (its tooltip names the entry; its label says "x, on the download blacklist"), matched as the server
+  matches posts - the whole tag or its bare name, `*` patterns included (`lib/blacklist`, the list shared with Tag
+  rules, so a change in either shows in the other at once). Its menu: Remove from blacklist for its own entry; one of a
+  pattern is named ("On the blacklist by ai_*", not removable there - taking it off would let other tags through too).
+- **Keep it despite the blacklist (2026-11-17)**: while a file has a blacklisted tag, a red-tinted line under the Tags
+  heading says the blacklist's Delete them would delete it, with **Keep it**; kept, the line turns green (shield icon)
+  with **Don't keep** - shown while it's kept even when no tag matches any more. A toast with Undo (`lib/kept`). Server
+  side: downloader/downloads-and-subscriptions.md, "Kept despite the blacklist".
+- **Blacklist entries are bare tags (2026-10-23: adding a tag to the blacklist from the details added its namespace, and
+  a file with that tag still downloaded)**: image boards send bare tags; the library files them under namespaces. So the
+  details add the bare name ("creator:x" -> "x"), and the server's matching treats an entry with a namespace as also
+  matching the bare tag (`Blacklist.Match`) - "creator:x" never stopped a post tagged x before.
+- **The pick bar's buttons (2026-10-24)**: "N picked", then **Search** (the usual menu: all of them, any of them, add
+  them to the search), **Download** (all, any) and **Blacklist** (added at once, Undo in the toast), then ×, in a bar 46
+  px tall with a mouse and 52 px on touch screens (the buttons the usual touch height - at 46 the bar looked cramped on
+  a phone). With a mouse the three are just icons (each named when pointed at), right-aligned beside the × - scrolling a
+  strip with a mouse was awkward. The buttons are a strip that scrolls sideways (snapping, soft edges) when the panel is
+  too narrow, as the selection bar's; the count stays whole; the Tags section never grows wider than the panel
+  (`minmax(0, 1fr)`). A picked tag keeps its weight (bolder text was wider, and a tag at a row's end jumped to the next
+  line).
+- **The picked tags' round button (2026-11-16, replaced the pick bar)**: picking still starts by holding a tag
+  (right-click, the context-menu key) and taps pick more; instead of the bar under the tags, a **round mauve button with
+  the count** floats at the bottom right (`TagPickMenu`, on top of the page, above the keyboard). The picked chips are
+  one line a finger (or a wheel) scrolls sideways when they don't fit, as the search bar's, out to the card's edges,
+  soft edges only where more are hidden (for a moment it slid by itself, the app's marquee). It opens a card - a sheet
+  on phones, above the button with a mouse: "N tags picked" and **Clear** (ends picking), the picked tags as chips (×
+  takes one off; the last one off ends picking), then cards whose rows say what they do: SEARCH - Files with all of them
+  (the tags under it), Files with any of them ("a OR b", two or more), Add to the current search; DOWNLOAD - Download
+  all of them, Download any of them (where the site can), Add them to the blacklist (dimmed when all are on it). Test:
+  "details: pick several tags...".
+- **Several sites for one new download (2026-11-16)**: on "Which site?" each site has a round check; a tap on a row
+  still goes on with that site alone, a check picks it among others (from then on a tap on a row picks or unpicks it)
+  and "N sites picked · Next" appears. Next: "The search on N sites" - a search box for each site, each written its way
+  (OR groups split per site as before); then one "once or subscribe" for all of them: a list of site + search, the group
+  either none, a group every one of the sites has (by name - `group_name`, so each site's own) or a new one (made on
+  each site). One download (or subscription) per site and search; the toast names the search once and the sites. The
+  one-post check (id:N, a post's link) only with one site. Test: "new download from tags: several sites at once".
+- **Shared with the subscriptions (2026-11-16)**: the round button and its card are `PickMenu` (title, chips, Clear, and
+  the caller's rows); the tags' rows are `TagPickMenu`; the Downloads page's Subscriptions use it too. With a mouse the
+  card stays inside the details panel (`within`: no wider than it, its left edge not past it; test: "details: with a
+  mouse, the picked tags' card stays inside the details panel").
+- **Long lines in the card slide (2026-11-16)**: each row's title and second line (e.g. "a OR b OR c") is the app's
+  marquee - one line, sliding to its end and back by itself when it doesn't fit (the subscriptions' card too);
+  `lib/marquee` measures again when the text changes (a tag taken off), not only when its box does.
+- **Each site its own way (2026-11-16)**: with several sites the last page has a framed section per site (its name and
+  search): Once or Subscribe, Repeat, Group (that site's groups, or a new one named there) and how many posts - each its
+  own (`Entry.how`). The button says Download (all once), Subscribe (all subscriptions) or Start (some of each); the
+  toast "Started \"x\" on a, b". One site: as before. (Before this, one setting for all, a group matched by name on
+  every site.)
+- **Together or Separately (2026-11-17)**: when the search looks for two or more things (tags, OR groups), "Which site?"
+  starts with a Together / Separately switch (Together at first: one search, as before). Separately: a search for each
+  tag or OR group, the excluded tags in every one ("blue_sky cloud -rain": "blue_sky -rain", "cloud -rain";
+  `separateSearches` in lib/siteSearch - an OR group the site can't search splits as before; filters are left out and
+  said). The search page then lists each site's searches with a check each instead of a search box (untick to leave one
+  out; a site needs one at least); a search that site has a subscription for already (`/api/downloads?sites=1` now also
+  sends `subscribed`, site -> queries) is marked "Subscribed already" and starts unticked. With more than one, a site's
+  subscriptions go in a new group named after the search at first (each site its own, as above). The button counts them
+  ("Subscribe to 6 searches", "Start 3 searches"); subscribing skips any subscribed to already (as with a split OR
+  search: the server refuses a second one, which stopped the rest) and a toast says how many. Test: "new download:
+  Together or Separately".

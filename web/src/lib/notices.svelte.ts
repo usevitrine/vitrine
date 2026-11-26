@@ -1,0 +1,216 @@
+// The bell's notifications: one list for every device, kept by the server - what the downloader did (new files
+// from a subscription, a download finished or failed, a blacklisted tag, a site that stopped or started answering)
+// and what was done in the app that's set to go to the bell (Settings > Notifications; lib/noticeKinds) - newest
+// first. Read and cleared are the same everywhere: opening the bell reads them, its broom clears them, on every
+// device (open pages follow at once). New ones ring the bell. A kind turned off (or set to show on screen only)
+// isn't listed; the downloader's set to on screen show there as they come.
+import { api } from './api';
+import { t } from './i18n.svelte';
+import { modeOf } from './noticeKinds';
+import { repairName } from './repairWords';
+import { settings } from './settings.svelte';
+import { remove } from './storage';
+import type { ToastKind } from './toast.svelte';
+
+export interface Notice {
+  key: string; // its start and number on the server
+  id: number;
+  text: string;
+  kind: ToastKind;
+  cat: string; // the kind of notice (lib/noticeKinds)
+  at: number; // Unix ms
+  read: boolean;
+  to?: 'downloads' | 'settings' | 'tags'; // where it leads (a download's: the Downloads page; a new release's: Settings > Updates; files with a blacklisted tag: Tags > Rules)
+  sub?: string;
+  /** Something to bring into view where a tap goes (router.focus). */
+  focus?: string;
+  /** A search for the results page instead (a subscription's new files). */
+  q?: string;
+}
+
+/** A notice as the server sends it: one of the downloader's events (worded here, in this page's language), or
+ *  something done in the app (kind "app": its words as they were). */
+export interface ServerNotice {
+  id: number;
+  at: number;
+  kind: 'new' | 'failed' | 'done' | 'blacklisted' | 'paused' | 'back' | 'app' | 'release' | 'plugin' | 'repair';
+  site?: string;
+  query?: string;
+  subscription?: boolean;
+  new?: number;
+  error?: string;
+  tag?: string;
+  first?: boolean;
+  pages?: number; // a gallery site's: the pages it brought (new counts galleries)
+  search_id?: number; // the download it is about
+  sub_id?: number; // the subscription it is about
+  text?: string;
+  tone?: ToastKind;
+  category?: string;
+}
+
+// (the bell kept on each device before it was one for all: gone)
+for (const k of ['vitrine.notices', 'vitrine.noticesSynced', 'vitrine.noticesSeen']) remove(k);
+
+/** A site's name for a notice (a plugin's update): lib/sites fills it in - imported from here, it made an import loop
+ *  (sites -> namespaces -> toast -> notices) that stopped the app from starting. */
+export const noticeSites = { label: (id: string) => id };
+
+/** A server event in words. */
+function word(n: ServerNotice): { text: string; kind: ToastKind } {
+  if (n.kind === 'app') return { text: n.text ?? '', kind: n.tone ?? 'done' };
+  const what = t('push.on', { query: n.query || t('push.everything'), site: n.site ?? '' });
+  switch (n.kind) {
+    case 'new':
+      // (a gallery site's: its pages - its galleries are comics; "1 new file" for 40 pages said nothing)
+      return { text: `${n.pages ? t('push.newPages', { n: n.pages }) : t('push.newFiles', { n: n.new ?? 0 })} ${t('push.fromOne', { what })}`, kind: 'done' };
+    case 'done':
+      return {
+        text: `${n.first ? t('push.subsReady', { n: 1 }) : t('push.downloadsDone', { n: 1 })}: ${n.pages ? t('push.countPages', { query: what, n: n.pages }) : t('push.countNew', { query: what, count: n.new ?? 0 })}`,
+        kind: 'done',
+      };
+    case 'failed':
+      return { text: `${n.subscription ? t('push.checkFailed') : t('push.downloadStopped')}: ${what}${n.error ? ' - ' + n.error : ''}`, kind: 'error' };
+    case 'paused': // (first: the site's own ban)
+      return { text: t(n.first ? 'downloads.bannedNotice' : 'downloads.pausedNotice', { site: n.site ?? '', error: n.error ?? '' }), kind: 'error' };
+    case 'back':
+      return { text: t('downloads.backNotice', { site: n.site ?? '' }), kind: 'done' };
+    case 'blacklisted':
+      return { text: `${t('push.blacklisted', { n: 1 })}: ${t('push.blacklistedBody', { tags: n.tag ?? '' })}`, kind: 'removed' };
+    case 'release':
+      return { text: t('updates.notice', { version: n.query ?? '' }), kind: 'info' };
+    case 'repair': { // (query: the fix; first: it's on offer; error: it failed)
+      const name = repairName(n.query ?? '');
+      if (n.first) return { text: t('repairs.noticeOffered', { name }), kind: 'info' };
+      if (n.error) return { text: t('repairs.noticeFailed', { name }), kind: 'error' };
+      return { text: t('repairs.noticeDone', { name }), kind: 'done' };
+    }
+    case 'plugin': // (site: the plugin's ID, query: the new version)
+      return { text: t('sites.updateNotice', { site: noticeSites.label(n.site ?? ''), version: n.query ?? '' }), kind: 'info' };
+  }
+}
+
+class Notices {
+  /** Everything the server has, not cleared (shown or not: a kind's setting can change). */
+  private all = $state<Notice[]>([]);
+  /** What the bell lists: the kinds set to go there. */
+  list = $derived(this.all.filter((n) => modeOf(n.cat, settings.noticeModes) === 'bell'));
+  /** Goes up with each new one (the bell rings). */
+  rings = $state(0);
+  /** Something to say to screen readers (a notice that doesn't show) - with said going up each time. */
+  say = $state('');
+  said = $state(0);
+  unread = $derived(this.list.filter((n) => !n.read).length);
+  /** An error among the unread (the counter turns red). */
+  alarm = $derived(this.list.some((n) => !n.read && n.kind === 'error'));
+  private boot = '';
+  private readUpTo = 0;
+  /** Downloader events set to show on screen: shown as they come (lib/toast, given in by App). */
+  onScreen: ((text: string, kind: ToastKind, cat: string) => void) | null = null;
+
+  private make(e: ServerNotice): Notice {
+    const w = word(e);
+    // Where a tap takes you: a release to Settings > Updates, a plugin's update to Settings > Sites (it shows what
+    // changed); library files that got a blacklisted tag to Tags > Rules, its Delete them button brought into view; the
+    // rest to Downloads.
+    const to = e.kind === 'app' || e.kind === 'repair' ? undefined : e.kind === 'release' || e.kind === 'plugin' ? 'settings' : e.kind === 'blacklisted' ? 'tags' : 'downloads';
+    const sub = e.kind === 'release' ? 'updates' : e.kind === 'plugin' ? 'sites' : e.kind === 'blacklisted' ? 'rules' : undefined;
+    // (2026-11-12) A subscription's new files: the results page with them, newest first; a download finished or failed:
+    // its card on Downloads, its tab, scrolled to and lit - a subscription's check or first check: the subscription's.
+    let focus = e.kind === 'blacklisted' ? 'blacklist-delete' : e.kind === 'repair' ? 'repairs' : undefined;
+    let q: string | undefined;
+    if (e.kind === 'new' && e.sub_id) q = `system:found_by=${e.sub_id} sort:imported`;
+    else if (e.kind === 'done' || e.kind === 'failed') {
+      if (e.sub_id && (e.subscription || e.first)) focus = `sub:${e.sub_id}`;
+      else if (e.search_id) focus = `dl:${e.search_id}`;
+    }
+    return { key: `${this.boot}:${e.id}`, id: e.id, text: w.text, kind: w.kind, cat: e.kind === 'app' ? (e.category ?? '') : e.kind, at: e.at, read: e.id <= this.readUpTo, to, sub, focus, q };
+  }
+
+  /** The list as the server has it (at the start, and whenever the live stream opens again). */
+  async catchUp() {
+    try {
+      const { boot, notices, read, forgets } = await api.notices();
+      this.forgets = forgets;
+      const before = new Set(this.all.map((n) => n.key));
+      const first = this.boot === '';
+      this.boot = boot;
+      this.readUpTo = read ?? 0;
+      const all = notices.map((e) => this.make(e)).reverse();
+      const fresh = all.filter((n) => !before.has(n.key) && !n.read);
+      this.all = all;
+      // (the page opening: what's unread shows on the counter - it rings only for ones that came meanwhile)
+      if (!first && fresh.some((n) => modeOf(n.cat, settings.noticeModes) === 'bell')) this.rings++;
+    } catch {
+      /* the next live one */
+    }
+  }
+
+  /** New ones from the live stream. */
+  /** Called when the server says files were deleted in the background (set by results: the search runs again). */
+  onFilesGone?: () => void;
+
+  fromServer(boot: string, events: ServerNotice[]) {
+    if (boot !== this.boot && this.boot !== '') return void this.catchUp();
+    this.boot = boot;
+    const made = events.map((e) => [e, this.make(e)] as const).filter(([, n]) => !this.all.some((x) => x.key === n.key));
+    const fresh = made.map(([, n]) => n);
+    if (!fresh.length) return;
+    // Files deleted in the background (a removed site wiped, old files or a section deleted): the server says so when
+    // it's done - the library behind other pages showed them until a reload (2026-11-17).
+    if (made.some(([e]) => e.category === 'deleted' && e.tone === 'removed')) this.onFilesGone?.();
+    this.all = [...fresh.reverse(), ...this.all].slice(0, 100);
+    let ring = false;
+    for (const n of fresh) {
+      const mode = modeOf(n.cat, settings.noticeModes);
+      if (mode === 'bell') ring = true;
+      // (a downloader event set to on screen: shown now; the app's own showed where it was done)
+      else if (mode === 'screen' && n.to) this.onScreen?.(n.text, n.kind, n.cat);
+    }
+    if (ring) this.rings++;
+  }
+
+  private forgets: number | undefined; // (the server's count of drops: see state)
+
+  /** Read and cleared changed (on another device, or here) - or the server dropped some (forgets went up: a wiped
+   *  site's), and the list is read again. */
+  state(read: number, cleared: number, forgets?: number) {
+    if (forgets !== undefined) {
+      const before = this.forgets;
+      this.forgets = forgets;
+      if (before !== undefined && before !== forgets) return void this.catchUp();
+    }
+    this.readUpTo = Math.max(this.readUpTo, read);
+    this.all = this.all.filter((n) => n.id > cleared).map((n) => (n.read || n.id > this.readUpTo ? n : { ...n, read: true }));
+  }
+
+  /** Something done here, for the bell (every device's): the server keeps it and sends it back to all. */
+  async post(text: string, kind: ToastKind, cat: string) {
+    try {
+      await api.addNotice(text, kind, cat);
+    } catch {
+      /* (offline: not in the bell) */
+    }
+  }
+
+  /** For screen readers only. */
+  announce(text: string) {
+    this.say = text;
+    this.said++;
+  }
+
+  markRead() {
+    if (!this.unread) return;
+    const upTo = Math.max(...this.all.map((n) => n.id));
+    this.state(upTo, 0);
+    api.markNotices(upTo, false).catch(() => {});
+  }
+
+  clear() {
+    const upTo = Math.max(0, ...this.all.map((n) => n.id));
+    this.all = this.all.filter((n) => n.id > upTo);
+    if (upTo) api.markNotices(upTo, true).catch(() => {});
+  }
+}
+
+export const notices = new Notices();

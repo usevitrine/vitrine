@@ -1,0 +1,37 @@
+/* Vitrine's colors: Catppuccin Mocha only, accent Mauve - the app's (app.css imports this) and the website's
+   (vitrine.software, which has this repository as a submodule): one palette for both. */
+:root {
+  --crust: #11111b;
+  --mantle: #181825;
+  --base: #1e1e2e;
+  --surface0: #313244;
+  --surface1: #45475a;
+  --surface2: #585b70;
+  --overlay0: #6c7086;
+  --overlay1: #7f849c;
+  --text: #cdd6f4;
+  --subtext: #a6adc8;
+  --mauve: #cba6f7;
+  --lavender: #b4befe;
+  --green: #a6e3a1;
+  --yellow: #f9e2af;
+  --red: #f38ba8;
+  --blue: #89b4fa;
+  --peach: #fab387;
+  --teal: #94e2d5;
+  --sky: #89dceb;
+  --flamingo: #f2cdcd;
+  --maroon: #eba0ac;
+  --pink: #f5c2e7;
+  --sapphire: #74c7ec;
+
+  /* Tag namespaces: each its own color (booru-like: artists red, characters
+     green, series purple, meta orange, general tags blue). */
+  --tag-general: var(--blue);
+  --tag-creator: var(--red);
+  --tag-character: var(--green);
+  --tag-series: var(--mauve);
+  --tag-meta: var(--peach);
+
+  color-scheme: dark;
+}

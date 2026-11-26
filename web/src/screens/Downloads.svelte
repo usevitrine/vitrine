@@ -1,0 +1,4359 @@
+<script lang="ts" module>
+  import type { DownloadsAnswer, FailedPost as Failed } from '../lib/api';
+  import { marquee } from '../lib/marquee';
+  // The page's last answer this session: shown at once when the page opens again while the next comes (2026-10-31;
+  // before, the page could show no queue or subs for several seconds until they loaded in).
+  let kept: { res: DownloadsAnswer; failed: Failed[] } | null = null;
+</script>
+
+<script lang="ts">
+  import { bringIntoView } from '../lib/bringIntoView';
+  import { overlayScroll } from '../lib/overlayScroll';
+  import { onMount, tick, untrack } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
+  import { slide } from 'svelte/transition';
+  import { live } from '../lib/live.svelte';
+  import { formatSize } from '../lib/results.svelte';
+  import { galleryNow as galleryOf, measurable as measurableOf, progress as progressOf, goalOf, oneGallery } from '../lib/downloadProgress';
+  import { reveal, moved, glide, nudge, pop, reduced } from '../lib/motion';
+  import { read, readJSON, write, writeJSON } from '../lib/storage';
+  import { ownFavorites, favoritesSearch } from '../lib/siteSearch';
+  import Stack from '../components/Stack.svelte';
+  import { api, type DownloadSearch, type RefreshStatus, type Subscription, type SubGroup, type FailedPost, type RetryJob, type SubLook, type SubPic } from '../lib/api';
+  import SiteIcon from '../components/SiteIcon.svelte';
+  import { subNames } from '../lib/subNames.svelte';
+  import { subTags } from '../lib/subTags.svelte';
+  import { tagColor, splitTag } from '../lib/namespaces.svelte';
+  import { toasts, attempt } from '../lib/toast.svelte';
+  import { settings } from '../lib/settings.svelte';
+  import { confirmAction } from '../lib/confirm.svelte';
+  import { askText } from '../lib/prompt.svelte';
+  import Icon from '../components/Icon.svelte';
+  import Dropdown from '../components/Dropdown.svelte';
+  import ActionMenu, { type MenuItem } from '../components/ActionMenu.svelte';
+  import PickMenu from '../components/PickMenu.svelte';
+  import { longPress } from '../lib/longPress';
+  import TagInput from '../components/TagInput.svelte';
+  import { router } from '../lib/router.svelte';
+  import { depthChoice, depthLabel, siteDepth } from '../lib/depth';
+  import { siteLabel, engineLabel, tagQuery, tagsQuery, canOr, sites as siteInfo } from '../lib/sites.svelte';
+  import { t, num, short, time } from '../lib/i18n.svelte';
+  import { intervals, DEFAULT_INTERVAL, cap, every } from '../lib/schedule';
+  import type { SitePause } from '../lib/api';
+  import { siteOn } from '../lib/sections';
+
+  let sites = $state<string[]>([]); // sites to download from (on)
+  let sitesOff = $state<string[]>([]); // switched off in Settings: their queues and subscriptions wait
+  let sitesPaused = $state<Record<string, SitePause>>({}); // paused by themselves: they kept failing to answer
+  async function tryNow(id: string) {
+    await attempt(async () => {
+      await api.trySite(id);
+      toasts.show(t('downloads.tryingNow', { site: siteLabel(id) }), { cat: 'downloadsMisc' });
+      refresh();
+    });
+  }
+  let searches = $state<DownloadSearch[]>([]);
+  let subs = $state<Subscription[]>([]);
+  let refreshStatus = $state<RefreshStatus[]>([]);
+  let repeat = $state('0'); // seconds between checks; '0' = download once
+  let now = $state(Date.now());
+  let site = $state('');
+  let query = $state('');
+  let maxPosts = $state<number | undefined>(undefined);
+  let error = $state('');
+  let busy = $state(false);
+  // Max files stays as typed (empty = every post) whatever the schedule.
+  function setRepeat(v: string) {
+    repeat = v;
+  }
+
+  // Subscriptions list: a filter and an order once there are enough of them
+  // (the order is remembered on this device).
+  const SUB_TOOLS_FROM = 6;
+  type SubSort = 'next' | 'new' | 'files' | 'checked' | 'name';
+  const subSortOptions: { value: SubSort; label: string }[] = $derived(
+    (['next', 'new', 'files', 'checked', 'name'] as SubSort[]).map((value) => ({ value, label: t(`downloads.subSort.${value}`) })),
+  );
+  let subFilter = $state('');
+  let attentionOnly = $state(false); // only the subscriptions that need a look (the summary's "need a look")
+  const filtering = $derived(subFilter.trim() !== '' || attentionOnly);
+  let subSort = $state<SubSort>(loadSubSort());
+  function loadSubSort(): SubSort {
+    const v = read('vitrine.subSort');
+    return subSortOptions.some((o) => o.value === v) ? (v as SubSort) : 'next';
+  }
+  function setSubSort(v: SubSort) {
+    subSort = v;
+    write('vitrine.subSort', v);
+  }
+  const shownSubs = $derived.by(() => {
+    const f = subFilter.trim().toLowerCase();
+    let list = f ? subs.filter((x) => x.query.toLowerCase().includes(f) || (x.label ?? '').toLowerCase().includes(f) || siteLabel(x.site).toLowerCase().includes(f)) : [...subs];
+    if (attentionOnly) list = list.filter((x) => attentionOf(x));
+    const by: Record<SubSort, (a: Subscription, b: Subscription) => number> = {
+      // Paused ones last; then the soonest check first.
+      next: (a, b) => Number(a.paused) - Number(b.paused) || a.next_check_at - b.next_check_at,
+      new: (a, b) => b.last_new - a.last_new || b.downloaded - a.downloaded,
+      files: (a, b) => b.downloaded - a.downloaded,
+      checked: (a, b) => (b.last_check_at ?? 0) - (a.last_check_at ?? 0),
+      name: (a, b) => named(a).localeCompare(named(b)),
+    };
+    return list.sort((a, b) => by[subSort](a, b) || a.query.localeCompare(b.query));
+  });
+
+  // ---- Subscription groups: named per site; the card shows site > group >
+  // subscriptions, then the site's subscriptions in no group.
+  let groups = $state<SubGroup[]>([]);
+  let expanded = $state<number[]>(loadExpanded()); // group IDs opened on this device (groups start folded)
+  let formGroup = $state(''); // New download form: '' = no group, a group ID, or 'new'
+  let newGroupName = $state('');
+  let moving = $state<{ sub: number; name: string } | null>(null); // naming a new group for a subscription
+  let renaming = $state<{ id: number; name: string } | null>(null);
+
+  function loadExpanded(): number[] {
+    return readJSON<number[]>('vitrine.openGroups', []);
+  }
+  function toggleGroup(id: number, open = !expanded.includes(id)) {
+    expanded = open ? [...new Set([...expanded, id])] : expanded.filter((x) => x !== id);
+    writeJSON('vitrine.openGroups', expanded);
+  }
+
+  // Whole sites fold too (their queue, or their groups and subscriptions);
+  // remembered on this device. Keys: "queue:<site>" and "subs:<site>".
+  let foldedSites = $state<string[]>(loadFolded());
+  function loadFolded(): string[] {
+    return loadList('vitrine.foldedSites');
+  }
+  // The subscriptions' sites start folded (like their groups), open only where opened on this device.
+  let openSubSites = $state<string[]>(loadList('vitrine.openSubSites'));
+  function loadList(key: string): string[] {
+    return readJSON<string[]>(key, []);
+  }
+  const siteFolded = (key: string) => (key.startsWith('subs:') ? !openSubSites.includes(key) : foldedSites.includes(key));
+  function toggleSite(key: string) {
+    const flip = (list: string[]) => (list.includes(key) ? list.filter((x) => x !== key) : [...list, key]);
+    if (key.startsWith('subs:')) {
+      openSubSites = flip(openSubSites);
+      writeJSON('vitrine.openSubSites', openSubSites);
+    } else {
+      foldedSites = flip(foldedSites);
+      writeJSON('vitrine.foldedSites', foldedSites);
+    }
+  }
+
+  // The new download's site: a list, or - with many sites on several engines -
+  // the engines, each opening a page of its sites (one site alone is listed as itself).
+  function siteMenu(list: string[], current: string): MenuItem[] {
+    const byName = [...list].sort((a, b) => siteLabel(a).localeCompare(siteLabel(b)));
+    const pick = (id: string): MenuItem => ({ label: siteLabel(id), on: id === current, run: () => (site = id) });
+    const engines = [...new Set(byName.map((id) => siteInfo.engines[id] ?? ''))];
+    if (byName.length <= 8 || engines.length < 2) return byName.map(pick);
+    return engines
+      .map((e) => ({ e, ids: byName.filter((id) => (siteInfo.engines[id] ?? '') === e) }))
+      .sort((a, b) => engineLabel(a.e).localeCompare(engineLabel(b.e)))
+      .map(({ e, ids }): MenuItem => {
+        if (ids.length === 1) return { ...pick(ids[0]), hint: engineLabel(e) };
+        const has = ids.includes(current);
+        return {
+          label: engineLabel(e),
+          on: has,
+          hint: has ? siteLabel(current) : t('filterMenu.nSites', { n: ids.length }),
+          choices: { heading: engineLabel(e), value: current, options: ids.map((id) => ({ value: id, label: siteLabel(id) })), pick: (v) => (site = v) },
+        };
+      });
+  }
+
+  // ---- One post "anyway" (2026-11-15; a post kept out by the download
+  // rules and an earlier delete): a one-post download that ended with nothing downloaded can be run again past the
+  // rules, the blacklist and deletion records (a deleted file still in the trash comes back from it).
+  const onePost = (s: DownloadSearch) => /^id:\d+$/.test(s.query);
+  const anywayFits = (s: DownloadSearch) => onePost(s) && !s.subscription_id && s.state === 'done' && !s.downloaded && !s.force;
+  async function downloadAnyway(s: DownloadSearch) {
+    await attempt(async () => {
+      await api.downloadAnyway(s.id);
+      toasts.show(t('downloads.anywayStarted', { query: named(s) }), { cat: 'downloadsStarted', kind: 'info' });
+      changed();
+      refresh();
+    });
+  }
+
+  /** A queued or finished search's ⋯ menu. */
+  function searchItems(s: DownloadSearch, finishedRow: boolean): MenuItem[] {
+    const items: MenuItem[] = [];
+    if (finishedRow && anywayFits(s)) items.push({ label: t('downloads.anyway'), icon: 'download', hint: t('downloads.anywayHint'), run: () => downloadAnyway(s) });
+    if (finishedRow) {
+      if (s.state === 'failed') items.push({ label: t('downloads.retry'), icon: 'retry', hint: t('downloads.whereStopped'), run: () => act(s, 'resume') });
+    } else if (s.state === 'paused') {
+      items.push({ label: t('downloads.resume'), icon: 'play', run: () => act(s, 'resume') });
+    } else {
+      items.push({ label: t('video.pause'), icon: 'pause', run: () => act(s, 'pause') });
+    }
+    if (!subscribed(s)) items.push({ label: t('downloads.subscribe'), icon: 'bell', hint: every(DEFAULT_INTERVAL), run: () => subscribeSearch(s) });
+    // A gallery site's downloads are comics: on the Comics page, not in the library.
+    if (siteInfo.engines[s.site] === 'ehentai') items.push({ label: t('downloads.openComics'), icon: 'book', run: () => router.go('comics') });
+    items.push(
+      s.subscription_id
+        ? { label: t('downloads.skipCheck'), icon: 'close', danger: true, run: () => act(s, 'remove') }
+        : { label: finishedRow ? t('downloads.removeFromList') : t('sites.remove'), icon: 'close', danger: true, run: () => act(s, 'remove') },
+    );
+    return items;
+  }
+
+  // A line that scrolls sideways (a long search, many counts): soft edges
+  // where more is out of view.
+  function edgeFades(el: HTMLElement) {
+    const update = () => {
+      el.classList.toggle('fade-l', el.scrollLeft > 1);
+      el.classList.toggle('fade-r', el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    // (what's in it changing - the summary's counts coming and going - leaves its own size alone)
+    const mo = new MutationObserver(update);
+    mo.observe(el, { childList: true, subtree: true, characterData: true });
+    el.addEventListener('scroll', update, { passive: true });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+      el.removeEventListener('scroll', update);
+    };
+  }
+
+  const siteGroups = (siteId: string) => groups.filter((g) => g.site === siteId);
+  /** The card's layout: each site with its groups (and their subscriptions), then its other subscriptions. */
+  const subTree = $derived.by(() => {
+    const ids = new Set([...shownSubs.map((s) => s.site), ...(filtering ? [] : groups.map((g) => g.site))]);
+    return [...ids]
+      .sort((a, b) => siteLabel(a).localeCompare(siteLabel(b)))
+      .map((siteId) => {
+        const inSite = shownSubs.filter((s) => s.site === siteId);
+        const gs = siteGroups(siteId)
+          .map((g) => ({ g, subs: inSite.filter((s) => s.group_id === g.id) }))
+          .filter((x) => !filtering || x.subs.length);
+        return { site: siteId, groups: gs, loose: inSite.filter((s) => !s.group_id || !groups.some((g) => g.id === s.group_id)) };
+      });
+  });
+  const groupStats = (g: SubGroup) => {
+    const members = subs.filter((s) => s.group_id === g.id);
+    return {
+      count: members.length,
+      files: members.reduce((n, s) => n + s.downloaded, 0),
+      newLast: members.reduce((n, s) => n + s.last_new, 0),
+      allPaused: members.length > 0 && members.every((s) => s.paused),
+    };
+  };
+
+  async function groupAct(g: SubGroup, action: 'check' | 'pause' | 'resume') {
+    await attempt(async () => {
+      await api.groupAction(g.id, action);
+      toasts.show(action === 'check' ? t('downloads.checking', { name: g.name }) : t(action === 'pause' ? 'downloads.paused' : 'downloads.resumed', { name: g.name }), { cat: 'downloadsControl',
+        kind: action === 'check' ? 'info' : 'done',
+      });
+      refresh();
+    });
+  }
+  async function groupInterval(g: SubGroup, v: string) {
+    await attempt(async () => {
+      await api.updateGroup(g.id, { interval: +v });
+      toasts.show(t('downloads.groupInterval', { name: g.name, every: every(+v) }), { cat: 'groups' });
+      refresh();
+    });
+  }
+  async function groupDepth(g: SubGroup, n: number) {
+    await attempt(async () => {
+      await api.updateGroup(g.id, { check_depth: n });
+      refresh();
+    });
+  }
+  async function renameGroup(e: SubmitEvent) {
+    e.preventDefault();
+    const r = renaming;
+    if (!r) return;
+    await attempt(async () => {
+      await api.updateGroup(r.id, { name: r.name });
+      renaming = null;
+      refresh();
+    });
+  }
+  async function deleteGroup(g: SubGroup) {
+    const n = subs.filter((x) => x.group_id === g.id).length;
+    const ok = await confirmAction({
+      title: t('downloads.deleteGroupTitle', { name: g.name }),
+      body: n ? t('downloads.deleteGroupBody', { n }) : undefined,
+      action: t('downloads.deleteGroup'),
+    });
+    if (!ok) return;
+    await attempt(async () => {
+      await api.groupAction(g.id, 'remove');
+      toasts.show(t('downloads.groupDeleted', { name: g.name }), { cat: 'groups', kind: 'removed' });
+      refresh();
+    });
+  }
+  function groupMenu(g: SubGroup, v: string) {
+    if (v === 'rename') renaming = { id: g.id, name: g.name };
+    if (v === 'delete') deleteGroup(g);
+  }
+  // ---- Several subscriptions at once (2026-11-16): Select picks them (a tap on each, or a group's whole list), a bar
+  // below does it to all - Move to group (a group of that name on each of their sites; New group... makes it on each),
+  // Pause, Resume, Check now, Unsubscribe.
+  let subSelecting = $state(false);
+  const subPicked = new SvelteSet<number>();
+  const pickedSubs = $derived(subs.filter((s) => subPicked.has(s.id)));
+  const pickedSites = $derived([...new Set(pickedSubs.map((s) => s.site))]);
+  function setSubSelecting(on: boolean) {
+    subSelecting = on;
+    subPicked.clear();
+    swiped = null;
+  }
+  function pickSub(id: number) {
+    if (subPicked.has(id)) subPicked.delete(id);
+    else subPicked.add(id);
+    if (!subPicked.size) setSubSelecting(false); // (the last one unpicked: done, as the tags)
+  }
+  /** A subscription held (right-clicked with a mouse): picking starts with it - as tags in the details (2026-11-16;
+   *  it looks and acts like the tag multi select in the details panel). */
+  function holdSub(id: number) {
+    if (subSelecting) return pickSub(id);
+    setSubSelecting(true);
+    subPicked.add(id);
+  }
+  /** A group's subscriptions: all picked, or (all of them already) none. */
+  function pickGroup(members: Subscription[]) {
+    const all = members.length > 0 && members.every((s) => subPicked.has(s.id));
+    for (const s of members) {
+      if (all) subPicked.delete(s.id);
+      else subPicked.add(s.id);
+    }
+  }
+  // Where they can go: no group, a group every one of their sites has (by name), or a new one.
+  const bulkMoveOptions = $derived.by(() => {
+    const names = pickedSites.map((site) => new Set(siteGroups(site).map((g) => g.name)));
+    const common = names.length ? [...names[0]].filter((n) => names.every((x) => x.has(n))).sort((a, b) => a.localeCompare(b)) : [];
+    return [
+      { value: '0', label: t('downloads.noGroup') },
+      ...common.map((n) => ({ value: 'name:' + n, label: n })),
+      { value: 'new', label: t('downloads.newGroup') },
+    ];
+  });
+  async function bulkMove(v: string) {
+    const list = pickedSubs;
+    if (!list.length) return;
+    let name = v.startsWith('name:') ? v.slice(5) : '';
+    if (v === 'new') {
+      const typed = await askText({ title: t('downloads.newGroup'), label: t('downloads.newGroupName'), placeholder: t('downloads.newGroupName'), action: t('downloads.createMove') });
+      if (!typed) return;
+      name = typed;
+    }
+    await attempt(async () => {
+      const target = new Map<string, number>();
+      for (const site of new Set(list.map((s) => s.site))) {
+        if (v === '0') {
+          target.set(site, 0);
+          continue;
+        }
+        const g = siteGroups(site).find((x) => x.name === name) ?? (await api.addGroup(site, name));
+        target.set(site, g.id);
+      }
+      await Promise.all(list.map((s) => api.updateSubscription(s.id, { group_id: target.get(s.site)! })));
+      toasts.show(v === '0' ? t('downloads.bulkNoGroup', { n: list.length }) : t('downloads.bulkMoved', { n: list.length, name }), { cat: 'groups' });
+      setSubSelecting(false);
+      refresh();
+    });
+  }
+  async function bulkAct(action: 'check' | 'pause' | 'resume' | 'remove') {
+    const list = pickedSubs;
+    if (!list.length) return;
+    if (action === 'remove') {
+      const ok = await confirmAction({ title: t('downloads.bulkUnsubTitle', { n: list.length }), body: t('downloads.unsubBody'), action: t('downloads.unsubscribe'), icon: 'close' });
+      if (!ok) return;
+    }
+    await attempt(async () => {
+      await Promise.all(
+        list.map((s) =>
+          action === 'check' ? api.checkSubscription(s.id) : action === 'remove' ? api.removeSubscription(s.id) : api.updateSubscription(s.id, { paused: action === 'pause' }),
+        ),
+      );
+      const key = { check: 'downloads.bulkChecking', pause: 'downloads.bulkPaused', resume: 'downloads.bulkResumed', remove: 'downloads.bulkUnsubscribed' }[action];
+      toasts.show(t(key, { n: list.length }), { cat: action === 'remove' ? 'downloadsStarted' : 'downloadsControl', kind: action === 'remove' ? 'removed' : action === 'check' ? 'info' : 'done' });
+      if (action === 'remove') {
+        changed();
+        const gone = new Set(list.map((s) => s.id));
+        subs = subs.filter((x) => !gone.has(x.id));
+      }
+      setSubSelecting(false);
+      refresh();
+    });
+  }
+  // (another tab: the selection ends)
+  $effect(() => {
+    if (tab !== 'subs') untrack(() => subSelecting && setSubSelecting(false));
+  });
+
+  async function moveTo(s: Subscription, v: string) {
+    if (v === 'new') {
+      moving = { sub: s.id, name: '' };
+      return;
+    }
+    await attempt(async () => {
+      await api.updateSubscription(s.id, { group_id: +v });
+      const g = groups.find((x) => x.id === +v);
+      toasts.show(g ? t('downloads.moved', { query: named(s), name: g.name }) : t('downloads.noGroupNow', { query: named(s) }), { cat: 'groups' });
+      refresh();
+    });
+  }
+  async function moveToNew(e: SubmitEvent, s: Subscription) {
+    e.preventDefault();
+    const m = moving;
+    if (!m?.name.trim()) return;
+    await attempt(async () => {
+      const g = await api.addGroup(s.site, m.name);
+      await api.updateSubscription(s.id, { group_id: g.id });
+      toasts.show(t('downloads.movedNew', { query: named(s), name: g.name }), { cat: 'groups' });
+      moving = null;
+      refresh();
+    });
+  }
+  function pickFormGroup(v: string) {
+    formGroup = v;
+    const g = groups.find((x) => String(x.id) === v);
+    if (g?.interval) setRepeat(String(g.interval)); // the group's usual schedule
+  }
+  // A different site: its own groups.
+  $effect(() => {
+    site;
+    formGroup = '';
+  });
+
+  // The New download form starts on the site used last (this device).
+  function lastSite(): string {
+    return read('vitrine.lastSite') ?? '';
+  }
+  function rememberSite(id: string) {
+    write('vitrine.lastSite', id);
+  }
+
+  // An answer asked for before a change made here (shown at once) is out of date: while downloads ran the page asked
+  // again on every change, and a reordered download went back to its old place for a moment, then jumped to the new one
+  // again. So is one that comes after a newer answer.
+  let asked = 0;
+  let shown = 0;
+  let changes = 0;
+  /** A change made on the page (the server has it, or will have it before the next refresh is asked for). */
+  const changed = () => changes++;
+
+  // Until the first answer of the session: "Loading…", never "Nothing waiting" or "No subscriptions" (they aren't
+  // known yet).
+  let loaded = $state(kept !== null);
+
+  // The sites counting their searches now (the server's). Declared before show(): a return to the page shows the answer
+  // it kept at once, while the script is still running - set before this line, it threw, the page never came and Svelte
+  // looped (2026-11-16; changing pages while the sub multi selector was active left the downloads page unreachable
+  // until the app restarted - any tab, 1.2.0 on).
+  let countingSites = $state<string[]>([]);
+
+  function show(res: DownloadsAnswer, failed: FailedPost[]) {
+    sites = res.sites;
+    sitesOff = res.sites_off ?? [];
+    sitesPaused = res.sites_paused ?? {};
+    if (site && !sites.includes(site)) site = ''; // switched off meanwhile
+    if (!site && sites.length) site = sites.includes(lastSite()) ? lastSite() : sites[0];
+    searches = res.searches; // each site's queue in order
+    subs = res.subscriptions;
+    groups = res.groups ?? [];
+    refreshStatus = res.refresh;
+    failedPosts = failed;
+    retries = res.retries ?? [];
+    countingSites = res.counting ?? [];
+  }
+
+  async function refresh() {
+    if (drag) return; // don't move rows under the finger
+    const n = ++asked;
+    const at = changes;
+    try {
+      // (both at once: the failed files were asked for only after the rest came)
+      const [res, failed] = await Promise.all([api.downloads(), api.failedPosts()]);
+      if (n < shown || at !== changes) return;
+      shown = n;
+      show(res, failed.posts);
+      kept = { res, failed: failed.posts };
+      loaded = true;
+      subNames.set(subs); // (a "found by" chip's words in the library)
+      subTags.set(subs); // (the bells on tags)
+      announce();
+      now = lastRefresh = Date.now();
+      error = '';
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  }
+
+  // Live: the server says when the queue changes; polling only as a fallback
+  // (every 2.5 s without the live stream, every 20 s with it).
+  let lastRefresh = 0;
+  onMount(() => {
+    siteInfo.load(); // sites installed meanwhile get their names and search hints
+    refresh();
+    const off = live.onDownloads(refresh);
+    const timer = setInterval(() => {
+      if (!live.connected || Date.now() - lastRefresh > 20_000) refresh();
+      else now = Date.now();
+    }, 2500);
+    return () => {
+      off();
+      clearInterval(timer);
+    };
+  });
+
+  // A running search's download speed (the server's average over the last 10 s): kept a few seconds after it stops
+  // coming (the next page of posts looked up), so it doesn't flicker.
+  let speeds = $state<Record<number, { v: number; at: number }>>({});
+  $effect(() => {
+    const sp = live.speed;
+    const at = Date.now();
+    const next = { ...untrack(() => speeds) };
+    for (const [id, v] of Object.entries(sp)) if (v > 0) next[+id] = { v, at };
+    speeds = next;
+  });
+  function speedOf(id: number): string {
+    const sp = speeds[id];
+    return sp && now - sp.at < 4000 ? t('downloads.speed', { size: formatSize(sp.v) }) : '';
+  }
+
+  // ---- the queue's cards (2026-10-28; the cards were too cramped - direction D of the prototypes): one line each
+  // (the search, how far, the speed), a tap opens its numbers and actions.
+  let qopen = $state<Record<number, boolean>>({});
+  // How fast a running search goes through its posts (its count over the last 10 minutes): its time left.
+  const paces: Record<number, { at: number; n: number }[]> = {};
+  $effect(() => {
+    const at = Date.now();
+    for (const s of searches) {
+      if (s.state !== 'running') {
+        delete paces[s.id];
+        continue;
+      }
+      const list = (paces[s.id] ??= []);
+      if (!list.length || list[list.length - 1].n !== s.handled) list.push({ at, n: s.handled });
+      while (list.length > 2 && at - list[0].at > 10 * 60_000) list.shift();
+    }
+  });
+  /** "about 2 d left" for a running search with a goal, once a minute of its pace is known ("" before). */
+  function leftOf(s: DownloadSearch): string {
+    const goal = goalOf(s);
+    const list = paces[s.id];
+    if (!goal || shownState(s) !== 'running' || !list || list.length < 2) return '';
+    const a = list[0], b = list[list.length - 1];
+    if (b.at - a.at < 60_000 || b.n <= a.n) return '';
+    return t('downloads.timeLeft', { span: span(((goal - s.handled) * (b.at - a.at)) / (b.n - a.n)) });
+  }
+  /** A queue card's numbers, as the opened card shows them (new and had always; the rest when there are some). */
+  function cellsOf(s: DownloadSearch): { n: number; label: string; cls?: string }[] {
+    const out: { n: number; label: string; cls?: string }[] = [];
+    if (isGallery(s) && oneGallery(s)) {
+      out.push({ n: s.pages ?? 0, label: t('downloads.stat.newPages', { n: s.pages ?? 0 }), cls: 'good' });
+    } else {
+      out.push({ n: s.downloaded, label: t('downloads.stat.new'), cls: 'good' }, { n: s.already, label: t('downloads.stat.had') });
+    }
+    if (s.deleted) out.push({ n: s.deleted, label: t('downloads.stat.deletedBefore') });
+    if (s.blacklisted) out.push({ n: s.blacklisted, label: t('downloads.stat.blacklisted'), cls: 'warn' });
+    if (s.skipped) out.push({ n: s.skipped, label: t('downloads.stat.skipped') });
+    if (s.failed) out.push({ n: s.failed, label: t('downloads.stat.failed'), cls: 'bad' });
+    return out;
+  }
+  /** What a closed card says under its bar. */
+  function summaryOf(s: DownloadSearch): string {
+    if (s.state === 'queued' && !s.handled) return t('downloads.notStarted');
+    const parts: string[] = [];
+    if (s.state === 'failed' && !s.subscription_id && s.retry_at) parts.push(s.retry_at <= now ? t('downloads.tryingNow') : t('downloads.tryingIn', { span: span(s.retry_at - now) }));
+    if (isGallery(s) && oneGallery(s)) {
+      if (s.pages) parts.push(`${short(s.pages)} ${t('downloads.stat.newPages', { n: s.pages })}`);
+    } else if (s.downloaded) parts.push(`${short(s.downloaded)} ${t('downloads.stat.new')}`);
+    if (s.failed) parts.push(`${short(s.failed)} ${t('downloads.stat.failed')}`);
+    const left = leftOf(s);
+    if (left) parts.push(left);
+    if ((s.state === 'done' || s.state === 'failed') && (s.run_ms ?? 0) >= 1000) parts.push(runSpan(s.run_ms ?? 0)); // (how long it took)
+    return parts.join(' · ');
+  }
+  const detailsLabel = (s: DownloadSearch) =>
+    s.subscription_id ? t('common.detailsFor', { name: nameOf(s) }) : t('downloads.detailsForDownload', { query: named(s) || t('push.everything') });
+
+  // Your own favorites on the site: they can become favorites here too (on unless unticked).
+  let ownFavs = $derived(ownFavorites(query));
+  // Anyone's favorites: a subscription goes in the site's own Favorites group (no group to pick).
+  let favSearch = $derived(favoritesSearch(query));
+  let addToFavs = $state(true);
+
+  async function add(e: SubmitEvent) {
+    e.preventDefault();
+    if (!query.trim()) return;
+    await attempt(async () => {
+      if (repeat !== '0') {
+        const group = favSearch ? {} : formGroup === 'new' ? { group_name: newGroupName.trim() } : formGroup ? { group_id: +formGroup } : {};
+        if (!favSearch && formGroup === 'new' && !newGroupName.trim()) throw new Error(t('downloads.nameGroupFirst'));
+        await api.subscribe(site, query.trim(), +repeat, maxPosts ?? 0, group, ownFavs && addToFavs);
+        const gName = favSearch ? t('menu.favorites') : formGroup === 'new' ? newGroupName.trim() : groups.find((x) => String(x.id) === formGroup)?.name;
+        toasts.show(gName ? t('downloads.subscribedIn', { query: query.trim(), name: gName, every: every(+repeat) }) : t('downloads.subscribed', { query: query.trim(), every: every(+repeat) }), { cat: 'downloadsStarted' });
+        if (formGroup === 'new') {
+          newGroupName = '';
+          formGroup = '';
+        }
+      } else {
+        await api.addDownload(site, query.trim(), maxPosts ?? 0, ownFavs && addToFavs);
+        toasts.show(t('downloads.downloading', { query: query.trim(), site: siteLabel(site) }), { cat: 'downloadsStarted', kind: 'info' });
+      }
+      rememberSite(site);
+      query = '';
+      refresh();
+    }, (b) => (busy = b));
+  }
+
+  // The queue (running, waiting, paused) grouped by site in queue order;
+  // finished ones (done, failed) newest first.
+  const active = (s: DownloadSearch) => s.state === 'running' || s.state === 'queued' || s.state === 'paused';
+  let queues = $derived.by(() => {
+    const m = new Map<string, DownloadSearch[]>();
+    for (const s of searches.filter(active)) m.set(s.site, [...(m.get(s.site) ?? []), s]);
+    // Subscription checks go first (Settings > Sites > Queue order): shown in the order they run. (A first check is
+    // a bulk download: it waits its turn.)
+    const check = (x: DownloadSearch) => Number(!!x.subscription_id && !x.first_check);
+    const order = (list: DownloadSearch[]) => (settings.checksFirst ? [...list].sort((a, b) => check(b) - check(a)) : list);
+    return [...m.entries()].map(([site, list]) => ({ site, list: order(list) }));
+  });
+  let finished = $derived(
+    searches.filter((s) => !active(s)).sort((a, b) => (b.finished_at ?? b.created_at) - (a.finished_at ?? a.created_at)),
+  );
+  let doneCount = $derived(finished.filter((s) => s.state === 'done').length);
+  let failedCount = $derived(finished.filter((s) => s.state === 'failed').length);
+
+  async function act(s: DownloadSearch, action: 'pause' | 'resume' | 'remove') {
+    await attempt(async () => {
+      if (action === 'pause') await api.pauseDownload(s.id);
+      if (action === 'resume') await api.resumeDownload(s.id);
+      if (action === 'remove') {
+        // A download in the queue is asked about first: it stops and doesn't carry on later. (A finished one leaving
+        // the history, or a subscription's check skipped, isn't.)
+        if (active(s) && !s.subscription_id) {
+          const ok = await confirmAction({
+            title: t('downloads.removeTitle', { query: named(s) || t('push.everything') }),
+            body: s.downloaded ? t('downloads.removeBodyFiles', { n: s.downloaded }) : t('downloads.removeBody'),
+            action: t('sites.remove'),
+            icon: 'close',
+          });
+          if (!ok) return;
+        }
+        await api.removeDownload(s.id);
+        changed();
+        searches = searches.filter((x) => x.id !== s.id);
+        toasts.show(t('downloads.removed', { query: named(s) }), { cat: 'downloadsStarted', kind: 'removed' });
+      }
+      refresh();
+    });
+  }
+
+  /** Every failed download tries again, each from where it stopped. */
+  // ---- Failed files: posts whose file couldn't be brought in, each tried again on its own.
+  let failedPosts = $state<FailedPost[]>([]);
+  const postKey = (f: { site: string; post: string }) => f.site + ':' + f.post;
+  const outcomes = new Set(['downloaded', 'already', 'deleted', 'skipped', 'blacklisted', 'too big', 'too old']);
+  const outcomeWord = (o: string) => (outcomes.has(o) ? t(`downloads.outcome.${o.replace(' ', '_')}`) : o);
+
+  // ---- Retries: a failed post tried again runs in the background - in its site's queue, with its progress, then
+  // its result for a moment (back in Failed files with why, if it failed again).
+  let retries = $state<RetryJob[]>([]);
+  const RESULT_MS = 6000;
+  let retriesShown = $derived(retries.filter((r) => !r.finished || now - r.finished < RESULT_MS));
+  let retryingKeys = $derived(new Set(retries.filter((r) => !r.finished).map(postKey)));
+  const mine = new Set<string>(); // started from this page: its result gets a notice
+  const announced = new Set<string>();
+  // The last answer this session, at once (the page asks for a new one as it opens).
+  if (kept) show(kept.res, kept.failed);
+  function announce() {
+    for (const r of retries) {
+      const k = postKey(r);
+      if (!r.finished || !mine.has(k) || announced.has(k + '@' + r.finished)) continue;
+      announced.add(k + '@' + r.finished);
+      mine.delete(k);
+      if (r.outcome === 'failed') toasts.error(r.error ? t('downloads.postFailedWhy', { post: r.post, error: r.error }) : t('downloads.postFailed', { post: r.post }));
+      else toasts.show(t('downloads.retriedPost', { post: r.post, outcome: outcomeWord(r.outcome ?? '') }), { cat: 'retryResult', kind: r.outcome === 'downloaded' ? 'done' : 'info' });
+    }
+  }
+  async function retryPost(f: FailedPost) {
+    mine.add(postKey(f));
+    try {
+      await api.retryPost(f.site, f.post);
+    } catch (e) {
+      mine.delete(postKey(f));
+      toasts.error((e as Error).message);
+    }
+    await refresh();
+  }
+  /** A retry's file downloading now (its bytes), and how fast (smoothed between progress messages). */
+  const retryFile = (r: RetryJob) => live.files.find((x) => x.key === r.site + '/' + r.post);
+  let retrySpeed = $state<Record<string, number>>({});
+  let lastRead: Record<string, { read: number; at: number }> = {};
+  $effect(() => {
+    const at = performance.now();
+    const next: Record<string, number> = {};
+    const seen: typeof lastRead = {};
+    for (const x of live.files) {
+      if (!x.key) continue;
+      const before = lastRead[x.key];
+      seen[x.key] = { read: x.read, at };
+      if (before && at > before.at && x.read >= before.read) {
+        const now = ((x.read - before.read) / (at - before.at)) * 1000;
+        next[x.key] = (untrack(() => retrySpeed[x.key!]) ?? now) * 0.6 + now * 0.4;
+      }
+    }
+    lastRead = seen;
+    retrySpeed = next;
+  });
+
+  // ---- the stacks: each site's queue, finished downloads and failed files fold into a stack (the active one in
+  // front); unfolded on a tap.
+  let unfolded = $state<Record<string, boolean>>({});
+  // (wi: its place in the site's queue - every one reorders, the running one too: dragged down, it steps aside for
+  // the one now ahead of it after its file in flight; retries first, so the searches' rows stay together while dragging)
+  type QueueEntry = { kind: 'search'; s: DownloadSearch; wi: number } | { kind: 'retry'; r: RetryJob };
+  const entryKey = (e: QueueEntry) => (e.kind === 'search' ? 's' + e.s.id : 'r' + postKey(e.r));
+  // ---- The queue's kinds and its order (2026-11-14, from a mock-up: pills "All / Downloads / Checks", and
+  // a sort icon dropdown, by default in order of added, with another option to sort by file count, most or least,
+  // styled like the other sort menus; sorting by file count gets the counts first automatically, the reorder grabber is
+  // hidden then, and it's all animated). Downloads: one-off downloads and subscriptions' first checks (bulk); checks:
+  // the regular ones.
+  type QueueKind = 'all' | 'downloads' | 'checks';
+  type QueueSort = 'queue' | 'files' | 'files_asc';
+  const isCheck = (s: DownloadSearch) => !!s.subscription_id && !s.first_check;
+  let queueKind = $state<QueueKind>(((v) => (v === 'downloads' || v === 'checks' ? v : 'all'))(read('vitrine.queueKind')));
+  // (shared: the server runs each site's queue in this order - 2026-11-17; with fewest first set it hadn't reordered:
+  // it had been only a view, the running one on top)
+  const queueSort = $derived<QueueSort>(settings.queueSort === 'files' || settings.queueSort === 'files_asc' ? settings.queueSort : 'queue');
+  function setQueueKind(v: QueueKind) {
+    queueKind = v;
+    write('vitrine.queueKind', v);
+  }
+  function setQueueSort(v: string) {
+    settings.queueSort = v;
+  }
+  const queueSortOptions = $derived([
+    { value: 'queue', label: t('downloads.queueSort.queue') },
+    { value: 'files', label: t('downloads.queueSort.files') },
+    { value: 'files_asc', label: t('downloads.queueSort.filesAsc') },
+  ]);
+  const shownKind = (s: DownloadSearch) => queueKind === 'all' || (queueKind === 'checks') === isCheck(s);
+  /** A site's list by its searches' counts on the site, as the server runs it (download.queueOrder): checks first
+   *  (when they go first), then by count - not counted yet last, a check as one not counted (its count is the whole
+   *  search's, not what's new) - then in queue order. (A running one the sort puts later steps aside at its next post.) */
+  function byCount(list: DownloadSearch[]): DownloadSearch[] {
+    const dir = queueSort === 'files' ? -1 : 1;
+    const total = (s: DownloadSearch) => (isCheck(s) ? -1 : s.site_total);
+    const known = (s: DownloadSearch) => total(s) >= 0;
+    const tier = (s: DownloadSearch) => Number(settings.checksFirst && isCheck(s));
+    return [...list].sort(
+      (a, b) =>
+        tier(b) - tier(a) ||
+        Number(known(b)) - Number(known(a)) ||
+        (known(a) && known(b) ? dir * (total(a) - total(b)) : 0),
+    );
+  }
+  let kindCounts = $derived.by(() => {
+    const all = queues.flatMap((q) => q.list);
+    const checks = all.filter(isCheck).length;
+    return { all: all.length + retriesShown.length, downloads: all.length - checks + retriesShown.length, checks };
+  });
+  // The searches asked about already (once each). (countingSites: before show(), which a return to the page runs at once.)
+  const countAsked = new Set<number>();
+  // (just asked: shown as counting until the server says which sites count - a moment)
+  const countPending = new SvelteSet<number>();
+  $effect(() => {
+    if (tab !== 'queue' || queueSort === 'queue') return;
+    const want = searches.filter((s) => (s.state === 'queued' || s.state === 'paused') && s.site_total === -1 && !countAsked.has(s.id)).map((s) => s.id);
+    if (!want.length) return;
+    for (const id of want) {
+      countAsked.add(id);
+      countPending.add(id);
+    }
+    setTimeout(() => want.forEach((id) => countPending.delete(id)), 4000);
+    untrack(() => api.countDownloads(want).catch(() => {}));
+  });
+  /** The checks a started download made way for (they go first: Settings > Sites > Queue order), the running one first. */
+  function madeWayFor(s: DownloadSearch): DownloadSearch[] {
+    if (!settings.checksFirst || isCheck(s) || s.state !== 'queued' || !s.handled) return [];
+    const checks = (queues.find((q) => q.site === s.site)?.list ?? []).filter(isCheck);
+    return checks.sort((a, b) => Number(b.state === 'running') - Number(a.state === 'running'));
+  }
+  /** The check a chip names: shown (all kinds, if only downloads were), scrolled to and lit. */
+  function showCheck(id: number) {
+    if (queueKind === 'downloads') setQueueKind('all');
+    router.focus = 'dl:' + id;
+  }
+
+  let queueSites = $derived.by(() => {
+    const order = [...new Set([...queues.map((q) => q.site), ...retriesShown.map((r) => r.site)])];
+    return order
+      .map((site) => {
+        let list = (queues.find((q) => q.site === site)?.list ?? []).filter(shownKind);
+        if (queueSort !== 'queue') list = byCount(list);
+        const rs = queueKind === 'checks' ? [] : retriesShown.filter((r) => r.site === site);
+        const entries: QueueEntry[] = [
+          ...rs.map((r) => ({ kind: 'retry' as const, r })),
+          ...list.map((s, wi) => ({ kind: 'search' as const, s, wi })),
+        ];
+        return { site, list, entries };
+      })
+      .filter((q) => q.entries.length);
+  });
+  /** A list grouped by site, the sites in the order their first item comes. */
+  function bySite<X extends { site: string }>(list: X[]): { site: string; list: X[] }[] {
+    const m = new Map<string, X[]>();
+    for (const x of list) m.set(x.site, [...(m.get(x.site) ?? []), x]);
+    return [...m.entries()].map(([site, list]) => ({ site, list }));
+  }
+
+  /** "5 min ago", "3 h ago", "2 days ago". */
+  function ago(ms: number): string {
+    const s = Math.max(0, (Date.now() - ms) / 1000);
+    if (s < 3600) return t('downloads.ago.min', { n: Math.max(1, Math.round(s / 60)) });
+    if (s < 86400) return t('downloads.ago.h', { n: Math.round(s / 3600) });
+    return t('downloads.ago.days', { n: Math.round(s / 86400) });
+  }
+
+  async function retryFailed() {
+    const failed = finished.filter((s) => s.state === 'failed');
+    const results = await Promise.allSettled(failed.map((s) => api.resumeDownload(s.id)));
+    const ok = results.filter((r) => r.status === 'fulfilled').length;
+    refresh();
+    if (ok) toasts.show(t('downloads.retrying', { n: ok }), { cat: 'retrying', kind: 'info' });
+    const bad = results.find((r) => r.status === 'rejected');
+    if (bad) toasts.error((bad.reason as Error).message);
+  }
+
+  async function clearFinished() {
+    await attempt(async () => {
+      const { removed } = await api.clearDownloads();
+      changed();
+      searches =searches.filter((s) => s.state !== 'done');
+      toasts.show(t('downloads.cleared', { n: removed }), { cat: 'downloadsMisc', kind: 'removed' });
+    });
+  }
+
+  // ---- Tabs: Queue (with the tag refresh), Subscriptions, History (failed files, finished downloads); the last one
+  // looked at is remembered on this device.
+  type Tab = 'queue' | 'subs' | 'history';
+  let tab = $state<Tab>(loadTab());
+  function loadTab(): Tab {
+    const v = read('vitrine.downloadsTab');
+    return v === 'subs' || v === 'history' ? v : 'queue';
+  }
+  const tabOrder: Tab[] = ['queue', 'subs', 'history'];
+  let tabDir = 1; // the way the panels slide: to a tab on the right, from the right
+  let panelsEl = $state<HTMLElement>();
+  function setTab(v: Tab) {
+    if (v === tab) return;
+    tabDir = tabOrder.indexOf(v) > tabOrder.indexOf(tab) ? 1 : -1;
+    const from = panelsEl?.offsetHeight ?? 0;
+    tab = v;
+    // The panels' height glides from the old tab's to the new one's (both share a grid cell while one goes and the
+    // other comes: the cell was as tall as the old one, the new one's card stretched to it - a tall empty box - then it
+    // snapped to its size as the old one went, and everything below jumped).
+    if (!reduced())
+      tick().then(() => {
+        const to = panelsEl?.querySelector<HTMLElement>(`#panel-${v}`)?.offsetHeight;
+        if (!panelsEl || !to || Math.abs(to - from) < 1) return;
+        panelsEl.style.overflow = 'clip';
+        panelsEl
+          .animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: 320, easing: 'cubic-bezier(0.2, 0.9, 0.25, 1)' })
+          .finished.finally(() => panelsEl && (panelsEl.style.overflow = ''));
+      });
+    write('vitrine.downloadsTab', v);
+  }
+  // The panels slide like Sort and filters' pages: the one leaving goes quickly, the new one comes in after it from
+  // the side of its tab, both in one grid cell (no jump). Reduced motion: at once.
+  const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+  const panelIn = (node: Element) => glide(node, { x: reduced() ? 0 : 24 * tabDir, duration: reduced() ? 0 : 300, delay: reduced() ? 0 : 130, easing: ease, opacity: 0 });
+  const panelOut = (node: Element) => glide(node, { x: reduced() ? 0 : -16 * tabDir, duration: reduced() ? 0 : 160, easing: (t) => t * t, opacity: 0 });
+  // A tab's count: a new number glides to its width (the tab's name, centered with it, moves smoothly too).
+  function easeWidth(node: HTMLElement) {
+    let w = node.offsetWidth;
+    const mo = new MutationObserver(() => {
+      const from = w;
+      w = node.offsetWidth;
+      if (from && from !== w && !reduced()) node.animate([{ width: `${from}px` }, { width: `${w}px` }], { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+    });
+    mo.observe(node, { childList: true, characterData: true, subtree: true });
+    return { destroy: () => mo.disconnect() };
+  }
+  // A picture that has to load fades in (no pop) - one the browser has already shows at once.
+  function fadeImg(node: HTMLImageElement) {
+    if (node.complete && node.naturalWidth) return;
+    node.style.opacity = '0';
+    const show = () => {
+      node.style.transition = 'opacity 0.25s';
+      node.style.opacity = '1';
+    };
+    node.addEventListener('load', show, { once: true });
+    node.addEventListener('error', show, { once: true });
+  }
+
+  // The lit tab's pill glides from tab to tab (measured: the tabs are as wide as their names and counts).
+  let kindsEl = $state<HTMLElement>();
+  let kindPill = $state<{ x: number; w: number } | null>(null);
+  let kindPillReady = $state(false);
+  function placeKindPill() {
+    const b = kindsEl?.querySelector<HTMLElement>('.kind.on');
+    if (!b) return;
+    kindPill = { x: b.offsetLeft, w: b.offsetWidth };
+    if (!kindPillReady) requestAnimationFrame(() => (kindPillReady = true));
+  }
+  $effect(() => {
+    void queueKind;
+    void kindCounts.all;
+    void kindCounts.downloads;
+    void kindCounts.checks;
+    tick().then(placeKindPill);
+  });
+  $effect(() => {
+    if (!kindsEl) return;
+    const ro = new ResizeObserver(() => placeKindPill());
+    ro.observe(kindsEl);
+    for (const b of kindsEl.querySelectorAll('.kind')) ro.observe(b);
+    return () => ro.disconnect();
+  });
+  let tabsEl = $state<HTMLElement>();
+  let pill = $state<{ x: number; w: number } | null>(null);
+  let pillReady = $state(false); // (no glide in from nowhere at the start)
+  function placePill() {
+    const b = tabsEl?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    if (!b) return;
+    pill = { x: b.offsetLeft, w: b.offsetWidth };
+    if (!pillReady) requestAnimationFrame(() => (pillReady = true));
+  }
+  $effect(() => {
+    void tab;
+    void subs.length;
+    void finished.length;
+    void failedFileCount;
+    void waitingCount;
+    void runningCount;
+    tick().then(placePill);
+  });
+  $effect(() => {
+    if (!tabsEl) return;
+    // (each tab too: a count coming, going or growing - "99+" - widens its tab, and the pill must cover it)
+    const ro = new ResizeObserver(() => placePill());
+    ro.observe(tabsEl);
+    for (const b of tabsEl.querySelectorAll('[role="tab"]')) ro.observe(b);
+    return () => ro.disconnect();
+  });
+
+  /** The summary's links: to a tab, then (if given) a part of it brought into view. */
+  async function goTo(v: Tab, id = '') {
+    setTab(v);
+    await tick();
+    const el = id ? document.getElementById(id) : document.getElementById('dl-tabs');
+    el?.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' });
+  }
+
+  // ---- The summary at the top: what's going on, each part a link to where it is.
+  let runningCount = $derived(searches.filter((s) => s.state === 'running' && !sitesPaused[s.site]).length + retriesShown.filter((r) => !r.finished).length);
+  let waitingCount = $derived(searches.filter((s) => s.state === 'queued' || s.state === 'paused' || (s.state === 'running' && !!sitesPaused[s.site])).length);
+  let failedFileCount = $derived(failedPosts.filter((f) => !retryingKeys.has(postKey(f))).length);
+  let nextCheckAt = $derived(subs.filter((s) => !s.paused && !s.check && !sitesOff.includes(s.site)).reduce((m, s) => Math.min(m, s.next_check_at), Infinity));
+  let tagsDue = $derived(refreshStatus.reduce((n, r) => n + r.due, 0));
+  let pausedSiteIds = $derived(Object.keys(sitesPaused).sort((a, b) => siteLabel(a).localeCompare(siteLabel(b))));
+
+  // ---- Subscriptions that need a look: failing checks, or nothing new for months (a dead tag, a renamed artist).
+  const QUIET_MS = 90 * 86400_000;
+  function attentionOf(s: Subscription): 'failing' | 'quiet' | null {
+    if (s.error || s.check?.state === 'failed') return 'failing';
+    if (!s.paused && s.checks > 0 && now - s.created_at > QUIET_MS && now - (s.last_found_at ?? 0) > QUIET_MS) return 'quiet';
+    return null;
+  }
+  let attentionCount = $derived(subs.filter((s) => attentionOf(s)).length);
+  $effect(() => {
+    if (attentionOnly && attentionCount === 0) attentionOnly = false; // (all seen to)
+  });
+
+  // ---- Failed files grouped by why (from the error's words): each reason its own stack, Retry all and Dismiss all.
+  type Reason = 'notFound' | 'blocked' | 'connection' | 'file' | 'other';
+  const reasonOrder: Reason[] = ['notFound', 'blocked', 'connection', 'file', 'other'];
+  function reasonOf(error = ''): Reason {
+    if (/\b(404|410)\b|not found|no longer|gone from|was deleted|removed/i.test(error)) return 'notFound';
+    if (/cloudflare|\b(401|403|429)\b|forbidden|too many|captcha|rate.?limit|denied|login/i.test(error)) return 'blocked';
+    if (/timeout|timed out|deadline|connection|reset|refused|\beof\b|tls|no such host|dns|unreachable|\b5\d\d\b|i\/o|network|broken pipe/i.test(error)) return 'connection';
+    if (/size|checksum|md5|hash|decode|corrupt|damaged|unsupported|probe|ffmpeg|vips|truncated|empty file/i.test(error)) return 'file';
+    return 'other';
+  }
+  let failedReasons = $derived.by(() => {
+    const m = new Map<Reason, FailedPost[]>();
+    for (const f of failedPosts) if (!retryingKeys.has(postKey(f))) m.set(reasonOf(f.error), [...(m.get(reasonOf(f.error)) ?? []), f]);
+    return reasonOrder.filter((r) => m.has(r)).map((reason) => ({ reason, list: m.get(reason)! }));
+  });
+  async function retryPosts(list: FailedPost[]) {
+    for (const f of list) mine.add(postKey(f));
+    const results = await Promise.allSettled(list.map((f) => api.retryPost(f.site, f.post)));
+    const ok = results.filter((r) => r.status === 'fulfilled').length;
+    if (ok) toasts.show(t('downloads.retryingPosts', { n: ok }), { cat: 'retrying', kind: 'info' });
+    await refresh();
+  }
+  async function dismissPosts(list: FailedPost[]) {
+    await attempt(async () => {
+      const { dismissed } = await api.dismissPosts(list.map((f) => ({ site: f.site, post: f.post })));
+      const gone = new Set(list.map(postKey));
+      failedPosts = failedPosts.filter((f) => !gone.has(postKey(f)));
+      toasts.show(t('downloads.dismissed', { n: dismissed }), { cat: 'downloadsMisc', kind: 'removed' });
+    });
+    refresh();
+  }
+
+  // ---- Finished: today's, then the earlier ones folded away (remembered on this device).
+  const startOfToday = $derived(new Date(new Date(now).setHours(0, 0, 0, 0)).getTime());
+  let finishedToday = $derived(finished.filter((s) => (s.finished_at ?? s.created_at) >= startOfToday));
+  let finishedEarlier = $derived(finished.filter((s) => (s.finished_at ?? s.created_at) < startOfToday));
+  let todaySites = $derived(bySite(finishedToday));
+  let earlierSites = $derived(bySite(finishedEarlier));
+  let earlierOpen = $state(loadEarlier());
+  function loadEarlier(): boolean {
+    return read('vitrine.finishedEarlier') === '1';
+  }
+  function toggleEarlier() {
+    earlierOpen = !earlierOpen;
+    write('vitrine.finishedEarlier', earlierOpen ? '1' : '0');
+  }
+
+  // Opened from a file's "Found by": bring that subscription into view, briefly highlighted.
+  let flashSub = $state(0);
+  // From the empty library's "Start a download": the search box, ready to type.
+  let queryInput = $state<HTMLInputElement>();
+  let addForm = $state<HTMLFormElement>();
+  $effect(() => {
+    if (router.focus !== 'new-download' || !queryInput) return;
+    router.focus = null;
+    queryInput.focus();
+  });
+  // From a tag's menu, a tag several subscriptions follow: the Subscriptions tab, filtered to it.
+  $effect(() => {
+    const f = router.focus;
+    if (!f?.startsWith('subs:')) return;
+    router.focus = null;
+    attentionOnly = false;
+    setTab('subs');
+    subFilter = f.slice(5);
+  });
+  $effect(() => {
+    const f = router.focus;
+    if (!f?.startsWith('sub:') || !subs.length) return;
+    router.focus = null;
+    const id = Number(f.slice(4));
+    subFilter = ''; // the subscription must be in the list to scroll to it
+    attentionOnly = false;
+    setTab('subs');
+    const it = subs.find((x) => x.id === id);
+    if (it && siteFolded('subs:' + it.site)) toggleSite('subs:' + it.site); // its site open (they start folded)
+    if (it?.group_id) toggleGroup(it.group_id, true); // and its group
+    tick().then(() => {
+      const el = document.querySelector(`li[data-sub="${id}"]`);
+      if (el) bringIntoView(el);
+      flashSub = id;
+      setTimeout(() => (flashSub = 0), 2200);
+    });
+  });
+
+  // A download tapped in the top bar's Downloads menu (2026-11-12): its tab (the queue; finished meanwhile: the
+  // history), its site's stack open, scrolled to it and briefly highlighted.
+  let flashDl = $state(0);
+  $effect(() => {
+    const f = router.focus;
+    if (!f?.startsWith('dl:')) return;
+    const id = Number(f.slice(3));
+    const q = queueSites.find((g) => g.entries.some((e) => e.kind === 'search' && e.s.id === id));
+    const done = q ? undefined : finished.find((s) => s.id === id);
+    if (!q && !done) {
+      // (waiting, but another kind is shown: all of them - this runs again with it)
+      if (queueKind !== 'all' && searches.some((s) => s.id === id && active(s))) setQueueKind('all');
+      return; // (not loaded yet: the lists come in a moment)
+    }
+    router.focus = null;
+    let key: string;
+    if (q) {
+      setTab('queue');
+      key = 'queue:' + q.site;
+    } else {
+      setTab('history');
+      const today = (done!.finished_at ?? done!.created_at) >= startOfToday;
+      if (!today && !earlierOpen) toggleEarlier();
+      key = (today ? 'done:' : 'earlier:') + done!.site;
+    }
+    if (siteFolded(key)) toggleSite(key);
+    unfolded[key] = true; // (a stack of several: spread out, so it can be seen)
+    setTimeout(() => {
+      const el = document.querySelector(`[data-dl="${id}"]`);
+      if (el) bringIntoView(el);
+      flashDl = id;
+      setTimeout(() => (flashDl = 0), 2200);
+    }, 260); // (after the tab's slide and the stack opening)
+  });
+
+  // ---- subscriptions: a search checked again on a schedule for new posts.
+
+  const repeatOptions = $derived([{ value: '0', label: t('downloads.once') }, ...intervals.map((v) => ({ value: String(v), label: cap(every(v)) }))]);
+  const intervalOptions = $derived(intervals.map((v) => ({ value: String(v), label: cap(every(v)) })));
+
+
+  // ---- How long each download has worked (2026-10-29): the server counts only its runs; while
+  // one works the page counts on from its answer, a tick a second.
+  let tickNow = $state(Date.now());
+  $effect(() => {
+    if (!searches.some((x) => x.run_now)) return;
+    const timer = setInterval(() => (tickNow = Date.now()), 1000);
+    return () => clearInterval(timer);
+  });
+  const runOf = (s: DownloadSearch) => (s.run_now ? s.run_now + Math.max(0, tickNow - lastRefresh) : (s.run_ms ?? 0));
+  /** "45 s", "13 min", "2 h 13 min", "1 d 4 h" for a run time in ms. */
+  function runSpan(ms: number): string {
+    const sec = Math.floor(ms / 1000);
+    if (sec < 60) return t('downloads.ran.s', { n: sec });
+    const min = Math.floor(sec / 60);
+    if (min < 60) return t('downloads.ran.min', { n: min });
+    const h = Math.floor(min / 60);
+    if (h < 48) return t('downloads.ran.hMin', { h, m: min % 60 });
+    return t('downloads.ran.dH', { d: Math.floor(h / 24), h: h % 24 });
+  }
+
+  /** "5 min", "3 h", "2 d" for a span in ms. */
+  function span(ms: number): string {
+    const m = Math.round(Math.abs(ms) / 60000);
+    if (m < 60) return t('downloads.span.min', { n: Math.max(1, m) });
+    const h = Math.round(m / 60);
+    return h < 48 ? t('downloads.span.h', { n: h }) : t('downloads.span.d', { n: Math.round(h / 24) });
+  }
+
+  // ---- how each subscription looks (2026-10-22): its newest files (a
+  // gallery: its comic's cover), how many came since this device last looked, its health, when it's next checked.
+  let looks = $state<Record<number, SubLook>>({});
+  let freshSince = $state(0); // (the "+N" files: found after this)
+  const SEEN_KEY = 'vitrine.subsSeen';
+  let looksFor = ''; // (the totals they were asked for: asked again when files come in)
+  async function loadLooks(since: number) {
+    try {
+      const res = await api.subscriptionLooks(since);
+      looks = Object.fromEntries(Object.entries(res.looks).map(([k, v]) => [Number(k), v]));
+    } catch {
+      /* the cards show without them */
+    }
+  }
+  $effect(() => {
+    if (tab !== 'subs') return;
+    untrack(() => {
+      freshSince = Number(read(SEEN_KEY)) || 0; // (no storage: no "new" counts then)
+      write(SEEN_KEY, String(Date.now())); // (this visit: the next one counts from here)
+      looksFor = '';
+    });
+  });
+  $effect(() => {
+    if (tab !== 'subs') return;
+    const key = subs.map((x) => `${x.id}:${x.downloaded}`).join(',');
+    if (key === looksFor) return;
+    looksFor = key;
+    loadLooks(freshSince);
+  });
+
+  type Health = 'ok' | 'failing' | 'quiet' | 'paused' | 'checking';
+  function health(s: Subscription): Health {
+    const a = attentionOf(s);
+    if (a) return a;
+    if (s.check && s.check.state === 'running') return 'checking';
+    if (s.paused) return 'paused';
+    return 'ok';
+  }
+  /** How far along to the next check (0-1; the ring). */
+  function untilNext(s: Subscription): number {
+    if (s.paused || !s.interval) return 0;
+    return Math.max(0, Math.min(1, 1 - (s.next_check_at - now) / (s.interval * 1000)));
+  }
+  type QPart = { text: string; color?: string };
+  /** The search as chips: each term, excluded ones marked, a namespace's color where the library knows it; an OR
+   *  search one chip with its tags (2026-10-23: they were a chip each, brackets and ~ too) - "( a ~ b )" (rule34's
+   *  way, the default), or "~a ~b" (Danbooru, Mastodon: all the ~ terms are one group). */
+  function queryChips(q: string): { parts: QPart[]; neg: boolean }[] {
+    const part = (w: string): QPart => {
+      const body = w.replace(/"/g, '').replace(/\$$/, ''); // (e-hentai's artist:"name$": the name)
+      const p = splitTag(body.replace(/ /g, '_')); // (a namespace the library knows: its color, the name alone)
+      return p.ns ? { text: body.slice(body.indexOf(':') + 1), color: tagColor(p.ns + ':' + p.name) } : { text: body };
+    };
+    const words = (q.match(/-?[^\s"]*(?:"[^"]*")?[^\s"]*/g) ?? []).filter((w) => w && w !== '-');
+    const out: { parts: QPart[]; neg: boolean }[] = [];
+    let tilde: QPart[] | null = null; // (the ~ terms' chip)
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      if (w === '(') {
+        const parts: QPart[] = [];
+        for (i++; i < words.length && words[i] !== ')'; i++) if (words[i] !== '~') parts.push(part(words[i]));
+        if (parts.length) out.push({ parts, neg: false });
+      } else if (w.startsWith('~') && w.length > 1) {
+        if (!tilde) out.push({ parts: (tilde = []), neg: false });
+        tilde.push(part(w.slice(1)));
+      } else {
+        const neg = w.startsWith('-') && w.length > 1;
+        out.push({ parts: [part(neg ? w.slice(1) : w)], neg });
+      }
+    }
+    return out;
+  }
+  /** A group's mosaic: the newest file of up to four of its subscriptions (a gallery: its cover). */
+  // A group's cover: a picture from each of its first subscriptions with one - never the same file twice: two
+  // subscriptions whose searches overlap often have the same newest file, and a repeated one broke the page's list
+  // (2026-10-29; the Subscriptions tab was laggy and buggy, sites opening with nothing in them). A member whose newest
+  // is in already gives its next.
+  function groupPics(members: Subscription[]): SubPic[] {
+    const out: SubPic[] = [];
+    for (const m of members) {
+      const l = looks[m.id];
+      const pick = [l?.cover, ...(l?.recent ?? [])].find((p): p is SubPic => !!p && !out.some((o) => o.id === p.id));
+      if (pick) out.push(pick);
+      if (out.length === 4) break;
+    }
+    return out;
+  }
+  /** A search's own words in the library itself (its search replaced), newest imported first. */
+  function openQuery(q: string) {
+    router.openSearch((q.trim() + ' sort:imported').trim());
+  }
+  function openFresh(s: Subscription) {
+    const l = looks[s.id];
+    if (l?.comic) return router.go('comics', String(l.comic));
+    const hours = Math.max(1, Math.ceil((Date.now() - freshSince) / 3600_000));
+    router.openResults(`system:found_by=${s.id} system:imported<${hours}h`); // (a page of their own)
+  }
+
+  // ---- phones: a card swiped to the left shows Check now and Pause/Resume behind it
+  let swiped = $state<number | null>(null); // (the one open)
+  let swipeX = $state(0); // (the one being dragged: how far)
+  let dragging = $state<number | null>(null);
+  const SWIPE_OPEN = 148;
+  function swipe(s: Subscription) {
+    return (el: HTMLElement) => {
+      let x0 = 0;
+      let y0 = 0;
+      let base = 0;
+      let engaged = false;
+      let id = -1;
+      const down = (e: PointerEvent) => {
+        // (the chips: a row of their own that a finger scrolls sideways - not the card's swipe)
+        if (subSelecting || e.pointerType === 'mouse' || (e.target as HTMLElement).closest('button, a, input, .qlink')) return;
+        const chips = (e.target as HTMLElement).closest<HTMLElement>('.qchips');
+        if (chips && chips.scrollWidth > chips.clientWidth) return; // (sideways there scrolls the chips)
+        id = e.pointerId;
+        x0 = e.clientX;
+        y0 = e.clientY;
+        base = swiped === s.id ? -SWIPE_OPEN : 0;
+        engaged = false;
+      };
+      const move = (e: PointerEvent) => {
+        if (e.pointerId !== id) return;
+        const dx = e.clientX - x0;
+        const dy = e.clientY - y0;
+        if (!engaged) {
+          if (Math.abs(dy) > 10) return void (id = -1); // (scrolling the page)
+          if (Math.abs(dx) < 10) return;
+          engaged = true;
+          dragging = s.id;
+          if (swiped !== s.id) swiped = null;
+        }
+        swipeX = Math.max(-SWIPE_OPEN - 24, Math.min(0, base + dx));
+      };
+      const up = (e: PointerEvent) => {
+        if (e.pointerId !== id) return;
+        id = -1;
+        if (!engaged) return;
+        swiped = swipeX < -SWIPE_OPEN / 2 ? s.id : null;
+        dragging = null;
+      };
+      el.addEventListener('pointerdown', down);
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', up);
+      return () => {
+        el.removeEventListener('pointerdown', down);
+        el.removeEventListener('pointermove', move);
+        el.removeEventListener('pointerup', up);
+        el.removeEventListener('pointercancel', up);
+      };
+    };
+  }
+  // (a press anywhere else closes an open one)
+  $effect(() => {
+    if (swiped === null) return;
+    const close = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement).closest(`li[data-sub="${swiped}"]`)) swiped = null;
+    };
+    document.addEventListener('pointerdown', close, true);
+    return () => document.removeEventListener('pointerdown', close, true);
+  });
+  function swipeAct(s: Subscription, what: 'check' | 'pause' | 'resume') {
+    swiped = null;
+    subAct(s, what);
+  }
+
+  function subState(s: Subscription): DownloadSearch['state'] | null {
+    if (s.check) return s.check.state;
+    return s.paused ? 'paused' : null;
+  }
+
+  function lastCheck(s: Subscription): string {
+    if (!s.checks) return t('downloads.notChecked');
+    return t('downloads.checkedAgo', { span: span(now - (s.last_check_at ?? now)) });
+  }
+
+  function nextCheck(s: Subscription): string {
+    if (s.paused) return '';
+    if (s.check) return s.check.state === 'failed' ? t('downloads.retryIn', { span: span(s.next_check_at - now) }) : '';
+    return s.next_check_at <= now ? t('downloads.nextSoon') : t('downloads.nextIn', { span: span(s.next_check_at - now) });
+  }
+
+  /** How a search is named on its buttons (a check: "the check of x"). */
+  /** A download's or subscription's name: its label (a gallery's title), else its search. */
+  const named = (x: { label?: string; query: string }) => x.label || x.query;
+  const nameOf = (x: DownloadSearch) => (x.subscription_id ? t('downloads.checkOf', { query: named(x) }) : named(x));
+
+  // Is this search a subscription's check, or subscribed already?
+  const subscribed = (x: DownloadSearch) =>
+    !!x.subscription_id || subs.some((s) => s.site === x.site && s.query === x.query.trim());
+
+  async function subscribeSearch(x: DownloadSearch) {
+    await attempt(async () => {
+      await api.subscribeSearch(x.id, DEFAULT_INTERVAL);
+      toasts.show(t('downloads.subscribedSearch', { query: x.query, every: every(DEFAULT_INTERVAL) }), { cat: 'downloadsStarted' });
+      refresh();
+    });
+  }
+
+  // Files no longer in the site's favorites (a favorites subscription noticed): delete them, or keep them.
+  async function favGone(s: Subscription, how: 'delete' | 'keep') {
+    try {
+      if (how === 'keep') {
+        await api.favGoneKeep(s.id);
+        toasts.show(t('downloads.kept', { n: s.fav_gone ?? 0 }), { cat: 'downloadsMisc' });
+      } else {
+        const ids = (await api.favGone(s.id)).files;
+        if (!ids.length) return refresh();
+        const thumbs = (await api.files(ids.slice(0, 3))).files.map((f) => f.thumb).filter((t): t is string => !!t);
+        const n = ids.length;
+        const ok = await confirmAction({
+          title: t('selection.deleteTitle', { n }),
+          body: t('downloads.favGoneBody', { site: siteLabel(s.site) }),
+          action: n === 1 ? t('common.delete') : t('common.deleteN', { n }),
+          thumbs,
+          undoable: true,
+        });
+        if (!ok) return;
+        const res = await api.favGoneDelete(s.id);
+        toasts.show(t('common.deletedFiles', { n: res.deleted }), { cat: 'deleted',
+          kind: 'removed',
+          action: { label: t('common.undo'), run: () => api.restore(ids).then(() => undefined) },
+        });
+      }
+      refresh();
+    } catch (e) {
+      toasts.error((e as Error).message);
+    }
+  }
+
+  async function subAct(s: Subscription, action: 'check' | 'pause' | 'resume' | 'remove') {
+    await attempt(async () => {
+      if (action === 'check') {
+        await api.checkSubscription(s.id);
+        toasts.show(t('downloads.checking', { name: named(s) }), { cat: 'downloadsControl', kind: 'info' });
+      }
+      if (action === 'pause' || action === 'resume') await api.updateSubscription(s.id, { paused: action === 'pause' });
+      if (action === 'remove') {
+        const ok = await confirmAction({ title: t('downloads.unsubTitle', { query: named(s) }), body: t('downloads.unsubBody'), action: t('downloads.unsubscribe'), icon: 'close' });
+        if (!ok) return;
+        await api.removeSubscription(s.id);
+        changed();
+        subs =subs.filter((x) => x.id !== s.id);
+        searches = searches.filter((x) => x.subscription_id !== s.id);
+        toasts.show(t('downloads.unsubscribed', { query: named(s) }), { cat: 'downloadsStarted', kind: 'removed' });
+      }
+      refresh();
+    });
+  }
+
+  async function changeInterval(s: Subscription, v: string) {
+    await attempt(async () => {
+      await api.updateSubscription(s.id, { interval: +v });
+      toasts.show(t('downloads.interval', { query: named(s), every: every(+v) }), { cat: 'downloadsControl' });
+      refresh();
+    });
+  }
+
+  async function changeDepth(s: Subscription, n: number) {
+    await attempt(async () => {
+      await api.updateSubscription(s.id, { check_depth: n });
+      refresh();
+    });
+  }
+  /** The depth a subscription gets unless it sets one: its group's, else its site's or the one for all. */
+  function inheritedDepth(s: Subscription): number {
+    const g = groups.find((g) => g.id === s.group_id);
+    return g ? g.depth : siteDepth(s.site);
+  }
+
+  // ---- reordering a site's queue: drag the handle, or arrow keys on it.
+
+  let drag = $state<{ site: string; id: number; from: number; to: number; dy: number } | null>(null);
+  let rows: { top: number; height: number }[] = [];
+  let startY = 0;
+  const gap = 8; // (the stack's gap between cards)
+
+  function dragStart(e: PointerEvent, site: string, i: number, id: number) {
+    if (e.button !== 0) return;
+    const stack = (e.currentTarget as HTMLElement).closest('.queue-site')!;
+    rows = [...stack.querySelectorAll<HTMLElement>('[data-wi]')]
+      .sort((a, b) => Number(a.dataset.wi) - Number(b.dataset.wi))
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        return { top: r.top, height: r.height };
+      });
+    startY = e.clientY;
+    drag = { site, id, from: i, to: i, dy: 0 };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+
+  function dragMove(e: PointerEvent) {
+    if (!drag) return;
+    const dy = e.clientY - startY;
+    const r = rows[drag.from];
+    const center = r.top + r.height / 2 + dy;
+    let to = 0;
+    for (let k = 0; k < rows.length; k++) if (k !== drag.from && rows[k].top + rows[k].height / 2 < center) to++;
+    drag = { ...drag, dy, to };
+  }
+
+  function dragEnd() {
+    if (!drag) return;
+    const { site, from, to } = drag;
+    drag = null;
+    if (from !== to) move(site, from, to);
+  }
+
+  /** How far a row shifts while another row is dragged past it. */
+  function shift(site: string, i: number): number {
+    if (!drag || drag.site !== site) return 0;
+    if (i === drag.from) return drag.dy;
+    const h = rows[drag.from].height + gap;
+    if (drag.from < i && i <= drag.to) return -h;
+    if (drag.to <= i && i < drag.from) return h;
+    return 0;
+  }
+
+  /** Moves a site's download from one place in its queue to another (the running one too: see queueSites). */
+  async function move(site: string, from: number, to: number) {
+    // (from, to: places among the cards shown - one kind only: they swap among the places theirs have in the whole
+    // queue, the others stay where they are)
+    const full = (queues.find((q) => q.site === site)?.list ?? []).map((s) => s.id);
+    const shownIds = (queueSites.find((q) => q.site === site)?.list ?? []).map((s) => s.id);
+    const [id] = shownIds.splice(from, 1);
+    shownIds.splice(to, 0, id);
+    const isShown = new Set(shownIds);
+    let k = 0;
+    const ids = full.map((x) => (isShown.has(x) ? shownIds[k++] : x));
+    // Show the new order at once, then save it (what's asked for until it's saved has the old order).
+    const pos = new Map(ids.map((x, k) => [x, k]));
+    changed();
+    searches = [...searches].sort((a, b) =>
+      a.site === site && b.site === site && pos.has(a.id) && pos.has(b.id) ? pos.get(a.id)! - pos.get(b.id)! : 0,
+    );
+    await attempt(() => api.reorderDownloads(site, ids));
+    changed();
+    refresh();
+  }
+
+  function handleKey(e: KeyboardEvent, site: string, i: number, n: number) {
+    if (e.key === 'ArrowUp' && i > 0) move(site, i, i - 1);
+    else if (e.key === 'ArrowDown' && i < n - 1) move(site, i, i + 1);
+    else return;
+    e.preventDefault();
+  }
+
+  const stateLabel = (s: DownloadSearch['state']) => t(`downloads.state.${s}`);
+  // (a running one on a paused site waits for it: shown as waiting, not downloading)
+  const shownState = (s: DownloadSearch): DownloadSearch['state'] => (s.state === 'running' && sitesPaused[s.site] ? 'queued' : s.state);
+
+  /** A gallery site's search (its posts are whole galleries - comics - of many pages). */
+  const isGallery = (s: DownloadSearch) => siteInfo.engines[s.site] === 'ehentai';
+  /** One gallery's download (its link): counted by page - a search of many, by gallery. */
+  // How far a search is (lib/downloadProgress, shared with the top bar's downloads menu).
+  const galleryNow = (s: DownloadSearch) => galleryOf(s, live.files);
+  const measurable = (s: DownloadSearch) => measurableOf(s, live.files);
+  const progress = (s: DownloadSearch) => progressOf(s, live.files, isGallery(s));
+</script>
+
+{#snippet queueSortIcon()}
+  <Icon name="sort" size={19} />{#if queueSort !== 'queue'}<span class="sort-dot" transition:pop></span>{/if}
+{/snippet}
+
+{#snippet sortIcon()}
+  <Icon name="sort" size={19} />{#if subSort !== 'next'}<span class="sort-dot" transition:pop></span>{/if}
+{/snippet}
+
+{#snippet siteHead(key: string, siteId: string, count: number, offWhat: string)}
+  {@const open = !siteFolded(key) || (key.startsWith('subs:') && subFilter.trim() !== '')}
+  <h3 class="site-head">
+    <button class="site-fold" class:open aria-expanded={open} aria-label={t(open ? 'downloads.foldName' : 'downloads.unfoldName', { name: siteLabel(siteId) })} onclick={() => toggleSite(key)}>
+      <Icon name="right" size={16} />
+      <SiteIcon host={siteInfo.hosts[siteId] ?? ''} />
+      <span class="site-name">{siteLabel(siteId)}</span>
+      <span class="count">{count}</span>
+    </button>
+    {#if sitesOff.includes(siteId)}<span class="off-chip" title={t('downloads.offTitle', { what: offWhat })} transition:nudge>{t('notify.status.off')}</span>{/if}
+    {@render pausedChip(siteId)}
+  </h3>
+{/snippet}
+
+<!-- A site paused by itself (it kept failing to answer): a chip by its name. -->
+{#snippet pausedChip(siteId: string)}
+  {#if sitesPaused[siteId]}<span class="paused-chip" title={t(sitesPaused[siteId].kind === 'ban' ? 'downloads.bannedTitle' : 'downloads.pausedTitle')} transition:nudge>{t('downloads.paused')}</span>{/if}
+{/snippet}
+
+<!-- ... and at the top of the page: which site, why, when it tries again, and Try now. -->
+{#snippet pausedLine(siteId: string)}
+  {@const p = sitesPaused[siteId]}
+  {#if p}
+    <div class="paused-line" role="status" transition:reveal>
+      <Icon name="alert" size={16} />
+      <span class="paused-text"
+        ><span><b>{siteLabel(siteId)}</b> {t(p.kind === 'ban' ? 'downloads.bannedLine' : 'downloads.pausedLine', { time: time(new Date(p.until)) })}</span><span class="paused-why">{p.reason}</span></span>
+      <!-- (not during a ban: asking before it ends can make it longer) -->
+      {#if p.kind !== 'ban'}<button class="quiet" onclick={() => tryNow(siteId)}>{t('downloads.tryNow')}</button>{/if}
+    </div>
+  {/if}
+{/snippet}
+
+<!-- A count in the summary: a link to where those are. -->
+{#snippet sumItem(n: number, label: string, go: () => void, cls = '')}
+  <button class="sum-item {cls}" onclick={go}><b>{num(n)}</b> {label}</button>
+{/snippet}
+
+<!-- A site's stack heading: its name and how many; with more than one, it unfolds the stack too. -->
+{#snippet stackHead(key: string, siteId: string, count: number, folds: boolean, offWhat: string)}
+  {@const open = !!unfolded[key]}
+  <h3 class="site-head">
+    {#if folds}
+      <button class="site-fold" class:open aria-expanded={open} aria-label={t(open ? 'downloads.foldName' : 'downloads.unfoldName', { name: siteLabel(siteId) })} onclick={() => (unfolded[key] = !open)}>
+        <Icon name="right" size={16} />
+        <span class="site-name">{siteLabel(siteId)}</span>
+        <span class="count">{count}</span>
+      </button>
+    {:else}
+      <span class="site-label"><span class="site-name">{siteLabel(siteId)}</span></span>
+    {/if}
+    {#if offWhat && sitesOff.includes(siteId)}<span class="off-chip" title={t('downloads.offTitle', { what: offWhat })} transition:nudge>{t('notify.status.off')}</span>{/if}
+    {@render pausedChip(siteId)}
+  </h3>
+{/snippet}
+
+<!-- A failed post tried again: its file's progress (bytes, speed), then its result for a moment. -->
+{#snippet retryCard(r: RetryJob)}
+  {@const file = retryFile(r)}
+  {@const done = !!r.finished}
+  {@const ok = done && r.outcome !== 'failed'}
+  {@const speed = retrySpeed[r.site + '/' + r.post]}
+  <div class="row">
+    <div class="main">
+      <div class="head">
+        <span class="query one-line" {@attach edgeFades}><span>{t('downloads.post', { post: r.post })}</span></span>
+        <span class="state {done ? (ok ? 'done' : 'failed') : 'running'}">{done ? (ok ? outcomeWord(r.outcome ?? '') : t('downloads.state.failed')) : t('downloads.state.retrying')}</span>
+      </div>
+      {#if !done && !(file && file.total > 0)}
+        <div class="bar striped" role="progressbar" aria-label={t('downloads.noEstimate')}></div>
+      {:else}
+        <div class="bar"><div class="fill {done ? (ok ? 'done' : 'failed') : 'running'}" style:width="{done ? 100 : ((file?.read ?? 0) / Math.max(1, file?.total ?? 1)) * 100}%"></div></div>
+      {/if}
+      <div class="line-stats">
+        <div class="counts" {@attach edgeFades}>
+          <span class="stat lead"><Icon name="retry" size={12} /> {t('downloads.retryKind')}</span>
+          {#if file && !done}<span class="stat">{file.total > 0 ? t('downloads.sizeOf', { read: formatSize(file.read), total: formatSize(file.total) }) : formatSize(file.read)}</span>{/if}
+          {#if r.query}<span class="stat quiet">{r.query}</span>{/if}
+        </div>
+        {#if !done && speed}<span class="stat speed">{t('downloads.speed', { size: formatSize(speed) })}</span>{/if}
+      </div>
+      {#if done && r.error}<p class="error small" transition:reveal>{r.error}</p>{/if}
+    </div>
+  </div>
+{/snippet}
+
+{#snippet stat(n: number | string, label: string, cls = '')}
+  <span class="stat {cls}"><b>{typeof n === 'number' ? num(n) : n}</b> {label}</span>
+{/snippet}
+
+<!-- The lead count: the posts (galleries) gone through, out of the goal - the limit picked (the site's count when
+     that's smaller), else the site's count; none known: just the count (the bar is striped). -->
+<!-- A kind of post, as an icon and its count (its name when pointed at, and for screen readers). -->
+<!-- Progress: how far through the estimate; without one (no total from the site,
+     no file limit) a running search shows a moving striped bar. -->
+{#snippet bar(s: DownloadSearch)}
+  {#if shownState(s) === 'running' && !measurable(s)}
+    <div class="bar striped" role="progressbar" aria-label={t('downloads.noEstimate')}></div>
+  {:else}
+    <div class="bar"><div class="fill {shownState(s)}" style:width="{progress(s) * 100}%"></div></div>
+  {/if}
+{/snippet}
+
+<!-- A queue card: one line (the search, how far and how fast - or its state), its bar and a short summary; a tap
+     opens its numbers, what went wrong and its actions. -->
+{#snippet queueCard(s: DownloadSearch, finishedRow = false)}
+  {@const open = !!qopen[s.id]}
+  {@const st = shownState(s)}
+  {@const gal = isGallery(s)}
+  {@const g = s.state === 'running' && gal ? galleryNow(s) : null}
+  {@const sum = summaryOf(s)}
+  {@const way = finishedRow ? [] : madeWayFor(s)}
+  <div class="qhead">
+    <!-- The search: on one line, sliding to its end and back when it's long (the app's marquee); the card open, all of
+         it, on as many lines as it takes (2026-11-14). -->
+    <div class="qline" class:open>
+    {#if gal}
+      <span class="query qname" class:open class:marquee={!open} class:sliding={!open} title={s.query || t('push.everything')} {@attach marquee}><span>{named(s) || t('push.everything')}</span></span>
+    {:else}
+      <!-- Tapped: the library with this search, newest imported first (2026-11-12); the rest of the line opens the details. -->
+      <button class="qlink query qname" class:open class:marquee={!open} class:sliding={!open} onclick={() => openQuery(s.query)} title={t('downloads.searchLibrary', { query: s.query || t('push.everything') })} {@attach marquee}><span>{named(s) || t('push.everything')}</span></button>
+    {/if}
+    <button class="qtoggle" aria-expanded={open} aria-label={detailsLabel(s)} onclick={() => (qopen[s.id] = !open)}>
+      {#if st === 'running'}
+        <span class="qnow">
+          {#if measurable(s)}<b>{Math.floor(progress(s) * 100)}%</b>{/if}
+          {#if speedOf(s.id)}<span>{speedOf(s.id)}</span>{/if}
+          {#if !measurable(s) && !speedOf(s.id)}<span class="state running">{stateLabel(st)}</span>{/if}
+        </span>
+      {:else}
+        <span class="state {st}">{stateLabel(st)}</span>
+      {/if}
+      <span class="chev" class:open aria-hidden="true"><Icon name="chevron" size={16} /></span>
+    </button>
+    </div>
+    {#if st === 'running' || s.handled}{@render bar(s)}{/if}
+    {#if way.length}
+      <!-- It made way for a subscription's check (checks go first): which one - tapped, that check. -->
+      <button class="madeway" title={t('downloads.madeWayTitle')} onclick={() => showCheck(way[0].id)} transition:reveal
+        ><Icon name="bell" size={13} /><span class="madeway-text">{way.length > 1 ? t('downloads.afterChecks', { name: named(way[0]) || t('push.everything'), n: way.length - 1 }) : t('downloads.afterCheck', { name: named(way[0]) || t('push.everything') })}</span></button>
+    {/if}
+    {#if !open && sum}<span class="qsum" transition:reveal>{sum}</span>{/if}
+    {#if finishedRow && anywayFits(s)}
+      <!-- Nothing came of one post (seen, deleted before, a rule, the blacklist): it can be taken anyway. -->
+      <button class="anyway" title={t('downloads.anywayHint')} onclick={() => downloadAnyway(s)} transition:reveal
+        ><Icon name="download" size={13} />{t('downloads.anyway')}</button>
+    {/if}
+    {#if !finishedRow && queueSort !== 'queue' && s.state !== 'running'}
+      <!-- Ordered by file count: its count on the site (asked for as the order was picked). -->
+      <span class="qcount" transition:reveal>
+        {#if s.site_total >= 0}<Icon name="stack" size={12} />{t('downloads.onSite', { n: num(s.site_total) })}
+        {:else if s.site_total === -2}{t('downloads.noCount')}
+        {:else if countingSites.includes(s.site) || countPending.has(s.id)}<span class="spinner small" aria-hidden="true"></span>{t('downloads.counting')}
+        {:else}{t('downloads.notCounted')}{/if}
+      </span>
+    {/if}
+  </div>
+  {#if open}
+    <div class="qbody" transition:reveal>
+      {#if s.handled || goalOf(s) || g || runOf(s)}
+        <div class="qfacts">
+          <span>
+            {#if g}{t('downloads.stat.pageOf', { done: num(g.done), pages: num(g.pages) })}
+            {:else if goalOf(s)}{t(gal ? 'downloads.stat.galleriesOf' : 'downloads.stat.postsOf', { done: num(s.handled), n: goalOf(s) })}
+            {:else}<b>{num(s.handled)}</b> {t(gal ? 'downloads.stat.galleries' : 'downloads.stat.posts', { n: s.handled })}{/if}
+          </span>
+          <span class="qtime">
+            {#if runOf(s) >= 1000}<span class="ran" title={t('downloads.ran.title')}><Icon name="clock" size={13} />{runSpan(runOf(s))}</span>{/if}
+            {#if leftOf(s)}<span>{leftOf(s)}</span>{/if}<!-- (the speed is in the header) -->
+          </span>
+        </div>
+      {/if}
+      {#if s.handled || s.pages}
+        <div class="qgrid">
+          {#each cellsOf(s) as c (c.label)}
+            <div class="qcell {c.cls ?? ''}"><b>{num(c.n)}</b><span>{c.label}</span></div>
+          {/each}
+        </div>
+      {/if}
+      {#if s.error}<p class="error small">{s.error}</p>{/if}
+      {#if s.state === 'failed' && !s.subscription_id && (s.attempts ?? 0) > 1 && !s.retry_at}
+        <p class="retry small">{t('downloads.gaveUp', { n: s.attempts ?? 0 })}</p>
+      {:else if s.state === 'failed' && !s.subscription_id && (s.attempts ?? 0) > 1}
+        <p class="retry small">{t('downloads.attempt', { n: (s.attempts ?? 0) + 1 })}</p>
+      {/if}
+      <div class="qacts">
+        {#each searchItems(s, finishedRow) as it (it.label)}
+          <button class="quiet qact" class:danger={it.danger} title={it.hint} onclick={() => it.run?.()}>{#if it.icon}<Icon name={it.icon} size={15} />{/if}{it.label}</button>
+        {/each}
+      </div>
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet subRow(s: Subscription)}
+  {@const st = subState(s)}
+  {@const h = health(s)}
+  {@const look = looks[s.id]}
+  {@const fresh = look?.fresh ?? 0}
+  {@const gallery = siteInfo.engines[s.site] === 'ehentai'}
+  {@const gNow = s.check && gallery ? galleryNow(s.check) : null}
+  <li data-sub={s.id} class:flash={flashSub === s.id} class:swiping={dragging === s.id} class:picking={subSelecting} class:picked={subPicked.has(s.id)} {@attach swipe(s)} {@attach longPress(() => holdSub(s.id))} transition:reveal>
+    {#if subSelecting}
+      <!-- Selecting: the whole card picks it (its own buttons wait). -->
+      <button class="pick-cover" aria-pressed={subPicked.has(s.id)} aria-label={t('downloads.pickSub', { query: named(s) })} onclick={() => pickSub(s.id)}></button>
+    {/if}
+    <!-- Phones: behind the card, what a swipe to the left shows. -->
+    <div class="swipe-acts" aria-hidden={swiped !== s.id} inert={swiped !== s.id}>
+      <button class="swipe-act" onclick={() => swipeAct(s, 'check')}><Icon name="retry" size={18} />{t('downloads.checkNow')}</button>
+      {#if s.paused}
+        <button class="swipe-act" onclick={() => swipeAct(s, 'resume')}><Icon name="play" size={18} />{t('downloads.resume')}</button>
+      {:else}
+        <button class="swipe-act" onclick={() => swipeAct(s, 'pause')}><Icon name="pause" size={18} />{t('video.pause')}</button>
+      {/if}
+    </div>
+    <div class="card-body" style:translate={dragging === s.id ? `${swipeX}px 0` : swiped === s.id ? `-${SWIPE_OPEN}px 0` : undefined}>
+    <div class="row">
+      <div class="main">
+        <div class="head">
+          <!-- Picking: its round check first on the line; it grows in, the line glides over. -->
+          {#if subSelecting}<span class="pick-check" class:on={subPicked.has(s.id)} aria-hidden="true" transition:nudge><Icon name="check" size={13} /></span>{/if}
+          <!-- Its health at a glance (working, checking, paused, failing, quiet for months) in the middle of a ring
+               filling up to the next check (turning while it checks). -->
+          <span class="status" title={t(`downloads.health.${h}`) + (s.paused ? '' : ' · ' + cap(nextCheck(s) || lastCheck(s)))}>
+            {#if !s.paused}
+              <span class="ring" class:checking={st === 'running'} role="img" aria-label={nextCheck(s) ? t('downloads.nextRing', { when: nextCheck(s) }) : lastCheck(s)}>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="track" /><circle cx="10" cy="10" r="8" class="fill" style:stroke-dashoffset={50.27 * (1 - (st === 'running' ? 0.25 : untilNext(s)))} /></svg>
+              </span>
+            {/if}
+            <span class="health {h}" role="img" aria-label={t(`downloads.health.${h}`)}></span>
+          </span>
+          {#snippet subQuery()}
+            {#if s.label}
+              <!-- A title (a comic's): one line, sliding to its end and back when it's long (the app's marquee: comic titles in subscriptions
+                   used to break onto multiple lines). -->
+              {#key s.label}<span class="query marquee sliding" title={s.query} {@attach marquee}><span>{s.label}</span></span>{/key}
+            {:else}
+              <!-- The search as chips (excluded terms marked, a namespace's color). -->
+              <span class="query qchips" title={s.query} {@attach edgeFades}
+                >{#each queryChips(s.query) as c, k (k)}{#if k}{' '}{/if}{#if c.parts.length > 1}<span class="qchip any"
+                    >{#each c.parts as p, j (j)}{#if j}<span class="or">{t('searchBar.or')}</span>{/if}<span style:color={p.color}>{p.text}</span>{/each}</span
+                  >{:else}<span class="qchip" class:neg={c.neg} style:color={c.parts[0].color}>{c.parts[0].text}</span>{/if}{:else}<span class="qchip">{t('push.everything')}</span>{/each}</span>
+            {/if}
+          {/snippet}
+          {#if gallery}
+            {@render subQuery()}
+          {:else}
+            <!-- Tapped: the library with this search, newest imported first (2026-11-12). -->
+            <!-- (not a button: a phone's Safari doesn't scroll what's inside a button under a finger, and the chips are a row a
+                 finger scrolls sideways, a manual carousel: a swipe scrolls, a tap opens the search) -->
+            <div class="qlink" role="link" tabindex="0" onclick={() => openQuery(s.query)}
+              onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), openQuery(s.query))}
+              title={t('downloads.searchLibrary', { query: s.query || t('push.everything') })}>{@render subQuery()}</div>
+          {/if}
+          {#if st === 'paused' || st === 'failed'}<span class="state {st}" transition:nudge>{stateLabel(st)}</span>{/if}
+          {#if fresh}
+            <button class="fresh" onclick={() => openFresh(s)} title={t('downloads.freshTitle', { n: fresh })} aria-label={t('downloads.freshTitle', { n: fresh })}>+{num(fresh)}</button>
+          {/if}
+        </div>
+        {#if s.check && st !== 'paused'}
+          {@render bar(s.check)}
+        {/if}
+        {#if look?.cover}
+          <!-- A gallery: its comic's cover, then its last pages, in the row the others have (2026-11-16); a tap opens the comic. -->
+          <button class="pics comic-pics" onclick={() => router.go('comics', String(look.comic))} aria-label={t('downloads.openComic')} title={t('downloads.openComic')}>
+            <span class="pic cover"><img src={look.cover.thumb} alt="" loading="lazy" use:fadeImg /></span>
+            {#each look.recent ?? [] as p (p.id)}<span class="pic"><img src={p.thumb} alt="" loading="lazy" use:fadeImg /></span>{/each}
+          </button>
+        {:else if look?.recent?.length}
+          <!-- The newest files it found. -->
+          <div class="pics" role="img" aria-label={t('downloads.newestFiles')}>
+            {#each look.recent as p (p.id)}<span class="pic"><img src={p.thumb} alt="" loading="lazy" use:fadeImg /></span>{/each}
+          </div>
+        {/if}
+        <!-- One line of facts: how often, how many, when it last found something (zeros left out). -->
+        <div class="facts">
+          {#if gallery && oneGallery(s) && gNow}
+            <!-- One gallery: its pages as they come. -->
+            <span class="stat"><b>{num(gNow.done)}</b> {t('downloads.stat.ofPages', { n: gNow.pages })}</span>
+          {:else if s.check && s.check.handled && !(gallery && oneGallery(s))}
+            {@render stat(s.check.handled, t(gallery ? 'downloads.stat.galleriesThisCheck' : 'downloads.stat.postsThisCheck', { n: s.check.handled }))}
+            {@render stat(s.check.downloaded, t('downloads.stat.new'), s.check.downloaded ? 'good' : '')}
+          {:else}
+            <span>{cap(every(s.interval))}</span>
+            {#if gallery && oneGallery(s)}
+              <!-- One gallery: counted by page (the comic's, else what its checks brought in). -->
+              {@const pages = look?.pages || s.pages || 0}
+              {#if pages}{@render stat(pages, t('downloads.stat.pages', { n: pages }))}{/if}
+            {:else if s.downloaded}{@render stat(s.downloaded, t(gallery ? 'downloads.stat.comics' : 'downloads.stat.files', { n: s.downloaded }))}{/if}
+            {#if s.check?.state === 'failed' && nextCheck(s)}<span>{cap(nextCheck(s))}</span>{/if}
+            {#if s.last_found_at}<span>{t('downloads.foundAgo', { span: span(now - s.last_found_at) })}</span>
+            {:else if !s.checks && s.check?.state !== 'failed'}<span>{cap(lastCheck(s))}</span>{/if}
+          {/if}
+        </div>
+        {#if s.error}<p class="error small" transition:reveal>{s.error}</p>{/if}
+        {#if s.fav_gone}
+          <div class="fav-gone" role="status" transition:reveal>
+            <span>{t('downloads.favGone', { n: s.fav_gone })}</span>
+            <span class="fav-gone-actions">
+              <button class="quiet small" onclick={() => favGone(s, 'keep')}>{t('downloads.keep')}</button>
+              <button class="quiet small danger" onclick={() => favGone(s, 'delete')}>{t('common.delete')}</button>
+            </span>
+          </div>
+        {/if}
+      </div>
+      <ActionMenu
+        label={t('common.moreFor', { name: named(s) })}
+        title={s.query}
+        items={[
+          { label: t('downloads.checkNow'), icon: 'retry', run: () => subAct(s, 'check') },
+          s.paused
+            ? { label: t('downloads.resume'), icon: 'play', run: () => subAct(s, 'resume') }
+            : { label: t('video.pause'), icon: 'pause', run: () => subAct(s, 'pause') },
+          {
+            label: t('downloads.schedule'),
+            icon: 'clock',
+            hint: cap(every(s.interval)),
+            choices: {
+              heading: t('downloads.check'),
+              value: String(s.interval),
+              options: intervals.includes(s.interval) ? intervalOptions : [...intervalOptions, { value: String(s.interval), label: cap(every(s.interval)) }],
+              pick: (v) => changeInterval(s, v),
+            },
+          },
+          {
+            label: t('depth.label'),
+            icon: 'depth',
+            hint: depthLabel(s.check_depth ?? inheritedDepth(s)),
+            choices: depthChoice(s.check_depth, inheritedDepth(s), (n) => changeDepth(s, n)),
+          },
+          {
+            label: t('downloads.moveToGroup'),
+            icon: 'folder',
+            hint: groups.find((g) => g.id === s.group_id)?.name ?? t('downloads.noGroup'),
+            choices: {
+              heading: t('downloads.moveToGroup'),
+              value: String(s.group_id ?? 0),
+              options: [{ value: '0', label: t('downloads.noGroup') }, ...siteGroups(s.site).map((g) => ({ value: String(g.id), label: g.name })), { value: 'new', label: t('downloads.newGroup') }],
+              pick: (v) => moveTo(s, v),
+            },
+          },
+          { label: t('downloads.unsubscribe'), icon: 'close', hint: t('downloads.filesStay'), danger: true, run: () => subAct(s, 'remove') },
+        ]} />
+    </div>
+    {#if moving?.sub === s.id}
+      <form class="inline-name" onsubmit={(e) => moveToNew(e, s)} transition:reveal>
+        <input bind:value={moving.name} placeholder={t('downloads.newGroupName')} aria-label={t('downloads.newGroupNameFor', { query: named(s) })} maxlength="60" />
+        <button type="submit" disabled={!moving.name.trim()}>{t('downloads.createMove')}</button>
+        <button type="button" class="quiet" onclick={() => (moving = null)}>{t('common.cancel')}</button>
+      </form>
+    {/if}
+    </div>
+  </li>
+{/snippet}
+
+<div class="page" {@attach overlayScroll}>
+  <div class="page-inner wide">
+    <h1>{t('stats.downloads')}</h1>
+
+    <!-- Sites that stopped answering: first thing on the page. -->
+    {#each pausedSiteIds as id (id)}{@render pausedLine(id)}{/each}
+
+    <section class="card">
+      <div class="card-head">
+        <div class="title-row">
+          <h2>{t('tagMenu.newDownload')}</h2>
+          <button type="button" class="icon manage" aria-label={t('downloads.manageSites')} title={t('downloads.manageSites')} onclick={() => router.go('settings', 'sites')}
+            ><Icon name="settings" size={18} /></button>
+        </div>
+        <p class="hint">{t('downloads.newHint')}</p>
+      </div>
+      <form class="add" onsubmit={add} bind:this={addForm}>
+        <div class="line1">
+          <div class="site">
+            <ActionMenu label={t('filter.site.label')} title={t('filter.site.label')} current={site ? siteLabel(site) : t('downloads.pickSite')} items={siteMenu(sites.filter(siteOn), site)} />
+          </div>
+          <!-- Suggestions from the tags of the library's files from that site (a gallery site: its comics' tags); a pick is written the site's way. -->
+          <div class="q" class:with-fav={!!site && siteInfo.favMe[site]}>
+            <TagInput
+              bind:value={query}
+              bind:inputEl={queryInput}
+              multi
+              comics={siteInfo.engines[site] === 'ehentai' ? site : undefined}
+              sites={site}
+              format={(tg) => tagQuery(site, tg)}
+              anyOf={(tags) => (canOr(site, tags) ? tagsQuery(site, tags, true) : null)}
+              label={t('downloads.searchOnSite')}
+              placeholder={site ? (siteInfo.hints[site] ?? t('downloads.searchSite', { site: siteLabel(site) })) : t('downloads.searchAny')}
+              onenter={() => addForm?.requestSubmit()} />
+            {#if site && siteInfo.favMe[site]}
+              <!-- Your favorites on the site (fav:me), in one tap. -->
+              <button type="button" class="icon fav-me" aria-label={t('downloads.myFavorites')} title={t('downloads.myFavoritesTitle')} onclick={() => (query = 'fav:me')}
+                ><Icon name="heart" size={16} /></button>
+            {/if}
+          </div>
+        </div>
+        <div class="line2">
+          <label class="opt">
+            <span class="opt-label">{repeat === '0' ? t('downloads.files') : t('downloads.firstCheck')}</span>
+            <input
+              class="max"
+              bind:value={maxPosts}
+              type="number"
+              min="1"
+              inputmode="numeric"
+              placeholder={t('downloads.all')}
+              aria-label={repeat === '0' ? t('downloads.maxFiles') : t('downloads.maxFirst')}
+              title={repeat === '0' ? t('downloads.maxFilesTitle') : t('downloads.maxFirstTitle')} />
+          </label>
+          <div class="opt">
+            <span class="opt-label">{t('downloads.repeat')}</span>
+            <Dropdown value={repeat} options={repeatOptions} onchange={setRepeat} label={t('downloads.repeat')} heading={t('downloads.repeat')} />
+          </div>
+          {#if repeat !== '0' && !favSearch}
+            <div class="opt group-opt" transition:reveal>
+              <span class="opt-label">{t('downloads.group')}</span>
+              <Dropdown
+                value={formGroup}
+                options={[{ value: '', label: t('downloads.noGroup') }, ...siteGroups(site).map((g) => ({ value: String(g.id), label: g.name })), { value: 'new', label: t('downloads.newGroup') }]}
+                onchange={pickFormGroup}
+                label={t('downloads.group')}
+                heading={t('downloads.addToGroup')} />
+            </div>
+          {/if}
+          {#if repeat !== '0' && !favSearch && formGroup === 'new'}
+            <input class="new-group" bind:value={newGroupName} placeholder={t('downloads.newGroupExample')} aria-label={t('downloads.newGroupLabel')} maxlength="60" />
+          {/if}
+          <button class="go" type="submit" disabled={busy || !site}>
+            {#if repeat === '0'}<Icon name="download" size={18} /> {t('backups.download')}{:else}<Icon name="bell" size={18} /> {t('downloads.subscribe')}{/if}
+          </button>
+        </div>
+        {#if ownFavs}
+          <label class="add-favs" transition:reveal>
+            <input type="checkbox" bind:checked={addToFavs} />
+            <span>{t('downloads.addToFavs')}</span>
+          </label>
+        {/if}
+        {#if repeat === '0' && maxPosts}
+          <p class="note hint" transition:reveal>{t('downloads.noteOnce', { n: Number(maxPosts) })}</p>
+        {/if}
+        {#if repeat !== '0'}
+          <p class="note hint" transition:reveal>
+            {t('downloads.noteSub', { every: every(+repeat), first: maxPosts ? t('downloads.newestN', { n: Number(maxPosts) }) : t('downloads.everyPost') })}{site ? ' ' + t('downloads.fromSite', { site: siteLabel(site) }) : ''}.
+          </p>
+        {/if}
+      </form>
+    </section>
+
+    {#if error}<p class="error small" transition:reveal>{error}</p>{/if}
+
+    <!-- What's going on, at a glance: each count a link to where those are (zeros left out). -->
+    <div class="summary" role="status" {@attach edgeFades}>
+      {#if runningCount}{@render sumItem(runningCount, t('downloads.sum.running'), () => goTo('queue'), 'running')}{/if}
+      {#if waitingCount}{@render sumItem(waitingCount, t('downloads.sum.waiting'), () => goTo('queue'))}{/if}
+      {#if failedFileCount}{@render sumItem(failedFileCount, t('downloads.sum.failed', { n: failedFileCount }), () => goTo('history', 'dl-failed'), 'bad')}{/if}
+      {#if attentionCount}{@render sumItem(attentionCount, t('downloads.sum.attention', { n: attentionCount }), () => { attentionOnly = true; goTo('subs'); }, 'warn')}{/if}
+      {#if nextCheckAt !== Infinity}
+        <button class="sum-item" onclick={() => goTo('subs')}><Icon name="clock" size={13} /> {nextCheckAt <= now ? t('downloads.nextSoon') : t('downloads.nextIn', { span: span(nextCheckAt - now) })}</button>
+      {/if}
+      {#if tagsDue}{@render sumItem(tagsDue, t('downloads.sum.tagsDue', { n: tagsDue }), () => goTo('queue', 'dl-refresh'))}{/if}
+      {#if !runningCount && !waitingCount && !failedFileCount && !attentionCount && nextCheckAt === Infinity && !tagsDue}
+        <span class="sum-quiet">{t('downloads.sum.quiet')}</span>
+      {/if}
+    </div>
+
+    <!-- Queue, Subscriptions, History: one at a time (the last one looked at is remembered). -->
+    <div class="tabs" id="dl-tabs" role="tablist" aria-label={t('stats.downloads')} bind:this={tabsEl}>
+      {#if pill}<span class="tab-pill" class:ready={pillReady} style:width="{pill.w}px" style:transform="translateX({pill.x}px)" aria-hidden="true"></span>{/if}
+      {#each [{ id: 'queue', label: t('downloads.queue'), n: waitingCount + runningCount }, { id: 'subs', label: t('stats.subscriptions'), short: t('downloads.subsShort'), n: subs.length }, { id: 'history', label: t('downloads.history'), n: failedFileCount + finished.length }] as x (x.id)}
+        <button role="tab" id="tab-{x.id}" aria-selected={tab === x.id} aria-controls="panel-{x.id}" class:on={tab === x.id} onclick={() => setTab(x.id as Tab)}
+          ><span class="tab-label">{#if x.short}<span class="long">{x.label}</span><span class="short" aria-hidden="true">{x.short}</span>{:else}{x.label}{/if}</span>{#if x.n}<span class="tab-num" transition:slide={{ axis: 'x', duration: reduced() ? 0 : 220, easing: ease }}
+              ><span class="tab-count" use:easeWidth>{x.n > 99 ? '99+' : num(x.n)}</span></span
+            >{/if}</button>
+      {/each}
+    </div>
+
+    <!-- Several subscriptions picked: the round button with their count, and the card of what to do to all of them - the
+         tags' picker (PickMenu). -->
+    {#if subSelecting && tab === 'subs' && pickedSubs.length}
+      <PickMenu
+        title={t('downloads.subsPicked', { n: pickedSubs.length })}
+        fabLabel={t('downloads.useSubs', { n: pickedSubs.length })}
+        chips={pickedSubs.map((x) => ({ key: x.id, label: named(x) }))}
+        chipsLabel={t('downloads.bulkLabel')}
+        unpickLabel={(name) => t('downloads.unpickSub', { query: name })}
+        onunpick={(k) => pickSub(Number(k))}
+        onclear={() => setSubSelecting(false)}>
+        {#snippet actions(use)}
+          <!-- (all on one site: groups are a site's own - picked across sites, no moving them, so the change group button
+               doesn't appear when subs across different sites are selected) -->
+          {#if pickedSites.length === 1}
+          <h4>{t('downloads.moveToGroup')}</h4>
+          <div class="group">
+            {#each bulkMoveOptions as o (o.value)}
+              <button class="act" onclick={() => use(() => bulkMove(o.value))}>
+                <Icon name={o.value === 'new' ? 'plus' : o.value === '0' ? 'minus' : 'folder'} size={20} />
+                <span class="txt"
+                  ><span class="lbl marquee sliding" {@attach marquee}><span>{o.label}</span></span><span class="sub marquee sliding" {@attach marquee}
+                    ><span>{o.value === 'new' ? t('downloads.newGroupHint') : o.value === '0' ? t('downloads.noGroupHint') : t('downloads.intoGroupHint')}</span></span
+                  ></span>
+              </button>
+            {/each}
+          </div>
+          {/if}
+          <h4>{t('stats.subscriptions')}</h4>
+          <div class="group">
+            <button class="act" onclick={() => use(() => bulkAct('check'))}>
+              <Icon name="retry" size={20} />
+              <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('downloads.checkNow')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{t('downloads.checkNowHint')}</span></span></span>
+            </button>
+            {#if pickedSubs.some((x) => !x.paused)}
+              <button class="act" onclick={() => use(() => bulkAct('pause'))}>
+                <Icon name="pause" size={20} />
+                <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('video.pause')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{t('downloads.pauseHint')}</span></span></span>
+              </button>
+            {/if}
+            {#if pickedSubs.some((x) => x.paused)}
+              <button class="act" onclick={() => use(() => bulkAct('resume'))}>
+                <Icon name="play" size={20} />
+                <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('downloads.resume')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{t('downloads.resumeHint')}</span></span></span>
+              </button>
+            {/if}
+            <button class="act danger" onclick={() => use(() => bulkAct('remove'))}>
+              <Icon name="close" size={20} />
+              <span class="txt"><span class="lbl marquee sliding" {@attach marquee}><span>{t('downloads.unsubscribe')}</span></span><span class="sub marquee sliding" {@attach marquee}><span>{t('downloads.unsubHint')}</span></span></span>
+            </button>
+          </div>
+        {/snippet}
+      </PickMenu>
+    {/if}
+
+    <div class="panels" bind:this={panelsEl}>
+    {#if tab === 'queue'}
+      <div class="panel" id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" in:panelIn out:panelOut>
+        <section class="card">
+          <div class="card-head">
+            <h2>{t('downloads.queue')}</h2>
+            {#if queueSites.length}<p class="hint" transition:reveal>{queueSort === 'queue' ? t('downloads.queueHint') : t('downloads.queueHintSorted')}</p>{/if}
+          </div>
+          {#if kindCounts.all}
+            <div class="queue-tools" transition:reveal>
+              <div class="kinds" role="group" aria-label={t('downloads.kinds.label')} bind:this={kindsEl}>
+                {#if kindPill}<span class="kind-pill" class:ready={kindPillReady} style:width="{kindPill.w}px" style:transform="translateX({kindPill.x}px)" aria-hidden="true"></span>{/if}
+                {#each [{ k: 'all', label: t('downloads.kinds.all'), n: kindCounts.all }, { k: 'downloads', label: t('downloads.kinds.downloads'), n: kindCounts.downloads }, { k: 'checks', label: t('downloads.kinds.checks'), n: kindCounts.checks }] as x (x.k)}
+                  <button class="kind" class:on={queueKind === x.k} aria-pressed={queueKind === x.k} onclick={() => setQueueKind(x.k as QueueKind)}
+                    >{x.label}<span class="kind-n" use:easeWidth>{num(x.n)}</span></button>
+                {/each}
+              </div>
+              <span class="sub-sort queue-sort">
+                <Dropdown value={queueSort} options={queueSortOptions} onchange={setQueueSort} label={t('downloads.queueSort.label')} heading={t('sort.by')}
+                  align="end" trigger={queueSortIcon} triggerClass="icon sub-sort-button" />
+              </span>
+            </div>
+          {/if}
+          {#each queueSites as q (q.site)}
+            {@const key = 'queue:' + q.site}
+            <div class="site-block queue-site" animate:moved transition:reveal>
+              {@render stackHead(key, q.site, q.entries.length, q.entries.length > 1, t('downloads.queueWaits'))}
+              <Stack
+                items={q.entries}
+                key={entryKey}
+                bind:open={() => !!unfolded[key], (v) => (unfolded[key] = v)}
+                label={t('downloads.inQueue', { site: siteLabel(q.site) })}
+                shift={(i) => {
+                  const e = q.entries[i];
+                  return e?.kind === 'search' && e.wi >= 0 ? shift(q.site, e.wi) : 0;
+                }}
+                lifted={(i) => {
+                  const e = q.entries[i];
+                  return e?.kind === 'search' && drag?.id === e.s.id;
+                }}>
+                {#snippet card(e: QueueEntry, c)}
+                  {#if e.kind === 'retry'}
+                    {@render retryCard(e.r)}
+                  {:else}
+                    {@const grips = c.open && q.list.length > 1}
+                    <div class="row qrow" class:has-grip={grips} class:grip-off={grips && queueSort !== 'queue'} class:flash={flashDl === e.s.id} data-dl={e.s.id} data-wi={e.wi >= 0 ? e.wi : undefined}>
+                      {#if grips}
+                        <button
+                          class="icon grip"
+                          disabled={queueSort !== 'queue'}
+                          aria-hidden={queueSort !== 'queue' ? 'true' : undefined}
+                          tabindex={queueSort !== 'queue' ? -1 : undefined}
+                          aria-label={t('saved.reorder', { name: nameOf(e.s) })}
+                          title={t('saved.dragToReorder')}
+                          onpointerdown={(ev) => dragStart(ev, q.site, e.wi, e.s.id)}
+                          onpointermove={dragMove}
+                          onpointerup={dragEnd}
+                          onpointercancel={dragEnd}
+                          onkeydown={(ev) => handleKey(ev, q.site, e.wi, q.list.length)}><Icon name="grip" size={16} /></button>
+                      {/if}
+                      <div class="main">{@render queueCard(e.s)}</div>
+                    </div>
+                  {/if}
+                {/snippet}
+              </Stack>
+            </div>
+          {:else}
+            <p class="quiet-empty" transition:reveal>{!loaded ? t('common.loading') : kindCounts.all && queueKind !== 'all' ? queueKind === 'checks' ? t('downloads.kinds.none.checks') : t('downloads.kinds.none.downloads') : t('downloads.nothingWaiting')}</p>
+          {/each}
+        </section>
+
+        <!-- The tag refresh: a line per site (posts read again now and then: sites keep editing tags). What's due is in
+             the pill, so a line never wraps on a phone (2026-10-30; prototype A of four). -->
+        {#if refreshStatus.length}
+          <section class="card slim" id="dl-refresh" transition:reveal>
+            <div class="card-head">
+              <h2>{t('downloads.refresh.title')}</h2>
+              <p class="hint">{t('downloads.refresh.hint')}</p>
+            </div>
+            <ul class="list refresh-list">
+              {#each refreshStatus as r (r.site)}
+                <li class="refresh-line" animate:moved transition:reveal>
+                  <span class="refresh-site">{siteLabel(r.site)}</span>
+                  <span class="refresh-nums">{@render stat(r.posts, t('downloads.stat.posts', { n: r.posts }))}</span>
+                  {#if r.paused}
+                    <!-- (its site isn't answering: what's due waits, more can still be queued) -->
+                    <span class="state paused" title={t('downloads.pausedTitle')}>{r.due ? t('downloads.refresh.pausedDue', { n: short(r.due) }) : t('downloads.paused')}</span>
+                  {:else if r.due}
+                    <span class="state running" title={t('downloads.refresh.due', { n: num(r.due) })}>{t('downloads.refresh.due', { n: short(r.due) })}</span>
+                  {:else}
+                    <span class="state done">{t('downloads.refresh.upToDate')}</span>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          </section>
+        {/if}
+      </div>
+    {:else if tab === 'subs'}
+      <div class="panel" id="panel-subs" role="tabpanel" aria-labelledby="tab-subs" in:panelIn out:panelOut>
+        <section class="card">
+          <div class="card-head">
+            <!-- Select: an icon in the card's corner. -->
+            <div class="title-row">
+              <h2>{t('stats.subscriptions')}</h2>
+              {#if subs.length > 1}
+                <button type="button" class="icon manage select-icon" class:on={subSelecting} aria-pressed={subSelecting}
+                  aria-label={subSelecting ? t('downloads.selectDone') : t('downloads.selectSubs')} title={subSelecting ? t('downloads.selectDone') : t('downloads.selectSubs')}
+                  onclick={() => setSubSelecting(!subSelecting)} transition:nudge>{#key subSelecting}<span class="swap-icon" in:pop><Icon name={subSelecting ? 'close' : 'checks'} size={18} /></span>{/key}</button>
+              {/if}
+            </div>
+            {#if subs.length}<p class="hint" transition:reveal>{t('downloads.subsHint')}</p>{/if}
+          </div>
+          {#if subs.length >= SUB_TOOLS_FROM || attentionCount}
+            <div class="sub-tools" transition:reveal>
+              {#if subs.length >= SUB_TOOLS_FROM}
+                <!-- The order is an icon inside the filter, as in the library's search bar (2026-10-29; a dropdown
+                     on a second line looked bad). -->
+                <div class="sub-filter">
+                  <span class="glass"><Icon name="search" size={16} /></span>
+                  <input
+                    type="search"
+                    bind:value={subFilter}
+                    placeholder={t('downloads.filterSubs')}
+                    aria-label={t('downloads.filterSubs')}
+                    autocapitalize="off"
+                    autocomplete="off"
+                    spellcheck="false" />
+                  <span class="sub-sort">
+                    <Dropdown value={subSort} options={subSortOptions} onchange={setSubSort} label={t('downloads.orderSubs')} heading={t('downloads.orderBy')}
+                      align="end" trigger={sortIcon} triggerClass="icon sub-sort-button" />
+                  </span>
+                </div>
+              {/if}
+              {#if attentionCount}
+                <button class="attention-toggle" class:on={attentionOnly} aria-pressed={attentionOnly} onclick={() => (attentionOnly = !attentionOnly)}
+                   transition:nudge><Icon name="alert" size={14} /> {t('downloads.needsLook')}<span class="tab-count">{num(attentionCount)}</span></button>
+              {/if}
+            </div>
+            {#if subFilter.trim()}
+              <p class="hint small sub-count" transition:reveal>
+                {shownSubs.length ? t('downloads.showing', { count: shownSubs.length, n: subs.length }) : t('downloads.noMatch', { filter: subFilter.trim() })}
+              </p>
+            {/if}
+          {/if}
+          {#if subs.length}
+            {#each subTree as site (site.site)}
+              {@const sFolded = siteFolded('subs:' + site.site) && !filtering && (subTree.length > 1 || sitesOff.includes(site.site))}
+              {#if subTree.length > 1 || sitesOff.includes(site.site)}
+                {@render siteHead('subs:' + site.site, site.site, site.loose.length + site.groups.reduce((n, x) => n + x.subs.length, 0), t('downloads.notChecked2'))}
+              {/if}
+              {#if !sFolded}
+                <!-- (one box for the site's groups and subscriptions: folding the site slides it shut and open - what's in it
+                     only animated when added on its own) -->
+                <div class="site-body" transition:reveal>
+                {#each site.groups as { g, subs: members } (g.id)}
+                  {@const gs = groupStats(g)}
+                  {@const open = expanded.includes(g.id) || filtering}
+                  <section class="group" aria-label={t('downloads.groupLabel', { name: g.name })} animate:moved transition:reveal>
+                    {#if renaming?.id === g.id}
+                      <form class="inline-name rename" onsubmit={renameGroup} transition:reveal>
+                        <input bind:value={renaming.name} aria-label={t('downloads.newNameFor', { name: g.name })} maxlength="60" />
+                        <button type="submit" disabled={!renaming.name.trim()}>{t('tagBrowser.rename')}</button>
+                        <button type="button" class="quiet" onclick={() => (renaming = null)}>{t('common.cancel')}</button>
+                      </form>
+                    {:else}
+                      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions (the name button is the keyboard way) -->
+                      <div
+                        class="row group-head"
+                        class:with-mosaic={groupPics(members).length > 0}
+                        onclick={(e) => {
+                          if (!(e.target as HTMLElement).closest('button, a, input')) toggleGroup(g.id);
+                        }}>
+                        {#if groupPics(members).length}
+                          <!-- Its subscriptions' newest finds, as a cover. -->
+                          <span class="mosaic n{groupPics(members).length}" aria-hidden="true">{#each groupPics(members) as p (p.id)}<img src={p.thumb} alt="" loading="lazy" use:fadeImg />{/each}</span>
+                        {/if}
+                        <div class="main">
+                          <div class="head">
+                            {#if subSelecting}
+                              {@const all = members.length > 0 && members.every((x) => subPicked.has(x.id))}
+                              <button class="pick-check group-pick" class:on={all} aria-pressed={all} aria-label={t('downloads.pickGroup', { name: g.name })}
+                                onclick={() => pickGroup(members)} transition:nudge><Icon name="check" size={13} /></button>
+                            {/if}
+                            <button class="group-title" class:open aria-expanded={open} aria-label={t(open ? 'downloads.foldName' : 'downloads.unfoldName', { name: g.name })} onclick={() => toggleGroup(g.id)}>
+                              <Icon name="right" size={16} />
+                              <!-- One line, sliding to its end and back when it's long (the app's marquee; measured again on a rename). -->
+                              {#key g.name}<span class="group-name marquee sliding" title={g.name} {@attach marquee}><span>{g.name}</span></span>{/key}
+                              <span class="count">{gs.count}</span>
+                            </button>
+                            {#if gs.allPaused && gs.count}<span class="state paused" transition:nudge>{t('downloads.state.paused')}</span>{/if}
+                          </div>
+                          {#if g.interval}
+                            <div class="stats" transition:reveal><span class="stat meta"><Icon name="clock" size={13} /> {cap(every(g.interval))}</span></div>
+                          {/if}
+                          <div class="stats">
+                            {#if gs.files}{@render stat(gs.files, t('downloads.stat.files', { n: gs.files }))}{/if}
+                            {#if gs.newLast}{@render stat(gs.newLast, t('downloads.stat.newLastChecks'), 'good')}{/if}
+                          </div>
+                        </div>
+                        <ActionMenu
+                          label={t('common.moreFor', { name: g.name })}
+                          title={g.name}
+                          items={[
+                            { label: t('downloads.checkAllNow'), icon: 'retry', disabled: !gs.count, run: () => groupAct(g, 'check') },
+                            gs.allPaused
+                              ? { label: t('downloads.resumeAll'), icon: 'play', run: () => groupAct(g, 'resume') }
+                              : { label: t('downloads.pauseAll'), icon: 'pause', disabled: !gs.count, run: () => groupAct(g, 'pause') },
+                            {
+                              label: t('downloads.scheduleAll'),
+                              icon: 'clock',
+                              hint: g.interval ? cap(every(g.interval)) : '',
+                              choices: { heading: t('downloads.checkAll'), value: String(g.interval ?? ''), options: intervalOptions, pick: (v) => groupInterval(g, v) },
+                            },
+                            {
+                              label: t('depth.label'),
+                              icon: 'depth',
+                              hint: depthLabel(g.check_depth ?? siteDepth(g.site)),
+                              choices: depthChoice(g.check_depth, siteDepth(g.site), (n) => groupDepth(g, n)),
+                            },
+                            { label: t('tagBrowser.rename'), icon: 'pencil', run: () => groupMenu(g, 'rename') },
+                            { label: t('downloads.deleteGroup'), icon: 'trash', danger: true, run: () => groupMenu(g, 'delete') },
+                          ]} />
+                      </div>
+                    {/if}
+                    {#if open}
+                      <!-- (the slide on the box the fold adds and takes away: on the list inside it - a block of its own - it
+                           never played, the group snapped open and shut, with no animation) -->
+                      <div class="group-body" transition:reveal>
+                        {#if members.length}
+                          <ul class="list in-group sub-cards" transition:reveal>
+                            {#each members as s (s.id)}{@render subRow(s)}{/each}
+                          </ul>
+                        {:else}
+                          <p class="hint small group-empty" transition:reveal>{t('downloads.noSubs')}</p>
+                        {/if}
+                      </div>
+                    {/if}
+                  </section>
+                {/each}
+                {#if site.loose.length}
+                  {#if site.groups.length}<h4 class="loose-head" transition:reveal>{t('downloads.notInGroup')}</h4>{/if}
+                  <ul class="list sub-cards">
+                    {#each site.loose as s (s.id)}{@render subRow(s)}{/each}
+                  </ul>
+                {/if}
+                </div>
+              {/if}
+            {/each}
+          {:else}
+            <p class="quiet-empty" transition:reveal>{loaded ? t('downloads.noSubs') : t('common.loading')}</p>
+          {/if}
+        </section>
+      </div>
+    {:else}
+      <div class="panel" id="panel-history" role="tabpanel" aria-labelledby="tab-history" in:panelIn out:panelOut>
+        <!-- Failed files, grouped by why: each reason a stack of its own, with Retry all and Dismiss all. -->
+        {#if failedPosts.length}
+          <section class="card" id="dl-failed" transition:reveal>
+            <div class="card-head">
+              <h2>{t('downloads.failedFiles')}</h2>
+              <p class="hint">{t('downloads.failedFilesHint')}</p>
+            </div>
+            {#each failedReasons as g (g.reason)}
+              {@const key = 'failed:' + g.reason}
+              <div class="site-block reason-block" animate:moved transition:reveal>
+                <div class="reason-head">
+                  <div class="reason-title">
+                  <h3 class="site-head">
+                    {#if g.list.length > 1}
+                      <button class="site-fold" class:open={!!unfolded[key]} aria-expanded={!!unfolded[key]} aria-label={t(unfolded[key] ? 'downloads.foldName' : 'downloads.unfoldName', { name: t(`downloads.reason.${g.reason}`) })} onclick={() => (unfolded[key] = !unfolded[key])}>
+                        <Icon name="right" size={16} />
+                        <span class="site-name">{t(`downloads.reason.${g.reason}`)}</span>
+                        <span class="count">{g.list.length}</span>
+                      </button>
+                    {:else}
+                      <span class="site-label"><span class="site-name">{t(`downloads.reason.${g.reason}`)}</span></span>
+                    {/if}
+                  </h3>
+                  <p class="hint small reason-hint">{t(`downloads.reasonHint.${g.reason}`)}</p>
+                  </div>
+                  <div class="reason-acts">
+                    <button class="quiet small" onclick={() => retryPosts(g.list)}><Icon name="retry" size={14} /> {g.list.length > 1 ? t('downloads.retryAll') : t('downloads.retry')}</button>
+                    <button class="quiet small" onclick={() => dismissPosts(g.list)} title={t('downloads.dismissTitle')}>{g.list.length > 1 ? t('downloads.dismissAll') : t('downloads.dismiss')}</button>
+                  </div>
+                </div>
+                <Stack items={g.list} key={postKey} bind:open={() => !!unfolded[key], (v) => (unfolded[key] = v)} label={t('downloads.failedWhy', { reason: t(`downloads.reason.${g.reason}`) })}>
+                  {#snippet card(f: FailedPost)}
+                    <div class="row">
+                      <div class="main">
+                        <div class="fp-top">
+                          {#if f.url}
+                            <a class="fp-post" href={f.url} target="_blank" rel="noopener noreferrer">{t('downloads.post', { post: String(f.post) })}</a>
+                          {:else}
+                            <span class="fp-post">{t('downloads.post', { post: String(f.post) })}</span>
+                          {/if}
+                          <span class="fp-where">{siteLabel(f.site)} · {f.query ? f.query + ' · ' : ''}{ago(f.at)}</span>
+                        </div>
+                        {#if f.error}<p class="error small fp-err" transition:reveal>{f.error}</p>{/if}
+                      </div>
+                      <div class="acts">
+                        <button class="icon" onclick={() => retryPost(f)} aria-label={t('downloads.retryPost', { post: String(f.post) })} title={t('downloads.retry')}
+                          ><Icon name="retry" size={18} /></button>
+                        <button class="icon" onclick={() => dismissPosts([f])} aria-label={t('downloads.dismissPost', { post: String(f.post) })} title={t('downloads.dismissTitle')}
+                          ><Icon name="close" size={18} /></button>
+                      </div>
+                    </div>
+                  {/snippet}
+                </Stack>
+              </div>
+            {:else}
+              <p class="quiet-empty" transition:reveal>{t('downloads.allRetrying')}</p>
+            {/each}
+          </section>
+        {/if}
+
+        <!-- Finished: today's by site, the earlier ones folded away. -->
+        <section class="card">
+          <div class="card-head with-action">
+            <h2>{t('downloads.finished')}</h2>
+            {#if failedCount || doneCount}
+              <div class="head-acts" transition:reveal>
+                {#if failedCount}
+                  <button class="quiet small" onclick={retryFailed} transition:nudge><Icon name="retry" size={15} /> {t('downloads.retryFailed')}</button>
+                {/if}
+                {#if doneCount}
+                  <button class="quiet small" onclick={clearFinished} transition:nudge>{t('downloads.clearFinished')}</button>
+                {/if}
+              </div>
+            {/if}
+          </div>
+          {#if finished.length}
+            {#if finishedEarlier.length}<h3 class="when-head" transition:reveal>{t('downloads.today')}</h3>{/if}
+            {#each todaySites as g (g.site)}
+              {@render finishedSite(g, 'done:')}
+            {:else}
+              <p class="quiet-empty" transition:reveal>{t('downloads.noneToday')}</p>
+            {/each}
+            {#if finishedEarlier.length}
+              <button class="earlier" class:open={earlierOpen} aria-expanded={earlierOpen} onclick={toggleEarlier} transition:reveal>
+                <Icon name="right" size={16} />
+                <span>{t('downloads.earlier')}</span>
+                <span class="count">{num(finishedEarlier.length)}</span>
+              </button>
+              {#if earlierOpen}
+                <!-- (one box the fold slides: the sites inside only animated when added on their own - it snapped) -->
+                <div class="earlier-body" transition:reveal>
+                  {#each earlierSites as g (g.site)}
+                    {@render finishedSite(g, 'earlier:')}
+                  {/each}
+                </div>
+              {/if}
+            {/if}
+          {:else}
+            <p class="quiet-empty">{loaded ? t('downloads.noFinished') : t('common.loading')}</p>
+          {/if}
+        </section>
+      </div>
+    {/if}
+    </div>
+  </div>
+</div>
+
+{#snippet finishedSite(g: { site: string; list: DownloadSearch[] }, prefix: string)}
+  {@const key = prefix + g.site}
+  <div class="site-block" transition:reveal>
+    {@render stackHead(key, g.site, g.list.length, g.list.length > 1, '')}
+    <Stack items={g.list} key={(s) => s.id} bind:open={() => !!unfolded[key], (v) => (unfolded[key] = v)} label={t('downloads.finishedOn', { site: siteLabel(g.site) })}>
+      {#snippet card(s: DownloadSearch)}
+        <!-- (the queue's card: finished downloads look the same - 2026-10-29) -->
+        <div class="row qrow" class:flash={flashDl === s.id} data-dl={s.id}>
+          <div class="main">{@render queueCard(s, true)}</div>
+        </div>
+      {/snippet}
+    </Stack>
+  </div>
+{/snippet}
+
+<style>
+  /* ---- rows: one framed list per section, rows split by hairlines */
+  .list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    border-radius: 12px;
+    border: 1px solid var(--surface0);
+    background: var(--crust);
+  }
+  li {
+    position: relative;
+    background: var(--crust);
+    transition: transform 0.15s;
+  }
+  li:first-child {
+    border-radius: 11px 11px 0 0;
+  }
+  li:last-child {
+    border-radius: 0 0 11px 11px;
+  }
+  li:only-child {
+    border-radius: 11px;
+  }
+  li + li {
+    border-top: 1px solid var(--surface0);
+  }
+  li.flash,
+  .qrow.flash {
+    animation: flash 2.2s ease-out;
+  }
+  @keyframes flash {
+    0%,
+    40% {
+      background: color-mix(in srgb, var(--mauve) 14%, var(--crust));
+    }
+  }
+  /* (its ring on a layer over the row, with the row's own corners: under a card's body or inside its rounded edge it
+     was hidden or cut off at the corners) */
+  li.flash::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    pointer-events: none;
+    animation: flash-ring 2.2s ease-out both;
+  }
+  .sub-cards li.flash::before {
+    border-radius: 11px;
+  }
+  @keyframes flash-ring {
+    0%,
+    40% {
+      box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mauve) 60%, transparent);
+    }
+    100% {
+      box-shadow: inset 0 0 0 2px transparent;
+    }
+  }
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  /* A row's ⋮ in its top right corner (not floating halfway down a tall card). */
+  .row > :global(button.more) {
+    align-self: start;
+    margin-top: -4px;
+  }
+  .row {
+    column-gap: 6px;
+    padding: 10px 6px 10px 14px;
+  }
+  .row.has-grip {
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    padding-left: 2px;
+  }
+  /* The queue's cards (queueCard): the header opens them - all of it (the button's ::after covers the bar and the
+     summary too). */
+  .qrow {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+  }
+  .qrow.has-grip {
+    grid-template-columns: 20px minmax(0, 1fr);
+    padding-left: 0; /* (the grip against the card's edge) */
+  }
+  .qrow .main {
+    gap: 0;
+  }
+  .qhead {
+    position: relative;
+    display: grid;
+    gap: 8px;
+    padding: 12px 12px 12px 14px;
+  }
+  .qrow.has-grip .qhead,
+  .qrow.has-grip .qbody {
+    padding-left: 6px;
+  }
+  .qhead .qtoggle.qtoggle,
+  .qhead .qtoggle.qtoggle:hover:not(:disabled) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    min-height: 28px;
+    height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    white-space: normal;
+  }
+  .qtoggle::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+  }
+  .qtoggle:focus-visible {
+    outline: none;
+  }
+  .qtoggle:focus-visible::after {
+    outline: 2px solid var(--mauve);
+    outline-offset: -2px;
+  }
+  @media (hover: hover) {
+    .qtoggle:hover::after {
+      background: color-mix(in srgb, var(--text) 3%, transparent);
+    }
+  }
+  .qname {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .qline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  /* (the same sizes hovered or not: the toggle's hover rule is 100% wide - it pushed the link out from under the
+     pointer between the press and the release, and the click went to neither) */
+  /* The search takes what's left and ends in "..."; the rest of the line - how far and how fast, or its state, and the
+     arrow - keeps its width and sits at the card's right edge, whatever the search's length (2026-11-14: the
+     expand arrow and status chip are fixed to the right side of the card - they used to follow the search, and a long
+     one pushed them over each other and past the edge). */
+  .qhead .qline .qtoggle.qtoggle,
+  .qhead .qline .qtoggle.qtoggle:hover:not(:disabled) {
+    flex: 1 0 auto;
+    width: auto;
+    justify-content: flex-end;
+  }
+  .qhead .qline > .qname.qname,
+  .qhead .qline > .qname.qname:hover:not(:disabled) {
+    flex: 0 1 auto;
+    min-width: 0;
+    /* (its first line as tall as the state beside it, 28 px: centered closed, and in the same place open, its lines
+       from the top - it moved up 4 px as the card opened) */
+    padding-block: max(0px, calc((28px - 1lh) / 2));
+    /* (a block, so a button doesn't center a search wider than itself - it showed its middle) */
+    display: block;
+  }
+  /* Open: the whole search, wrapped; the state and the arrow stay beside its first line. */
+  .qhead .qline.open {
+    align-items: flex-start;
+  }
+  .qhead .qline > .qname.open {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  /* A search's words as a link to the library (over the line's own toggle, which covers the card's head). */
+  .qlink,
+  .qlink:hover:not(:disabled) {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+  .qlink:focus-visible {
+    outline: 2px solid var(--mauve);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  .head > .qlink,
+  .head > .qlink:hover:not(:disabled) {
+    flex: 1;
+    display: flex;
+  }
+  @media (hover: hover) {
+    .qlink:hover {
+      text-decoration: underline;
+      text-decoration-color: var(--overlay0);
+      text-underline-offset: 3px;
+    }
+  }
+  .qnow {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .qnow b {
+    color: var(--peach);
+    font-weight: 700;
+  }
+  .qnow b + span::before {
+    content: '·';
+    margin-right: 6px;
+    color: var(--overlay0);
+  }
+  .chev {
+    flex: none;
+    display: grid;
+    color: var(--overlay0);
+    transition: transform 0.2s ease;
+  }
+  .chev.open {
+    transform: rotate(180deg);
+  }
+  .qsum {
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  /* (8 px on top: the header's hover reaches 12 px below its bar - the facts line sat right against it) */
+  .qbody {
+    display: grid;
+    gap: 10px;
+    padding: 8px 12px 12px 14px;
+  }
+  .qfacts {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .qfacts b {
+    color: var(--text);
+  }
+  /* (its run time, then the time left: "🕐 2 h 13 min · about 1 d left") */
+  .qtime {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .qtime > span + span::before {
+    content: '·';
+    margin-right: 6px;
+    color: var(--overlay0);
+  }
+  .ran {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .ran :global(svg) {
+    color: var(--overlay1);
+  }
+  /* Phones: three across (labels may take two lines); wider: as many as fit, up to all six in a row. */
+  .qgrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  @media (min-width: 640px) {
+    .qgrid {
+      grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+    }
+  }
+  .qcell {
+    min-width: 0;
+    display: grid;
+    gap: 1px;
+    align-content: start;
+    padding: 7px 9px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface0) 55%, transparent);
+  }
+  .qcell b {
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .qcell span {
+    font-size: var(--font-small);
+    line-height: 1.25;
+    color: var(--subtext);
+  }
+  .qcell.good b {
+    color: var(--green);
+  }
+  .qcell.warn b {
+    color: var(--yellow);
+  }
+  .qcell.bad b {
+    color: var(--red);
+  }
+  .qacts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .qact {
+    flex: 1 1 auto;
+  }
+  @media (min-width: 640px) {
+    .qact {
+      flex: none; /* (desktop: buttons their own width, not stretched across a wide card) */
+    }
+  }
+  .grip {
+    align-self: stretch;
+    width: 20px;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    padding: 0;
+    /* (its hover fills the card's edge, top to bottom: the card's rounded corners cut it) */
+    border-radius: 0;
+    color: var(--overlay0);
+    cursor: grab;
+    touch-action: none;
+  }
+  .grip:focus-visible {
+    outline-offset: -2px; /* (inside: the card would cut it off) */
+  }
+  :global(.lifted) .grip {
+    cursor: grabbing;
+  }
+  .main {
+    min-width: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .query {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+  }
+  .query.one-line {
+    overflow-wrap: normal;
+  }
+  /* Numbers that say what they are: the number bold, its meaning beside it. */
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat {
+    white-space: nowrap;
+  }
+  .stat b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .stat.good b {
+    color: var(--green);
+  }
+  .stat.bad b,
+  .stat.bad {
+    color: var(--red);
+  }
+  .stat.quiet {
+    color: var(--overlay1);
+  }
+  /* (only for screen readers: what a count is) */
+  .vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .stat.meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .stat.meta :global(svg) {
+    color: var(--overlay1);
+  }
+
+  /* A line that never wraps: it scrolls sideways (no scrollbar), with soft
+     edges where more is out of view. */
+  .one-line,
+  .counts {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    white-space: nowrap;
+  }
+  .one-line::-webkit-scrollbar,
+  .counts::-webkit-scrollbar {
+    display: none;
+  }
+  .fade-l.fade-r {
+    mask-image: linear-gradient(to right, transparent, #000 18px, #000 calc(100% - 18px), transparent);
+  }
+  .fade-l:not(.fade-r) {
+    mask-image: linear-gradient(to right, transparent, #000 18px);
+  }
+  .fade-r:not(.fade-l) {
+    mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent);
+  }
+  .line-stats {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    min-width: 0;
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .counts {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center; /* (the lead count level with the chips) */
+    gap: 14px;
+  }
+  .line-stats .speed {
+    flex: none;
+    margin-left: auto;
+  }
+  @media (max-width: 639px) {
+    .row {
+      align-items: start;
+    }
+  }
+
+  .state {
+    flex: none;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface0);
+    color: var(--subtext);
+  }
+  .state.running {
+    color: var(--peach);
+    background: color-mix(in srgb, var(--peach) 14%, transparent);
+  }
+  .state.done {
+    color: var(--green);
+    background: color-mix(in srgb, var(--green) 14%, transparent);
+  }
+  .state.failed {
+    color: var(--red);
+    background: color-mix(in srgb, var(--red) 14%, transparent);
+  }
+  .state.paused {
+    color: var(--yellow);
+    background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  }
+  .kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-right: 6px;
+    padding: 1px 6px 1px 4px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--mauve) 14%, transparent);
+    color: var(--mauve);
+    font-size: 12px;
+    font-weight: 600;
+    vertical-align: 1px;
+  }
+  .bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--surface0);
+    overflow: hidden;
+  }
+  .fill {
+    height: 100%;
+    background: var(--peach);
+    transition: width 0.4s;
+  }
+  .fill.done {
+    background: var(--green);
+  }
+  .fill.failed {
+    background: var(--red);
+  }
+  .fill.paused,
+  .fill.queued {
+    background: var(--overlay0);
+  }
+  .bar.striped {
+    background: repeating-linear-gradient(-45deg, var(--peach) 0 6px, color-mix(in srgb, var(--peach) 45%, var(--surface0)) 6px 12px);
+    background-size: 17px 17px; /* one stripe period along the bar (12 px / cos 45deg) */
+    animation: stripes 0.8s linear infinite;
+  }
+  @keyframes stripes {
+    to {
+      background-position: 17px 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bar.striped {
+      animation: none;
+    }
+  }
+  .stat.speed {
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .retry {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--subtext);
+  }
+
+  /* ---- subscription groups: a framed block, its subscriptions inside (no second frame) */
+  .paused-chip {
+    flex: none;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: var(--font-small);
+    font-weight: 600;
+    color: var(--peach);
+    background: color-mix(in srgb, var(--peach) 14%, transparent);
+  }
+  .paused-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    padding: 8px 8px 8px 12px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--peach) 10%, var(--mantle));
+    border: 1px solid color-mix(in srgb, var(--peach) 30%, var(--surface0));
+    color: var(--peach);
+  }
+  .paused-text {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+    color: var(--text);
+    font-size: var(--font-small);
+  }
+  .paused-why {
+    color: var(--subtext);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .paused-line button {
+    flex: none;
+  }
+  .off-chip {
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px var(--surface1);
+    color: var(--overlay1);
+    font-size: 12px;
+    font-weight: 600;
+    vertical-align: 2px;
+  }
+  .site-head {
+    display: flex;
+    align-items: center;
+    margin: 6px 0 0;
+    text-transform: none; /* (a site's name, a reason: as written, like the fold buttons) */
+    letter-spacing: normal;
+  }
+  .site-block {
+    display: grid;
+    gap: 6px;
+  }
+  .site-block + .site-block {
+    margin-top: 8px;
+  }
+  .site-label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 8px 0 4px;
+    font: inherit;
+  }
+  /* A site's heading folds the whole site (like a group's). */
+  .site-fold {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 0;
+    height: auto;
+    padding: 4px 8px 4px 2px;
+    margin-left: -2px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+  .site-fold > :global(svg) {
+    flex: none;
+    color: var(--subtext);
+    transition: rotate 0.15s;
+  }
+  .site-fold.open > :global(svg) {
+    rotate: 90deg;
+  }
+  .site-name {
+    overflow-wrap: anywhere;
+  }
+  .group {
+    display: grid;
+    border-radius: 12px;
+    border: 1px solid var(--surface0);
+    background: color-mix(in srgb, var(--crust) 55%, transparent);
+    overflow: hidden;
+  }
+  .group-head {
+    padding: 8px 6px 8px 6px;
+  }
+  .group-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    min-height: 0;
+    height: auto;
+    padding: 2px 4px 2px 2px;
+    background: none;
+    color: var(--text);
+    text-align: left;
+    white-space: normal;
+  }
+  .group-title > :global(svg) {
+    flex: none;
+    color: var(--subtext);
+    transition: rotate 0.15s;
+  }
+  .group-title.open > :global(svg) {
+    rotate: 90deg;
+  }
+  /* (one line: long subscription group names scroll automatically like a carousel instead of breaking) */
+  .group-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-weight: 700;
+  }
+  .count {
+    flex: none;
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--surface0);
+    color: var(--subtext);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .group-head .stats {
+    padding-left: 24px; /* under the name, past the fold arrow */
+  }
+  .list.in-group {
+    border: none;
+    border-top: 1px solid var(--surface0);
+    border-radius: 0;
+  }
+  .group-empty {
+    margin: 0;
+    padding: 10px 14px 12px;
+    border-top: 1px solid var(--surface0);
+  }
+  .loose-head {
+    margin: 4px 2px 0;
+    font-size: var(--font-small);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--overlay1);
+  }
+  .inline-name {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 0 12px 12px;
+  }
+  .inline-name.rename {
+    padding: 8px;
+  }
+  .inline-name input {
+    flex: 1 1 12em;
+    min-width: 0;
+  }
+  .confirm {
+    display: grid;
+    gap: 10px;
+    margin: 0 8px 8px;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: var(--font-small);
+    background: color-mix(in srgb, var(--red) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  }
+  .row-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .danger-solid {
+    background: var(--red);
+    color: var(--crust);
+  }
+
+  /* Subscriptions: filter + order, one line (the filter takes the room). */
+  .sub-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sub-filter {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .sub-filter .glass {
+    position: absolute;
+    left: 11px;
+    display: flex;
+    color: var(--overlay0);
+    pointer-events: none;
+  }
+  .sub-filter input {
+    width: 100%;
+    padding-left: 34px;
+    padding-right: 42px;
+  }
+  .sub-sort {
+    position: absolute;
+    right: 3px;
+    display: flex;
+  }
+  .sub-sort :global(.sub-sort-button) {
+    position: relative;
+    width: 34px;
+    min-width: 0;
+    min-height: 0;
+    height: calc(var(--control-h) - 6px);
+    padding: 0;
+    color: var(--subtext);
+  }
+  .sub-sort :global(.sub-sort-button:hover) {
+    color: var(--text);
+  }
+  .sort-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--mauve);
+  }
+  .sub-count {
+    margin: 0;
+  }
+
+  /* ---- New download. Phone: site, search, then Files + Repeat side by side, then the button.
+     Wider: site and search on one line; options and the button on the next. */
+  .add {
+    display: grid;
+    gap: 10px;
+  }
+  .line1 {
+    display: grid;
+    gap: 8px;
+  }
+  .line1 .site {
+    display: flex;
+    gap: 4px;
+  }
+  .line1 .site :global(.picker) {
+    flex: 1;
+    min-width: 0;
+  }
+  .line1 .site :global(.dropdown),
+  .opt :global(.dropdown) {
+    display: grid;
+  }
+  /* The card's title with a quiet way to the sites on the right. */
+  .title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: -6px -6px -6px 0; /* the button's own room, not the title's */
+  }
+  /* (no button in it - Subscriptions with one: no Select - the title keeps its usual room) */
+  .title-row:not(:has(button)) {
+    margin: 0;
+  }
+  .title-row button.manage {
+    flex: none;
+    color: var(--overlay1);
+  }
+  @media (hover: hover) {
+    .title-row button.manage:hover {
+      color: var(--subtext);
+    }
+  }
+  .q {
+    position: relative;
+  }
+  .q.with-fav :global(input) {
+    padding-right: 40px;
+  }
+  .fav-me {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--overlay1);
+    background: none;
+  }
+  /* Inside the box: no square behind it - the heart itself lights up. */
+  @media (hover: hover) {
+    .q .fav-me:hover:not(:disabled) {
+      background: none;
+      color: var(--red);
+    }
+  }
+  .q .fav-me:active {
+    color: var(--red);
+  }
+  .line2 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 10px;
+    align-items: end;
+  }
+  .opt {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+  .opt-label {
+    font-size: var(--font-small);
+    font-weight: 600;
+    color: var(--subtext);
+  }
+  .max {
+    width: 100%;
+  }
+  .go {
+    grid-column: 1 / -1;
+  }
+  .group-opt,
+  .new-group {
+    grid-column: 1 / -1;
+  }
+  .note {
+    margin: 0;
+  }
+  /* A favorites subscription: files that left the site's favorites, waiting for a choice. */
+  .fav-gone {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin-top: 6px;
+    padding: 6px 6px 6px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--yellow) 10%, transparent);
+    color: var(--yellow);
+    font-size: var(--font-small);
+  }
+  .fav-gone-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .add-favs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: var(--font-small);
+    color: var(--subtext);
+  }
+  @media (min-width: 640px) {
+    .line1 {
+      display: flex;
+    }
+    .line1 .site {
+      flex: none; /* as wide as the name of the site */
+    }
+    .line1 .q {
+      flex: 1;
+      min-width: 0;
+    }
+    /* Each option's label above it (as on phones); the button at the end of the row. */
+    .line2 {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 10px 14px;
+    }
+    .max {
+      width: 80px;
+    }
+    .opt :global(.dropdown) {
+      width: 140px;
+    }
+    /* A group's name: as wide as it needs up to a limit, then cut short (never over the button). */
+    .group-opt {
+      flex: 0 1 auto;
+      min-width: 140px;
+      max-width: 300px;
+    }
+    .group-opt :global(.dropdown) {
+      width: auto;
+      max-width: 100%;
+    }
+    .go {
+      flex: none;
+      margin-left: auto;
+      padding: 0 18px;
+    }
+    .new-group {
+      order: 10;
+      flex: 1 1 100%;
+    }
+  }
+
+  .head-acts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .with-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: var(--control-h);
+  }
+  .fp-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    min-width: 0;
+  }
+  .fp-post {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .fp-where {
+    min-width: 0;
+    color: var(--subtext);
+    font-size: var(--font-small);
+    overflow-wrap: anywhere;
+  }
+  /* Trying again: the icon turns. */
+  .spinning :global(svg) {
+    animation: fp-spin 0.9s linear infinite;
+  }
+  @keyframes fp-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .fp-err {
+    margin: 4px 0 0;
+    overflow-wrap: anywhere;
+  }
+  h3 {
+    margin: 4px 2px -6px;
+    font-size: var(--font-small);
+    font-weight: 600;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  p {
+    margin: 0;
+  }
+  /* ---- Sites that stopped answering: banners at the top of the page */
+  .page-inner > .paused-line {
+    margin: 0;
+  }
+  .paused-text b {
+    font-weight: 700;
+  }
+  /* ---- The summary: counts that link to where they are */
+  .summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: -4px;
+  }
+  /* Phones: one row - too many for the width, it scrolls sideways (snapping to the pills, soft edges where more is out
+     of view) instead of wrapping onto a second line (2026-10-28). */
+  @media (max-width: 639px) {
+    .summary {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x proximity;
+      scrollbar-width: none;
+      touch-action: pan-x pan-y;
+    }
+    .summary::-webkit-scrollbar {
+      display: none;
+    }
+    .summary > * {
+      flex: none;
+      scroll-snap-align: start;
+      white-space: nowrap;
+    }
+  }
+  .sum-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 30px;
+    height: auto;
+    padding: 4px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--surface0);
+    background: var(--mantle);
+    color: var(--subtext);
+    font-size: var(--font-small);
+    font-weight: 500;
+  }
+  .sum-item b {
+    color: var(--text);
+    font-weight: 700;
+  }
+  .sum-item.running b {
+    color: var(--peach);
+  }
+  .sum-item.bad b {
+    color: var(--red);
+  }
+  .sum-item.warn b {
+    color: var(--yellow);
+  }
+  .sum-item :global(svg) {
+    color: var(--overlay1);
+  }
+  @media (hover: hover) {
+    .sum-item:hover {
+      border-color: var(--surface1);
+      color: var(--text);
+    }
+  }
+  .sum-quiet {
+    color: var(--overlay1);
+    font-size: var(--font-small);
+  }
+  /* ---- Tabs: Queue, Subscriptions, History */
+  /* (desktop: not the page's whole width - three tabs of the same size) */
+  @media (min-width: 640px) {
+    .tabs {
+      width: 480px;
+    }
+  }
+  .tabs {
+    position: relative;
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--mantle);
+    border: 1px solid var(--surface0);
+    scroll-margin-top: 12px;
+  }
+  .tabs button {
+    position: relative; /* (over the pill) */
+    flex: 1 1 0; /* all the same width: nothing moves when a count comes or goes */
+    min-width: max-content; /* (a phone too narrow for a name and its count: that tab takes what it needs) */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(var(--control-h) - 6px);
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 0;
+    background: transparent;
+    color: var(--subtext);
+    font-weight: 600;
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+  /* "Subs" for Subscriptions (phones first, everywhere since 2026-10-24); screen readers still hear the
+     whole word (the long one only hidden from sight). */
+  .tab-label .long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .tabs button.on {
+    color: var(--text);
+  }
+  .tab-pill {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 0;
+    border-radius: 999px;
+    background: var(--surface0);
+    pointer-events: none;
+  }
+  .tab-pill.ready {
+    transition:
+      transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+      width 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tab-pill.ready {
+      transition: none;
+    }
+  }
+  .panels {
+    display: grid;
+    align-items: start; /* (the one coming in at its own height, not stretched to the one going) */
+    min-width: 0;
+    overflow-clip-margin: 24px; /* (clipped only while its height glides: the cards' shadows still show) */
+  }
+  .panels > .panel {
+    grid-area: 1 / 1; /* (the one leaving and the one coming in, over each other) */
+  }
+  @media (hover: hover) {
+    /* (no lighter layer like other buttons: the pill is the only highlight) */
+    .tabs button:hover,
+    .sum-item:hover {
+      background-image: none;
+    }
+    .tabs button:not(.on):hover {
+      color: var(--text);
+    }
+  }
+  /* The name and its count in the middle of the tab; a count coming or going slides open (the gap with it),
+     a new number glides to its width - the name moves along smoothly. */
+  .tab-num {
+    display: inline-flex;
+    padding-left: 6px;
+    overflow: hidden;
+  }
+  .tab-count {
+    display: inline-block;
+    flex: none;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: nowrap;
+    transition:
+      background-color 0.2s,
+      color 0.2s;
+    min-width: 18px;
+    padding: 0 6px;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--overlay0) 22%, transparent);
+    color: var(--subtext);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+  }
+  .tabs button.on .tab-count {
+    background: color-mix(in srgb, var(--mauve) 22%, transparent);
+    color: var(--mauve);
+  }
+  .panel {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+    scroll-margin-top: 12px;
+  }
+  .panel > .card {
+    scroll-margin-top: 12px;
+  }
+  /* ---- An empty part: a quiet line, no frame */
+  .quiet-empty {
+    margin: 0;
+    padding: 2px 0;
+    color: var(--overlay1);
+    font-size: var(--font-small);
+  }
+  /* ---- The tag refresh: a line per site */
+  .refresh-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+  }
+  .refresh-site {
+    flex: none;
+    font-weight: 600;
+  }
+  .refresh-nums {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    color: var(--subtext);
+    font-size: var(--font-small);
+  }
+  .refresh-line + .refresh-line {
+    border-top: 1px solid var(--surface0);
+  }
+  /* ---- Failed files by reason */
+  .reason-block + .reason-block {
+    margin-top: 14px;
+  }
+  .reason-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .reason-head .site-head {
+    margin: 0;
+  }
+  .reason-acts {
+    display: flex;
+    gap: 4px;
+  }
+  .reason-title {
+    flex: 1 1 220px;
+    min-width: 0;
+    display: grid;
+    gap: 0;
+  }
+  .reason-hint {
+    margin: 0 0 2px 24px; /* under the name, past the fold arrow */
+    color: var(--overlay1);
+  }
+  .reason-title:has(.site-label) .reason-hint {
+    margin-left: 4px;
+  }
+  .acts .icon + .icon {
+    margin-left: 2px;
+  }
+  /* ---- Subscriptions: the "needs a look" filter, and the quiet ones' chip */
+  .attention-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--surface0);
+    background: var(--base);
+    color: var(--subtext);
+    font-weight: 600;
+  }
+  .attention-toggle :global(svg) {
+    color: var(--yellow);
+  }
+  .attention-toggle.on {
+    border-color: color-mix(in srgb, var(--yellow) 45%, var(--surface0));
+    background: color-mix(in srgb, var(--yellow) 12%, var(--base));
+    color: var(--text);
+  }
+  .state.quiet-sub {
+    color: var(--overlay1);
+    font-weight: 500;
+  }
+  /* ---- Finished: today, then the earlier ones folded */
+  .when-head {
+    margin: 0;
+    color: var(--subtext);
+    font-size: var(--font-small);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .earlier {
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 0;
+    height: auto;
+    margin-top: 4px;
+    padding: 4px 8px 4px 2px;
+    background: none;
+    color: var(--subtext);
+    font-weight: 600;
+  }
+  .earlier > :global(svg) {
+    transition: rotate 0.15s;
+  }
+  .earlier.open > :global(svg) {
+    rotate: 90deg;
+  }
+  @media (hover: hover) {
+    .earlier:hover {
+      color: var(--text);
+    }
+  }
+  @media (max-width: 480px) {
+    .tabs button {
+      padding: 0 6px;
+      font-size: 14px;
+    }
+    .tab-num {
+      padding-left: 5px;
+    }
+    .tab-count {
+      min-width: 16px;
+      padding: 0 5px;
+      font-size: 10.5px;
+      line-height: 16px;
+    }
+    .sub-tools {
+      flex-wrap: wrap;
+    }
+    .sub-filter {
+      flex-basis: 100%;
+    }
+  }
+
+  /* ---- Subscriptions as cards (2026-10-22): columns on wide screens, each card its health, its search as chips,
+     its newest files, one line of facts; a group a mosaic of its subscriptions' finds; phones swipe for actions. */
+  @media (min-width: 1100px) {
+    .page-inner.wide {
+      max-width: 1200px;
+    }
+    .sub-cards {
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    }
+  }
+  .list.sub-cards {
+    gap: 8px;
+    border: none;
+    border-radius: 0;
+    background: none;
+  }
+  .list.in-group.sub-cards {
+    padding: 8px;
+    border-top: 1px solid var(--surface0);
+  }
+  .sub-cards li,
+  .sub-cards li + li {
+    border: 1px solid var(--surface0);
+    border-radius: 12px;
+    overflow: hidden;
+    touch-action: pan-y; /* (a sideways swipe is the card's) */
+  }
+  .card-body {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    background: var(--crust);
+    transition: translate 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .swiping .card-body {
+    transition: none;
+  }
+  .swipe-acts {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 148px;
+    display: flex;
+  }
+  .swipe-act {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 4px;
+    height: auto;
+    min-height: 0;
+    padding: 6px;
+    border-radius: 0;
+    background: var(--surface0);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .swipe-act:first-child {
+    background: color-mix(in srgb, var(--mauve) 30%, var(--surface0));
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .swipe-acts {
+      display: none;
+    }
+  }
+  .health {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 0%, transparent);
+  }
+  .health.checking {
+    background: var(--blue);
+    animation: beat 1.2s ease-in-out infinite;
+  }
+  .health.paused {
+    background: var(--overlay0);
+  }
+  .health.quiet {
+    background: var(--yellow);
+  }
+  .health.failing {
+    background: var(--red);
+  }
+  @keyframes beat {
+    50% {
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 30%, transparent);
+    }
+  }
+  /* One line, scrolling sideways (soft edges where more is out of view). */
+  .qchips {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    touch-action: pan-x pan-y;
+  }
+  .qchips::-webkit-scrollbar {
+    display: none;
+  }
+  .qchip {
+    flex: none;
+    white-space: nowrap;
+    padding: 1px 9px;
+    border-radius: 999px;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    color: var(--tag-general);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 20px;
+  }
+  /* An OR search's chip: its tags (each its own color) with a small OR between them. */
+  .qchip.any {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    background: color-mix(in srgb, var(--tag-general) 14%, transparent);
+  }
+  .qchip.any > span:not(.or) {
+    color: var(--tag-general);
+  }
+  .qchip .or {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--mauve);
+  }
+  .qchip.neg {
+    color: var(--red);
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+  }
+  .fresh {
+    flex: none;
+    min-height: 0;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--green) 18%, transparent);
+    color: var(--green);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  /* (even sizes, the ring as big as its box: the dot exactly in its middle) */
+  .status {
+    position: relative;
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+  }
+  .ring {
+    position: absolute;
+    inset: 0;
+  }
+  .ring svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .ring svg {
+    rotate: -90deg;
+  }
+  .ring circle {
+    fill: none;
+    stroke-width: 2.5;
+  }
+  .ring .track {
+    stroke: var(--surface1);
+  }
+  .ring .fill {
+    stroke: var(--mauve);
+    stroke-linecap: round;
+    stroke-dasharray: 50.27;
+    transition: stroke-dashoffset 0.6s;
+  }
+  .ring.checking svg {
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      rotate: 270deg;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .health.checking,
+    .ring.checking svg {
+      animation: none;
+    }
+  }
+  .pics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    max-width: 300px;
+  }
+  .pic {
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 7px;
+    background: var(--surface0);
+  }
+  .pic img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .comic-pics,
+  .comic-pics:hover:not(:disabled) {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
+  /* (the cover: marked as the comic's own - a ring in its color) */
+  .comic-pics .cover {
+    position: relative;
+  }
+  .comic-pics .cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--mauve) 55%, transparent);
+    pointer-events: none;
+  }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 0;
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .facts > :global(*) + :global(*)::before {
+    content: '·';
+    margin: 0 7px;
+    color: var(--overlay0);
+  }
+  .row.group-head.with-mosaic {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 10px;
+  }
+  .with-mosaic .stats {
+    padding-left: 4px;
+  }
+  .mosaic {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 2px;
+    width: 56px;
+    height: 56px;
+    overflow: hidden;
+    border-radius: 10px;
+    background: var(--surface0);
+  }
+  .mosaic img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    min-width: 0;
+    min-height: 0;
+  }
+  .mosaic.n1 img {
+    grid-area: 1 / 1 / 3 / 3;
+  }
+  .mosaic.n2 img {
+    grid-row: 1 / 3;
+  }
+  .mosaic.n3 img:first-child {
+    grid-row: 1 / 3;
+  }
+  .site-fold :global(.site-icon),
+  .site-fold > :global(span:has(img)) {
+    flex: none;
+  }
+
+  /* ---- The queue's kinds and order (2026-11-14): pills with a highlight that glides between them (as the tabs'), the
+     order an icon menu beside them (as the subscriptions'). */
+  .queue-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -2px 0 12px;
+  }
+  .kinds {
+    position: relative;
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--mantle);
+    border: 1px solid var(--surface0);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .kinds::-webkit-scrollbar {
+    display: none;
+  }
+  .kind-pill {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--mauve) 22%, var(--surface0));
+    pointer-events: none;
+  }
+  .kind-pill.ready {
+    transition:
+      transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+      width 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .kinds .kind,
+  .kinds .kind:hover:not(:disabled) {
+    position: relative; /* (over the highlight) */
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: calc(var(--control-h) - 10px);
+    height: auto;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--subtext);
+    font-weight: 600;
+    font-size: var(--font-small);
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+  .kinds .kind.on {
+    color: var(--text);
+  }
+  @media (hover: hover) {
+    .kinds .kind:not(.on):hover {
+      color: var(--text);
+    }
+  }
+  .kind-n {
+    display: inline-block;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+    color: var(--overlay1);
+    transition: color 0.2s;
+  }
+  .kinds .kind.on .kind-n {
+    color: var(--mauve);
+  }
+  .queue-tools .queue-sort {
+    position: static;
+    margin-left: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .kind-pill.ready {
+      transition: none;
+    }
+  }
+  /* A download that made way for a check: which one, on a chip (tapped: that check). Over the card's own button. */
+  .madeway,
+  .madeway:hover:not(:disabled) {
+    position: relative;
+    z-index: 1;
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    min-height: 0;
+    height: auto;
+    padding: 3px 10px;
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--mauve) 16%, var(--surface0));
+    color: var(--text);
+    font: inherit;
+    font-size: var(--font-small);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .madeway :global(svg) {
+    flex: none;
+    color: var(--mauve);
+  }
+  .madeway-text {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  @media (hover: hover) {
+    .madeway:hover {
+      background: color-mix(in srgb, var(--mauve) 26%, var(--surface0));
+    }
+  }
+  /* Ordered by file count: each waiting card's count on its site. */
+  .qcount {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: var(--font-small);
+    color: var(--subtext);
+    font-variant-numeric: tabular-nums;
+  }
+  .qcount :global(svg) {
+    color: var(--overlay1);
+  }
+  /* The grip folds away while the queue is ordered by count (it's the queue's order it moves), and comes back. */
+  .qrow.has-grip {
+    transition:
+      grid-template-columns 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+      column-gap 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .qrow.has-grip .qhead,
+  .qrow.has-grip .qbody {
+    transition: padding-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .qrow.grip-off {
+    grid-template-columns: 0px minmax(0, 1fr);
+    column-gap: 0; /* (with the gap, the hover fill stopped 6px short of the card's left edge) */
+  }
+  .qrow.grip-off .qhead,
+  .qrow.grip-off .qbody {
+    padding-left: 14px;
+  }
+  .qrow .grip {
+    overflow: hidden;
+    transition:
+      opacity 0.2s,
+      width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .qrow.grip-off .grip {
+    width: 0;
+    opacity: 0;
+    visibility: hidden; /* (once faded: its hover fill painted a line at the card's edge) */
+    pointer-events: none;
+    transition:
+      opacity 0.2s,
+      width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+      visibility 0s 0.28s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qrow.has-grip,
+    .qrow.has-grip .qhead,
+    .qrow.has-grip .qbody {
+      transition: none;
+    }
+  }
+
+  /* "Download anyway" on a one-post download that downloaded nothing: as the made-way chip, quieter. */
+  .anyway,
+  .anyway:hover:not(:disabled) {
+    position: relative;
+    z-index: 1;
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 0;
+    height: auto;
+    padding: 3px 10px;
+    border: 1px solid var(--surface1);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: var(--font-small);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .anyway :global(svg) {
+    color: var(--mauve);
+  }
+  @media (hover: hover) {
+    .anyway:hover {
+      background: var(--surface0);
+    }
+  }
+
+  /* ---- Several subscriptions at once (2026-11-16): a check on each card and group, the whole card picks it; a bar
+     below with what to do to them all. */
+  /* (selecting: the corner icon lit, as a pressed toggle) */
+  .title-row button.select-icon.on {
+    color: var(--mauve);
+    background: color-mix(in srgb, var(--mauve) 14%, transparent);
+  }
+  .swap-icon {
+    display: grid;
+  }
+  li.picking {
+    position: relative;
+  }
+  .pick-cover,
+  .pick-cover:hover:not(:disabled) {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    min-height: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
+  li.picked > .card-body {
+    background: color-mix(in srgb, var(--mauve) 7%, var(--crust)); /* (solid: the swipe actions sit behind) */
+    transition: background-color 0.18s;
+  }
+  /* The picked ring: the card's own border lit, and a line inside it on a layer of its own that follows the card's
+     rounded corners (2026-11-16; the selected border was cut off in the corners - drawn on the square body
+     inside, the card's rounded edge cut its corners off). */
+  .sub-cards li {
+    transition: border-color 0.18s;
+  }
+  .sub-cards li.picked {
+    border-color: color-mix(in srgb, var(--mauve) 75%, transparent);
+  }
+  .sub-cards li.picked::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2; /* (over the body, under the press cover) */
+    border-radius: 11px; /* (the card's 12, less its border) */
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mauve) 75%, transparent);
+    pointer-events: none;
+  }
+  .pick-check {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    min-height: 0;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid var(--overlay0);
+    background: transparent;
+    color: transparent;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .pick-check.on {
+    border-color: var(--mauve);
+    background: var(--mauve);
+    color: var(--crust);
+  }
+  .group-pick {
+    position: relative;
+    z-index: 1;
+    cursor: pointer;
+  }
+  /* A site's groups and subscriptions in Subscriptions, as one box (its fold animates). */
+  .site-body {
+    display: grid;
+    gap: inherit;
+  }
+
+  /* A group's subscriptions, the box its fold slides open and shut. */
+  .group-body {
+    display: grid;
+  }
+
+  .earlier-body {
+    display: grid;
+    gap: inherit;
+  }
+</style>

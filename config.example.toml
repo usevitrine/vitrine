@@ -1,0 +1,85 @@
+# Vitrine configuration example.
+#
+# Vitrine looks for its config file in your OS's config directory:
+#   Linux:   ~/.config/vitrine/config.toml
+#   macOS:   ~/Library/Application Support/vitrine/config.toml
+#   Windows: %AppData%\vitrine\config.toml
+# or wherever VITRINE_CONFIG or the -config flag points. A config.toml next to the vitrine program comes first:
+# Vitrine then runs portable - relative paths are from that folder (data_dir = "data": everything beside the
+# program), a double-click starts the server, and ffmpeg/ffprobe/vipsthumbnail placed there are used.
+# Relative paths in any config file are from the file's folder.
+#
+# Every setting can also be given as an environment variable: VITRINE_ plus the
+# name in capitals, e.g. VITRINE_DATA_DIR. Environment variables win over this
+# file; command-line flags win over both.
+
+# Databases, thumbnails and video previews. Put this on fast storage (SSD).
+# Default: ~/.local/share/vitrine (Linux), ~/Library/Application Support/Vitrine
+# (macOS), %LocalAppData%\Vitrine (Windows).
+# data_dir = "/srv/vitrine/data"
+
+# Original files. Can be on big, slower storage (HDD).
+# Default: <data_dir>/files
+# files_dir = "/srv/vitrine/files"
+
+# Address the web server listens on.
+# listen = ":8080"
+
+# External tools. Empty = the copies the Windows installer ships (its tools folder), else
+# looked up on PATH. ffmpeg and ffprobe are needed
+# for thumbnails and video details; vipsthumbnail (libvips) is optional but
+# faster and lighter for images, especially huge ones.
+# ffmpeg = "/usr/bin/ffmpeg"
+# ffprobe = "/usr/bin/ffprobe"
+# vipsthumbnail = "/usr/bin/vipsthumbnail"
+
+# Graphics hardware for decoding videos (preview frames, video thumbnails): far less work for the processor. "auto"
+# (the default) uses the first that works - VA-API on Intel and AMD, CUDA on Nvidia, D3D11 on Windows, VideoToolbox
+# on a Mac - and the processor for anything it can't do. "off": the processor only. Or name one: "vaapi",
+# "vaapi:/dev/dri/renderD129" (a second GPU), "cuda", "d3d11va", "videotoolbox". In Docker the GPU must be passed in
+# (compose.example.yaml). Settings > Stats shows which one is in use.
+# hwaccel = "auto"
+
+# Phones view huge images as resized copies (a 100+ megapixel original can
+# crash Safari). They're cached in <data_dir>/renditions, regenerable; this
+# caps the cache, oldest first.
+# renditions_max_gb = 10
+
+# Backups of the library database (Settings > Backups, "vitrine backup"): tags,
+# subscriptions, settings and deletion records - a few MB, gzipped. Another
+# disk than data_dir is safer.
+# Default: <data_dir>/backups
+# backup_dir = "/srv/vitrine/backups"
+
+# The app's language where a browser's own languages have no language file
+# (each browser picks its own otherwise; Settings > Viewing can pick one for
+# every device). A file name from locales/, e.g. "en-GB". Push notifications
+# use it for devices that haven't said their language.
+# Default: en-US
+# language = "en-GB"
+
+# The running server's local socket: the vitrine command talks to it through
+# this file (vitrine status, queue, subs, logs, ...; see docs/cli.md) - no
+# login, only this machine and only users who can open the file. "off" turns
+# it off.
+# Default: <data_dir>/vitrine.sock
+# socket = "/run/vitrine/vitrine.sock"
+
+# Updates: Vitrine asks GitHub once a day whether a newer release is out
+# (Settings > Account > About can switch it off) and shows it there and in the
+# bell. "off" never asks.
+# Default: GitHub's API for usevitrine/vitrine
+# releases_url = "off"
+
+# The Update button: Watchtower's HTTP API (its update endpoint on, with this
+# token - WATCHTOWER_HTTP_API_ENDPOINTS=update, WATCHTOWER_HTTP_API_TOKEN).
+# Update makes a backup, then has Watchtower pull the newest image and
+# recreate Vitrine's container (see compose.example.yaml). Without it,
+# updating is a docker compose pull.
+# watchtower_url = "http://watchtower:8080"
+# watchtower_token = "a long random string"
+
+# Where a new release's CHANGELOG.md is read from, for Settings > Updates
+# (%s: the release's tag).
+# Default: the repository's on GitHub (raw.githubusercontent.com)
+# changelog_url = "https://example.com/vitrine/%s/CHANGELOG.md"

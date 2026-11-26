@@ -1,0 +1,105 @@
+<script lang="ts">
+  // A small dialog over everything (Rename, Crop the cover): a dimmed backdrop, a card in the middle that pops in,
+  // a heading with a close button; Escape, Back and a press outside close it. Its content brings its own buttons
+  // (a ".foot" row is styled here: buttons on the right, a ".spacer" pushing some to the left).
+  import type { Snippet } from 'svelte';
+  import { backClose } from '../lib/backClose';
+  import { sheetIn, sheetOut, shade } from '../lib/sheet';
+  import Icon from './Icon.svelte';
+  import { t } from '../lib/i18n.svelte';
+
+  let {
+    title,
+    width = 460,
+    onclose,
+    children,
+  }: {
+    title: string;
+    width?: number; // (px, at most the screen less a margin)
+    onclose: () => void;
+    children: Snippet;
+  } = $props();
+
+</script>
+
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === 'Escape' && !e.defaultPrevented) {
+      e.preventDefault();
+      onclose();
+    }
+  }} />
+
+<div class="backdrop" role="presentation" in:shade out:shade={{ out: true }} onpointerdown={onclose}></div>
+<div class="dialog" role="dialog" aria-modal="true" aria-label={title} style:--w="{width}px" {@attach backClose(onclose)} in:sheetIn={{ on: false, desk: 'pop' }} out:sheetOut={{ on: false, desk: 'pop' }}>
+  <header>
+    <h2>{title}</h2>
+    <button type="button" class="icon" aria-label={t('sites.close')} onclick={onclose}><Icon name="close" /></button>
+  </header>
+  <!-- (the content scrolls, the heading and close button stay: taller than the room above the keyboard) -->
+  <div class="body">{@render children()}</div>
+</div>
+
+<style>
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    background: rgb(17 17 27 / 0.7);
+  }
+  .dialog {
+    position: fixed;
+    z-index: 81;
+    /* In the middle of what can be seen (above the keyboard), placed by layout - whole pixels: a translate of -50%
+       left it half a pixel off, and its text shifted as an animation ended. */
+    inset: var(--view-top) 0 var(--kb, 0px);
+    height: fit-content;
+    margin: auto;
+    translate: 0 0; /* (an identity: drawn the same at rest as while it animates in) */
+    width: min(var(--w), calc(100vw - 24px));
+    max-height: calc(var(--view-h) - 24px);
+    /* Taller than what's above the keyboard (a site's login on a phone, 2026-11-12): its content scrolls under the
+       heading (.body) - it ran out of the box, under the keyboard. */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* (12 to the content: .body's margin takes 4) */
+    padding: 12px 14px 14px;
+    background: var(--mantle);
+    border: 1px solid var(--surface1);
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgb(0 0 0 / 0.6);
+  }
+  header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h2 {
+    flex: 1;
+    margin: 0;
+    font-size: 17px;
+  }
+  .body {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /* (room for focus rings at the edges: the scroll box would cut them off) */
+    margin: -4px;
+    padding: 4px;
+  }
+  .dialog :global(.foot) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .dialog :global(.foot .spacer) {
+    flex: 1;
+  }
+</style>

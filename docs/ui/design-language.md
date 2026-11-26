@@ -1,0 +1,406 @@
+# Design language
+
+How Vitrine looks and feels: the bar to meet, Catppuccin Mocha colors, sizes per input device, layout, gestures, the shared building blocks (controls, cards, menus, sheets, dropdowns, spinners), motion, hover, hints, icons and the logo. Read this before any UI work.
+
+## Tokens (web/src/app.css; the colors in web/src/lib/tokens.css, shared with the website)
+- **Colors**: Catppuccin Mocha only (no light theme). Surfaces `--crust` #11111b, `--mantle` #181825, `--base` #1e1e2e
+  (the page), `--surface0/1/2` (#313244 / #45475a / #585b70: fills, borders), `--overlay0/1`; text `--text` #cdd6f4,
+  muted `--subtext` #a6adc8. **Accent `--mauve` #cba6f7** (primary buttons, focus, selection, links in the app);
+  `--red` danger and favorites, `--green` done, `--peach` warnings/paused, `--yellow` wildcards, `--teal` system
+  filters, `--blue` info. Tag namespaces: `--tag-general` blue, `--tag-creator` red, `--tag-character` green,
+  `--tag-series` mauve, `--tag-meta` peach.
+- **Sizes follow the input device, not the window**: with a mouse `--control-h` 32px, `--font` 14px, `--font-small`
+  12px, `--tile` 170px; on touch (`pointer: coarse`) 44px / 16px (iOS doesn't zoom into 16px inputs) / 13px / 120px.
+  `--radius` 8px, `--gap` 8px. Every input, select and button is one height (`--control-h`).
+- **Safe areas**: `--safe-top/bottom/left/right` (env insets; the home-screen app adds `--top-extra`), `--home-bar` and
+  `--safe-corner` for bars along the bottom in the iOS home-screen app; `--sheet-max-h` caps phone sheets. The library
+  grids (media, comics, browse) end `--bottom-room` + their gap under the last row (2026-10-24; there was no room at the
+  bottom for the iPhone's curved screen); the fast scroller counts it. **`--bottom-room`** (2026-10-23; Duplicates'
+  bottom sat too close to the curved screen, and the same went for the sheets and the sidebar): the reported bottom
+  inset or `--home-bar`, whichever is bigger - everything that reaches the bottom uses it: `.page`, sheets (menus, chip
+  editor, tag menu, filters, New download, confirmations, the details), the sidebar (+ `--safe-corner` at its side),
+  Duplicates (+ `--safe-corner` at the sides: its Keep row spans the screen), the first steps, the reader's slider (+
+  corners at its ends). Checked with the screen's 55 px corners drawn over standalone iPhone shots.
+- **Placeholders that alternate with something full-height** (an empty result vs the grid, Duplicates' empty card vs the
+  pictures, its video bar): fade in place (`in:swap`), never a height slide - a collapsing placeholder squeezed what
+  replaced it, so Duplicates' picture started small and grew.
+- **Small things in a row use `nudge`, not `pop`** (2026-10-23; New download's title jumped back instead of animating
+  when Back went, and it must not happen anywhere else): pop only scales, so the element takes (or keeps) its full width
+  at once and what's beside it jumps; `nudge` slides its width open and shut as it grows and fades, so neighbors glide
+  (a gap of its own goes in a slot that slides with it, as New download's Back). `pop` stays for what floats (badges on
+  tiles, dots on buttons, spinners).
+- **A gap goes with what slides shut (2026-10-23; the Sources header jumped as it went, and the same must not happen
+  elsewhere)**: reveal and nudge slide the gap beside the element away too (a negative margin as it closes) - else the
+  height closed but the gap went at once at the end. A flex box takes a negative margin back; a grid doesn't (a track
+  never goes below 0), so a single-column grid lays out as the same flex column while something in it moves (its
+  alignment carried over, and its width held: as a flex column its widest content - a strip that scrolls sideways - made
+  it grow past its place for a moment, and the details' tags overflowed as picking began). Measured: the details' Tags
+  glide 166 px with no step at the end. The details' facts: one card, the ones every file has first (they never move;
+  Imported last, on a row's left, 2026-11-05, so Imported and Uploaded sit next to each other), the ones only some have
+  (uploaded first, then duration, came) after them, each sliding in and out - between the others, a fact coming or going
+  moved all the ones after it to the other column (a second card for them, 2026-10-23 to 24, looked apart from the
+  rest). Grid tiles sit on whole pixels (their edges rounded): one between pixels was snapped onto them as its hover
+  zoom began - a jump up and left.
+- **Content that follows something else (the details as the viewer moves on)** isn't emptied while the next one
+  loads: the old stays until the new arrives, then rows that match stay put and the others slide (`FilePanel`,
+  `ComicPanel`: stale meanwhile - not pressable - and cleared after 250 ms if the answer is slow).
+- **Buttons**: filled (the main action, mauve), `.quiet` (outlined), `.icon` (just an icon), `.danger`; square icon
+  buttons in toolbars (the selection bar). **Cards** (`.card`, `.card-head`, `.hint`, `.field`, `.empty`, `.pill`)
+  on the screens other than the library (`.page`, centered). Floating controls over a picture: `.float-bar`, `.chip`,
+  `.side-nav`, `.spinner` (viewer and comic reader). One `Modal` frame for small dialogs; `ActionMenu` for every ⋯
+  menu (a sheet along the bottom on phones); `Dropdown` instead of native selects; menus with pages via
+  `lib/pages.svelte.ts`.
+- **Motion**: the standard ease is `cubic-bezier(0.2, 0.8, 0.2, 1)` (~180-320 ms); menus drop in with a fade and a
+  few px of movement; everything honors `prefers-reduced-motion`. Grid tiles share one motion for any change (slide / appear / leave, `MOTION` in
+  Grid.svelte; see grid-and-search.md). Hover changes are instant (no fades).
+- **Everything animates in and out (2026-10-23)**: nothing pops. `lib/motion.ts` has the shared ones - `reveal` (a block
+  in the flow: its height opens/closes as it fades, so what's below glides; `axis: 'x'` beside others), `pop` (small
+  things: grow in, shrink out), `swap` (a cross-fade) and `moved` (`animate:moved` on keyed lists). Every
+  `{#if}`/`{#each}` that shows or hides something gets one; closing is checked as much as opening. Exceptions: a whole
+  list replaced by a new search (the tag browser) fades its rows in rather than sliding 100 rows; the library grid has
+  its own `MOTION`; screens and menus keep their page slides. Search chips keep their identity across changes (same
+  text, or the same place for an edit), so they glide, pop and change in place. Dialogs leave as plainly as they come
+  (200 ms: shrink to 94 %, sink 8 px, fade); menus and panels fade out over 180-200 ms.
+- **No text shift when a motion ends (2026-10-23; text shifted slightly after the opening animation)**: two causes, both
+  fixed. (1) An ease-out spends its last frames moving by fractions of a pixel - text drawn between pixels, then
+  snapping onto them: every transition now moves in whole pixels (`px()`, `glide` instead of Svelte's fly; sheets slide
+  by their height in pixels, not %) and a scale is 1 once within half a pixel of the element's size (`settle`). (2)
+  Desktop draws a moving layer's text with other smoothing than the page's: what floats (role dialog / alertdialog /
+  menu / listbox, toasts, the tour card) keeps a layer of its own (`will-change: opacity` - not transform, which would
+  become fixed children's containing block). Measured: the last animation frame vs at rest, pixels that change strongly
+  - 0 for the downloads and bell panels, Downloads tabs, Filters, Saved searches, New download, the login dialog, a
+  confirmation (from 630-11,000 before); a third of a pixel left on a sheet. Exception (2026-10-24; text in the
+  Downloads menu jumped down slightly): a menu's 8 px drop as it opens (Downloads, the bell, ⋯ menus, search
+  suggestions) moves continuously again - in whole pixels its last pixel came late and on its own, a drop just as it had
+  settled (measured in Chrome's screencast: a last step of 0.85 px after steps of 0.2-0.4; continuous, the steps shrink
+  to 0.05 px, and nothing moves at rest).
+- **Everything that comes in lands on whole pixels (2026-10-30; a recording of the Downloads menu opening in Brave on
+  Windows showed a pixel shift in the elements, all over the site)**: (3) while a transform animates, the layer is
+  placed on whole screen pixels; at rest it's drawn where layout put it - and much of the app sits between pixels (the
+  Downloads and bell panels 43.5 px down, under the top bar; dialogs centered in an odd height; Settings and Tags
+  sections, the Downloads tabs' panels, menus, toasts: a line height of 1.4 makes fractions everywhere). The whole panel
+  moved by that fraction (~1 px) the moment its opening ended. Now every intro (`motion.ts` glide, pop; `sheet.ts`
+  sheets and desk menus; pages; Sections; and each component's own: Downloads menu, bell, ⋯ menus, Modal, ConfirmDialog,
+  What's new, search suggestions, TagInput, toasts, details panels) calls `onPixels(node)` first: it moves the element
+  onto whole device pixels by its margins - by layout, not a translate (a translate of the fraction drew the text
+  between pixels at rest: blurred, unlike the moving picture). The margin is worked out from where a margin of 0 puts
+  it, so an auto-centered dialog works too; the far side's margin when the near one doesn't move it (a panel placed from
+  the right). When the window resizes or the element changes size (a dialog whose content came: with its margin set it
+  grew downwards, under the keyboard), it's placed again from its own margins - once it's done moving (only animations
+  still running count: a finished one held at its end is still listed, and waiting for it looped for ever). Something
+  inside a parent that moves (not one only fading) is left to its parent. Not reproducible in headless Chromium (it
+  keeps the fraction in the layer - measured: 0-6 pixels change as the panel settles, before and after); in the e2e flow
+  every panel, dialog, menu and section ends on whole pixels (before: 43.5, 358.6, 106.8...).
+- **Dialogs above the keyboard (2026-11-12)**: every dialog sits between the top of what can be seen and the keyboard
+  (`--view-top`, `--kb`; at most `--view-h` - 24px tall) and scrolls inside when its content is taller (`Modal` didn't:
+  a site's login ran out of it, under the keyboard). The box being typed in is scrolled into view when the keyboard
+  comes up, in a dialog too (`lib/viewport` `showField`: sheets, details panels, `[role=dialog]`). `Modal`: the heading
+  and close button stay, its `.body` scrolls. **iOS's form bar** (the ⌃ ⌄ ✓ pill, floating over the page above the
+  keyboard since iOS 26) isn't in the visual viewport's height: on iOS `--kb` adds 60 px for it (measured on a
+  screenshot: ~47 px of bar, ~12 of gap). **2026-11-13**: the iPhone's home-screen app shrinks the page itself for the
+  keyboard (the visual viewport stays the page's height: `--kb` read 0, so the bar was never added). `lib/viewport` now
+  knows the keyboard is up when a text box has the focus and either the visual viewport or the page has shrunk (against
+  the page's height with no box focused, per width); the bar is added then. Dialogs fit in `--vis-h` (the visual
+  viewport's height less the bar) instead of the screen's height less `--kb`. Tests fake Safari's keyboard through the
+  visual viewport (`safariKeyboard`), so the tracking itself runs, and the app's by shrinking the page.
+- **Type (2026-10-24, picked from Geist / Inter / Plus Jakarta Sans / Manrope)**: Plus Jakarta Sans, the variable font
+  bundled with the app (`@fontsource-variable/plus-jakarta-sans`; woff2 files split by script, only the ones a page's
+  text needs are fetched; no outside font service - self-hosted, offline, private), then the system stack (system-ui,
+  -apple-system, Segoe UI, Roboto); line height 1.4. Until then: the system stack. Its faces are declared in
+  `web/src/font.css` (not fontsource's CSS) with `ascent-override: 105%` (its own 1.04; 2026-11-01; text sat high in
+  chips): Windows rounds a line's ascent to whole pixels, and at 12 px (chips, small buttons) 12.48 rounded down,
+  capitals 0.9 px above the middle; 12.6 rounds up. Measured: 11-24 px within 0.2 px of the middle (15 px: 0.9 low, as
+  before). Not lower: 97% (tried the same day) lifted text 1-2 px. What did make words sit off next to icons: a control
+  on a half pixel (e.g. a 32 px button in 35 px of room) - text snaps to whole pixels, icons don't - so keep the room
+  around controls even, and icons 16 px in 32 px buttons. An icon at a button's end has empty margins in its drawing (a
+  chevron: 6 px a side at 16 px); pull it in with a negative margin so the button's room looks even (the Downloads
+  menu's All). The logo's "itrine" follows it. (Playwright's WebKit on Windows draws the variable font's weights all
+  light; Chromium and real Safari don't.)
+- **Icons (2026-10-24)**: Lucide (lucide.dev, the `lucide` package): 24x24 strokes, 2 px, round ends - the style the
+  app's own icons already had (Feather's, which Lucide grew from). `Icon.svelte` keeps the app's names (`<Icon
+  name="search" />`), maps each to a Lucide icon and draws its elements; only the icons it names are bundled. Its own
+  where Lucide has nothing that means the same: `or` (a tilde, the search's ~); "I came" is Lucide's
+  soap-dispenser-droplet. A new icon: pick it on lucide.dev, add it to the map. Licenses: Lucide ISC (with Feather's
+  MIT), the font OFL 1.1 - both at /licenses (Vite's build.license).
+- **Words**: American spelling; texts in `locales/` (see ui/languages.md); hints only where a label could mislead, a
+  few words.
+
+## Bar to meet (2026-10-14)
+- **"5-star UI and UX"** - beauty and ease of use count as much as speed.
+- **iOS is a first-class citizen** (2026-10-14): Safari on iPhone - above all the home-screen web
+  app (standalone PWA) - gets the same care as desktop browsers, and nothing ships that is only tested on desktop.
+  That means: designing within iOS limits (no element fullscreen on iPhone, autoplay with sound blocked, memory limits
+  that crash Safari on huge images, the on-screen keyboard resizing the viewport, safe areas/notch/home indicator,
+  rubber-band scrolling, long-press callouts, double-tap zoom), testing gestures and video on WebKit, and treating
+  an iOS-only bug as seriously as any other.
+- **Mobile-first**: every screen designed for the phone first, then scaled up - but desktop must be just as beautiful
+  and pleasant, not a stretched phone layout (wider grids, side panels, hover previews, keyboard shortcuts).
+- **Density follows the input device, not the window width** (no giant inputs on desktop): touch sizes (~44 px tap
+  targets, 16 px input text so iOS doesn't zoom) only on touch screens (`pointer: coarse`); with a mouse
+  (`pointer: fine`) compact controls (~32 px inputs/buttons, 13-14 px text), forms sized to their content instead of
+  full width, more on screen.
+- Smooth 60 fps motion and transitions (respecting reduced-motion); gestures that feel native on iOS (swipe between
+  files, pull to refresh, long-press menus); instant feedback (optimistic updates, blur placeholders/skeletons, never
+  a blank screen); clear empty and error states; keyboard shortcuts on desktop; accessible contrast and focus rings;
+  safe-area/notch support for the home-screen app (PWA).
+
+## Colors: Catppuccin Mocha only - no light theme
+Palette: https://catppuccin.com/palette
+- Backgrounds: Crust `#11111b`, Mantle `#181825`, Base `#1e1e2e`; surfaces Surface0-2 `#313244` `#45475a` `#585b70`;
+  text `#cdd6f4`, subtext `#a6adc8`.
+- **Primary/accent: Mauve `#cba6f7`** (buttons, selection, focus, active tab; text on it: Crust `#11111b`; contrast on
+  Base ~8:1). Runner-up: Lavender `#b4befe`.
+- Status colors, never used as the accent: Green `#a6e3a1` done/ok, Yellow `#f9e2af` warning, Red `#f38ba8`
+  error/delete, Blue `#89b4fa` links/info, Peach `#fab387` running/in progress.
+
+## Layout: one web app for everything
+- **Library** (main screen): search bar with editable chips, thumbnail grid, viewer (swipe between files, video, the
+  file's tags and post/source links), selection for bulk tagging/deleting.
+- **Downloads**: searches with drag-to-reorder, subscriptions and groups, live progress, blacklist, delete by tags, tag
+  refresh.
+- **Tags**: parent/sibling groups, tag counts, renames.
+- **Settings**: site plugins (install, update, credentials), defaults, notifications, login, storage and maintenance.
+- **Navigation (2026-10-14, like hydrus-web)**: no bottom tabs and no permanent sidebar - a
+  floating hamburger button (top left, every device) opens the navigation as a drawer from the left; tapping outside,
+  Esc or picking a screen closes it. The screens get the full width. Desktop still has a details side panel in the
+  viewer, drag-select and shortcuts.
+- Cross-links: a downloaded file links to the search/subscription that fetched it ("Found by", built 2026-10-15); finished downloads appear in the
+  Library immediately.
+
+## Gestures (chosen from hydrus-web's set, 2026-10-14)
+- **Viewer, images**: pinch to zoom + drag to pan while zoomed; double-tap to zoom in / back out; swipe **up** opens
+  the details panel (not close); swipe down closes; swipe left/right = next/previous; tap = controls. Not wanted:
+  pinch-in to close.
+- **Viewer, videos**: double-tap left/right third = -/+10 s, middle = play/pause; press and hold = 2x.
+- **Viewer, desktop**: browser Back (and the iPhone edge swipe) closes the viewer instead of leaving the page; mouse
+  wheel = next/previous; Ctrl + wheel = zoom; middle-click closes; keys (arrows, Esc, i, Delete, space, m).
+- **Grid**: long-press (iPhone too - iOS sends no contextmenu event, so it is Vitrine's own) or right-click = a menu
+  for the file (select, view, details, delete); once anything is selected, taps select/deselect and an action bar
+  offers bulk actions (add/remove tags, delete); Ctrl+click toggles one, Shift+click selects a range; drag across
+  thumbnails to select many (mouse, or a finger after a long-press).
+- **Details panel starts hidden** on every device (2026-10-14); open with the i button, a swipe up or `i`.
+- **Details panel overhaul (2026-10-15)**: a header "Details" with a close button (x); closed also by Escape (the
+  details first, then the viewer), a tap on the picture outside them, a swipe down on the picture, or the i button.
+  Phones: a sheet over the bottom 75% (slides up, a grab handle; drag the header down to close). Content: a facts card
+  (Type "MP4 video", Size, Dimensions, Length "0:08 · silent", Uploaded, Imported - two to a row, dates as "Today at
+  22:14" / "3 Oct at 09:12", the full date on hover); "Where it's from": one row each for the post page and the
+  searches/subscriptions that found it; **Sources** its own section below (2026-10-23, a file with 32 sources filled the
+  panel): the site as the row's name, the link's path under it, the same site's links together, a **stack** like the
+  Downloads page's (`Stack`, the same stacking effect): the first in front, the rest peeking out behind it ("+N"),
+  fanning out on a tap (a subscription row opens it), Refresh tags in the section header; then Tags (add box, groups by
+  namespace).
+- Built 2026-10-14 (viewer part): pinch zoom with the fingers' midpoint kept in place, pan clamped to the image
+  edges, double-tap zooms to 2.5x at the tapped point (again = back), max zoom 4x or enough for the original's own
+  pixels (up to 16x); Ctrl+wheel / trackpad pinch zooms around the cursor, plain wheel = next/previous (one step per
+  300 ms) or scrolls a zoomed image; middle-click closes; opening the viewer pushes a history entry, so Back closes
+  it (closing otherwise pops it; a tag search started in the viewer runs after that step). E2E-tested on WebKit.
+- Built 2026-10-14 (grid part): one pointer handler on the grid finds the tile under the finger/cursor. Touch: tap =
+  open (or toggle while selecting), long-press 450 ms then lift = file menu (Select/Deselect, View, Details, Delete),
+  long-press then slide = select the range slid over (scrolling blocked by a non-passive touchmove, auto-scroll near
+  the edges). Mouse: click = open, right-click = menu, drag = range select, Ctrl/Cmd+click = toggle, Shift+click =
+  range from the last picked file (IDs of unloaded parts fetched by position). Selection bar under the grid: count,
+  All, add tags, remove tags (autocomplete), delete (Undo); a new search clears the selection. Selected tiles shrink
+  with a mauve check; others dim. 35 E2E tests on iPhone + desktop WebKit.
+- Viewer slides are keyed by file (not by slot), so the image that slides in keeps its decoded element when it
+  becomes current - no reload flash. A swipe or key press during a slide finishes it
+  instantly instead of being ignored, so there is no speed limit when flicking through files.
+
+## As built (web client, from 2026-10-14 on)
+- **Design pass (2026-10-14)**: shared building blocks in `app.css`, used by
+  every screen instead of per-screen styles - controls (inputs, selects and buttons share `--control-h`, radius,
+  border and a mauve focus ring; selects drawn like inputs with a chevron, since WebKit's native look ignores the
+  height; number inputs without spinners), buttons (filled = main action, `.quiet` outlined, `.icon`, `.danger`,
+  `.quiet.danger`), pages (`.page` + `.page-inner`: a centered 760 px column of `.card`s with `.card-head` h2 +
+  `.hint`), `.field` (label, hint, control), `.empty` (dashed "nothing yet" box), `.pill` (removable tag). Phone
+  forms: inputs first, then a full-width main button. Sort in the top bar is an icon button (the shape of
+  Material's "sort", as in hydrus-web) with the native picker laid invisibly over it, plus a dot when the order
+  isn't the default. `e2e/shots.spec.ts` takes screenshots of every screen on request
+  (`SHOTS=<folder> npx playwright test shots`) for design reviews.
+- **Motion recordings (2026-10-25)**: `e2e/motion.spec.ts` records what Chrome paints (CDP `Page.startScreencast`, every
+  frame with its time) while the viewer, menus, sheets, dialogs, the bell, chips, page changes and every Settings / Tags
+  section come and go, on a desktop and a phone screen - `MOTION=<folder> npx playwright test motion
+  --project=desktop-chromium` (`MOTION_ONLY=<name start>` for some; the rest still happen, unrecorded). `node
+  scripts/motion-report.mjs <folder>` (ffmpeg) writes a contact sheet per recording and flags a late step (moving more
+  again after it had slowed - a last-moment snap), a long tail (something lingering) and a jump (most of the change in
+  one frame - a pop); changes of 3 levels or less don't count. Flags are leads, not verdicts (two motions ending apart,
+  or a fade out then in, read as a step): look at the frames (pixel diffs of the last ones find a 1 px snap). The first
+  audit found and fixed: the details column (layout-animated: the picture snapped 1 px aside at the end - now the column
+  changes at once, the panel slides by a transform and the picture glides by one), bottom sheets leaving their shadow on
+  screen (they went their height, not their shadow's 52 px more: a dark band, then gone at once - `lib/sheet` `away`),
+  the search suggestions (no motion at all - now they drop in and fade out), Settings / Tags sections (the old one
+  vanished at once - now it fades while the new one comes, in one grid cell), and the top bar's text changing its
+  smoothing after some page changes (now always a layer of its own). The second round (selecting, a chip's editor, a
+  delete's confirmation and its notice with Undo, the comic reader, a dialog): a comic's title and chips came at once as
+  the reader's cover landed on its tile (the landed fade had the same animation as the cover's own, which doesn't play
+  again - now `overlay-land`, and it stays after `overlay-in` in the list so the overlays don't blink when it ends), the
+  flying copy's square corners became the tile's round ones at once (lib/hero `radius`, from Grid's `tileRadius`), and
+  the viewer's still swapped its thumbnail for the sharp picture at once (the thumbnail was the picture's own background
+  - now a layer under it, the picture fading in over it once decoded, and on opening once the viewer shows; the copy
+  lands on whole pixels: `snap`). Round three, every page (Downloads' stacks, tabs and form, Duplicates, a video,
+  Browse, Rankings, Tags' list; on a phone sections, tabs, a dropdown's sheet, the reader): moves are continuous
+  everywhere now (`px` no longer rounds - a short move's last pixel kept coming late: the Downloads tabs' panels,
+  sections), a page change cross-fades (the new screen fades in over the one left, which stays under it for 200 ms - its
+  own layer group, inert and hidden from screen readers, so its header can't show over the new page; App `leaving`),
+  Duplicates' next pair fades in over the last one held where it was, and the reader closed by Back flies its cover home
+  as its close button does (it vanished at once).
+- **Custom dropdowns (2026-10-14)**: `components/Dropdown.svelte` (on phones a sheet along the bottom like every menu
+  there - 2026-10-25: every dropdown is a sheet on mobile; its title is the heading or the label, a touch doesn't move
+  the highlight, `data-floating` so a sheet under it keeps its presses) - a trigger (input-styled with a chevron, or a
+  custom one such as the sort icon) and a floating list in the app's style (optional heading, check on the current
+  option, keyboard: arrows/Home/End/Enter/Esc, closes on an outside press). Used for the sort menu (top bar and
+  Settings) and the Downloads site picker; no native `<select>` is left (this replaces the earlier "native picker laid
+  over the icon").
+- **Tag namespace colors (2026-10-14)**: every namespace has its own color (`--tag-*` in `app.css`): creator red,
+  series mauve, character green, meta peach, general (no namespace) blue; other namespaces get a stable spare color.
+  Used in the details panel, search chips (a negated tag keeps its color with a red minus; system filters moved to
+  teal), autocomplete and the Tags screen. The details panel lists tags **grouped by namespace** in booru order
+  (Creator, Series, Character, other namespaces A-Z, General, Meta), A-Z within a group, names shown without the
+  prefix (tapping searches `namespace:name`); a tag the user added has an outline. `lib/namespaces.svelte.ts` knows
+  which prefixes are namespaces (from `/api/namespaces`), so `9:16` stays a plain tag.
+- **Menu motion (2026-10-16)**: Sort and filters, the chip editor and Saved searches drop in (180 ms, fade + 8 px +
+  slight scale, `|global` so they play inside their {#if}/{#key}) and fade out (120 ms). Inside Sort and filters,
+  pages slide: deeper (Sort by, a direction page, a filter form) from the right, back from the left (out 120 ms,
+  in 220 ms after 60 ms), stacked in one grid cell; the panel height animates between them (only the visible part -
+  capped at the panel's max-height; the old height is laid out first). A leaving page or menu is `inert` +
+  aria-hidden; each move gets a fresh page (a counter key), so a leaving one is never reused. Reduced motion: none.
+  Note: the global `.page` class (screens) mustn't be reused for anything else (it sets height: 100%).
+- **More ⋯ menus (2026-10-16)**: Backups rows (Download, Restore…, Delete) and All tags rows (tapping a tag searches
+  it; ⋯: Search, Rename…, Alias… - Rename disabled for site tags, "alias it"). Left as they are: the download queue's
+  button strip (asked for earlier), the selection toolbar, saved searches' Edit mode, tag-rule × chips, the file menu.
+- **Hover and chips (2026-10-18)**: filled buttons lighten on hover with a thin white background layer instead of
+  `filter: brightness` (a filter makes Chromium repaint the element differently as it starts/ends - the menu items
+  flickered); the search bar's chip row has 4 px padding so an editing/drop-target chip's outline isn't clipped by its
+  sideways scroll. Settings > This device says whether the background helper (service worker) runs and, if it
+  doesn't, why (it tries to start it) - saved thumbnails need it.
+- **Phone sheets like the details panel (2026-10-19)**: action menus (`ActionMenu`) and the tag menu (`TagMenu`) on
+  phones sit edge to edge along the bottom with rounded top corners, a grab bar (`lib/sheetDrag.ts`: drag down
+  > 80 px or flick to close, else it springs back; it leaves from where it was let go) and bottom padding of
+  30 px + the home bar (`--safe-bottom`; 16 px was too little on an iPhone), so the last row clears the iPhone's rounded
+  corners. **One grab bar (2026-11-01)**: `components/GrabBar.svelte` on all nine sheets (it was copied into each,
+  markup and CSS); what differs is a prop - `stuck` (a sheet that scrolls: kept at its top, on the sheet's background),
+  `bleed` (across the sheet's side padding), `after` (its gap to what follows), `z`. The sheets' own box CSS stays in
+  each (their layers, padding and scrolling really differ). **A question after a question** (2026-11-17; removing a
+  site, the popup didn't animate in cleanly): a confirmation asked right after one is answered (removing a site asks up
+  to three) takes its place - the answered one goes, the next comes once it has gone (`sheetIn`'s `delay`, the thing
+  held at its first frame meanwhile: a transition's own delay showed it as it is), the page behind stays dimmed.
+  `lib/confirm` closes an answered question only after what the answer starts has had its turn (`setTimeout`), so a next
+  one asked at once replaces it. Before: the next appeared over the one going, or took its place with no motion. Test:
+  in "removing a site with files of it asks whether to erase every trace", watched frame by frame. **One way in and out
+  (2026-11-01, a code audit)**: the dialogs (Modal, ConfirmDialog, WhatsNew) and ActionMenu come and go with
+  `lib/sheet`'s `sheetIn`/`sheetOut` (`desk: 'pop'` / `'drop'` on wider screens) and its `shade` - they had their own
+  copies, some drifted (ActionMenu's menu grew from 0.98, its backdrop faded out in 160 ms). The top bar's popovers (the
+  bell, the downloads) share `lib/popover` (`grow`, `rowIn`/`rowOut`, `dismiss`: a press outside or Escape); every menu
+  closes on a press outside with `lib/outside`'s `pressOutside`. The two details panels (the viewer's, DetailsPanel)
+  share their look (`.details-panel`, app.css) and their phone sheet (`lib/detailsSheet`: the drag, closing from where
+  it was let go). Reduced motion is `lib/motion`'s `reduced()`, the screen sizes `lib/media` (`phone()` below 640 px,
+  `wide()` from 900 px, `fineMouse()`), browser storage `lib/storage` (`read`/`write`/`readJSON`/`writeJSON`: never
+  throws).
+- **One spinner style (2026-10-19)**: every ring spinner (thumbnail being made, thumbnail on its way, the viewer's
+  loading) is a faint ring with the accent (mauve) going round.
+- **Hints: few and short (2026-10-19)**: a hint only where a name alone could mislead, in a few words (the filter
+  list: "Added to the library", "Posted on its site", "Tags last changed", "First results only"; none under Width,
+  Has audio, ...); no "pick one or more" lines. The same everywhere: Settings, Downloads, Tags, Sites, Backups,
+  Notifications, the login page and empty states were cut to a few words or dropped where the label says it.
+- **Phone sheets, one height and one motion (2026-10-19)**: every sheet (action menus, a tag's menu, the chip menu,
+  the filter menu, the details) stops at `--sheet-max-h` (app.css: 70 % of the screen, less if the top bar needs
+  it); longer content scrolls inside. They come and go the same way (`lib/sheet.ts`): up from the bottom, and back
+  down when closed - from where a drag left them - while the page behind dims and clears (no motion with reduced
+  motion).
+- **Sheets drag by their header; the details leave from where let go (2026-10-19)**: `sheetDrag` goes on the sheet
+  and starts on its grab bar, its header (`.head`) or `[data-drag]` (the whole confirmation), never on a control;
+  those areas don't scroll the page (`touch-action: none`). The details sheet has separate in/out transitions (a
+  two-way one played its way in backwards, from where the sheet rests: a dragged sheet jumped up first) and keeps
+  the dragged offset until it has gone.
+- **Menus with pages move alike (2026-10-19)**: `lib/pages.svelte.ts` (`Pages`) is the one way menus move between pages
+  - the action menus' choice pages, the Sort and filters menu, a tag's Namespace page: the new page slides in (from the
+  right going deeper, from the left going back) while the old one slides out, both fading, and the menu's height follows
+  (0.24 s). Base styles `.mpages` / `.mpage` in app.css. A page whose content comes later (2026-10-31, the New download
+  dialog's "Which site?" - elements animating in looked buggy): `pages.grow(change)` - the height follows the same way,
+  "Loading…" goes at once (closing after the list had come, it moved the dialog again) and only shows after 0.3 s, the
+  content fades in (`swap`), and focus goes in without scrolling (the held-short box scrolled its top out of view).
+- **Floating scrollbar (2026-10-19)**: with a mouse, the screens' pages (Downloads, Settings) and the details panel hide
+  the browser's own scrollbar (it took room as it came and went, so the page shifted sideways) and get a thin thumb over
+  the content at the right edge (`lib/overlayScroll.ts`, `{@attach overlayScroll}`): shown while scrolling (fades after
+  ~1 s) and while the pointer is at the edge, wider under the pointer, draggable; gone when there's nothing to scroll.
+  The library grid has its own fast scroller. **Everywhere, on touch too (2026-10-26)**: every scroller has it - menus,
+  sheets, dropdowns, dialogs, the saved searches, the selection bar's tag editor, the Downloads menu and the bell, the
+  comic reader, first steps; on touch screens as well (shown while scrolling; a finger can drag it: `touch-action:
+  none`). A new scroller gets `{@attach overlayScroll}`.
+- **Soft edges only where more is hidden (rule, 2026-10-31)** (from a sliding title in the saved searches prototypes:
+  the beginning and end of the title must not be cut off by the gradient; a site-wide design rule): a fade over the edge
+  of a sideways row or a line of text sits only on a side where something is out of view - none at the start before it's
+  scrolled, none at the end once it's there - so the first and last characters (or chips, or buttons) are never faded.
+  Already so for every faded row (the search bar's chips, the selection bar, the tag picker's actions, the Downloads
+  lines and menu, the grid's strips: `--edge-l`/`--edge-r`, `--fl`/`--fr` or `fade-l`/`fade-r`, set from the scroll
+  position); anything new that scrolls or slides by itself follows it. A fade comes and goes smoothly (its opacity
+  eased, never a hard switch: "The gradient doesn't appear smoothly"), and on a line that slides by itself it's fully
+  gone before the line comes to rest at that side and only comes in once the line has moved more than the fade's width
+  ("The gradient slightly covers the beginning and end of the line again"); the line's end position is exact (its own
+  width against its box's, not a fixed number).
+- **Text that slides by itself (rule, 2026-10-31)**: a line too long for its place (e.g. a long name kept on one line)
+  rests at its start, moves forward slowly at an even reading speed, rests at its end, then comes back quickly (eased, a
+  fraction of the time) and rests at its start again. Still with reduced motion (its start shown, the end faded). Its
+  soft edges follow the rule above. One implementation for all: app.css's `.marquee` (+ `.sliding`; keyframes
+  `marquee-line`, `marquee-edges`) and `lib/marquee` (how far and how long: about 40 px a second forward) - the
+  Downloads menu's searches, a comic's title on hover, the saved searches' names (until 2026-10-31 each had its own
+  copy, going back as slowly as it went).
+- **Hover changes are instant everywhere (2026-10-19)**: no element fades its background on hover (the shared
+  button and icon-link styles, chips, chart columns): moving between two neighbors, one fading out while the
+  other faded in looked like a flicker. A test checks every clickable element on each screen for a background
+  transition.
+- **The logo (2026-10-20)**: the letter V cut like a crystal - each arm a lit and a shaded face, in a mauve-to-pink
+  gradient (#cba6f7 -> #f5c2e7) on the base color - picked from a sheet of ideas (a gem as the V). The wordmark is the
+  mark as the V of "Vitrine" ("itrine" in the app's font, `Logo.svelte`; `size` = the mark's height). Sources in
+  web/public: icon.svg (rounded square: favicon, the splash - inline in index.html too), icon-square.svg (full-bleed:
+  icon-180.png for iOS and the launch images), icon-maskable.svg (Android's crop, mark in the safe zone), badge.svg
+  (notification icon, a white V). PNGs: `vips copy "x.svg[scale=N]" x.png`. The service worker's shell cache became
+  v2 so devices fetch the new icons, and every icon and launch-image address carries ?v=2 (raise it when the logo
+  changes: browsers, Android - a changed manifest refreshes an installed app's icon - and saved copies then fetch it
+  again). An iPhone keeps its Home Screen icon and launch screen from when the app was added: re-add it.
+- **Icons picked (2026-10-20)**: Library = stacked pictures with a mountain (`library`, also Settings > Library);
+  "I came" = three outlined droplets as in 💦, tails curling back (`drop`; made by a small drop() helper: round end,
+  radius, tail length and angle, and a bend that curls the tail - sheets of options in the session's scratchpad).
+- **Menus fading out ignore presses (2026-10-19)**: a press outside an open menu closes it and is swallowed (it
+  never reaches what's underneath); a menu already closed and fading out (inert) no longer does that, so the next
+  press - e.g. the menu button right after closing the filter menu - works (`leaving()` in lib/outside.ts).
+- **Sheets drag down from anywhere (2026-10-21)**: `lib/sheetDrag.ts` - `dragDown` (the gesture) and `sheetDrag` (a
+  sheet that moves itself). A drag starts on the grab bar or header at once, and anywhere else (a list, a button) once
+  the finger goes down more than sideways with whatever it's on scrolled to the top - otherwise that scrolls. Fields and
+  sliders keep their drags; a press that became a drag doesn't press its button (the click is swallowed); touch:
+  `touchmove` is canceled once it's a drag (no scroll or bounce). Action menus, the tag and chip menus, Sort and
+  filters, the site picker, the confirm dialog and both details panels (the viewer's, the Comics page's) use it. **Let
+  go: the finger's last speed decides (2026-11-01)**: a sheet dragged almost fully closed and flicked back up used to
+  still close. The speed is the finger's over its last ~80 ms (0 if it had stopped for 100 ms), not the whole drag's
+  average: flicked down (> 0.4 px/ms) it closes once past 20 px; flicked back up it stays, however far down; otherwise
+  it closes past the sheet's distance (80 px, the details 90) - `closes()`. **No text selection or native drag while
+  dragging** (found testing that): with a mouse a drag selected the sheet's text, and the next press on it started a
+  native text drag - the sheet stopped following after one move. A drag clears the selection and cancels
+  `selectstart`/`dragstart` on the sheet.
+- **Tile overlays (2026-10-21)**: everything on a tile sits in one `.face`, clipped to the rounded shape as one
+  (`clip-path`; a hover card or a comic: also `mask-image`, a layer of its own) - clipping each piece showed a sliver
+  of the picture around a comic's dark foot; the foot reaches a pixel past the edges; a tile has no background of its
+  own once its picture is in. Back after the viewer or reader closed (`landed`), its overlays fade in (0.3 s).
+- **Dialogs above the keyboard (2026-10-22)**: iOS doesn't shrink the page for the on-screen keyboard, so a dialog
+  centered on the screen sat under it. `lib/viewport` now also sets `--vv-top` (how far the visible part is scrolled)
+  next to `--kb`, and app.css derives `--view-h` / `--view-mid`: Modal (Rename, Crop, prompts), ConfirmDialog and
+  SitePicker center at `--view-mid` with `max-height: calc(var(--view-h) - …)` (scrolling inside when taller); a phone
+  sheet that holds a text box sits at `bottom: var(--kb)` (the New download dialog). Test: "dialogs open above the
+  on-screen keyboard" (a keyboard of half the screen; the old centering failed it).
+- **Dropdowns in dialogs (2026-10-22)**: a list opened in a dialog was cropped by it (the dialog scrolled to make room
+  and its title went), and a floating list - fixed to the screen - was misplaced inside a dialog moved with `translate`
+  (such an ancestor becomes what "fixed" is relative to). A floating Dropdown list now lives at the top of the page
+  (`toBody`, `data-floating`, z-index 90 over the dialogs); its own outside-press check and SystemMenu's count it as
+  inside. The New download dialog's dropdowns float always. Long searches: the dialog never scrolls sideways (`overflow:
+  hidden auto`, its form grid `minmax(0, 1fr)`, the left-out list wraps anywhere). Tests: the Repeat list over the
+  dialog (the dialog not scrolled, its title on screen); a very long search on every page.
+- **Empty results box (2026-10-22)**: Library, Comics and Browse put the search bar's room in its top margin (it
+  was padding: the dashed border's top edge sat under the floating search bar).
+- **⋮ menus (2026-10-22)**: ActionMenu's own trigger is vertical dots in a 24 px wide button everywhere (a menu with an
+  icon of its own keeps its width).
+- **File sizes one way (2026-11-01)**: `formatSize` (lib/results) everywhere - one decimal below 10, none from
+  there ("9.9 MB", "12 MB", "1.1 TB"), in units of 1024, written the language's way. Before, a second formatter
+  (`bytes`, the Downloads page) and Settings' own wrote the same size "12.0 MB" and "12 MB"; found by a code audit.
+- **Rings follow the corners (rule, 2026-11-16)**: a ring that marks something (picked, just added) is drawn on a layer
+  of its own over the item - `::before`/`::after`, `inset: 0`, the item's own corner radius (less its border), an inset
+  shadow - never on a square layer inside a rounded, clipping box, whose edge cuts the ring's corners off (as a picked
+  subscription's and the Downloads flash ring were; the grid's focus and drop rings already were drawn so).

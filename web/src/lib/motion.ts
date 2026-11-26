@@ -1,0 +1,232 @@
+// The app's shared motion: everything comes and goes smoothly, none of it with reduced motion.
+//   reveal  a block in the flow (a line, a banner, a form): its height opens and closes - what's below moves with
+//           it - as it fades. axis 'x' for something beside others in a row.
+//   pop     something small on its own (a badge, a chip, a counter): grows in, shrinks out.
+//   swap    content replaced in the same place (one state's text for another's): a quick cross-fade.
+//   moved   for animate:flip on keyed lists: rows glide to their new places.
+import { slide, fade } from 'svelte/transition';
+import { flip } from 'svelte/animate';
+import { cubicOut } from 'svelte/easing';
+
+export const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Moves are continuous, ending at exactly 0 (nothing is left between pixels to snap when they stop), and a scale counts
+// as done once it's within half a pixel of the element's size. (2026-10-23 to 25 they went in whole pixels, against
+// text shifting as a motion ended - but then a short move's last pixel came late, on its own: a drop just as it had
+// settled. Seen again and again in motion recordings - the Downloads menu, Settings sections, the Downloads tabs'
+// panels: text "jumps down slightly". Continuous, the last steps shrink to hundredths of a pixel.)
+/** A move, in px. */
+export const px = (v: number) => `${v}px`;
+/** An element's larger side (for settle). */
+export const sizeOf = (node: Element) => {
+  const r = (node as HTMLElement).getBoundingClientRect();
+  return Math.max(r.width, r.height, 1);
+};
+/** A scale that is 1 once the difference is under half a pixel on an element that big. */
+export const settle = (s: number, size: number) => (Math.abs(1 - s) * size < 0.5 ? 1 : s);
+
+// While something animates, the browser draws it as a picture of its own, placed on whole screen pixels; once the
+// animation ends it's drawn in the page again, where it is - between two pixels if its place isn't a whole number (a
+// popover 43.5 px from the top: the menu bar's height). It jumped by that fraction the moment it settled (2026-10-30,
+// seen in a recording of the Downloads menu opening: a pixel shift in the elements, all over the site). So what comes
+// in is moved onto whole pixels before it animates, for good, by its margins - by layout: a translate of the fraction
+// drew its text between pixels at rest (blurred, and still not like the picture). A margin that doesn't move it (one
+// side of something placed from the other) is undone and the other side's tried. Something inside a thing that's
+// animating is left alone (where it lands depends on its parent, put right itself). The window resized, or it changed
+// size itself (a dialog whose content came, centered by auto margins): placed again from its own margins - once it's
+// done moving (its place is measured; mid-animation that's the moving picture's).
+const nudged = new Map<HTMLElement, [string, string, string, string]>(); // its own margins before
+const unnudge = (el: HTMLElement) => {
+  const was = nudged.get(el);
+  if (was) [el.style.marginTop, el.style.marginRight, el.style.marginBottom, el.style.marginLeft] = was;
+  nudged.delete(el);
+};
+const moves = (a: Animation) =>
+  a.effect instanceof KeyframeEffect && a.effect.getKeyframes().some((k) => Object.keys(k).some((p) => !['offset', 'easing', 'composite', 'computedOffset', 'opacity'].includes(p)));
+const again = (el: HTMLElement) => {
+  if (!el.isConnected) {
+    unnudge(el);
+    sized?.unobserve(el);
+    return;
+  }
+  // (only ones still going: a finished one held at its end is still listed, and waiting for it looped at once, for ever)
+  const own = el.getAnimations().filter((a) => a.playState !== 'finished' && moves(a));
+  if (own.length) Promise.all(own.map((a) => a.finished)).then(() => again(el), () => {});
+  else place(el);
+};
+// (its size when placed, taken then: the observer's first report can come after it has grown already)
+const sizes = new WeakMap<Element, string>();
+const sizeNow = (el: HTMLElement) => `${el.offsetWidth}x${el.offsetHeight}`;
+const sized =
+  typeof ResizeObserver === 'undefined'
+    ? undefined
+    : new ResizeObserver((es) => {
+        for (const e of es) if (sizes.get(e.target) !== sizeNow(e.target as HTMLElement)) again(e.target as HTMLElement);
+      });
+if (typeof window !== 'undefined') addEventListener('resize', () => [...nudged.keys()].forEach(again));
+/** Puts an element coming in onto whole screen pixels (call it from an intro, before its first frame). */
+export function onPixels(node: Element) {
+  const el = node as HTMLElement;
+  if (!el.style || typeof el.getAnimations !== 'function') return;
+  // (a parent only fading doesn't move it)
+  for (let p = el.parentElement; p; p = p.parentElement) if (p.getAnimations().some(moves)) return;
+  place(el);
+}
+function place(el: HTMLElement) {
+  const s = el.style;
+  unnudge(el);
+  for (const e of nudged.keys()) if (!e.isConnected) nudged.delete(e);
+  nudged.set(el, [s.marginTop, s.marginRight, s.marginBottom, s.marginLeft]);
+  const d = devicePixelRatio || 1;
+  // (layout places things in 64ths of a pixel: closer than one of those is whole)
+  const off = (v: number) => {
+    const by = (Math.round(v * d) - v * d) / d;
+    return Math.abs(by) < 1 / 64 ? 0 : by;
+  };
+  const at = () => el.getBoundingClientRect();
+  // The margin that puts it there: measured from where a margin of 0 puts it - a margin set as auto (a dialog centered
+  // by them) reads as a number that isn't it. The far side's margin moves it the other way.
+  const fix = (pos: () => number, a: 'marginTop' | 'marginLeft', b: 'marginBottom' | 'marginRight') => {
+    const p = pos();
+    const by = off(p);
+    if (!by) return;
+    for (const [side, sign] of [[a, 1], [b, -1]] as const) {
+      const before = s[side];
+      s[side] = '0px';
+      s[side] = `${sign * (p + by - pos())}px`;
+      if (!off(pos()) && Math.abs(pos() - p - by) < 0.1) return;
+      s[side] = before;
+    }
+  };
+  fix(() => at().top, 'marginTop', 'marginBottom');
+  fix(() => at().left, 'marginLeft', 'marginRight');
+  if (sized) {
+    sizes.set(el, sizeNow(el));
+    sized.observe(el);
+  }
+}
+
+/** Like Svelte's fly: from x / y away (and opacity), to where it is. */
+export function glide(
+  node: Element,
+  { x = 0, y = 0, duration = 200, delay = 0, easing = cubicOut, opacity = 0 }: { x?: number; y?: number; duration?: number; delay?: number; easing?: (t: number) => number; opacity?: number } = {},
+) {
+  if (reduced()) return { duration: 0 };
+  onPixels(node);
+  return { duration, delay, easing, css: (t: number, u: number) => `opacity: ${1 - (1 - opacity) * u}; transform: translate(${px(u * x)}, ${px(u * y)})` };
+}
+
+/** quick: gone from view early, closing after (rows of a list swapped for others: the ones going don't linger,
+ *  half-seen and squashed, beside the ones coming). */
+export function reveal(node: Element, { duration = 220, axis = 'y' as 'x' | 'y', delay = 0, quick = false } = {}) {
+  if (reduced()) return { duration: 0 };
+  const s = slide(node, { duration, easing: cubicOut, axis, delay });
+  const g = gapAway(node, axis, duration + delay);
+  const fade = (t: number) => (quick ? Math.max(0, (t - 0.2) / 0.8) : Math.min(1, t * 1.4));
+  return { ...s, css: (t: number, u: number) => `${s.css?.(t, u) ?? ''}; opacity: ${fade(t)};${g(t)}` };
+}
+
+// A thing sliding shut in a column (or a row) with a gap: its height closed, but the gap beside it stayed until it was
+// gone, then went at once - everything after it jumped (the Sources header jumped as it went). So the gap slides away
+// with it: a negative margin of the gap's size as it closes (none as it opens). That takes the gap back in a flex box;
+// in a grid it doesn't (a track never goes below 0), so a single-column grid lays out as the same flex column while
+// something in it moves.
+const asFlex = new WeakMap<HTMLElement, number>(); // parents laid out as a flex column now (how many moving)
+function gapAway(node: Element, axis: 'x' | 'y', ms: number): (t: number) => string {
+  const parent = node.parentElement;
+  if (!parent) return () => '';
+  const ps = getComputedStyle(parent);
+  const gap = parseFloat(axis === 'y' ? ps.rowGap : ps.columnGap) || 0;
+  if (!gap) return () => '';
+  const flexColumn = ps.display.includes('flex') && ps.flexDirection.startsWith('column');
+  const flexRow = ps.display.includes('flex') && !ps.flexDirection.startsWith('column');
+  const oneColumnGrid = ps.display.includes('grid') && axis === 'y' && ps.gridTemplateColumns.trim().split(/\s+/).length === 1;
+  if (!(axis === 'y' ? flexColumn || oneColumnGrid : flexRow)) return () => '';
+  if (oneColumnGrid) {
+    // (back to the grid when the last thing moving in it is done)
+    const n = asFlex.get(parent) ?? 0;
+    if (!n) {
+      // (the grid's alignment as the flex box's: centered stays centered)
+      const flexAlign = (v: string) => (v.includes('center') ? 'center' : v.includes('end') ? 'flex-end' : v.includes('start') ? 'flex-start' : '');
+      parent.style.alignItems = flexAlign(ps.justifyItems);
+      parent.style.justifyContent = flexAlign(ps.alignContent);
+      // (and no wider than it was: as a flex column its widest content - a strip that scrolls sideways - would make it
+      // grow past its place for the moment, and what's in it overflowed and shifted)
+      parent.style.minWidth = '0';
+      // (its width in the layout, not as drawn: inside something scaled - a stack's card coming from behind - the drawn
+      // width held its content 52 px short until this ended, as excess padding on the right)
+      parent.style.maxWidth = ps.width;
+      parent.style.display = ps.display.startsWith('inline') ? 'inline-flex' : 'flex';
+      parent.style.flexDirection = 'column';
+    }
+    // (and what kept to one side of the grid keeps to it: justify-self means nothing in a flex column - a chip with
+    // justify-self: start stretched across the whole card while something beside it moved). Every time: one coming
+    // while the box is already a column too.
+    for (const child of parent.children) {
+      const el = child as HTMLElement;
+      const js = getComputedStyle(el).justifySelf;
+      const as = js.includes('center') ? 'center' : js.includes('end') ? 'flex-end' : js.includes('start') || js.includes('left') ? 'flex-start' : '';
+      if (as && !el.style.alignSelf) {
+        el.style.alignSelf = as;
+        el.dataset.flexSelf = '';
+      }
+    }
+    asFlex.set(parent, n + 1);
+    setTimeout(() => {
+      const left = (asFlex.get(parent) ?? 1) - 1;
+      asFlex.set(parent, left);
+      if (!left) {
+        parent.style.display = '';
+        parent.style.flexDirection = '';
+        parent.style.alignItems = '';
+        parent.style.justifyContent = '';
+        parent.style.minWidth = '';
+        parent.style.maxWidth = '';
+        for (const child of parent.children) {
+          const el = child as HTMLElement;
+          if (el.dataset.flexSelf === undefined) continue;
+          el.style.alignSelf = '';
+          delete el.dataset.flexSelf;
+        }
+      }
+    }, ms + 50);
+  }
+  const own = parseFloat(axis === 'y' ? getComputedStyle(node).marginBottom : getComputedStyle(node).marginRight) || 0;
+  const side = axis === 'y' ? 'margin-bottom' : 'margin-right';
+  return (t: number) => ` ${side}: ${own * t - gap * (1 - t)}px;`;
+}
+
+export function pop(node: Element, { duration = 200, delay = 0 } = {}) {
+  if (reduced()) return { duration: 0 };
+  onPixels(node);
+  return { duration, delay, easing: cubicOut, css: (t: number) => `opacity: ${t}; transform: scale(${0.6 + 0.4 * t})` };
+}
+
+/** pop for something small in a row (a button beside others, a chip after a name): its width opens and closes too,
+ *  so what's beside it glides instead of jumping when it comes or goes. */
+export function nudge(node: Element, { duration = 220, delay = 0 } = {}) {
+  if (reduced()) return { duration: 0 };
+  const inline = getComputedStyle(node).display === 'inline'; // (a width needs a box)
+  const size = sizeOf(node);
+  const s = slide(node, { duration, delay, easing: cubicOut, axis: 'x' });
+  const g = gapAway(node, 'x', duration + delay);
+  return {
+    ...s,
+    css: (t: number, u: number) =>
+      `${inline ? 'display: inline-block; ' : ''}white-space: nowrap; ${s.css?.(t, u) ?? ''}; opacity: ${t}; transform: scale(${settle(0.6 + 0.4 * t, size)});${g(t)}`,
+  };
+}
+
+export function swap(node: Element, { duration = 160, delay = 0 } = {}) {
+  if (reduced()) return { duration: 0 };
+  return fade(node, { duration, delay });
+}
+
+/** animate:moved on a keyed {#each}'s rows. */
+export function moved(node: Element, fromTo: { from: DOMRect; to: DOMRect }, { duration = 220 } = {}) {
+  // (one with no size at either end - a chip just popping in, 0 wide - has nothing to glide: flip divides by its size,
+  // and its frames came out NaN and Infinity, so the browser threw them away - the first chip)
+  const { from, to } = fromTo;
+  if (!from.width || !from.height || !to.width || !to.height) return { duration: 0 };
+  return flip(node, fromTo, { duration: reduced() ? 0 : duration, easing: cubicOut });
+}
