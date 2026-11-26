@@ -38,6 +38,8 @@ examples are written; how decisions are recorded.
 - The docs are split by topic so only what a task needs is read; `docs/README.md` maps them.
 - When a decision is made or changed, update the matching topic doc (and `docs/project/overview.md` if it's a key
   decision). New built behavior goes in the topic's "as built" part, dated.
+- Decisions are written as what was decided and why, with the date - never by quoting a conversation or crediting a
+  person (no `the user: "..."`), in docs, code comments and commit messages alike.
 - A topic doc that grows past ~300 lines is split further (and `docs/README.md` updated).
 - **`CHANGELOG.md`** (shown in the app: Settings > Updates, built in at build time): every change a user would notice
   gets a line under `## Unreleased`, in plain words (what it does for them, not how), in its section - `### Action
